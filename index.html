@@ -225,6 +225,12 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .item.r2{border-color:rgba(143,184,255,.45)}
 .item.r3{border-color:rgba(255,138,208,.55)}
 .item .mast{font-size:15px;color:var(--brass)}
+.ally-item{flex-direction:row;gap:12px;align-items:flex-start}
+.ally-pic{flex:0 0 88px;height:88px;border-radius:12px;background-size:cover;background-position:center;position:relative;border:1px solid rgba(232,200,140,.35)}
+.ally-ic{position:absolute;right:-6px;bottom:-6px;width:32px;height:32px;border-radius:50%;background:#2a1e12;border:2px solid var(--brass);display:grid;place-items:center;font-size:16px}
+.ally-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.ally-body .item-top{align-self:stretch}
+.ally-role{display:inline-block;font-size:14px;padding:2px 10px;border-radius:999px;background:rgba(216,168,56,.16);color:var(--brass);margin-top:4px}
 #box-grid{display:grid;grid-template-columns:repeat(25,minmax(0,1fr));gap:3px}
 @media (max-width:640px){#box-grid{grid-template-columns:repeat(10,minmax(0,1fr))}}
 #box-grid i{display:block;aspect-ratio:1;border-radius:50%;max-width:100%}
@@ -569,6 +575,8 @@ const Sfx = (() => {
     spit(pan, vol) { burst({ f0: 1200, f1: 400, q: 2, dur: 0.25, vol: vol * 0.7, pan }); },
     zap(pan) { for (let i = 0; i < 5; i++) burst({ ftype: 'highpass', f0: rand(3000, 6000), q: 1, dur: 0.05, vol: 0.25, pan, delay: i * 0.03, wet: 0.2 }); tone({ type: 'square', f0: 120, f1: 60, dur: 0.2, vol: 0.08, pan }); },
     thunder(pan) { burst({ ftype: 'highpass', f0: 2000, dur: 0.15, vol: 0.9, pan, wet: 0.6 }); burst({ ftype: 'lowpass', f0: 600, f1: 60, dur: 2.2, vol: 1, pan, wet: 0.9, attack: 0.02 }); },
+    fwUp(pan, v = 1) { burst({ f0: 1800, f1: 5200, q: 6, dur: 1.1, vol: 0.08 * v, pan, wet: 0.4, attack: 0.3 }); tone({ f0: 900, f1: 2600, dur: 1, vol: 0.035 * v, pan, wet: 0.4, attack: 0.2 }); },
+    fwPop(pan, v = 1) { tone({ f0: 90, f1: 30, dur: 0.6, vol: 0.4 * v, pan, wet: 0.7 }); burst({ ftype: 'lowpass', f0: 2500, f1: 200, dur: 0.7, vol: 0.35 * v, pan, wet: 0.8 }); for (let i = 0; i < 8; i++) burst({ f0: 4000 + Math.random() * 3000, q: 3, dur: 0.04, vol: 0.1 * v, pan: clamp(pan + (Math.random() - 0.5) * 0.4, -1, 1), wet: 0.6, delay: 0.35 + Math.random() * 0.9 }); },
     whoosh(pan) { burst({ f0: 200, f1: 1200, q: 2, dur: 0.6, vol: 0.4, pan, wet: 0.5, attack: 0.1 }); tone({ f0: 60, f1: 30, dur: 1.2, vol: 0.3, pan, wet: 0.5 }); },
     ice(pan) { for (let i = 0; i < 4; i++) tone({ type: 'triangle', f0: rand(2500, 4200), dur: 0.12, vol: 0.08, pan, delay: i * 0.04, wet: 0.5 }); burst({ ftype: 'highpass', f0: 5000, dur: 0.2, vol: 0.25, pan }); },
     flame() { burst({ ftype: 'lowpass', f0: 1500, f1: 300, q: 0.5, dur: 0.6, vol: 0.6, wet: 0.3, attack: 0.03 }); },
@@ -1331,6 +1339,27 @@ function buildCircus() {
   for (let i = 0; i < 14; i++) for (let k = 0; k < 30; k++) { const a = sr(0, TAU), r = sr(10, 34), x = Math.cos(a) * r, z = Math.sin(a) * r; if (freeSpot(x, z, 0.8)) { if (srand() < 0.5) crate(x, z, sr(0.8, 1.2), wood); else { M(cyl(0.45, 0.45, 1.1, 12), lam(pick([0xb02a2a, 0x2a4ab0, 0x2a2a2a])), x, 0.55, z, { solid: true }); addCircle(x, z, 0.5); } break; } }
   ringFence(40, wood); mistField(14, 0xb8a0c8, 38);
   for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.5; world.spawns.push({ x: Math.cos(a) * 35, z: Math.sin(a) * 35, rise: true }); }
+  // fuegos artificiales sobre la carpa
+  const fwl = new THREE.PointLight(0xffffff, 0, 90); fwl.position.set(0, 24, -10); world.group.add(fwl);
+  const rockets = [], FWC = [[1, 0.3, 0.2], [0.3, 0.6, 1], [1, 0.85, 0.3], [0.4, 1, 0.5], [1, 0.4, 0.9], [1, 1, 1]]; let fwT = 1.2;
+  world.anims.push((dt) => {
+    fwT -= dt;
+    if (fwT <= 0) {
+      fwT = rand(1.8, 4.5); const a = rand(0, TAU), r = rand(6, 26), n = Math.random() < 0.25 ? 3 : 1;
+      for (let i = 0; i < n; i++) { const x = Math.cos(a) * r + rand(-3, 3), z = -8 + Math.sin(a) * r + rand(-3, 3); rockets.push({ x, y: 1, z, vx: rand(-1.5, 1.5), vy: rand(17, 22), vz: rand(-1.5, 1.5), t: rand(1.1, 1.5) + i * 0.3, c: pick(FWC) }); if (i === 0) Sfx.fwUp(panOf({ x, z }), volOf({ x, z }, 1)); }
+    }
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const R = rockets[i]; R.t -= dt; R.vy -= 6 * dt; R.x += R.vx * dt; R.y += R.vy * dt; R.z += R.vz * dt;
+      PA.add(R.x, R.y, R.z, rand(-0.3, 0.3), rand(-1, 0), rand(-0.3, 0.3), 0.5, 0.2, 1, 0.75, 0.4, 0.8, 2, 1, -0.2, 0);
+      if (R.t > 0) continue;
+      rockets.splice(i, 1);
+      const [cr, cg, cb] = R.c, n = IS_TOUCH ? 45 : 80, sp = rand(7, 11), ring = Math.random() < 0.3;
+      for (let k = 0; k < n; k++) { const u = rand(-1, 1), th = rand(0, TAU), q = ring ? 1 : Math.sqrt(1 - u * u), v = sp * (ring ? 1 : rand(0.75, 1)); PA.add(R.x, R.y, R.z, Math.cos(th) * q * v, (ring ? 0 : u) * v, Math.sin(th) * q * v, rand(1.3, 2.1), 0.75, cr, cg, cb, 1, 3, 1.4, -0.15, 0); }
+      fwl.color.setRGB(cr, cg, cb); fwl.position.set(R.x, R.y, R.z); fwl.intensity = 3.2;
+      Sfx.fwPop(panOf(R), volOf(R, 1));
+    }
+    fwl.intensity = Math.max(0, fwl.intensity - dt * 6);
+  });
 }
 
 // ---- Lugar 6: el cine
@@ -2073,7 +2102,7 @@ const LT = {
 };
 const lookCache = new Map(), memo = (k, f) => { if (!lookCache.has(k)) lookCache.set(k, f()); return lookCache.get(k); };
 const LM = (c, o = {}) => memo('m' + c + Object.entries(o).map(([k, v]) => k + (v && v.uuid ? v.uuid : v)).join(), () => new THREE.MeshLambertMaterial(Object.assign({ color: c }, o)));
-const LG = { box: (w, h, d, r = 0.02) => memo(`b${w},${h},${d},${r}`, () => roundBox(w, h, d, r, 2)), sph: (r) => memo('s' + r, () => new THREE.SphereGeometry(r, 10, 8)), cyl: (a, b, h, s = 12) => memo(`c${a},${b},${h},${s}`, () => new THREE.CylinderGeometry(a, b, h, s)), cone: (r, h) => memo(`k${r},${h}`, () => new THREE.ConeGeometry(r, h, 14, 1, true)), torus: () => memo('t', () => new THREE.TorusGeometry(0.04, 0.008, 6, 14)) };
+const LG = { box: (w, h, d, r = 0.02) => { r = Math.min(r, Math.min(w, h, d) * 0.45); return memo(`b${w},${h},${d},${r}`, () => roundBox(w, h, d, r, 2)); }, sph: (r) => memo('s' + r, () => new THREE.SphereGeometry(r, 10, 8)), cyl: (a, b, h, s = 12) => memo(`c${a},${b},${h},${s}`, () => new THREE.CylinderGeometry(a, b, h, s)), cone: (r, h) => memo(`k${r},${h}`, () => new THREE.ConeGeometry(r, h, 14, 1, true)), torus: () => memo('t', () => new THREE.TorusGeometry(0.04, 0.008, 6, 14)) };
 const addL = (parent, geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); parent.add(m); return m; };
 const clearHat = z => { z.head.children.filter(c => c.material === hairMat).forEach(c => z.head.remove(c)); };
 const LOOKS = {
@@ -2209,18 +2238,18 @@ function removeZombie(k) { const z = zombies[k]; scene.remove(z.root); z.mats.fo
 const cops = []; let copUid = 0;
 // Ayudantes que se contratan en la armería. El oficial siempre está; de los demás salen 3 al azar en cada visita.
 const ALLY = {
-  cop: { name: 'Oficial de policía', short: 'Un oficial', al: 'a un oficial', price: 30, hp: 110, shirt: 0x24345a, pants: 0x151a25, hat: 'cop', gun: 'pistol', cd: [0.9, 1.4], dmg: 24, acc: 0.62, head: 0.15 },
+  cop: { name: 'Oficial de policía', short: 'Un oficial', al: 'a un oficial', desc: 'Te sigue y dispara con su pistola. Apunta regular, pero es el más barato y siempre está en la armería.', price: 30, hp: 110, shirt: 0x24345a, pants: 0x151a25, hat: 'cop', gun: 'pistol', cd: [0.9, 1.4], dmg: 24, acc: 0.62, head: 0.15 },
   pistolero: { name: 'El Pistolero', short: 'El Pistolero', al: 'al Pistolero', desc: 'Vaquero de puntería fina. Cada disparo usa una bala al azar de tu caja, con su efecto especial, sin gastarla.', price: 55, hp: 120, shirt: 0x7a4a2a, pants: 0x2a2723, hat: 'cowboy', gun: 'pistol', cd: [1.0, 1.5], dmg: 30, acc: 0.72, head: 0.25, deck: true },
   bill: { name: 'Bill y su M16', short: 'Bill', al: 'a Bill', desc: 'Soldado veterano. Dispara ráfagas de 3 balas con su fusil M16 y aguanta bastante.', price: 70, hp: 150, shirt: 0x4a5a32, pants: 0x3a4028, hat: 'helmet', gun: 'rifle', cd: [1.5, 2.0], dmg: 15, acc: 0.62, head: 0.1, burst: 3 },
   swat: { name: 'El SWAT', short: 'El SWAT', al: 'al SWAT', desc: 'Ráfagas rápidas de 4 balas con su MP5. Lleva chaleco: es el que más aguanta de los tiradores.', price: 75, hp: 190, shirt: 0x1c2026, pants: 0x1c2026, hat: 'swat', gun: 'smg', cd: [1.2, 1.6], dmg: 12, acc: 0.68, head: 0.1, burst: 4 },
-  pandillero: { name: 'El Pandillero', short: 'El Pandillero', al: 'al Pandillero', desc: 'Vacía su UZI en ráfagas de 6 balas. Mala puntería, pero barato.', price: 40, hp: 90, shirt: 0xb02a2a, pants: 0x2a3a5a, hat: 'cap', gun: 'smg', cd: [1.0, 1.4], dmg: 8, acc: 0.45, head: 0.05, burst: 6 },
+  pandillero: { name: 'El Pandillero', short: 'El Pandillero', al: 'al Pandillero', desc: 'Vacía su UZI en ráfagas de 6 balas. Mala puntería, pero barato.', price: 40, hp: 90, shirt: 0xb02a2a, pants: 0x2a3a5a, hat: null, gun: 'smg', cd: [1.0, 1.4], dmg: 8, acc: 0.45, head: 0.05, burst: 6 },
   carlos: { name: 'Carlos y su escopeta', short: 'Carlos', al: 'a Carlos', desc: 'Escopeta de 5 perdigones que empujan a los zombis. Solo alcanza 10 metros.', price: 50, hp: 120, shirt: 0x3a5a7a, pants: 0x2a2723, hat: 'straw', gun: 'shotgun', cd: [1.4, 1.9], dmg: 14, acc: 0.7, head: 0.1, pellets: 5, range: 10, push: true },
   rebeca: { name: 'Rebeca y sus dos Glock', short: 'Rebeca', al: 'a Rebeca', desc: 'Una pistola en cada mano: dispara a dos zombis a la vez.', price: 55, hp: 100, shirt: 0x7a2a6a, pants: 0x1a1a1e, hat: null, gun: 'dual', cd: [0.8, 1.2], dmg: 18, acc: 0.65, head: 0.15, dual: true },
   ursula: { name: 'Úrsula, la médica', short: 'Úrsula', al: 'a Úrsula', desc: 'Con su equipo médico cura 3 de vida por segundo a todo el grupo a menos de 6 metros: a ti, a tus compañeros y a los ayudantes.', price: 60, hp: 100, shirt: 0xe8e8e8, pants: 0x6a8ab0, hat: null, gun: 'pistol', cd: [1.6, 2.2], dmg: 14, acc: 0.5, head: 0.1, heal: 3, near: 6 },
-  contador: { name: 'El Contador', short: 'El Contador', al: 'al Contador', desc: 'No pelea. Por cada oleada que sobrevive completa, te da 8 $ extra. ', price: 45, hp: 80, shirt: 0x2a2a3a, pants: 0x2a2a3a, hat: null, gun: null, cd: [9, 9], gold: 8 },
-  recargador: { name: 'El Recargador de pólvora', short: 'El Recargador', al: 'al Recargador', desc: 'No pelea. Fabrica 1 barril de pólvora cada 2 oleadas que sobrevive.', price: 50, hp: 90, shirt: 0x6a5a3a, pants: 0x3a3027, hat: 'cap', gun: null, cd: [9, 9], powder: 2 },
-  franco: { name: 'La Francotiradora', short: 'La Francotiradora', al: 'a la Francotiradora', desc: 'Rifle de cerrojo: dispara lento, pero casi nunca falla y a menudo da en la cabeza.', price: 65, hp: 90, shirt: 0x5a4a3a, pants: 0x2a2723, hat: 'cowboy', gun: 'rifle', cd: [2.6, 3.2], dmg: 70, acc: 0.92, head: 0.5, range: 40 },
-  dinamitero: { name: 'El Dinamitero', short: 'El Dinamitero', al: 'al Dinamitero', desc: 'Lanza cartuchos de dinamita a los zombis: daño en área cada pocos segundos.', price: 60, hp: 100, shirt: 0x8a3a22, pants: 0x2e4a6e, hat: 'straw', gun: 'dynamite', cd: [4, 5], dmg: 90, aoe: 3.2, range: 16 },
+  contador: { name: 'El Contador', short: 'El Contador', al: 'al Contador', desc: 'No pelea. Al terminar cada oleada te paga 20 $ y además un 10 % del oro que tengas guardado (hasta 30 $ más). Mientras está vivo, cada zombi que matas te da 1 $ extra.', price: 45, hp: 80, shirt: 0x2a2a3a, pants: 0x2a2a3a, hat: null, gun: null, cd: [9, 9], gold: 20, interest: 0.1, intMax: 30, kill: 1, killMax: 3 },
+  recargador: { name: 'El Recargador de pólvora', short: 'El Recargador', al: 'al Recargador', desc: 'No pelea. Fabrica 1 barril de pólvora en cada oleada que sobrevive. Mientras está vivo, recargas un 20 % más rápido y todos los ayudantes disparan un 15 % más seguido.', price: 50, hp: 90, shirt: 0x6a5a3a, pants: 0x3a3027, hat: null, gun: null, cd: [9, 9], powder: 1, reload: 0.2, rof: 0.15 },
+  franco: { name: 'La Francotiradora', short: 'La Francotiradora', al: 'a la Francotiradora', desc: 'Rifle de cerrojo: dispara lento, pero casi nunca falla y a menudo da en la cabeza.', price: 65, hp: 90, shirt: 0x5a4a3a, pants: 0x2a2723, hat: null, gun: 'rifle', cd: [2.6, 3.2], dmg: 70, acc: 0.92, head: 0.5, range: 40 },
+  dinamitero: { name: 'El Dinamitero', short: 'El Dinamitero', al: 'al Dinamitero', desc: 'Lanza cartuchos de dinamita a los zombis: daño en área cada pocos segundos.', price: 60, hp: 100, shirt: 0x8a3a22, pants: 0x2e4a6e, hat: null, gun: 'dynamite', cd: [4, 5], dmg: 90, aoe: 3.2, range: 16 },
   carnicero: { name: 'El Carnicero', short: 'El Carnicero', al: 'al Carnicero', desc: 'Pelea cuerpo a cuerpo con un machete. Aguanta mucho y los zombis lo prefieren a él.', price: 50, hp: 220, shirt: 0xb0a090, pants: 0x3a3027, hat: null, gun: 'machete', cd: [0.8, 1.1], dmg: 45, melee: true, bait: true, range: 14 }
 };
 const ALLY_KEYS = Object.keys(ALLY), ALLY_POOL = ALLY_KEYS.filter(k => k !== 'cop');
@@ -2234,21 +2263,94 @@ const canHire = k => copsAlive() < ALLY_MAX && allyCount(k) < ALLY_EACH;
 const hireWhy = k => copsAlive() >= ALLY_MAX ? `Ya tienes ${ALLY_MAX} ayudantes` : `Ya tienes ${ALLY_EACH}`;
 const allyMats = { cowboy: new THREE.MeshLambertMaterial({ color: 0x6a4524 }), helmet: new THREE.MeshLambertMaterial({ color: 0x4a5a32 }), swat: new THREE.MeshLambertMaterial({ color: 0x15181d }), case: new THREE.MeshLambertMaterial({ color: 0x3a2a1a }), veil: new THREE.MeshLambertMaterial({ color: 0x111114 }), band: new THREE.MeshLambertMaterial({ color: 0xeeeeee }), steel: new THREE.MeshLambertMaterial({ color: 0xb8bcc4 }), wood: new THREE.MeshLambertMaterial({ color: 0x5a3a20 }), tnt: new THREE.MeshLambertMaterial({ color: 0xc0302a, emissive: 0x200404 }) };
 const allyGeo = { rifle: new THREE.BoxGeometry(0.05, 0.08, 0.78), smg: new THREE.BoxGeometry(0.06, 0.1, 0.36), case: new THREE.BoxGeometry(0.1, 0.24, 0.32), shotgun: new THREE.BoxGeometry(0.07, 0.08, 0.6), blade: new THREE.BoxGeometry(0.02, 0.09, 0.5), stick: new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), dome: new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), veil: new THREE.BoxGeometry(0.34, 0.36, 0.3), band: new THREE.BoxGeometry(0.35, 0.05, 0.31) };
+/* ===== Armas en las manos y ropa propia de cada ayudante ===== */
+const GMAT = { metal: LM(0x3a3e46, { emissive: 0x0e1014 }), steel: LM(0xc8ccd4, { emissive: 0x24262a }), black: LM(0x18191c, { emissive: 0x060608 }), wood: LM(0x7a4a24, { emissive: 0x160a04 }), brass: LM(0xd8a838, { emissive: 0x2a1c04 }), red: LM(0xc0302a, { emissive: 0x200404 }), spark: LM(0xffd060, { emissive: 0xffa020 }) };
+const ringG = (r, t) => memo(`r${r},${t}`, () => new THREE.TorusGeometry(r, t, 6, 18));
+// Arma construida hacia delante (+z) con la empuñadura en la mano.
+function heldGun(type, k) {
+  const g = new THREE.Group(), B = (w, h, d, m, x, y, z, rx = 0) => addL(g, LG.box(w, h, d, 0.01), m, x, y, z, rx), C = (r, l, m, x, y, z) => addL(g, LG.cyl(r, r, l, 10), m, x, y, z, Math.PI / 2);
+  let tip = 0.2;
+  if (type === 'pistol' && k === 'pistolero') { B(0.05, 0.06, 0.1, GMAT.steel, 0, 0.07, 0.02); C(0.036, 0.07, GMAT.steel, 0, 0.075, 0.03); C(0.016, 0.22, GMAT.steel, 0, 0.09, 0.17); B(0.045, 0.12, 0.055, GMAT.wood, 0, 0, -0.03, 0.35); tip = 0.29; }
+  else if (type === 'pistol' || type === 'dual') { B(0.055, 0.07, 0.24, GMAT.metal, 0, 0.07, 0.07); B(0.05, 0.13, 0.07, GMAT.black, 0, 0, -0.02, 0.25); B(0.012, 0.04, 0.05, GMAT.black, 0, 0.02, 0.05); tip = 0.2; }
+  else if (type === 'rifle' && k === 'franco') { B(0.06, 0.09, 0.56, GMAT.wood, 0, 0.05, 0.04); C(0.015, 0.42, GMAT.metal, 0, 0.09, 0.5); C(0.028, 0.26, GMAT.black, 0, 0.16, 0.12); addL(g, LG.cyl(0.024, 0.024, 0.01, 10), LM(0x60a0ff, { emissive: 0x103060 }), 0, 0.16, 0.255, Math.PI / 2); B(0.015, 0.015, 0.06, GMAT.steel, 0.05, 0.1, 0.02); tip = 0.72; }
+  else if (type === 'rifle') { B(0.06, 0.1, 0.4, GMAT.metal, 0, 0.07, 0.12); C(0.014, 0.26, GMAT.black, 0, 0.08, 0.44); B(0.05, 0.11, 0.22, GMAT.black, 0, 0.05, -0.18); B(0.045, 0.16, 0.06, GMAT.black, 0, -0.04, 0.15, 0.25); B(0.02, 0.05, 0.16, GMAT.black, 0, 0.15, 0.08); B(0.015, 0.07, 0.015, GMAT.black, 0, 0.12, 0.5); tip = 0.58; }
+  else if (type === 'smg' && k === 'swat') { B(0.06, 0.11, 0.3, GMAT.black, 0, 0.07, 0.08); C(0.024, 0.16, GMAT.black, 0, 0.08, 0.31); B(0.04, 0.16, 0.05, GMAT.black, 0, -0.04, 0.13, 0.35); B(0.03, 0.06, 0.16, GMAT.black, 0, 0.06, -0.14); C(0.02, 0.08, GMAT.steel, 0, 0.02, 0.24); tip = 0.4; }
+  else if (type === 'smg') { B(0.06, 0.1, 0.22, GMAT.metal, 0, 0.07, 0.06); B(0.04, 0.22, 0.05, GMAT.black, 0, -0.05, 0); C(0.012, 0.07, GMAT.metal, 0, 0.08, 0.2); tip = 0.24; }
+  else if (type === 'shotgun') { C(0.022, 0.5, GMAT.metal, 0, 0.09, 0.3); C(0.018, 0.4, GMAT.metal, 0, 0.055, 0.27); B(0.065, 0.06, 0.15, GMAT.wood, 0, 0.05, 0.3); B(0.06, 0.1, 0.18, GMAT.metal, 0, 0.07, 0.02); B(0.055, 0.12, 0.28, GMAT.wood, 0, 0.03, -0.2, -0.1); tip = 0.56; }
+  else if (type === 'machete') { B(0.035, 0.04, 0.13, GMAT.black, 0, 0, 0); B(0.06, 0.03, 0.02, GMAT.black, 0, 0, 0.07); B(0.012, 0.1, 0.52, GMAT.steel, 0, 0.02, 0.34); B(0.012, 0.06, 0.08, GMAT.steel, 0, 0.05, 0.62); tip = 0.64; }
+  else if (type === 'dynamite') { for (const x of [-0.035, 0, 0.035]) C(0.03, 0.2, GMAT.red, x, 0.04 + (x ? 0 : 0.03), 0); B(0.008, 0.008, 0.06, GMAT.black, 0, 0.07, 0.13); addL(g, LG.sph(0.025), GMAT.spark, 0, 0.07, 0.17); tip = 0.15; }
+  const m = new THREE.Object3D(); m.position.set(0, 0.08, tip); g.add(m); g.userData.tip = m;
+  return g;
+}
 function allyLook(c, D) {
-  const g = D.gun, arm = c.armR;
-  if (g === 'pistol') { const m = new THREE.Mesh(ZG.pistol, pistolMat); m.position.set(0, -0.62, 0.08); arm.add(m); }
-  else if (g === 'rifle' || g === 'shotgun') { const m = new THREE.Mesh(allyGeo[g], g === 'rifle' ? pistolMat : allyMats.wood); m.position.set(0, -0.62, 0.22); arm.add(m); }
-  else if (g === 'machete') { const m = new THREE.Mesh(allyGeo.blade, allyMats.steel); m.position.set(0, -0.62, 0.22); arm.add(m); }
-  else if (g === 'smg') { const m = new THREE.Mesh(allyGeo.smg, pistolMat); m.position.set(0, -0.62, 0.12); arm.add(m); }
-  else if (g === 'dual') { for (const a of [c.armR, c.armL]) { const m = new THREE.Mesh(ZG.pistol, pistolMat); m.position.set(0, -0.62, 0.08); a.add(m); } }
-  else if (g === null && c.kind === 'contador') { const m = new THREE.Mesh(allyGeo.case, allyMats.case); m.position.set(0, -0.66, 0); arm.add(m); }
-  else if (g === 'dynamite') { const m = new THREE.Mesh(allyGeo.stick, allyMats.tnt); m.position.set(0, -0.62, 0.05); arm.add(m); }
-  c.muzzle = new THREE.Object3D(); c.muzzle.position.set(0, -0.62, g === 'rifle' ? 0.62 : g === 'shotgun' ? 0.52 : g === 'smg' ? 0.32 : 0.22); arm.add(c.muzzle);
-  if (g === 'dual') { c.muzzle2 = new THREE.Object3D(); c.muzzle2.position.set(0, -0.62, 0.22); c.armL.add(c.muzzle2); }
+  const g = D.gun; c.guns = [];
+  const hold = (arm, gg, level = true) => { gg.position.set(0, -0.68, 0.03); gg.scale.setScalar(1.3); arm.add(gg); if (level) c.guns.push(gg); else gg.rotation.x = Math.PI / 2; return gg; };
+  if (g) {
+    const r = hold(c.armR, heldGun(g, c.kind), g !== 'machete'); c.muzzle = r.userData.tip;
+    if (g === 'dual') c.muzzle2 = hold(c.armL, heldGun(g, c.kind)).userData.tip;
+  } else {
+    const bag = new THREE.Group();
+    if (c.kind === 'contador') { addL(bag, LG.box(0.1, 0.24, 0.34, 0.02), LM(0x4a2a14), 0, -0.1, 0); addL(bag, LG.box(0.02, 0.04, 0.12), GMAT.black, 0, 0.04, 0); for (const z of [-0.08, 0.08]) addL(bag, LG.box(0.105, 0.03, 0.03), GMAT.brass, 0, -0.02, z); }
+    else { addL(bag, LG.cyl(0.1, 0.1, 0.2, 12), LM(0x6a4424), 0, -0.1, 0); for (const y of [-0.17, -0.03]) addL(bag, LG.cyl(0.103, 0.103, 0.02, 12), GMAT.black, 0, y, 0); addL(bag, LG.cyl(0.02, 0.02, 0.02, 8), GMAT.brass, 0, -0.1, 0.1, Math.PI / 2); }
+    bag.position.set(0, -0.66, 0.02); c.armR.add(bag);
+    c.muzzle = new THREE.Object3D(); c.muzzle.position.set(0, -0.62, 0.22); c.armR.add(c.muzzle);
+  }
+}
+// Mantiene las armas apuntando al frente aunque el brazo se mueva.
+function levelGuns() { for (const c of cops) if (c.guns) for (const g of c.guns) g.rotation.x = -g.parent.parent.rotation.x; }
+const AT = {
+  swat: canvasTex(128, 64, g => { g.fillStyle = '#16191e'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#f2f2f2'; g.font = 'bold 36px sans-serif'; g.textAlign = 'center'; g.fillText('SWAT', 64, 46); }),
+  police: canvasTex(128, 64, g => { g.fillStyle = '#1a2440'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#ffd860'; g.font = 'bold 25px sans-serif'; g.textAlign = 'center'; g.fillText('POLICÍA', 64, 42); }),
+  apron: canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#e8e4da'; g.fillRect(0, 0, w, h); for (let i = 0; i < 16; i++) { g.fillStyle = `rgba(${130 + Math.random() * 60 | 0},10,10,${0.4 + Math.random() * 0.4})`; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 3 + Math.random() * 10, 2 + Math.random() * 7, Math.random() * 3, 0, 7); g.fill(); } }),
+  leather: canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#6a4424'; g.fillRect(0, 0, w, h); for (let i = 0; i < 600; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.25})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } g.fillStyle = 'rgba(20,20,20,.5)'; for (let i = 0; i < 30; i++) g.fillRect(Math.random() * w, Math.random() * h, 6, 5); }),
+  cross: canvasTex(64, 64, g => { g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#d01a1a'; g.fillRect(24, 8, 16, 48); g.fillRect(8, 24, 48, 16); }),
+  suit: canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#2a2c38'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(200,200,220,.2)'; for (let x = 0; x < w; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } }),
+  tag: canvasTex(64, 32, g => { g.fillStyle = '#f4f0e0'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#1a1a1a'; g.font = 'bold 14px sans-serif'; g.textAlign = 'center'; g.fillText('CAJA 3', 32, 21); }),
+  reflect: canvasTex(64, 64, g => { g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#c8e030'; g.fillRect(0, 22, 64, 8); g.fillRect(0, 40, 64, 8); })
+};
+// Cada ayudante y cada sobreviviente lleva su propia ropa, para reconocerlo de lejos.
+function allySkin(c, k) {
+  const T = c.torso, H = c.head, sh = c.mats[1], pa = c.mats[2];
+  const tex = (m, t) => { m.map = t; m.color.set(0xffffff); m.needsUpdate = true; };
+  const belt = (col = 0x1a1410, buckle = 0xc8a040) => { addL(T, LG.box(0.5, 0.07, 0.3), LM(col), 0, -0.3, 0); addL(T, LG.box(0.08, 0.06, 0.02), LM(buckle, { emissive: 0x1a1404 }), 0, -0.3, 0.157); };
+  const shades = (col = 0x0a0a0c) => addL(H, LG.box(0.27, 0.06, 0.03), LM(col, { emissive: 0x050505 }), 0, 0.04, 0.152);
+  const hair = (col, h = 0.1) => addL(H, LG.box(0.3, h, 0.31), LM(col), 0, 0.16 - (0.1 - h) / 2, -0.01);
+  const stache = (col = 0x2a1a10, w = 0.14) => addL(H, LG.box(w, 0.035, 0.025), LM(col), 0, -0.045, 0.152);
+  const beard = col => addL(H, LG.box(0.26, 0.12, 0.06), LM(col), 0, -0.11, 0.13);
+  const glasses = () => { for (const x of [-0.065, 0.065]) addL(H, ringG(0.035, 0.007), GMAT.black, x, 0.035, 0.155); addL(H, LG.box(0.06, 0.01, 0.01), GMAT.black, 0, 0.04, 0.155); };
+  const straps = col => { for (const x of [-0.12, 0.12]) addL(T, LG.box(0.05, 0.66, 0.02), LM(col), x, 0.02, 0.152); };
+  const coatTail = (col, map) => addL(T, LG.box(0.5, 0.32, 0.3), LM(col, map ? { map } : {}), 0, -0.44, 0);
+  const plate = (t, w, h, x, y, z = 0.153) => addL(T, LG.box(w, h, 0.01, 0.003), LM(0xffffff, { map: t }), x, y, z);
+  switch (k) {
+    case 'cop': belt(0x0e0e10, 0xb8b8c0); addL(T, LG.box(0.05, 0.3, 0.02), LM(0x0e1424), 0.02, 0.12, 0.152); addL(T, LG.box(0.07, 0.11, 0.05), GMAT.black, 0.17, 0.24, 0.13); addL(T, LG.box(0.06, 0.12, 0.08), GMAT.black, 0.22, -0.32, 0.06); plate(AT.police, 0.3, 0.15, 0, 0.12, -0.153).rotation.y = Math.PI; stache(); break;
+    case 'pistolero': for (const x of [-0.15, 0.15]) addL(T, LG.box(0.15, 0.52, 0.03), LM(0x3a2414), x, 0.03, 0.152); addL(H, LG.box(0.3, 0.07, 0.3), LM(0xb02020), 0, -0.18, 0); belt(0x4a2c14, 0xd8b040); for (let i = 0; i < 6; i++) addL(T, LG.box(0.02, 0.045, 0.02), GMAT.brass, -0.22 + i * 0.04, -0.3, 0.165); stache(0x3a2414, 0.17); break;
+    case 'bill': tex(sh, LT.camo); tex(pa, LT.camo); addL(T, LG.box(0.52, 0.42, 0.33), LM(0x4a5030), 0, 0.06, 0); for (const x of [-0.13, 0, 0.13]) addL(T, LG.box(0.1, 0.1, 0.04), LM(0x3a4024), x, -0.04, 0.18); addL(T, LG.box(0.04, 0.05, 0.01), GMAT.steel, 0.05, 0.24, 0.17); addL(H, LG.box(0.02, 0.02, 0.1), LM(0x5a3a20), 0.05, -0.08, 0.19); addL(H, LG.box(0.022, 0.022, 0.012), GMAT.spark, 0.05, -0.08, 0.243); break;
+    case 'swat': addL(T, LG.box(0.54, 0.46, 0.34), LM(0x22262c), 0, 0.04, 0); plate(AT.swat, 0.32, 0.15, 0, 0.12, 0.172); plate(AT.swat, 0.36, 0.17, 0, 0.1, -0.172).rotation.y = Math.PI; addL(H, LG.box(0.29, 0.07, 0.04), GMAT.black, 0, 0.05, 0.15); for (const x of [-0.065, 0.065]) addL(H, LG.box(0.08, 0.045, 0.01), LM(0x3060a0, { emissive: 0x0a1830 }), x, 0.05, 0.172); addL(H, LG.box(0.24, 0.1, 0.02), GMAT.black, 0, -0.1, 0.15); break;
+    case 'pandillero': tex(pa, LT.camo); pa.color.set(0x8090b0); addL(T, ringG(0.13, 0.014), GMAT.brass, 0, 0.22, 0.12, -0.5); shades(); addL(H, LG.box(0.31, 0.08, 0.31), LM(0x1a3aa0), 0, 0.12, 0); addL(H, LG.box(0.06, 0.1, 0.03), LM(0x1a3aa0), 0.05, 0.08, -0.17, 0, 0, 0.4); break;
+    case 'carlos': tex(sh, LT.plaid); pa.color.set(0x2e4a7e); addL(T, LG.box(0.32, 0.3, 0.02), LM(0x2e4a7e), 0, -0.13, 0.152); straps(0x2e4a7e); beard(0x3a2a1a); break;
+    case 'rebeca': tex(sh, AT.leather); sh.color.set(0xb070a8); hair(0x6a2a10); addL(H, LG.box(0.08, 0.3, 0.06), LM(0x6a2a10), 0, -0.04, -0.18); shades(0x5a0a1a); for (const x of [-0.24, 0.24]) addL(T, LG.box(0.06, 0.12, 0.08), GMAT.black, x, -0.32, 0.04); break;
+    case 'ursula': coatTail(0xf2f2f2); plate(AT.cross, 0.1, 0.1, 0.12, 0.17); plate(AT.cross, 0.22, 0.22, 0, 0.12, -0.153).rotation.y = Math.PI; addL(T, ringG(0.1, 0.01), LM(0x404448), 0, 0.27, 0.08, -1.2); hair(0xe0c060); addL(H, LG.sph(0.075), LM(0xe0c060), 0, 0.12, -0.17); { const b = new THREE.Group(); addL(b, LG.box(0.12, 0.16, 0.26, 0.02), LM(0xd02020), 0, 0, 0); addL(b, LG.box(0.005, 0.08, 0.08), LM(0xffffff, { map: AT.cross }), 0.063, 0, 0); b.position.set(0, -0.74, 0.02); c.armL.add(b); } break;
+    case 'contador': tex(sh, AT.suit); tex(pa, AT.suit); addL(T, LG.box(0.14, 0.32, 0.01), LM(0xf4f4f0), 0, 0.16, 0.146); addL(T, LG.box(0.05, 0.27, 0.012), LM(0xa01818), 0, 0.12, 0.154); addL(T, LG.box(0.015, 0.08, 0.015), GMAT.brass, -0.14, 0.2, 0.152); glasses(); hair(0x1a1a1a, 0.06); stache(0x1a1a1a, 0.1); break;
+    case 'recargador': addL(T, LG.box(0.42, 0.62, 0.02), LM(0xffffff, { map: AT.leather }), 0, -0.1, 0.152); addL(T, LG.box(0.08, 0.82, 0.02), LM(0x3a2414), 0, 0.02, 0.166, 0, 0, 0.7); for (let i = 0; i < 7; i++) addL(T, LG.box(0.025, 0.06, 0.02), GMAT.brass, -0.2 + i * 0.065, 0.24 - i * 0.07, 0.178, 0, 0, 0.7); addL(H, LG.box(0.31, 0.05, 0.31), GMAT.black, 0, 0.1, 0); for (const x of [-0.065, 0.065]) addL(H, LG.sph(0.04), LM(0xd08020, { emissive: 0x402000 }), x, 0.1, 0.15); stache(0x8a8a8a, 0.2); hair(0x8a8a8a, 0.05); break;
+    case 'franco': tex(sh, LT.camo); tex(pa, LT.camo); addL(H, allyGeo.dome, LM(0x4a5a32), 0, 0.08, -0.01).scale.set(1.1, 1.1, 1.15); addL(H, LG.box(0.3, 0.1, 0.31), LM(0x4a5a32), 0, -0.12, 0.01); for (const x of [-0.08, 0.08]) addL(H, LG.box(0.05, 0.015, 0.01), LM(0x1a2a10), x, -0.01, 0.148); addL(H, LG.box(0.07, 0.26, 0.05), LM(0x2a1a10), 0, -0.06, -0.17); break;
+    case 'dinamitero': addL(H, allyGeo.dome, LM(0xd8b020), 0, 0.09, 0).scale.set(1.08, 1.05, 1.12); addL(H, LG.sph(0.04), LM(0xfff0c0, { emissive: 0xffe080 }), 0, 0.17, 0.17); straps(0x3a2414); for (let i = 0; i < 6; i++) addL(T, LG.cyl(0.025, 0.025, 0.16, 6), GMAT.red, -0.2 + i * 0.08, -0.27, 0.165); beard(0x5a3018); break;
+    case 'carnicero': addL(T, LG.box(0.44, 0.72, 0.02), LM(0xffffff, { map: AT.apron }), 0, -0.12, 0.152); addL(T, ringG(0.12, 0.012), LM(0xe8e4da), 0, 0.3, 0.05, -1.3); stache(0x2a1a10, 0.2); addL(H, LG.box(0.3, 0.05, 0.31), LM(0xd8d0c0), 0, 0.12, 0); break;
+    // sobrevivientes de cada mapa
+    case 'npc0': coatTail(0x1e1a16); addL(H, LG.cyl(0.13, 0.13, 0.26, 12), GMAT.black, 0, 0.27, 0); addL(H, LG.cyl(0.2, 0.2, 0.02, 14), GMAT.black, 0, 0.15, 0); { const g = new THREE.Group(); addL(g, LG.cyl(0.02, 0.02, 0.9, 6), GMAT.wood, 0, 0, 0); addL(g, LG.box(0.18, 0.22, 0.02), GMAT.steel, 0, -0.5, 0); g.position.set(0, -0.66, 0.05); c.armR.add(g); } beard(0x6a6a6a); break;
+    case 'npc1': tex(sh, LT.plaid); addL(T, LG.box(0.32, 0.3, 0.02), LM(0x2e4a6e), 0, -0.13, 0.152); straps(0x2e4a6e); beard(0x7a5a3a); break;
+    case 'npc2': tex(sh, LT.polka); addL(T, LG.box(0.36, 0.5, 0.02), LM(0xf0e0e8), 0, -0.1, 0.152); hair(0xb0a8a0); for (let i = 0; i < 5; i++) addL(H, LG.cyl(0.03, 0.03, 0.08, 8), LM(0xff80b0), -0.1 + i * 0.05, 0.22, 0.02, 0, 0, Math.PI / 2); glasses(); break;
+    case 'npc3': addL(T, LG.box(0.5, 0.5, 0.3), LM(0xc02020), 0, 0.06, 0); plate(AT.tag, 0.1, 0.05, -0.12, 0.2, 0.152); belt(); break;
+    case 'npc4': for (const x of [-0.24, 0.24]) addL(T, LG.box(0.14, 0.04, 0.16), GMAT.brass, x, 0.33, 0); for (let i = 0; i < 4; i++) for (const x of [-0.08, 0.08]) addL(T, LG.sph(0.018), GMAT.brass, x, 0.22 - i * 0.12, 0.15); stache(0x1a1a1a, 0.2); { const g = new THREE.Group(); addL(g, LG.cyl(0.012, 0.006, 0.8, 6), LM(0x3a2414), 0, 0, 0.35, Math.PI / 2); g.position.set(0, -0.68, 0.03); c.armR.add(g); } break;
+    case 'npc5': belt(0x1a1a1a, 0xd8b040); for (let i = 0; i < 3; i++) addL(T, LG.sph(0.018), GMAT.brass, 0, 0.22 - i * 0.12, 0.15); addL(H, LG.cyl(0.1, 0.1, 0.08, 12), LM(0x6a1a22), 0.04, 0.2, 0); hair(0x2a1a10); { const g = new THREE.Group(); addL(g, LG.cyl(0.025, 0.03, 0.18, 8), GMAT.black, 0, 0, 0.06, Math.PI / 2); addL(g, LG.sph(0.028), LM(0xfff4c0, { emissive: 0xfff0a0 }), 0, 0, 0.16); g.position.set(0, -0.68, 0.03); c.armR.add(g); c.guns = [g]; } break;
+    case 'npc6': shades(); addL(T, LG.cyl(0.006, 0.006, 0.3, 4), LM(0xf0f0f0), 0, 0.2, 0.15); addL(T, LG.box(0.04, 0.03, 0.03), LM(0xf0c030), 0, 0.04, 0.16); addL(T, ringG(0.2, 0.05), LM(0xe03020), 0, 0.02, -0.2); break;
+    case 'npc7': tex(sh, AT.reflect); plate(AT.cross, 0.1, 0.1, 0.12, 0.2); plate(AT.cross, 0.22, 0.22, 0, 0.12, -0.153).rotation.y = Math.PI; { const b = new THREE.Group(); addL(b, LG.box(0.14, 0.18, 0.3, 0.02), LM(0xd8d0c0), 0, 0, 0); addL(b, LG.box(0.005, 0.08, 0.08), LM(0xffffff, { map: AT.cross }), 0.073, 0, 0); b.position.set(0, -0.76, 0.02); c.armL.add(b); } break;
+    case 'npc8': addL(T, LG.box(0.5, 0.48, 0.3), LM(0x5a1a4a), 0, 0.06, 0); for (const a of [c.armL, c.armR]) addL(a, LG.box(0.09, 0.12, 0.07), LM(0xf0c030), 0, -0.66, 0.01); addL(T, LG.cyl(0.05, 0.05, 0.06, 10), LM(0xf4e8c8), 0.18, -0.3, 0.12, Math.PI / 2); break;
+    case 'npc9': addL(T, LG.box(0.46, 0.3, 0.3), LM(0x1a1a1e), 0, -0.44, 0); glasses(); hair(0x3a2414); addL(H, LG.sph(0.07), LM(0x3a2414), 0, 0.12, -0.17); { const g = new THREE.Group(); addL(g, LG.box(0.03, 0.26, 0.2), LM(0x2a6ab0), 0, 0, 0.04); g.position.set(0, -0.66, 0.02); c.armL.add(g); } break;
+  }
 }
 const allyThrows = [];
-function spawnCop(kind = 'cop', owner = null, lv = 0) {
-  const D = ALLY[kind] || ALLY.cop; lv = lv || (game && game.allyLv && game.allyLv[kind]) || 1;
+function buildAlly(kind, lv, owner) {
+  const D = ALLY[kind] || ALLY.cop;
   const root = new THREE.Group(), fall = new THREE.Group(), body = new THREE.Group(); root.add(fall); fall.add(body);
   const skin = new THREE.MeshLambertMaterial({ color: pick([0xc89a78, 0xa87a58, 0x8a5a3a, 0xd8b090]) }), shirt = new THREE.MeshLambertMaterial({ color: D.shirt }), pants = new THREE.MeshLambertMaterial({ color: D.pants });
   const c = { kind, D, lv, owner: owner || Net.id, root, fall, body, mats: [skin, shirt, pants], hp: D.hp * allyHpMul(lv), maxHp: D.hp * allyHpMul(lv), dead: false, eatT: 0, deadT: 0, cd: rand(0.4, 0.9), tgt: null, tgtT: 0, yaw: player.yaw + Math.PI, phase: 0, flash: 0, speed: D.melee ? 4.9 : 4.4, aim: 0, eOn: false, burst: 0, burstT: 0, swing: 0 };
@@ -2256,7 +2358,12 @@ function spawnCop(kind = 'cop', owner = null, lv = 0) {
   humanoid(c, { skin, shirt, pants, eye: kind === 'cop' ? copEyeMat : npcEyeMat, hat: D.hat }, mk);
   c.healT = 0;
   if (kind === 'cop') { const b = new THREE.Mesh(ZG.badge, badgeMat); b.position.set(-0.12, 0.15, 0.145); c.torso.add(b); }
-  allyLook(c, D);
+  allyLook(c, D); allySkin(c, kind);
+  return c;
+}
+function spawnCop(kind = 'cop', owner = null, lv = 0) {
+  lv = lv || (game && game.allyLv && game.allyLv[kind]) || 1;
+  const c = buildAlly(kind, lv, owner), root = c.root;
   const a = rand(0, TAU); root.position.set(player.pos.x + Math.cos(a) * 2.5, 0, player.pos.z + Math.sin(a) * 2.5); resolve(root.position, 0.35);
   scene.add(root); c.id = ++copUid; cops.push(c);
   return c;
@@ -2289,7 +2396,7 @@ function spawnNpc() {
   const skin = new THREE.MeshLambertMaterial({ color: pick([0xc89a78, 0xa87a58, 0x8a5a3a, 0xd8b090]) }), shirt = new THREE.MeshLambertMaterial({ color: L.shirt }), pants = new THREE.MeshLambertMaterial({ color: L.pants });
   const c = { root, fall, body, mats: [skin, shirt, pants], hp: 150, maxHp: 150, dead: false, eatT: 0, deadT: 0, npc: true, name: L.name, obj: L.obj, rt: 30, t: 0, yaw: rand(0, TAU), flash: 0, eOn: false, cd: 99, aim: 0 };
   const mk = (geo, mat, part, parent, x = 0, y = 0, zz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, zz); m.castShadow = true; parent.add(m); return m; };
-  humanoid(c, { skin, shirt, pants, eye: npcEyeMat, hat: L.hat }, mk);
+  humanoid(c, { skin, shirt, pants, eye: npcEyeMat, hat: L.hat }, mk); allySkin(c, 'npc' + world.idx);
   c.beamMat = new THREE.MeshBasicMaterial({ color: 0x6dff9a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const beam = new THREE.Mesh(beamGeo, c.beamMat); beam.position.y = 15; root.add(beam); c.beam = beam;
   root.position.set(spot.x, 0, spot.z); root.rotation.y = c.yaw;
@@ -2428,7 +2535,6 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 const copsAlive = () => cops.filter(c => !c.dead && !c.npc).length;
 const HELP = [
   { id: 'powder', name: 'Barril de pólvora', desc: 'Fabrica una caja nueva de 50 balas cuando se acaba la tuya. Sin pólvora, la caja sale de balas malas: la mitad de daño y sin efectos.', price: () => 8, can: () => game.powder < 9, why: 'Ya tienes 9' },
-  { id: 'cop', name: 'Oficial de policía', desc: 'Te sigue y dispara a los zombis. Apunta regular y lo pueden devorar. Si muere, se levanta como zombi. Hasta 3 oficiales y 6 ayudantes en total.', price: () => 30 + 10 * allyCount('cop'), can: () => canHire('cop'), why: 'Límite de ayudantes' },
   { id: 'med', name: 'Botiquín', desc: 'Recuperas 60 de vida ahora mismo.', price: () => 10, can: () => player.hp < player.maxHp, why: 'Tienes la vida llena' },
   { id: 'tonic', name: 'Tónico de Ojo Muerto', desc: 'Llena por completo el Ojo Muerto.', price: () => 12, can: () => game.de < 100, why: 'Ya está lleno' },
   { id: 'vest', name: 'Chaleco de cuero', desc: 'Recibes un 15 % menos de daño. Puedes llevar 2.', price: () => 45, can: () => game.vest < 2, why: 'Ya llevas 2' },
@@ -3000,6 +3106,7 @@ function creditKill(def, head, ally, weapon) {
   game.gold5++; if (lv('greed') && game.gold5 % 5 === 0) addGold(lv('greed'), true);
   if (!ally) {
     game.w.kills++;
+    const kb = Math.min(ALLY.contador.killMax, myAllies().reduce((t, c) => t + (c.kind === 'contador' ? ALLY.contador.kill * (c.lv || 1) : 0), 0)); if (kb) addGold(kb, true);
     if (weapon && MODELS[weapon]) gainXp(weapon);
     if (game.time - game.lastKill < 1.4) game.multi++; else game.multi = 1;
     game.lastKill = game.time;
@@ -3010,15 +3117,16 @@ function creditKill(def, head, ally, weapon) {
   } else if (def.big) feed(`Un oficial abatió al ${def.name}`, 'blue');
   game.de = Math.min(100, game.de + (head ? 11 : 6) * (1 + 0.3 * lv('cold')));
 }
+const recMul = () => 1 + ALLY.recargador.reload * Math.min(3, myAllies().filter(c => c.kind === 'recargador').length);
 function startReload() {
   if (gs.reloading || gs.fan > 0 || gs.draw > 0) return;
   if (!activeHands().some(h => h.loaded.some(x => x === 0 || x === 2))) return;
   gs.tactic = lv('tactic') && totalAmmo() > 0 ? 1.5 : 1;
-  gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
+  gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul(); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
   Sfx.open();
 }
 function reloadStep(dt) {
-  const rs = (1 + 0.25 * lv('reload')) * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
+  const rs = (1 + 0.25 * lv('reload')) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
   gs.pt -= dt; if (gs.pt > 0) return;
   if (gs.phase === 'open') {
     let spent = 0;
@@ -3100,10 +3208,10 @@ function waveSummary() {
   game.sum = [['Oleada superada', base], ['Sin un rasguño', clean], [`Pocas balas · ${game.w.kills} bajas con ${game.w.shots} disparos`, aim]];
   let g = base + clean + aim;
   const mine = myAllies();
-  const acc = mine.filter(c => c.kind === 'contador').reduce((t, c) => t + ALLY.contador.gold * (c.lv || 1), 0);
-  if (acc) { game.sum.push(['El Contador', acc]); g += acc; }
+  const CT = ALLY.contador, conts = mine.filter(c => c.kind === 'contador');
+  if (conts.length) { const acc = conts.reduce((t, c) => t + CT.gold * (c.lv || 1), 0) + Math.min(CT.intMax, Math.floor(game.gold * CT.interest)); game.sum.push(['El Contador', acc]); g += acc; }
   let pw = 0;
-  for (const c of mine) if (c.kind === 'recargador') { c.waves = (c.waves || 0) + 1; const every = (c.lv || 1) >= 2 ? 1 : ALLY.recargador.powder; if (c.waves % every === 0) pw += (c.lv || 1) >= 3 ? 2 : 1; }
+  for (const c of mine) if (c.kind === 'recargador') pw += ALLY.recargador.powder * (c.lv || 1);
   if (pw) { game.powder = Math.min(9, game.powder + pw); feed(`El Recargador fabricó ${pw} ${pw === 1 ? 'barril' : 'barriles'} de pólvora`, 'gold'); }
   addGold(g, true);
   banner(`Oleada ${wv} superada`, `+${g} $ · +20 de vida${clean ? ' · ¡sin un rasguño!' : ''}`, 2300);
@@ -3152,6 +3260,28 @@ function rollOffers() {
 }
 function openShop() { state = 'shop'; rollOffers(); game.allyOffers = shuffled(ALLY_POOL).slice(0, 3); game.reroll = 5; renderShop(); show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
 function meterRow(label, v) { return `<span>${label}</span><div class="meter"><i style="width:${Math.round(clamp(v, 0.05, 1) * 100)}%"></i></div>`; }
+const ALLY_IC = { cop: ['👮', 'Tirador barato'], pistolero: ['🤠', 'Balas especiales'], bill: ['🎖️', 'Ráfagas'], swat: ['🛡️', 'Aguanta mucho'], pandillero: ['🔫', 'Lluvia de balas'], carlos: ['💥', 'Empuja zombis'], rebeca: ['✌️', 'Dos blancos'], ursula: ['⛑️', 'Cura al grupo'], contador: ['💰', 'Te da oro'], recargador: ['🛢️', 'Pólvora y recarga'], franco: ['🎯', 'Precisión'], dinamitero: ['🧨', 'Explosivos'], carnicero: ['🔪', 'Cuerpo a cuerpo'] };
+// Retrato de cada ayudante, dibujado una vez con su modelo 3D real.
+const portraitCache = {}; let portraitR = null;
+function allyPortrait(k) {
+  if (portraitCache[k] !== undefined) return portraitCache[k];
+  try {
+    const S = 192;
+    if (!portraitR) { const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff4e0, 0x403028, 1.05)); const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(1.5, 3, 3); sc.add(dl); const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20); cam.position.set(0.8, 1.55, 3.0); cam.lookAt(0.05, 1.12, 0); portraitR = { sc, cam, rt: new THREE.WebGLRenderTarget(S, S), buf: new Uint8Array(S * S * 4) }; }
+    const c = buildAlly(k, 1); c.root.rotation.y = 0.35; c.armRG.rotation.x = -0.75; if (c.D.gun === 'dual') c.armLG.rotation.x = -0.75;
+    for (const g of c.guns || []) g.rotation.x = -g.parent.parent.rotation.x;
+    portraitR.sc.add(c.root);
+    const prevT = renderer.getRenderTarget(), prevC = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
+    renderer.setRenderTarget(portraitR.rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(portraitR.sc, portraitR.cam);
+    renderer.readRenderTargetPixels(portraitR.rt, 0, 0, S, S, portraitR.buf);
+    renderer.setRenderTarget(prevT); renderer.setClearColor(prevC, prevA);
+    portraitR.sc.remove(c.root); c.mats.forEach(m => m.dispose());
+    const cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'), im = g.createImageData(S, S);
+    for (let y = 0; y < S; y++) im.data.set(portraitR.buf.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4);
+    g.putImageData(im, 0, 0);
+    return (portraitCache[k] = cv.toDataURL());
+  } catch (e) { return (portraitCache[k] = ''); }
+}
 function renderShop() {
   $('#shop-gold').innerHTML = `$ ${game.gold}<small>Tu oro</small>`;
   const nextMap = mapForWave(game.wave + 1) !== world.idx;
@@ -3229,12 +3359,13 @@ function renderShop() {
     });
     d.querySelector('.row').appendChild(b); help.appendChild(d);
   }
-  const allyKinds = [...new Set([...(game.allyOffers || []), ...myAllies().map(c => c.kind || 'cop').filter(k => k !== 'cop'), ...Object.keys(game.allyLv).filter(k => k !== 'cop' && ALLY[k])])];
+  const allyKinds = [...new Set(['cop', ...(game.allyOffers || []), ...myAllies().map(c => c.kind || 'cop'), ...Object.keys(game.allyLv).filter(k => ALLY[k])])];
   for (const k of allyKinds) {
-    const D = ALLY[k], n = allyCount(k), price = D.price + 10 * n, ok = canHire(k), can = ok && game.gold >= price, offered = (game.allyOffers || []).includes(k);
+    const D = ALLY[k], n = allyCount(k), price = D.price + 10 * n, ok = canHire(k), can = ok && game.gold >= price, offered = k === 'cop' || (game.allyOffers || []).includes(k);
     const lvl = game.allyLv[k] || 1;
-    const d = document.createElement('div'); d.className = 'item';
-    d.innerHTML = `<div class="item-top"><b>${D.name}</b><span class="own">Nivel ${lvl} · Contigo: ${n} de ${ALLY_EACH}</span></div><p>${D.desc} Si lo devoran, se levanta como zombi.</p><p class="mast">Cada nivel: +30 % de daño y curación, +25 % de vida${k === 'contador' ? ', más oro por oleada' : k === 'recargador' ? '; nivel 2 fabrica cada oleada, nivel 3 fabrica 2 barriles' : ''}. Ayudantes en total: ${copsAlive()} de ${ALLY_MAX}.</p><div class="row"></div>`;
+    const d = document.createElement('div'); d.className = 'item ally-item'; const [ic, role] = ALLY_IC[k] || ['★', ''];
+    const per = k === 'contador' ? `+${ALLY.contador.gold} $ por oleada, +${ALLY.contador.kill} $ por zombi y +25 % de vida` : k === 'recargador' ? `+${ALLY.recargador.powder} barril por oleada y +25 % de vida` : k === 'ursula' ? '+30 % de curación y daño, +25 % de vida' : '+30 % de daño, +25 % de vida';
+    d.innerHTML = `<div class="ally-pic" style="background-image:url(${allyPortrait(k)}),radial-gradient(circle at 50% 38%,#6a5236,#1a120a 75%)"><span class="ally-ic" aria-hidden="true">${ic}</span></div><div class="ally-body"><div class="item-top"><b>${D.name}</b><span class="own">Nivel ${lvl} · Contigo: ${n} de ${ALLY_EACH}</span></div><span class="ally-role">${ic} ${role}</span><p>${D.desc} Si lo devoran, se levanta como zombi.</p><p class="mast">Cada nivel: ${per}. Ayudantes en total: ${copsAlive()} de ${ALLY_MAX}.</p><div class="row"></div></div>`;
     const row = d.querySelector('.row');
     if (offered) {
       const b = document.createElement('button'); b.className = 'buy'; b.id = 'buy-ally-' + k; b.disabled = !can;
@@ -3681,7 +3812,7 @@ function updateCops(dt) {
 const DECK_FX = ['frita', 'gravedad', 'trampa', 'acida', 'tormenta'];
 function copShoot(c, z) {
   const D = c.D || ALLY.cop, sc = 1 + 0.05 * (game.wave - 1);
-  c.cd = rand(D.cd[0], D.cd[1]);
+  c.cd = rand(D.cd[0], D.cd[1]) * (cops.some(o => !o.dead && !o.npc && o.kind === 'recargador') ? 1 - ALLY.recargador.rof : 1);
   const zp = z.root.position, dz_ = Math.hypot(zp.x - c.root.position.x, zp.z - c.root.position.z);
   if (!D.gun) return;
   if (D.melee) {
@@ -3983,7 +4114,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.hp = a[7]; p.down = !!a[8]; }
+    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -4320,7 +4451,8 @@ function makeCopProxy(id, npc, x, z, ki) {
   const mk = (geo, mat, part, parent, px = 0, py = 0, pz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; parent.add(m); return m; };
   humanoid(c, { skin, shirt, pants, eye: npc ? npcEyeMat : copEyeMat, hat: npc ? L.hat : D.hat }, mk);
   if (npc) { c.beamMat = new THREE.MeshBasicMaterial({ color: 0x6dff9a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); const beam = new THREE.Mesh(beamGeo, c.beamMat); beam.position.y = 15; root.add(beam); c.beam = beam; }
-  else allyLook(c, D);
+  else { allyLook(c, D); allySkin(c, c.kind); }
+  if (npc) allySkin(c, 'npc' + world.idx);
   root.position.set(x, 0, z); scene.add(root); cops.push(c);
   return c;
 }
@@ -4349,12 +4481,36 @@ function makeAvatar(p) {
   humanoid(av, { skin, shirt, pants, eye: npcEyeMat }, mk);
   const brim = new THREE.Mesh(ZG.brim, hatMat); brim.position.y = 0.17; brim.scale.set(1.15, 1, 1.15); av.head.add(brim);
   const crown = new THREE.Mesh(ZG.capCrown, hatMat); crown.position.y = 0.25; crown.scale.set(0.85, 1.7, 0.85); av.head.add(crown);
-  const gun = new THREE.Mesh(ZG.pistol, pistolMat); gun.position.set(0, -0.62, 0.08); av.armR.add(gun);
-  const tex = canvasTex(256, 64, g => { g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(p.name, 128, 44); g.fillStyle = '#' + col.toString(16).padStart(6, '0').replace(/./g, (ch, i) => i % 2 ? ch : ch); g.fillStyle = '#ffe9c0'; g.fillText(p.name, 128, 44); });
-  av.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); av.label.scale.set(1.8, 0.45, 1); av.label.position.y = 2.35; root.add(av.label); av.labelName = p.name;
+  av.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: avLabelTex(p), transparent: true, depthWrite: false })); av.label.scale.set(1.8, 0.675, 1); av.label.position.y = 2.45; root.add(av.label); av.labelName = p.name;
+  av.guns = []; setAvGun(av, p);
   if (p.pos) root.position.set(p.pos.x, p.y || 0, p.pos.z);
   scene.add(root);
   return av;
+}
+// Revólver que lleva cada compañero, con su forma y color, y su nombre sobre la cabeza.
+const RV_COL = { mono: [0xb0b4bc, 0x6a4020], paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
+function revolverMini(id) {
+  const Md = MODELS[id] || MODELS.paci, [fc, gc] = RV_COL[id] || RV_COL.paci, g = new THREE.Group(), fm = LM(fc, { emissive: 0x141518 }), gm = LM(gc);
+  const L = Math.round((Md.L * 1.1 + 0.06) * 100) / 100, r = Math.round((Md.R || 0.011) * 1400) / 1000, cr = id === 'escopeta' || id === 'minigun' ? 0.045 : 0.035;
+  addL(g, LG.box(0.05, 0.06, 0.1, 0.01), fm, 0, 0.07, 0.03);
+  addL(g, LG.cyl(cr, cr, 0.075, 10), fm, 0, 0.075, 0.03, Math.PI / 2);
+  if (id === 'minigun') for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; addL(g, LG.cyl(0.01, 0.01, L, 6), fm, Math.round(Math.cos(a) * 25) / 1000, 0.08 + Math.round(Math.sin(a) * 25) / 1000, 0.08 + L / 2, Math.PI / 2); }
+  else addL(g, LG.cyl(r, r, L, 8), fm, 0, 0.09, 0.08 + L / 2, Math.PI / 2);
+  addL(g, LG.box(0.045, 0.12, 0.055, 0.012), gm, 0, 0, -0.03, 0.35);
+  return g;
+}
+function avLabelTex(p) {
+  return canvasTex(256, 96, g => {
+    g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.85)'; g.font = 'bold 34px sans-serif'; g.strokeText(p.name, 128, 40); g.fillStyle = '#ffe9c0'; g.fillText(p.name, 128, 40);
+    const w = MODELS[MODEL_ORDER[p.model]]; if (w) { const t = (p.dual ? '2 × ' : '') + w.name; let fs = 24; do { g.font = `bold ${fs}px sans-serif`; } while (g.measureText(t).width > 244 && --fs > 12); g.strokeText(t, 128, 80); g.fillStyle = '#ffc860'; g.fillText(t, 128, 80); }
+  });
+}
+function setAvGun(av, p) {
+  const key = `${p.model}|${p.dual ? 1 : 0}|${p.name}`; if (av.gunKey === key) return; av.gunKey = key;
+  for (const g of av.guns) g.parent.remove(g); av.guns = [];
+  const id = MODEL_ORDER[p.model] || 'paci';
+  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = revolverMini(id); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); }
+  const old = av.label.material.map; av.label.material.map = avLabelTex(p); av.label.material.needsUpdate = true; if (old) old.dispose();
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
 function updateRemotes(dt) {
@@ -4367,7 +4523,8 @@ function updateRemotes(dt) {
     const yaw = (p.yaw || 0) + Math.PI; let dy = yaw - av.root.rotation.y; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; av.root.rotation.y += dy * k;
     const spd = Math.hypot(r.x - ox, r.z - oz) / Math.max(dt, 1e-3); av.phase += dt * spd * 2.4; const sw = Math.sin(av.phase);
     av.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); av.legR.rotation.x = -av.legL.rotation.x;
-    av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = -sw * 0.4;
+    setAvGun(av, p);
+    av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = p.dual ? -1.5 - (p.pitch || 0) : -sw * 0.4;
     av.label.visible = Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 4;
     av.fall.rotation.x = damp(av.fall.rotation.x, p.down ? -Math.PI / 2 * 0.95 : 0, 6, dt); av.fall.position.y = p.down ? 0.15 : 0;
   }
@@ -4612,7 +4769,7 @@ function frame() {
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
-  Net.tick(dt); updateRemotes(dt); Music.update();
+  Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll);
   renderer.render(scene, camera);
