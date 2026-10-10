@@ -1862,6 +1862,34 @@ function profileGeo(pts, depth, bevel = 0.004, holes = []) {
   g.computeVertexNormals(); return g;
 }
 const arc = (cu, cv, r, a0, a1, n = 6) => { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([cu + Math.cos(a) * r, cv + Math.sin(a) * r]); } return o; };
+// Diseños del revólver escopeta: 0 es el actual; 1 a 5 son las ideas nuevas.
+let SG_STYLE = 1;
+const SG_LOOK = [null,
+  { frame: GM.brassF, barrel: GM.blue, cyl: GM.blue, grip: GM.woodL, trig: GM.brassF },
+  { frame: GM.black, barrel: GM.black, cyl: GM.stain, grip: GM.rubber, trig: GM.black },
+  { frame: GM.rust, barrel: GM.rust, cyl: GM.steel, grip: GM.wood, trig: GM.steel },
+  { frame: GM.chrome, barrel: GM.chrome, cyl: GM.chrome, grip: GM.ivory, trig: GM.brass },
+  { frame: GM.black, barrel: GM.steel, cyl: GM.black, grip: GM.rubber, trig: GM.orange }];
+function sgExtras(st, P_, rot, L, R) {
+  const by = 0.03, bz = -0.07;
+  if (st === 1) { // LeMat: un segundo cañón grueso de escopeta debajo
+    rot(P_(cyl(0.017, 0.017, L * 0.72, 20), GM.blue, 0, -0.008, bz - L * 0.36)); rot(P_(cyl(0.011, 0.011, 0.002, 12), GM.bore, 0, -0.008, bz - L * 0.72 - 0.001));
+    for (const k of [0.25, 0.6]) P_(bx(0.03, 0.05, 0.012), GM.brassF, 0, 0.012, bz - L * k);
+  } else if (st === 2) { // Juez moderna: riel arriba, mira roja y tornillos
+    P_(bx(0.016, 0.008, L * 0.95), GM.black, 0, by + R + 0.004, bz - L * 0.48);
+    for (let i = 0; i < 9; i++) P_(bx(0.019, 0.003, 0.004), GM.stain, 0, by + R + 0.009, bz - 0.02 - i * L / 9.5);
+    P_(bx(0.005, 0.014, 0.008), GM.heat, 0, by + R + 0.015, bz - L + 0.012);
+  } else if (st === 3) { // Recortada de granja: dos cañones lado a lado
+    for (const x of [-1, 1]) { rot(P_(cyl(R * 0.95, R * 0.95, L * 0.8, 18), GM.rust, x * R * 0.95, by, bz - L * 0.4)); rot(P_(cyl(R * 0.6, R * 0.6, 0.002, 10), GM.bore, x * R * 0.95, by, bz - L * 0.8 - 0.001)); }
+    for (const k of [0.2, 0.7]) P_(bx(R * 4.1, R * 2.1, 0.01), GM.steel, 0, by, bz - L * k);
+  } else if (st === 4) { // Trabuco grabado: boca acampanada y anillos dorados
+    rot(P_(cyl(R * 1.9, R * 1.05, 0.06, 20), GM.chrome, 0, by, bz - L - 0.02)); rot(P_(cyl(R * 1.5, R * 1.5, 0.002, 16), GM.bore, 0, by, bz - L - 0.051));
+    for (const k of [0.15, 0.45, 0.75]) rot(P_(cyl(R * 1.15, R * 1.15, 0.008, 18), GM.brass, 0, by, bz - L * k));
+  } else if (st === 5) { // Tambor gigante táctico: escudo de calor perforado
+    P_(bx(R * 2.6, R * 1.2, L * 0.8), GM.black, 0, by + R * 0.7, bz - L * 0.42);
+    for (let i = 0; i < 7; i++) for (const x of [-1, 1]) P_(bx(0.002, R * 0.6, 0.014), GM.orange, x * R * 1.31, by + R * 0.7, bz - 0.04 - i * L * 0.1);
+  }
+}
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
   while (h.k.children.length) { const c = h.k.children[0]; h.k.remove(c); c.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -1873,7 +1901,7 @@ function buildGun(h, id) {
     viejo: { frame: GM.brassF, barrel: GM.rust, cyl: GM.rust, grip: GM.woodL, trig: GM.brassF },
     magnum: { frame: GM.stain, barrel: GM.stain, cyl: GM.stain, grip: GM.rubber, trig: GM.stain },
     mono: { frame: GM.rust, barrel: GM.blue, cyl: GM.rust, grip: GM.woodL, trig: GM.steel },
-    escopeta: { frame: GM.blue, barrel: GM.blue, cyl: GM.steel, grip: GM.wood, trig: GM.brassF },
+    escopeta: (SG_STYLE && SG_LOOK[SG_STYLE]) || { frame: GM.blue, barrel: GM.blue, cyl: GM.steel, grip: GM.wood, trig: GM.brassF },
     minigun: { frame: GM.black, barrel: GM.steel, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
   }[id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
@@ -1901,7 +1929,7 @@ function buildGun(h, id) {
   } else {
     const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
     // armazón con ventana para el tambor
-    const rc = m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
+    const rc = (id === 'escopeta' && SG_STYLE === 5 ? 0.058 : 0) || m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
     const fb = Math.min(-0.036, -rc - 0.004), wT = 0.005 + rc + 0.002, wB = 0.005 - rc - 0.002, fT = Math.max(0.058, wT + 0.016);
     const fw = id === 'escopeta' ? 0.036 : 0.032, top = magnum ? 0.054 : 0.05;
     const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, fb + 0.006], [0.04, fb], [-0.02, fb], [-0.045, fb + 0.012], [-0.075, -0.012], [-0.08, 0.04], [-0.07, fT], [0.02, fT], [0.045, fT - 0.002], [0.06, 0.05], [0.075, top - 0.002]];
@@ -1927,6 +1955,7 @@ function buildGun(h, id) {
     }
     P_(profileGeo([[0, 0], [0.003, 0.014], [0.012, 0.014], [0.014, 0]], 0.0045, 0.001), magnum ? GM.orange : LOOK.barrel, 0, 0.03 + R * 0.8, -0.07 - L + 0.016);
     P_(bx(0.006, 0.01, 0.01), LOOK.frame, -0.007, top + 0.004, 0.04); P_(bx(0.006, 0.01, 0.01), LOOK.frame, 0.007, top + 0.004, 0.04);
+    if (id === 'escopeta' && SG_STYLE) sgExtras(SG_STYLE, P_, rot, L, R);
     // tambor con estrías y biseles
     cylG.position.set(0, 0.005, -0.035);
     const lathe = new THREE.LatheGeometry([[0.0001, -cl / 2], [rc - 0.006, -cl / 2], [rc, -cl / 2 + 0.006], [rc, cl / 2 - 0.004], [rc - 0.003, cl / 2], [0.0001, cl / 2]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
