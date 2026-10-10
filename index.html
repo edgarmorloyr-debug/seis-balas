@@ -492,6 +492,8 @@ const Sfx = (() => {
   }
   const SHOTS = {
     paci: { lp: 9000, end: 380, dur: 0.38, vol: 1.1, th: 150, te: 34, wet: 0.7 },
+    mono: { lp: 8500, end: 420, dur: 0.32, vol: 1, th: 160, te: 40, wet: 0.6 },
+    escopeta: { lp: 6000, end: 140, dur: 0.75, vol: 1.5, th: 85, te: 20, wet: 1 },
     corto: { lp: 11000, end: 900, dur: 0.22, vol: 0.85, th: 230, te: 70, wet: 0.45 },
     viejo: { lp: 5500, end: 220, dur: 0.6, vol: 1.2, th: 105, te: 26, wet: 0.95 },
     magnum: { lp: 8000, end: 200, dur: 0.6, vol: 1.35, th: 120, te: 22, wet: 1 },
@@ -1435,14 +1437,18 @@ function addTracer(a, b, col, thick = 1) {
 
 /* ===================== REVÓLVERES ===================== */
 const MODELS = {
-  paci: { name: 'Pacificador', desc: 'El de siempre. Equilibrado en todo.', cap: 6, dmg: 55, cd: 0.32, reload: 1, spread: 1, recoil: 1, pierce: 0, price: 35, L: 0.27, R: 0.011 },
+  mono: { name: 'Monotiro', desc: 'Tu primer revólver: una sola bala. Si aciertas, el zombi cae; si fallas, a recargar. En la armería te espera algo mejor.', cap: 1, dmg: 100, cd: 0.3, reload: 0.55, spread: 0.85, recoil: 1.1, pierce: 0, price: 10, L: 0.2, R: 0.011, rc: 0.026 },
+  paci: { name: 'Pacificador', desc: 'El clásico de seis balas. Equilibrado en todo.', cap: 6, dmg: 55, cd: 0.32, reload: 1, spread: 1, recoil: 1, pierce: 0, price: 30, L: 0.27, R: 0.011 },
   corto: { name: 'Revólver corto', desc: 'Ligero y rapidísimo de disparar y recargar. Solo 5 balas y pierde fuerza de lejos.', cap: 5, dmg: 42, cd: 0.17, reload: 1.5, spread: 1.55, recoil: 0.6, pierce: 0, price: 30, L: 0.09, R: 0.012, near: true },
   viejo: { name: 'Revólver viejo', desc: 'Una reliquia de pólvora negra. Golpea fuerte y echa mucho humo, pero es lento.', cap: 6, dmg: 92, cd: 0.5, reload: 0.7, spread: 1.15, recoil: 1.45, pierce: 0, price: 25, L: 0.31, R: 0.011 },
   magnum: { name: 'Magnum cañón largo', desc: 'Preciso y brutal. Cada bala atraviesa a un zombi más.', cap: 6, dmg: 135, cd: 0.55, reload: 0.85, spread: 0.55, recoil: 2, pierce: 1, price: 90, L: 0.43, R: 0.015 },
+  escopeta: { name: 'Revólver escopeta', desc: 'Dispara 7 perdigones abiertos: destroza de cerca y se pierde de lejos. Ideal contra grupos.', cap: 5, dmg: 24, pellets: 7, pSpread: 0.07, cd: 0.5, reload: 1.2, spread: 1, recoil: 1.8, pierce: 0, price: 110, L: 0.3, R: 0.02, rc: 0.04, near: true },
   minigun: { name: 'Revólver minigun', desc: 'Un revólver gigante de 60 balas que dispara como una ametralladora. Mantén el gatillo.', cap: 60, dmg: 24, cd: 0.065, reload: 1, spread: 1.5, recoil: 0.18, pierce: 0, price: 260, L: 0.36, R: 0.02, auto: true }
 };
-const MODEL_ORDER = ['paci', 'corto', 'viejo', 'magnum', 'minigun'];
+const MODEL_ORDER = ['mono', 'paci', 'corto', 'viejo', 'magnum', 'escopeta', 'minigun'];
 const MASTERY = {
+  mono: 'Sangre fría: los tiros a la cabeza hacen el doble de daño.',
+  escopeta: 'Perdigón grueso: dispara 9 perdigones en vez de 7.',
   paci: 'Gatillo de fortuna: el 12 % de los disparos no gasta bala.',
   corto: 'A quemarropa: +60 % de daño a menos de 6 m.',
   viejo: 'Estruendo: cada impacto aturde 1 s, incluso a los grandes.',
@@ -1570,6 +1576,8 @@ function buildGun(h, id) {
     corto: { frame: GM.chrome, barrel: GM.chrome, cyl: GM.chrome, grip: GM.ivory, trig: GM.chrome },
     viejo: { frame: GM.brassF, barrel: GM.rust, cyl: GM.rust, grip: GM.woodL, trig: GM.brassF },
     magnum: { frame: GM.stain, barrel: GM.stain, cyl: GM.stain, grip: GM.rubber, trig: GM.stain },
+    mono: { frame: GM.rust, barrel: GM.blue, cyl: GM.rust, grip: GM.woodL, trig: GM.steel },
+    escopeta: { frame: GM.blue, barrel: GM.blue, cyl: GM.steel, grip: GM.wood, trig: GM.brassF },
     minigun: { frame: GM.black, barrel: GM.steel, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
   }[id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
@@ -1597,9 +1605,11 @@ function buildGun(h, id) {
   } else {
     const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
     // armazón con ventana para el tambor
-    const fw = 0.032, top = magnum ? 0.054 : 0.05;
-    const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, -0.03], [0.04, -0.036], [-0.02, -0.036], [-0.045, -0.024], [-0.075, -0.012], [-0.08, 0.04], [-0.07, 0.058], [0.02, 0.058], [0.045, 0.056], [0.06, 0.05], [0.075, top - 0.002]];
-    const frameWin = [[-0.071, -0.026], [-0.071, 0.04], [0.001, 0.04], [0.001, -0.026]];
+    const rc = m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
+    const fb = Math.min(-0.036, -rc - 0.004), wT = 0.005 + rc + 0.002, wB = 0.005 - rc - 0.002, fT = Math.max(0.058, wT + 0.016);
+    const fw = id === 'escopeta' ? 0.036 : 0.032, top = magnum ? 0.054 : 0.05;
+    const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, fb + 0.006], [0.04, fb], [-0.02, fb], [-0.045, fb + 0.012], [-0.075, -0.012], [-0.08, 0.04], [-0.07, fT], [0.02, fT], [0.045, fT - 0.002], [0.06, 0.05], [0.075, top - 0.002]];
+    const wF = -0.036 - cl / 2, wR = -0.034 + cl / 2, frameWin = [[wF, wB], [wF, wT], [wR, wT], [wR, wB]];
     P_(profileGeo(frameOut.map(([z, v]) => [-z, v]), fw, 0.004, [frameWin.map(([z, v]) => [-z, v])]), LOOK.frame, 0, 0, 0);
     // cañón
     const bseg = viejo ? 8 : 20;
@@ -1622,7 +1632,6 @@ function buildGun(h, id) {
     P_(profileGeo([[0, 0], [0.003, 0.014], [0.012, 0.014], [0.014, 0]], 0.0045, 0.001), magnum ? GM.orange : LOOK.barrel, 0, 0.03 + R * 0.8, -0.07 - L + 0.016);
     P_(bx(0.006, 0.01, 0.01), LOOK.frame, -0.007, top + 0.004, 0.04); P_(bx(0.006, 0.01, 0.01), LOOK.frame, 0.007, top + 0.004, 0.04);
     // tambor con estrías y biseles
-    const rc = corto ? 0.031 : 0.034, cl = 0.07;
     cylG.position.set(0, 0.005, -0.035);
     const lathe = new THREE.LatheGeometry([[0.0001, -cl / 2], [rc - 0.006, -cl / 2], [rc, -cl / 2 + 0.006], [rc, cl / 2 - 0.004], [rc - 0.003, cl / 2], [0.0001, cl / 2]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
     rot(P_(lathe, LOOK.cyl, 0, 0, 0, cylSpin));
@@ -2234,7 +2243,7 @@ function newGame(sv) {
   game = {
     wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0,
     gold: 0, goldTotal: 0, goldT: 0, gold5: 0, perks: {}, toSpawn: 0, spawnT: 0, alive: 0, bossQ: [], phase: 'count', countT: 0, lastKill: -9, multi: 0,
-    sixes: 0, powder: 3, nextRescue: 2, rescued: 0, npcLost: 0, waveT: 0, owned: { paci: 1 }, equip: null, dual: false, mag: {}, vest: 0, silver: false, endless: false, copsLost: 0,
+    sixes: 0, powder: 3, nextRescue: 2, rescued: 0, npcLost: 0, waveT: 0, owned: { mono: 1 }, equip: null, dual: false, mag: {}, vest: 0, silver: false, endless: false, copsLost: 0,
     box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}
   };
   newBox();
@@ -2246,7 +2255,7 @@ function newGame(sv) {
   player.pos.set(world.start.x, 0, world.start.z);
   if (sv) { player.maxHp = sv.maxHp; player.hp = Math.min(sv.hp, sv.maxHp); player.maxSt = sv.maxSt; }
   Object.assign(gs, { reloading: false, phase: '', aim: 0, aiming: false, bloom: 0, fan: 0, autoT: -1, swing: 0, pose: 0, next: 0, draw: 0 });
-  equip(sv && sv.owned && sv.owned[sv.equip] ? sv.equip : 'paci', true);
+  equip(sv && sv.owned && sv.owned[sv.equip] ? sv.equip : 'mono', true);
   if (sv) for (const k of (sv.allies || new Array(sv.cops || 0).fill('cop'))) spawnCop(ALLY[k] ? k : 'cop');
   startWave(w0);
 }
@@ -2406,7 +2415,7 @@ function shoot(h, fanned) {
   h.muzzle.getWorldPosition(_mp);
   const ctx = { type, h, m, kills: 0, hitZ: false, dmgMul: 1, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : 0xffe2a0) : hexCol(BULLETS[type].col) };
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
-  let pellets = 1;
+  let pellets = m.pellets ? m.pellets + (h.model === 'escopeta' && wlv('escopeta') >= 3 ? 2 : 0) : 1;
   if (type === 'iman') { for (const p of pickups) p.mag = true; Sfx.whoosh(0); }
   if (type === 'reloj') { game.slowT = 4; applySlowFx(); Sfx.deadeye(true); }
   if (type === 'dado') { pellets = 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Dado: ${pellets} ${pellets === 1 ? 'bala' : 'balas'}`, 'gold'); }
@@ -2414,7 +2423,7 @@ function shoot(h, fanned) {
   if (type === 'dragon') { dragonCone(h, cam); pellets = 0; }
   if (type === 'acme') hurtPlayer(20, null, {});
   if (h.loaded.includes(3)) pellets *= 2;
-  const sp = spread() + (fanned ? 0.055 : 0) + (pellets > 1 ? 0.025 : 0);
+  const sp = spread() + (fanned ? 0.055 : 0) + (m.pellets ? m.pSpread : pellets > 1 ? 0.025 : 0);
   for (let i = 0; i < pellets; i++) {
     const a = Math.random() * TAU, rr = Math.sqrt(Math.random()) * sp, d = cam.clone();
     d.addScaledVector(_r, Math.cos(a) * Math.tan(rr)).addScaledVector(_u, Math.sin(a) * Math.tan(rr)).normalize();
@@ -2428,7 +2437,7 @@ function shoot(h, fanned) {
     ctx.kills += ring.kills; if (ring.hitZ) ctx.hitZ = true; Sfx.boom();
   }
   if (ctx.hitZ) game.hits++;
-  smokePuff(_mp, cam, h.model === 'viejo' ? 10 : m.auto ? 1 : 4, h.model === 'viejo' ? 2.2 : 1);
+  smokePuff(_mp, cam, h.model === 'viejo' || h.model === 'escopeta' ? 10 : m.auto ? 1 : 4, h.model === 'viejo' ? 2.2 : h.model === 'escopeta' ? 1.6 : 1);
   for (let i = 0; i < (m.auto ? 2 : 6); i++) PA.add(_mp.x, _mp.y, _mp.z, cam.x * rand(2, 6) + rand(-1, 1), cam.y * rand(2, 6) + rand(-1, 1), cam.z * rand(2, 6) + rand(-1, 1), rand(0.05, 0.15), 0.012, 1, 0.7, 0.3, 1, 0, 2, 0, 0);
   Sfx.shot(h.model, game.goldT > 0);
   if (!m.auto || h.streak % 3 === 0) Sfx.cylTick(!!m.auto);
@@ -2470,6 +2479,7 @@ function castBullet(o, d, ctx) {
       let dd = dmg * (part === 'head' ? 2.4 * (1 + 0.6 * lv('head')) : part === 'limb' ? 0.7 : 1);
       if (m.near) dd *= hh.distance < 8 ? 1.2 : hh.distance < 16 ? 1 : 0.6;
       if (h.model === 'corto' && wlv('corto') >= 3 && hh.distance < 6) dd *= 1.6;
+      if (h.model === 'mono' && wlv('mono') >= 3 && part === 'head') dd *= 2;
       if (lv('crit') && Math.random() < 0.08 * lv('crit')) { dd *= 3; if (!m.auto) feed('¡Crítico!', 'gold'); }
       const killed = damageZombie(z, dd, { part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : t });
       if (killed) ctx.kills++;
@@ -2786,7 +2796,7 @@ function renderShop() {
     const ownTxt = own === 0 ? 'No lo tienes' : own === 1 ? 'Tienes 1 · compra otro para duales' : 'Tienes 2 · duales';
     const lvTxt = own ? ` · Nivel ${l}${l < 4 ? ` (${x}/${WLV[l]} bajas)` : ''}` : '';
     d.innerHTML = `<div class="item-top"><b>${m.name}</b><span class="own${own >= 2 ? ' dual' : ''}">${eq ? 'En la mano · ' : ''}${ownTxt}${lvTxt}</span></div><p>${m.desc}</p>
-      <div class="meters">${meterRow('Daño', m.dmg / 140)}${meterRow('Cadencia', 0.12 / m.cd)}${meterRow('Recarga', m.reload / 1.5)}${meterRow('Precisión', 0.55 / m.spread)}<span>Balas</span><span style="color:var(--bone)">${m.cap}</span></div>
+      <div class="meters">${meterRow('Daño', m.dmg * (m.pellets ? m.pellets * 0.6 : 1) / 140)}${meterRow('Cadencia', 0.12 / m.cd)}${meterRow('Recarga', m.reload / 1.5)}${meterRow('Precisión', 0.55 / m.spread)}<span>Balas</span><span style="color:var(--bone)">${m.cap}</span></div>
       <p class="mast">Nivel 3: ${MASTERY[id]}</p><div class="row"></div>`;
     const row = d.querySelector('.row');
     if (own < 2) {
@@ -3014,7 +3024,7 @@ function updateGun(dt) {
     h.cylSpin.rotation.z = h.cylRot;
     h.hammer.rotation.x = gs.reloading ? 0 : -0.65 * clamp(1 - h.cd / h.cdMax, 0, 1);
     h.flash.visible = h.fl > 0;
-    if (h.flash.visible) { h.flash.rotation.z = Math.random() * TAU; const s = rand(0.8, 1.4) * (h.model === 'magnum' || h.model === 'viejo' ? 1.4 : 1); h.flash.scale.set(s, s, s); }
+    if (h.flash.visible) { h.flash.rotation.z = Math.random() * TAU; const s = rand(0.8, 1.4) * (h.model === 'escopeta' ? 1.8 : h.model === 'magnum' || h.model === 'viejo' ? 1.4 : 1); h.flash.scale.set(s, s, s); }
     h.flashLight.intensity = h.fl > 0 ? 3.2 : 0;
   }
 }
@@ -3961,6 +3971,7 @@ function requestLock(gesture) {
 }
 function startGame(sv) {
   Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null);
+  if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1 && game.equip === 'mono') hint('Monotiro: 1 bala. Junta oro para la armería (oleada 3).', 5000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   renderChips(); requestLock(); canvas.focus();
 }
@@ -4031,7 +4042,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyF') fan();
   if (e.code === 'KeyQ') deadEye(!game.deOn);
-  if (/^Digit[1-5]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
+  if (/^Digit[1-7]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
   if (e.code === 'KeyP' || (e.code === 'Escape' && (noLock || !locked))) pause();
 });
 window.addEventListener('keyup', e => { input.keys[e.code] = false; });
