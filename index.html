@@ -1673,6 +1673,7 @@ function buildGun(h, id) {
   P_(cyl(0.04, 0.042, 0.3, 14), GM.sleeve, 0.04, -0.16, 0.3, hand).rotation.x = Math.PI / 2 - 0.45;
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, muzzleY, muzzleZ); h.k.add(muzzle);
   muzzle.add(h.flash); muzzle.add(h.flashLight);
+  const gunG = new THREE.Group(); for (const c of h.k.children.slice()) if (c !== hand) gunG.add(c); h.k.add(gunG); h.gunG = gunG;
   h.k.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 1; } });
   Object.assign(h, { cylG, cylSpin, hammer, muzzle, spinG, spinV: 0, model: id, cap: N });
 }
@@ -2352,7 +2353,24 @@ function touchFire() {
   if (gs.aim > 0.8) tryFire(); else { gs.scopePend = true; gs.aiming = true; }
   gs.scopeAuto = true; gs.scopeT = 0.6;
 }
+// Finta: el revólver da dos vueltas sobre el dedo del gatillo. No cambia nada del juego.
+function twirl() {
+  if (state !== 'play' || gs.reloading || gs.draw > 0 || gs.twirl > 0 || gs.spinC > 0 || player.down) return;
+  gs.twirl = 0.001; gs.aiming = false; Sfx.whoosh(0);
+}
+// Tecla G: abre el tambor, lo hace girar y cambia el orden de las balas (las McRevólver no se mueven).
+function spinCylinder() {
+  if (state !== 'play' || gs.reloading || gs.draw > 0 || gs.spinC > 0 || gs.fan > 0 || player.down || game.equip === 'minigun' || game.equip === 'mono') return;
+  gs.spinC = 0.001; gs.twirl = 0; gs.aiming = false; gs.spinDone = false; Sfx.open();
+}
+function shuffleChambers(h) {
+  const idx = []; for (let i = 0; i < h.cap; i++) if (h.loaded[i] !== 3 && h.loaded[i] !== 'mcrev') idx.push(i);
+  const vals = idx.map(i => h.loaded[i]); for (let i = vals.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = vals[i]; vals[i] = vals[j]; vals[j] = t; }
+  idx.forEach((i, k) => h.loaded[i] = vals[k]);
+}
 function tryFire() {
+  if (gs.twirl > 0) gs.twirl = 0;
+  if (gs.spinC > 0) return;
   if (state !== 'play' || gs.draw > 0 || player.down) return;
   if (gs.reloading) { if (gs.phase === 'insert' && totalAmmo() > 0) gs.wantStop = true; return; }
   if (gs.fan > 0) return;
@@ -2997,6 +3015,12 @@ function updateGun(dt) {
     if (input.fireHeld) gs.scopeT = 0.6;
     gs.scopeT -= dt; if (gs.scopeT <= 0 && !gs.scopePend) { gs.scopeAuto = false; gs.aiming = false; }
   }
+  if (gs.twirl > 0) { gs.twirl += dt; if (gs.twirl >= 0.7) gs.twirl = 0; }
+  if (gs.spinC > 0) {
+    gs.spinC += dt;
+    if (!gs.spinDone && gs.spinC >= 0.2) { gs.spinDone = true; for (const h of activeHands()) { shuffleChambers(h); h.cylTarget += TAU * 3; h.hudRot -= 360 * 3; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`; } refreshChambers(); Sfx.spin(); }
+    if (gs.spinC >= 1) { gs.spinC = 0; Sfx.close(); feed('Giraste el tambor: las balas cambiaron de lugar', ''); }
+  }
   const wantAim = gs.aiming && !gs.reloading && gs.fan === 0 && state === 'play';
   gs.aim = damp(gs.aim, wantAim ? 1 : 0, 14, dt);
   gs.pose = damp(gs.pose, gs.reloading ? 1 : 0, 12, dt);
@@ -3020,7 +3044,10 @@ function updateGun(dt) {
       p.z + h.kick * 0.06 + gs.pose * 0.02
     );
     h.root.rotation.set(h.kick * 0.45 + gs.pose * 0.45 + (gs.fan > 0 ? Math.sin(menuT * 50 + h.side) * 0.04 : 0) - drawOff * 0.9, clamp(gs.swayX * 3, -0.1, 0.1) * sgn, sgn * (gs.pose * 0.9 + (gs.fan > 0 ? 0.25 : 0)));
-    h.cylG.position.x = -0.05 * gs.swing;
+    const tw = gs.twirl > 0 ? Math.min(1, gs.twirl / 0.7) : 0, ang = -TAU * 2 * (tw < 1 ? 1 - Math.pow(1 - tw, 2.2) : 0);
+    if (h.gunG) { const py = -0.035, pz = 0.005, c_ = Math.cos(ang), s_ = Math.sin(ang); h.gunG.rotation.x = ang; h.gunG.position.set(0, py - (py * c_ - pz * s_), pz - (py * s_ + pz * c_)); }
+    const sc_ = gs.spinC > 0 ? gs.spinC : 0, open = sc_ > 0 ? (sc_ < 0.18 ? sc_ / 0.18 : sc_ < 0.82 ? 1 : Math.max(0, (1 - sc_) / 0.18)) : 0;
+    h.cylG.position.x = -0.05 * Math.max(gs.swing, open);
     h.cylSpin.rotation.z = h.cylRot;
     h.hammer.rotation.x = gs.reloading ? 0 : -0.65 * clamp(1 - h.cd / h.cdMax, 0, 1);
     h.flash.visible = h.fl > 0;
@@ -4040,6 +4067,7 @@ window.addEventListener('keydown', e => {
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (e.code === 'KeyR') startReload();
+  if (e.code === 'KeyG') spinCylinder();
   if (e.code === 'KeyF') fan();
   if (e.code === 'KeyQ') deadEye(!game.deOn);
   if (/^Digit[1-7]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
@@ -4049,10 +4077,12 @@ window.addEventListener('keyup', e => { input.keys[e.code] = false; });
 window.addEventListener('blur', () => { input.keys = {}; if (state === 'play') pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pause(); });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('auxclick', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (IS_TOUCH || state !== 'play') return;
   if (!locked && !noLock) { requestLock(true); return; }
   if (e.button === 0) { input.fireHeld = true; tryFire(); }
+  if (e.button === 1) { e.preventDefault(); twirl(); }
   if (e.button === 2) gs.aiming = true;
 });
 canvas.addEventListener('wheel', e => { if (state === 'play') { e.preventDefault(); cycleWeapon(e.deltaY > 0 ? 1 : -1); } }, { passive: false });
