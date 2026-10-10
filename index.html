@@ -536,6 +536,7 @@ const Sfx = (() => {
     holster() { burst({ f0: 900, q: 1, dur: 0.12, vol: 0.2, wet: 0.05 }); burst({ f0: 2400, q: 4, dur: 0.03, vol: 0.2, delay: 0.15 }); },
     spin() { let t = 0; for (let i = 0; i < 14; i++) { t += 0.02 + i * i * 0.0012; burst({ f0: 3400 - i * 60, q: 7, dur: 0.015, vol: 0.16 * (1 - i / 16), delay: t, wet: 0.08 }); } tone({ type: 'triangle', f0: 4600, dur: 0.18, vol: 0.03, delay: t, wet: 0.5 }); },
     insert() { burst({ f0: 1800, f1: 3600, q: 2, dur: 0.06, vol: 0.12, wet: 0.05 }); burst({ f0: 4200, q: 6, dur: 0.02, vol: 0.22, delay: 0.06, wet: 0.05 }); tone({ type: 'square', f0: 2200, f1: 1600, dur: 0.03, vol: 0.05, delay: 0.06 }); tone({ type: 'triangle', f0: 3300, dur: 0.09, vol: 0.035, delay: 0.07, wet: 0.4 }); },
+    clink(pan, v = 1) { tone({ type: 'triangle', f0: rand(3200, 4600), f1: rand(2400, 3000), dur: 0.06, vol: 0.05 * v, pan, wet: 0.2 }); tone({ type: 'sine', f0: rand(6000, 7600), dur: 0.03, vol: 0.02 * v, pan, wet: 0.1 }); },
     shells() { for (let i = 0; i < 6; i++) { const d = 0.22 + i * rand(0.03, 0.08), pn = rand(-0.4, 0.4); tone({ type: 'triangle', f0: rand(2600, 3800), f1: rand(1800, 2400), dur: 0.1, vol: 0.06, delay: d, pan: pn, wet: 0.25 }); tone({ type: 'triangle', f0: rand(4200, 5200), dur: 0.05, vol: 0.025, delay: d + 0.08, pan: pn, wet: 0.3 }); } },
     hit(head, pan) {
       burst({ ftype: 'lowpass', f0: 900, f1: 200, q: 1, dur: 0.12, vol: 0.45, pan, wet: 0.1 });
@@ -856,6 +857,7 @@ function disposeObj(o) {
 }
 function buildMap(i) {
   if (world.group) { scene.remove(world.group); disposeObj(world.group); }
+  if (typeof casings !== 'undefined') { casings.forEach(c => scene.remove(c.m)); casings.length = 0; }
   world.group = new THREE.Group(); scene.add(world.group);
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
@@ -3020,7 +3022,7 @@ function reloadStep(dt) {
   if (gs.phase === 'open') {
     let spent = 0;
     for (const h of act) for (let i = 0; i < h.cap; i++) { if (h.loaded[i] === 2) { h.loaded[i] = 0; spent++; } else if (h.loaded[i] === 3) h.loaded[i] = 0; }
-    if (spent) { Sfx.shells(); act[0].muzzle.getWorldPosition(_mp); for (let i = 0; i < Math.min(spent, 12); i++) P.add(_mp.x, _mp.y - 0.05, _mp.z, rand(-0.6, 0.6), rand(0.5, 1.5), rand(-0.6, 0.6), 1.2, 0.02, 0.8, 0.6, 0.25, 1, 9.8, 0, 0, 0); }
+    if (spent) { Sfx.shells(); let k = 0; for (const h of act) { h.cylG.getWorldPosition(_mp); const n = Math.min(h.cap, 12); for (let i = 0; i < n && k < spent; i++, k++) ejectCasing(_mp.clone().add(new THREE.Vector3(rand(-0.02, 0.02), rand(-0.03, 0.01), rand(-0.02, 0.02))), h.side ? -1 : 1); } }
     refreshChambers(); gs.phase = 'insert'; gs.pt = 0.4 / rs;
   } else if (gs.phase === 'insert') {
     const h = act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0];
@@ -3725,7 +3727,33 @@ function updateAllyThrows(dt) {
     if (k >= 1) { scene.remove(t.m); allyThrows.splice(i, 1); Sfx.boom(); explode(t.b, t.r, t.dmg, 0, false); }
   }
 }
+// Casquillos: al recargar caen del tambor, rebotan con un tintineo y quedan un rato en el suelo.
+const casingGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.045, 8), casings = [];
+function ejectCasing(p, side) {
+  const m = new THREE.Mesh(casingGeo, GM.brass); m.position.copy(p); m.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3)); scene.add(m);
+  _r.setFromMatrixColumn(camera.matrixWorld, 0);
+  const v = new THREE.Vector3(_r.x * rand(0.4, 1.2) * side + rand(-0.3, 0.3), rand(0.2, 0.9), _r.z * rand(0.4, 1.2) * side + rand(-0.3, 0.3));
+  casings.push({ m, v, av: new THREE.Vector3(rand(-20, 20), rand(-20, 20), rand(-20, 20)), t: 0, bounces: 0 });
+  if (casings.length > 80) { const o = casings.shift(); scene.remove(o.m); }
+}
+function updateCasings(dt) {
+  for (let i = casings.length - 1; i >= 0; i--) {
+    const c = casings[i]; c.t += dt;
+    if (c.bounces < 4) {
+      c.v.y -= 9.8 * dt; c.m.position.addScaledVector(c.v, dt);
+      c.m.rotation.x += c.av.x * dt; c.m.rotation.y += c.av.y * dt; c.m.rotation.z += c.av.z * dt;
+      if (c.m.position.y < 0.011) {
+        c.m.position.y = 0.011; c.bounces++;
+        if (c.v.y < -0.6) Sfx.clink(panOf(c.m.position), volOf(c.m.position, Math.min(1, -c.v.y / 3)));
+        c.v.y *= -0.35; c.v.x *= 0.5; c.v.z *= 0.5; c.av.multiplyScalar(0.4);
+        if (c.bounces >= 4) { c.m.rotation.set(Math.PI / 2, rand(0, TAU), 0, 'YXZ'); }
+      }
+    }
+    if (c.t > 25) { c.m.scale.multiplyScalar(Math.exp(-3 * dt)); if (c.t > 27) { scene.remove(c.m); casings.splice(i, 1); } }
+  }
+}
 function updateDebris(dt) {
+  updateCasings(dt);
   for (let i = debris.length - 1; i >= 0; i--) {
     const d = debris[i]; d.t += dt; d.v.y -= 9.8 * dt;
     d.m.position.addScaledVector(d.v, dt);
