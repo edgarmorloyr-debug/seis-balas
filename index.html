@@ -1678,9 +1678,23 @@ function bulletMat(t) {
 }
 
 /* ===================== HUMANOS: zombis y policías ===================== */
+// Caja con bordes redondeados y, si se pide, más ancha arriba que abajo (hombros y cintura).
+function roundBox(w, h, d, r, seg = 4, taper = 0) {
+  const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, v = new THREE.Vector3(), c = new THREE.Vector3();
+  const ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r;
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i); c.set(clamp(v.x, -ix, ix), clamp(v.y, -iy, iy), clamp(v.z, -iz, iz));
+    v.sub(c); if (v.lengthSq() > 1e-9) v.setLength(r); v.add(c);
+    if (taper) { const k = 1 + taper * (v.y / h); v.x *= k; }
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals(); return g;
+}
+const limbGeo = (rTop, rBot, len, seg = 9) => new THREE.CylinderGeometry(rTop, rBot, len, seg, 3).translate(0, -len / 2, 0);
 const ZG = {
-  torso: new THREE.BoxGeometry(0.5, 0.66, 0.28), head: new THREE.BoxGeometry(0.3, 0.32, 0.3),
-  arm: new THREE.BoxGeometry(0.14, 0.64, 0.14).translate(0, -0.3, 0), leg: new THREE.BoxGeometry(0.19, 0.78, 0.19).translate(0, -0.39, 0),
+  torso: roundBox(0.48, 0.66, 0.28, 0.09, 4, 0.22), head: roundBox(0.28, 0.32, 0.29, 0.1, 4),
+  arm: limbGeo(0.08, 0.056, 0.62), leg: limbGeo(0.1, 0.068, 0.76), hand: roundBox(0.075, 0.13, 0.05, 0.022, 2), foot: roundBox(0.12, 0.08, 0.24, 0.035, 2),
+  jaw: roundBox(0.2, 0.07, 0.17, 0.03, 2), socket: new THREE.BoxGeometry(0.085, 0.07, 0.03), nose: new THREE.BoxGeometry(0.05, 0.07, 0.05), tooth: new THREE.BoxGeometry(0.022, 0.03, 0.015), hair: roundBox(0.3, 0.08, 0.3, 0.035, 2),
   eye: new THREE.BoxGeometry(0.065, 0.045, 0.02), mouth: new THREE.BoxGeometry(0.15, 0.045, 0.02), bigMouth: new THREE.BoxGeometry(0.17, 0.12, 0.02),
   belly: new THREE.SphereGeometry(0.22, 10, 8), rib: new THREE.BoxGeometry(0.3, 0.03, 0.02), pus: new THREE.SphereGeometry(0.06, 6, 5),
   helmet: new THREE.BoxGeometry(0.36, 0.3, 0.37), visor: new THREE.BoxGeometry(0.34, 0.12, 0.02), vest: new THREE.BoxGeometry(0.56, 0.5, 0.34),
@@ -1690,6 +1704,25 @@ const ZG = {
   dBody: new THREE.BoxGeometry(0.32, 0.34, 0.85), dHead: new THREE.BoxGeometry(0.24, 0.24, 0.34), dLeg: new THREE.BoxGeometry(0.09, 0.48, 0.09).translate(0, -0.24, 0), dTail: new THREE.BoxGeometry(0.05, 0.05, 0.35).translate(0, 0, -0.17), ear: new THREE.BoxGeometry(0.06, 0.1, 0.03)
 };
 const mouthMat = new THREE.MeshBasicMaterial({ color: 0x120404 });
+const zSkinTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#e6e6e0'; g.fillRect(0, 0, w, h);
+  const blot = (x, y, r, c) => { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); };
+  for (let i = 0; i < 60; i++) blot(Math.random() * w, Math.random() * h, 8 + Math.random() * 30, `rgba(${60 + Math.random() * 40},${70 + Math.random() * 30},${50 + Math.random() * 30},.35)`);
+  for (let i = 0; i < 14; i++) blot(Math.random() * w, Math.random() * h, 10 + Math.random() * 22, 'rgba(90,60,110,.35)');
+  for (let i = 0; i < 18; i++) blot(Math.random() * w, Math.random() * h, 4 + Math.random() * 14, 'rgba(110,10,10,.6)');
+  g.strokeStyle = 'rgba(60,40,80,.35)'; g.lineWidth = 1.2;
+  for (let i = 0; i < 22; i++) { let x = Math.random() * w, y = Math.random() * h; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (Math.random() - 0.5) * 24; y += Math.random() * 16; g.lineTo(x, y); } g.stroke(); }
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+});
+const zClothTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#d8d8d8'; g.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y += 3) { g.fillStyle = `rgba(0,0,0,${0.04 + Math.random() * 0.05})`; g.fillRect(0, y, w, 1); }
+  const blot = (x, y, r, c) => { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); };
+  for (let i = 0; i < 40; i++) blot(Math.random() * w, Math.random() * h, 10 + Math.random() * 36, 'rgba(50,40,25,.3)');
+  for (let i = 0; i < 16; i++) { const x = Math.random() * w, y = Math.random() * h * 0.7; blot(x, y, 12 + Math.random() * 26, 'rgba(90,6,6,.6)'); g.fillStyle = 'rgba(80,6,6,.45)'; g.fillRect(x - 2, y, 3 + Math.random() * 3, 20 + Math.random() * 50); }
+  for (let i = 0; i < 9; i++) { const x = Math.random() * w, y = Math.random() * h; g.fillStyle = 'rgba(15,10,8,.85)'; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 7; k++) g.lineTo(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 24); g.fill(); }
+});
+const toothMat = new THREE.MeshLambertMaterial({ color: 0xd8cfa0 }), socketMat = new THREE.MeshBasicMaterial({ color: 0x0a0605 }), hairMat = new THREE.MeshLambertMaterial({ color: 0x1e1a16 }), shoeMat = new THREE.MeshLambertMaterial({ color: 0x1a1612 });
 const ribMat = new THREE.MeshLambertMaterial({ color: 0xcfc4a8 });
 const pusMat = new THREE.MeshLambertMaterial({ color: 0xc8d040, emissive: 0x3a4a08 });
 const armorMat = new THREE.MeshLambertMaterial({ color: 0x23262b });
@@ -1721,15 +1754,24 @@ function humanoid(z, o, mk) {
   const hipY = o.crawl ? 0.24 : 0.8;
   z.legL = mk(ZG.leg, o.pants, 'limb', z.body, -0.12, hipY, 0);
   z.legR = mk(ZG.leg, o.pants, 'limb', z.body, 0.12, hipY, 0);
+  for (const lg of [z.legL, z.legR]) { const f = new THREE.Mesh(ZG.foot, shoeMat); f.position.set(0, -0.74, 0.05); lg.add(f); }
   z.torsoG = new THREE.Group(); z.torsoG.position.y = hipY; z.body.add(z.torsoG);
   z.torso = mk(ZG.torso, o.shirt, 'body', z.torsoG, 0, 0.33, 0);
   z.neck = new THREE.Group(); z.neck.position.y = 0.68; z.torsoG.add(z.neck);
   z.head = mk(ZG.head, o.skin, 'head', z.neck, 0, 0.16, 0);
-  for (const sx of [-1, 1]) { const e = new THREE.Mesh(ZG.eye, o.eye); e.position.set(sx * 0.07, 0.035, 0.151); z.head.add(e); }
-  const mo = new THREE.Mesh(o.bigMouth ? ZG.bigMouth : ZG.mouth, mouthMat); mo.position.set(0, -0.08, 0.151); z.head.add(mo);
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(ZG.eye, o.eye); e.position.set(sx * 0.065, 0.035, o.zombie ? 0.142 : 0.146); z.head.add(e); if (o.zombie) { const so = new THREE.Mesh(ZG.socket, socketMat); so.position.set(sx * 0.065, 0.035, 0.133); z.head.add(so); } }
+  if (o.zombie) {
+    const no = new THREE.Mesh(ZG.nose, o.skin); no.position.set(0, -0.015, 0.145); z.head.add(no);
+    const jaw = new THREE.Mesh(ZG.jaw, o.skin); jaw.position.set(0, -0.14, 0.04); jaw.rotation.x = o.bigMouth ? 0.55 : 0.28; z.head.add(jaw); z.jaw = jaw;
+    const mo = new THREE.Mesh(o.bigMouth ? ZG.bigMouth : ZG.mouth, mouthMat); mo.scale.set(1, 1.8, 1); mo.position.set(0, -0.095, 0.135); z.head.add(mo);
+    for (let i = 0; i < 5; i++) if (Math.random() < 0.8) { const t = new THREE.Mesh(ZG.tooth, toothMat); t.position.set(-0.05 + i * 0.025, -0.075, 0.142); t.rotation.z = (Math.random() - 0.5) * 0.4; z.head.add(t); }
+    for (let i = 0; i < 4; i++) if (Math.random() < 0.6) { const t = new THREE.Mesh(ZG.tooth, toothMat); t.position.set(-0.04 + i * 0.026, 0.02, 0.08); jaw.add(t); }
+    if (!o.hat && Math.random() < 0.55) { const hr = new THREE.Mesh(ZG.hair, hairMat); hr.position.set(rand(-0.03, 0.03), 0.15, -0.02); hr.scale.set(rand(0.6, 1), 1, rand(0.6, 1)); hr.rotation.y = rand(-0.4, 0.4); z.head.add(hr); }
+  } else { const mo = new THREE.Mesh(o.bigMouth ? ZG.bigMouth : ZG.mouth, mouthMat); mo.position.set(0, -0.08, 0.146); z.head.add(mo); }
   z.armLG = new THREE.Group(); z.armLG.position.set(-0.33, 0.6, 0); z.torsoG.add(z.armLG);
   z.armRG = new THREE.Group(); z.armRG.position.set(0.33, 0.6, 0); z.torsoG.add(z.armRG);
   z.armL = mk(ZG.arm, o.skin, 'limb', z.armLG); z.armR = mk(ZG.arm, o.skin, 'limb', z.armRG);
+  for (const a of [z.armL, z.armR]) { const hd = new THREE.Mesh(ZG.hand, o.skin); hd.position.set(0, -0.66, 0.01); a.add(hd); }
   if (o.crawl) { z.torsoG.rotation.x = 1.3; z.neck.rotation.x = -1.15; z.legL.rotation.x = 1.45; z.legR.rotation.x = 1.5; z.legL.scale.y = 0.6; z.legR.scale.y = 0.45; }
   if (o.hat) addHat(z.head, o.hat);
 }
@@ -1765,7 +1807,8 @@ function buildZombie(type) {
     if (Math.random() < 0.5) { const r = new THREE.Mesh(ZG.rib, ribMat); r.scale.set(0.7, 1, 1); r.position.set(0.161, 0.58, 0.05); r.rotation.y = Math.PI / 2; body.add(r); }
     return z;
   }
-  const o = { skin, shirt, pants, eye: eyeMats[type], crawl: type === 'crawler', bigMouth: type === 'screamer' };
+  skin.map = zSkinTex; shirt.map = zClothTex; pants.map = zClothTex;
+  const o = { skin, shirt, pants, eye: eyeMats[type], crawl: type === 'crawler', bigMouth: type === 'screamer', zombie: true };
   if (type === 'copz') o.hat = 'cop';
   else if (world.hat && Math.random() < world.hatP && type !== 'armored' && type !== 'abom') o.hat = world.hat;
   humanoid(z, o, mk);
