@@ -26,6 +26,7 @@
   color-scheme:dark;
 }
 [hidden]{display:none!important}
+#net-status{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:5;font:600 14px 'Barlow Condensed',sans-serif;letter-spacing:.04em;color:#f3e6c8;background:rgba(18,12,8,.72);border:1px solid rgba(214,165,75,.45);border-radius:6px;padding:4px 10px;pointer-events:none;white-space:nowrap}
 html,body{height:100%;margin:0;background:var(--night);color:var(--bone);overflow:hidden}
 body{font-family:var(--hud);font-size:16px}
 #app{position:fixed;inset:0;overflow:hidden;background:var(--night);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -3209,7 +3210,7 @@ function updateMenu(dt) {
 /* ===================== EN GRUPO: red cooperativa ===================== */
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
-const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'sb_publishable_2wYKaiYpObreJWaLBa-xeA_lWGD_xje' };
+const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
 const flowMap = new Map();
@@ -3223,6 +3224,7 @@ const Net = {
     this.flush();
     const now = performance.now();
     for (const [id, p] of this.peers) if (now - p.seen > 8000) { removeRemote(p); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
+    netStatus(now);
     if (this.client && this.started && now - this.lastHost > 9000 && game && state !== 'over') { hint('Se perdió la conexión con el anfitrión', 4000); gameOver(); }
   },
   flush() {
@@ -3270,6 +3272,14 @@ async function netOpen(room, asHost) {
   Net.room = room; Net.host = asHost; Net.client = !asHost; Net.started = false; Net.hostId = asHost ? Net.id : null; Net.peers.clear(); Net.nextIdx = 1;
   Net.tr = SUPA.url && SUPA.key ? await supaTransport(room) : localTransport(room);
   Net.on = true; Net.flush();
+}
+let netEl = null, sentN = 0;
+function netStatus(now) {
+  if (!netEl) { netEl = document.createElement('div'); netEl.id = 'net-status'; document.body.appendChild(netEl); }
+  const show_ = Net.on && game && state !== 'menu';
+  netEl.hidden = !show_; if (!show_) return;
+  const ps = [...Net.peers.values()];
+  netEl.textContent = ps.length ? 'En grupo · ' + ps.map(p => { const a = (now - p.seen) / 1000; return p.name + (a < 1.5 ? ' ✓' : ' · sin señal hace ' + Math.round(a) + ' s'); }).join(' · ') : 'En grupo · esperando a tus compañeros…';
 }
 function netLeave() {
   if (Net.tr) { try { Net.tr.close(); } catch (e) {} }
@@ -3534,6 +3544,7 @@ function updateRemotes(dt) {
     const spd = Math.hypot(r.x - ox, r.z - oz) / Math.max(dt, 1e-3); av.phase += dt * spd * 2.4; const sw = Math.sin(av.phase);
     av.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); av.legR.rotation.x = -av.legL.rotation.x;
     av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = -sw * 0.4;
+    av.label.visible = Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 4;
     av.fall.rotation.x = damp(av.fall.rotation.x, p.down ? -Math.PI / 2 * 0.95 : 0, 6, dt); av.fall.position.y = p.down ? 0.15 : 0;
   }
 }
