@@ -2132,94 +2132,6 @@ function applyGait(z, sw, moving, dt, idle) {
     if (idle) { z.armLG.rotation.x = -1.7 + Math.sin(t * 15 + z.seed) * 1.0; z.armRG.rotation.x = -1.7 + Math.cos(t * 13 + z.seed) * 1.0; z.armLG.rotation.z = -0.4 + Math.sin(t * 9) * 0.3; z.armRG.rotation.z = 0.4 + Math.cos(t * 11) * 0.3; z.neck.rotation.z = Math.sin(t * 9) * 0.35; }
   }
 }
-/* ===== Zombis de alta calidad: piel con relieve, heridas y anatomía (sobre el mismo esqueleto de animación) ===== */
-const HQ = (() => {
-  const cache = new Map(), memo = (k, f) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k); };
-  const cvs = (s, draw) => { const c = document.createElement('canvas'); c.width = c.height = s; draw(c.getContext('2d'), s); return c; };
-  const ctex = (c, rep = 1) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 4; return t; };
-  function toNormal(hc, strength, rep) {
-    const s = hc.width, src = hc.getContext('2d').getImageData(0, 0, s, s).data, out = document.createElement('canvas'); out.width = out.height = s;
-    const g = out.getContext('2d'), img = g.createImageData(s, s), h = (x, y) => src[(((y + s) % s) * s + ((x + s) % s)) * 4] / 255;
-    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) { const dx = (h(x + 1, y) - h(x - 1, y)) * strength, dy = (h(x, y + 1) - h(x, y - 1)) * strength, l = Math.hypot(dx, dy, 1), i = (y * s + x) * 4; img.data[i] = (-dx / l * 0.5 + 0.5) * 255; img.data[i + 1] = (-dy / l * 0.5 + 0.5) * 255; img.data[i + 2] = (1 / l * 0.5 + 0.5) * 255; img.data[i + 3] = 255; }
-    g.putImageData(img, 0, 0); return ctex(out, rep);
-  }
-  const blot = (g, x, y, r, c) => { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); };
-  const skinN = () => memo('skinN', () => toNormal(cvs(256, (g, s) => { g.fillStyle = '#808080'; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 2600; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${rand(0.05, 0.18)})`; g.beginPath(); g.arc(rand(0, s), rand(0, s), rand(0.5, 2), 0, TAU); g.fill(); }
-    g.lineCap = 'round'; for (let i = 0; i < 45; i++) { g.strokeStyle = `rgba(255,255,255,${rand(0.25, 0.5)})`; g.lineWidth = rand(1, 2.6); let x = rand(0, s), y = rand(0, s); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += rand(-14, 14); y += rand(4, 16); g.lineTo(x, y); } g.stroke(); }
-    for (let i = 0; i < 14; i++) blot(g, rand(0, s), rand(0, s), rand(6, 18), 'rgba(0,0,0,.55)'); }), 2.2, 3));
-  const skinC = (base, rot) => memo('skin' + base, () => ctex(cvs(256, (g, s) => { g.fillStyle = base; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 70; i++) blot(g, rand(0, s), rand(0, s), rand(10, 40), `rgba(${rand(40, 80) | 0},${rand(50, 80) | 0},${rand(30, 50) | 0},${0.25 * rot})`);
-    for (let i = 0; i < 20; i++) blot(g, rand(0, s), rand(0, s), rand(10, 26), `rgba(80,40,90,${0.3 * rot})`);
-    for (let i = 0; i < 26; i++) blot(g, rand(0, s), rand(0, s), rand(3, 12), `rgba(110,8,8,${0.55 * rot})`);
-    g.strokeStyle = `rgba(50,30,70,${0.45 * rot})`; g.lineWidth = 1.2; for (let i = 0; i < 30; i++) { let x = rand(0, s), y = rand(0, s); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 7; k++) { x += rand(-12, 12); y += rand(4, 14); g.lineTo(x, y); } g.stroke(); }
-    for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(0,0,0,${rand(0, 0.1)})`; g.fillRect(rand(0, s), rand(0, s), 2, 2); } }), 2));
-  const torn = (n, fray) => memo(`torn${n}${fray}`, () => ctex(cvs(256, (g, s) => { g.fillStyle = '#fff'; g.fillRect(0, 0, s, s); g.fillStyle = '#000';
-    for (let i = 0; i < n; i++) { const x = rand(0, s), y = rand(s * 0.15, s * 0.85), r = rand(10, 30); g.beginPath(); for (let k = 0; k < 14; k++) { const a = k / 14 * TAU, rr = r * rand(0.5, 1.3); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.fill(); }
-    if (fray) { g.beginPath(); g.moveTo(0, s); for (let x = 0; x <= s; x += 8) g.lineTo(x, s - rand(4, 40)); g.lineTo(s, s); g.fill(); } })));
-  const muscle = () => memo('muscle', () => { const h = cvs(256, (g, s) => { g.fillStyle = '#808080'; g.fillRect(0, 0, s, s); for (let x = 0; x < s; x += 4) { g.fillStyle = `rgba(255,255,255,${rand(0.15, 0.4)})`; g.fillRect(x + rand(-1, 1), 0, rand(1.5, 3), s); } });
-    return { n: toNormal(h, 7, 1), c: ctex(cvs(256, (g, s) => { g.fillStyle = '#4a1210'; g.fillRect(0, 0, s, s); for (let x = 0; x < s; x += 4) { g.fillStyle = `rgba(${rand(120, 190) | 0},${rand(20, 50) | 0},${rand(20, 40) | 0},.6)`; g.fillRect(x, 0, 2, s); } for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(230,220,190,.5)'; g.fillRect(rand(0, s), rand(0, s), rand(10, 40), 3); } })) }; });
-  const stdM = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.6, metalness: 0 }, o));
-  const shared = (k, o) => memo('m' + k, () => stdM(o));
-  const boneM = () => shared('bone', { color: 0xd8ccaa, roughness: 0.55 }), gutM = () => shared('gut', { color: 0x6a1a22, roughness: 0.18, metalness: 0.1, emissive: 0x100204 }), woundM = () => shared('wound', { color: 0x2a0202, roughness: 0.2, metalness: 0.1 }), woundM2 = () => shared('wound2', { color: 0x5a0a0a, roughness: 0.3 });
-  function organic(geo, amp, freq, seed) { const p = geo.attributes.position, n = new THREE.Vector3(), v = new THREE.Vector3(); geo.computeVertexNormals(); const nn = geo.attributes.normal;
-    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); n.fromBufferAttribute(nn, i); const d = Math.sin(v.x * freq + seed) * Math.sin(v.y * freq * 1.3 + seed * 2) * Math.sin(v.z * freq * 0.9 + seed * 3) + 0.5 * Math.sin(v.x * freq * 2.7 + seed) * Math.sin(v.y * freq * 2.1); v.addScaledVector(n, d * amp); p.setXYZ(i, v.x, v.y, v.z); }
-    geo.computeVertexNormals(); return geo; }
-  const torsoG = (w, thin, belly) => memo(`torso${w},${thin},${belly}`, () => { const g = new THREE.LatheGeometry([[0.001, 0], [0.15 * w, 0.02], [0.17 * w + belly * 0.5, 0.15], [0.16 * w + belly, 0.28], [0.18 * w + belly * 0.3, 0.42], [0.22 * w, 0.56], [0.23 * w, 0.62], [0.12 * w, 0.68], [0.06, 0.72], [0.001, 0.72]].map(([r, y]) => new THREE.Vector2(r, y)), 20); g.scale(1.04, 0.92, 0.62 * thin + belly * 0.8); g.translate(0, -0.33, 0); return organic(g, 0.012, 9, 1.3); });
-  const ribG = () => memo('rib', () => new THREE.TorusGeometry(0.11, 0.009, 5, 12, Math.PI * 0.7));
-  const sphG = r => memo('sph' + r, () => new THREE.SphereGeometry(r, 9, 7));
-  const tubeVariants = (k, n, make) => memo(k, () => { const out = []; for (let i = 0; i < n; i++) out.push(make(i)); return out; });
-  function ribs(parent, x, y, z, n, sx) { for (let i = 0; i < n; i++) { const r = new THREE.Mesh(ribG(), boneM()); r.position.set(x, y - i * 0.045, z); r.rotation.set(0.1, sx > 0 ? -0.3 : Math.PI + 0.3, -Math.PI * 0.35); parent.add(r); } }
-  function wound(parent, x, y, z, r) { for (let i = 0; i < 4; i++) { const w = new THREE.Mesh(sphG(0.03), i < 2 ? woundM() : woundM2()); w.scale.set(r / 0.03 * rand(0.5, 0.9), r / 0.03 * rand(0.8, 1.4), 0.3); w.position.set(x + rand(-r, r) * 0.7, y + rand(-r, r), z - 0.004 * i); parent.add(w); } }
-  const gutGeos = () => tubeVariants('guts', 4, () => { const pts = []; let p = new THREE.Vector3(); for (let i = 0; i < 5; i++) { pts.push(p.clone()); p.add(new THREE.Vector3(rand(-0.04, 0.04), -rand(0.03, 0.07), rand(0.01, 0.04))); } return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, rand(0.015, 0.022), 6); });
-  function guts(parent, x, y, z) { wound(parent, x, y + 0.02, z - 0.01, 0.05); for (let k = 0; k < 2; k++) { const m = new THREE.Mesh(pick(gutGeos()), gutM()); m.position.set(x, y, z); parent.add(m); } }
-  const hairGeos = () => tubeVariants('hair', 6, () => { const pts = [], a = rand(0, TAU), el = rand(0.2, 1.3), x = Math.cos(a) * Math.cos(el) * 0.13, y = Math.sin(el) * 0.15, z = Math.sin(a) * Math.cos(el) * 0.14; pts.push(new THREE.Vector3(x, y, z)); for (let k = 1; k < 4; k++) pts.push(new THREE.Vector3(x * (1 + k * 0.1), y - k * rand(0.04, 0.08), z * (1 + k * 0.1))); return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 5, 0.005, 3); });
-  function hair(head, n) { const m = shared('hair', { color: 0x1e1812, roughness: 0.9 }); for (let i = 0; i < n; i++) { const h = new THREE.Mesh(pick(hairGeos()), m); h.rotation.y = rand(0, TAU); head.add(h); } }
-  const veinGeos = (r) => tubeVariants('vein' + r, 5, () => { let a = rand(-0.9, 0.9), y = rand(0.1, 0.25); const pts = []; for (let k = 0; k < 7; k++) { pts.push(new THREE.Vector3(Math.sin(a) * r, y, Math.cos(a) * r * 0.82)); a += rand(-0.12, 0.12); y -= rand(0.04, 0.07); } return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, 0.0045, 3); });
-  function newSkin(z, mat) { const old = z.mats[0]; z.root.traverse(o => { if (o.isMesh && o.material === old) o.material = mat; }); z.mats[0] = mat; old.dispose(); }
-  function apply(z, kind) {
-    const T = z.torso;
-    if (kind === 'podrido') {
-      newSkin(z, stdM({ map: skinC('#8c9a78', 1.1), normalMap: skinN(), normalScale: new THREE.Vector2(0.45, 0.45), roughness: 0.58 }));
-      T.geometry = torsoG(1, 1, 0); const inner = new THREE.Mesh(T.geometry, z.mats[0]); inner.scale.setScalar(0.97); T.add(inner);
-      const sh = z.mats[1]; sh.alphaMap = torn(7, true); sh.alphaTest = 0.5; sh.side = THREE.DoubleSide;
-      ribs(T, 0.06, 0.15, 0.12, 4, 1); guts(T, -0.05, -0.05, 0.13); hair(z.head, 14);
-    } else if (kind === 'demacrado') {
-      newSkin(z, stdM({ map: skinC('#b8b0a0', 0.9), normalMap: skinN(), normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.55 }));
-      T.geometry = torsoG(0.82, 0.82, 0); T.material = z.mats[0];
-      ribs(T, 0.05, 0.17, 0.09, 5, 1); ribs(T, -0.05, 0.17, 0.09, 5, -1);
-      for (const a of [z.armL, z.armR]) a.scale.set(0.72, 1.08, 0.72);
-      for (const l of [z.legL, z.legR]) l.scale.set(0.8, 1, 0.8);
-      if (z.jaw) z.jaw.scale.set(0.9, 1.5, 1.2), z.jaw.rotation.x = 0.7; hair(z.head, 22);
-    } else if (kind === 'hinchado') {
-      newSkin(z, stdM({ map: skinC('#76844e', 1.4), normalMap: skinN(), normalScale: new THREE.Vector2(0.45, 0.45), roughness: 0.45 }));
-      T.material = z.mats[0];
-      const pus = shared('pus', { color: 0x9aa030, emissive: 0x1a2004, roughness: 0.15, metalness: 0.1 }), vein = shared('vein', { color: 0x2a1a3a, roughness: 0.4 });
-      for (let i = 0; i < 12; i++) { const a = rand(-1.2, 1.2), p = new THREE.Mesh(sphG(0.022), pus); p.scale.set(rand(0.6, 1.3), rand(0.6, 1.3), 0.5); p.position.set(Math.sin(a) * 0.24, rand(-0.25, 0.15), Math.cos(a) * 0.16); p.lookAt(p.position.clone().multiplyScalar(3)); T.add(p); }
-      for (let i = 0; i < 6; i++) T.add(new THREE.Mesh(pick(veinGeos(0.25)), vein));
-    } else if (kind === 'esqueleto') {
-      newSkin(z, stdM({ map: skinC('#a09078', 1.2), normalMap: skinN(), normalScale: new THREE.Vector2(0.45, 0.45), roughness: 0.58 }));
-      const sh = z.mats[1]; sh.alphaMap = torn(12, true); sh.alphaTest = 0.5; sh.side = THREE.DoubleSide;
-      ribs(T, 0.0, 0.18, 0.02, 6, 1); ribs(T, 0.0, 0.18, 0.02, 6, -1);
-      for (let i = 0; i < 9; i++) { const v = new THREE.Mesh(memo('vert', () => new THREE.CylinderGeometry(0.026, 0.028, 0.05, 7)), boneM()); v.position.set(0, -0.3 + i * 0.07, -0.05); T.add(v); }
-      const heart = new THREE.Mesh(sphG(0.045), gutM()); heart.position.set(-0.03, 0.08, 0.02); T.add(heart);
-      const skull = new THREE.Mesh(memo('skullHalf', () => new THREE.SphereGeometry(0.152, 16, 12, Math.PI, Math.PI)), boneM()); skull.scale.set(0.95, 1.1, 1.0); skull.position.y = 0.01; z.head.add(skull);
-      z.armR.material = boneM(); z.armR.scale.set(0.45, 1, 0.45); if (z.armR.children[0]) z.armR.children[0].material = boneM();
-    } else if (kind === 'bestia') {
-      const M_ = muscle();
-      const oldSkin = z.mats[0], hideSkin = shared('hideFace', { map: skinC('#6a7058', 1.3), normalMap: skinN(), normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.6 });
-      z.head.traverse(o => { if (o.isMesh && o.material === oldSkin) o.material = hideSkin; });
-      newSkin(z, stdM({ map: M_.c, color: 0x6e4646, normalMap: M_.n, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 0.5, metalness: 0.02 }));
-      T.material = z.mats[0];
-      const hide = new THREE.Mesh(T.geometry, shared('hide', { map: skinC('#6a7058', 1.3), normalMap: skinN(), normalScale: new THREE.Vector2(0.5, 0.5), alphaMap: torn(10, false), alphaTest: 0.5, side: THREE.DoubleSide })); hide.scale.setScalar(1.03); T.add(hide);
-      const spike = shared('spike', { color: 0xe0d4b0, roughness: 0.5 }); for (let i = 0; i < 7; i++) { const sp = new THREE.Mesh(memo('spikeG', () => new THREE.ConeGeometry(0.035, 0.26, 6)), spike); sp.position.set(rand(-0.18, 0.18), rand(-0.1, 0.28), -0.16); sp.rotation.x = -1.8 + rand(-0.3, 0.3); T.add(sp); }
-      const glow = shared('glowV', { color: 0xff6020, emissive: 0xff3000, emissiveIntensity: 0.8 }); for (let i = 0; i < 6; i++) T.add(new THREE.Mesh(pick(veinGeos(0.26)), glow));
-    }
-    z.hq = kind;
-  }
-  return { apply };
-})();
-
 function buildZombie(type) {
   const d = ZDEF[type], s = d.scale;
   const skin = new THREE.MeshLambertMaterial({ color: pick(d.skin) });
@@ -2270,9 +2182,7 @@ function buildZombie(type) {
     const h2 = new THREE.Mesh(ZG.head, skin); h2.scale.setScalar(0.7); h2.position.set(-0.3, 0.32, 0.02); h2.rotation.z = 0.5; z.torso.add(h2);
     const e2 = new THREE.Mesh(ZG.eye, eyeMats.abom); e2.position.set(0, 0.03, 0.151); h2.add(e2);
   }
-  const hqKind = type === 'runner' ? 'demacrado' : type === 'bloater' ? 'hinchado' : type === 'screamer' ? 'esqueleto' : (type === 'brute' || type === 'abom') ? 'bestia' : (type === 'walker' && !o.hat && Math.random() < 0.25) ? 'podrido' : null;
-  if (hqKind) HQ.apply(z, hqKind);
-  else if (type === 'walker' && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
+  if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
   return z;
 }
 function spawnPoint(far) {
