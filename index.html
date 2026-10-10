@@ -3252,11 +3252,17 @@ function localTransport(room) {
 }
 function loadScript(src) { return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); }); }
 async function supaTransport(room) {
-  if (!window.supabase) await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js');
+  const msg = $('#lobby-msg');
+  msg.textContent = 'Paso 1 de 2: cargando la conexión…';
+  if (!window.supabase) { try { await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js'); } catch (e) { throw new Error('paso 1: no cargó la herramienta de conexión'); } }
+  msg.textContent = 'Paso 2 de 2: conectando con el servidor…';
   const cl = window.supabase.createClient(SUPA.url, SUPA.key, { realtime: { params: { eventsPerSecond: 40 } } });
   const ch = cl.channel('seisbalas-' + room, { config: { broadcast: { self: false } } });
   ch.on('broadcast', { event: 'm' }, ({ payload }) => Net.recv(payload));
-  await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('tiempo')), 10000); ch.subscribe(st => { if (st === 'SUBSCRIBED') { clearTimeout(to); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') { clearTimeout(to); rej(new Error(st)); } }); });
+  try {
+    await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('el servidor no respondió en 12 s')), 12000); ch.subscribe((st, err) => { if (st === 'SUBSCRIBED') { clearTimeout(to); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { clearTimeout(to); rej(new Error(st + (err && err.message ? ': ' + err.message : ''))); } }); });
+  } catch (e) { try { cl.removeChannel(ch); } catch (e2) {} throw new Error('paso 2: ' + e.message); }
+  msg.textContent = '';
   return { send: m => ch.send({ type: 'broadcast', event: 'm', payload: m }), close: () => { try { cl.removeChannel(ch); } catch (e) {} } };
 }
 async function netOpen(room, asHost) {
@@ -3284,7 +3290,7 @@ function lobbyOpen() {
 async function lobbyHost() {
   Net.name = nickOf(); store.set('sb_nick', Net.name);
   const code = genCode();
-  try { await netOpen(code, true); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo otra vez.'; return; }
+  try { await netOpen(code, true); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor (' + (e && e.message || e) + '). Mándale una captura de esto a Claude.'; return; }
   $('#room-show').textContent = code; $('#lobby-room').hidden = false; $('#lobby-pick').hidden = true; $('#btn-go').hidden = false;
   $('#lobby-msg').textContent = 'Comparte el código. Cuando estén todos, pulsa Empezar partida.'; renderLobby();
 }
@@ -3292,7 +3298,7 @@ async function lobbyJoin() {
   const code = $('#room-code').value.trim().toUpperCase();
   if (!/^[A-Z]{4}$/.test(code)) { $('#lobby-msg').textContent = 'El código tiene 4 letras, por ejemplo KJRT.'; return; }
   Net.name = nickOf(); store.set('sb_nick', Net.name);
-  try { await netOpen(code, false); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo otra vez.'; return; }
+  try { await netOpen(code, false); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor (' + (e && e.message || e) + '). Mándale una captura de esto a Claude.'; return; }
   $('#room-show').textContent = code; $('#lobby-room').hidden = false; $('#lobby-pick').hidden = true; $('#btn-go').hidden = true;
   $('#lobby-msg').textContent = 'Buscando la sala…'; renderLobby();
   setTimeout(() => { if (Net.on && Net.client && !Net.hostId && state === 'menu') { $('#lobby-msg').textContent = 'No encontré esa sala. Revisa el código.'; netLeave(); $('#lobby-room').hidden = true; $('#lobby-pick').hidden = false; } }, 6000);
