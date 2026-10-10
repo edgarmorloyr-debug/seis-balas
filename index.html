@@ -189,6 +189,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .rec{color:var(--gold);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .set{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center;text-align:left;font-size:16px}
 .set input{width:100%;accent-color:var(--brass);min-height:32px}
+.set select{width:100%;min-height:48px;padding:0 10px;font:600 16px var(--hud);color:var(--bone);background:rgba(20,15,10,.85);border:1px solid var(--brass);border-radius:8px}
 
 .shop-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;text-align:left}
 .purse{font-family:var(--display);font-size:34px;color:var(--gold);font-variant-numeric:tabular-nums;text-align:right}
@@ -342,6 +343,15 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="set">
         <label for="sens">Sensibilidad</label><input id="sens" type="range" min="0.3" max="2.5" step="0.05">
         <label for="vol">Volumen</label><input id="vol" type="range" min="0" max="1" step="0.05">
+        <label for="music">Música</label><select id="music">
+          <option value="map">Según el mapa</option>
+          <option value="0">Cementerio · órgano</option>
+          <option value="1">Granja · banjo</option>
+          <option value="2">Calles · caja de música</option>
+          <option value="3">Supermercado · música de ascensor</option>
+          <option value="4">Rascacielos · cuerdas</option>
+          <option value="off">Apagada</option>
+        </select>
       </div>
       <p class="note" id="pause-note"></p>
       <div class="row"><button class="btn" id="btn-resume">Seguir</button><button class="btn2" id="btn-quit">Salir al menú</button></div>
@@ -420,7 +430,7 @@ const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
 if (IS_TOUCH) app.classList.add('touch');
-const settings = { sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8) };
+const settings = { sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
 if (typeof THREE === 'undefined') { $('#loading').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga.'; return; }
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
@@ -2214,6 +2224,7 @@ function freeze(z, t) {
 }
 let lastBulletFeed = -9;
 function shoot(h, fanned) {
+  Music.duck();
   const m = MODELS[h.model], st = 1 - 0.25 * lv('steady');
   let guard = 0;
   while (!isLoaded(h.loaded[h.idx]) && guard++ < h.cap) { h.idx = (h.idx + 1) % h.cap; h.cylTarget += TAU / h.cap; h.hudRot -= 360 / h.cap; }
@@ -3719,6 +3730,64 @@ function updateRemotes(dt) {
   }
 }
 
+/* ===================== MÚSICA ===================== */
+// Cada mapa tiene su tema, compuesto en vivo con sonidos sintetizados (sin canciones con derechos de autor).
+// Va bajita y se agacha un momento con cada disparo para no tapar los gruñidos que avisan dónde viene un zombi.
+const Music = (() => {
+  let ctx = null, master, bus, revIn, out = null, cur = null, key = null, nextT = 0, step = 0, noiseBuf, wob, timer = null;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function init() {
+    if (ctx) return;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = ctx.createGain(); master.gain.value = settings.vol * 0.55; master.connect(ctx.destination);
+    bus = ctx.createGain(); bus.connect(master);
+    const rev = ctx.createConvolver(), len = ctx.sampleRate * 2.6, ib = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    rev.buffer = ib; revIn = ctx.createGain(); revIn.gain.value = 0.4; revIn.connect(rev); rev.connect(bus);
+    wob = ctx.createOscillator(); wob.frequency.value = 0.35; wob.g = ctx.createGain(); wob.g.gain.value = 28; wob.connect(wob.g); wob.start();
+    timer = setInterval(tick, 50);
+  }
+  function dest(node, wet) { node.connect(out); const s = ctx.createGain(); s.gain.value = wet; node.connect(s); s.connect(revIn); }
+  function env(g, t, a, v, dur, rel) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a); g.gain.setValueAtTime(v, t + Math.max(a, dur - rel)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+  function osc(type, f, t, dur, det = 0) { const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = det; o.start(t); o.stop(t + dur + 0.05); return o; }
+  const V = {
+    organ(t, f, dur, v) { const g = ctx.createGain(); [[1, 1], [2, 0.5], [3, 0.25], [4, 0.18]].forEach(([r, a]) => { const o = osc('sine', f * r, t, dur), og = ctx.createGain(); og.gain.value = a; o.connect(og); og.connect(g); }); env(g, t, 0.12, v, dur, 0.6); dest(g, 0.9); },
+    pluck(t, f, dur, v, bright, wet) { const g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(bright, t); lp.frequency.exponentialRampToValueAtTime(260, t + Math.min(dur, 0.6)); for (const d of [-4, 4]) osc('sawtooth', f, t, dur, d).connect(lp); lp.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); dest(g, wet); },
+    bass(t, f, dur, v) { const o = osc('triangle', f, t, dur), g = ctx.createGain(); o.connect(g); env(g, t, 0.01, v, dur, 0.2); dest(g, 0.15); },
+    musicbox(t, f, v) { const det = (Math.random() - 0.5) * 44; [[1, 1, 1.4], [4.1, 0.2, 0.4]].forEach(([r, a, d]) => { const o = osc('sine', f * r, t, d, det), g = ctx.createGain(); o.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * a, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + d); dest(g, 0.9); }); },
+    epiano(t, f, dur, v) { const c = osc('sine', f, t, dur), m = osc('sine', f, t, dur), mg = ctx.createGain(); mg.gain.setValueAtTime(f * 1.4, t); mg.gain.exponentialRampToValueAtTime(f * 0.05, t + 0.8); m.connect(mg); mg.connect(c.frequency); wob.g.connect(c.detune); const g = ctx.createGain(); c.connect(g); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); dest(g, 0.6); },
+    pad(t, f, dur, v, cut) { const g = ctx.createGain(), lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cut; for (const d of [-9, 0, 9]) osc('sawtooth', f, t, dur, d).connect(lp); lp.connect(g); const a = Math.min(1.4, dur * 0.4); env(g, t, a, v, dur, a); dest(g, 0.8); }
+  };
+  const THEMES = [
+    { bpm: 40, spb: 1, step(i, t, sd) { const c = [[50, 53, 57], [46, 50, 53], [43, 46, 50], [45, 49, 52]][Math.floor(i / 4) % 4]; if (i % 4 === 0) { c.forEach(n => V.organ(t, mtof(n + 12), 3.9 * sd, 0.03)); V.organ(t, mtof(c[0] - 12), 3.9 * sd, 0.04); } } },
+    { bpm: 100, spb: 2, step(i, t, sd) { const c = [[67, 71, 74], [72, 76, 79], [74, 78, 81], [67, 71, 74]][Math.floor(i / 8) % 4], pat = [0, 1, 2, 0, 1, 2, 0, 2]; V.pluck(t, mtof(c[pat[i % 8]]), 0.4, 0.045, 5200, 0.25); if (i % 4 === 0) V.bass(t, mtof(c[0] - 24 + (i % 8 === 4 ? 7 : 0)), sd * 1.6, 0.08); } },
+    { bpm: 84, spb: 1, step(i, t, sd) { const mel = [76, 79, 83, 84, 83, 79, 76, 78, 79, 78, 74, 71, 76, 79, 83, 86, 84, 83, 81, 79, 78, 76, 75, 76], n = mel[i % mel.length]; V.musicbox(t, mtof(n), 0.06); if (i % 3 === 0) V.musicbox(t, mtof(n - 24), 0.03); } },
+    { bpm: 84, spb: 2, step(i, t, sd) { const c = [[60, 64, 67, 71], [57, 60, 64, 67], [62, 65, 69, 72], [55, 59, 62, 65]][Math.floor(i / 8) % 4], k = i % 8; if (k === 0 || k === 3) c.forEach(n => V.epiano(t, mtof(n), 1.6, 0.025)); if (k === 0) V.bass(t, mtof(c[0] - 24), sd * 3, 0.07); if (k === 4) V.bass(t, mtof(c[0] - 17), sd * 3, 0.06); } },
+    { bpm: 56, spb: 1, step(i, t, sd) { const c = [[52, 59, 64, 67], [48, 55, 64, 67], [45, 52, 60, 64], [47, 54, 63, 66]][Math.floor(i / 4) % 4]; if (i % 4 === 0) c.forEach(n => V.pad(t, mtof(n), 4 * sd, 0.02, 1400)); if (i % 8 === 6) V.pad(t, mtof(c[3] + 12), 2 * sd, 0.016, 2400); } }
+  ];
+  function tick() {
+    if (!cur || !ctx || ctx.state !== 'running') return;
+    const sd = 60 / cur.bpm / cur.spb;
+    if (nextT < ctx.currentTime) nextT = ctx.currentTime + 0.05;
+    while (nextT < ctx.currentTime + 0.3) { cur.step(step, nextT, sd); nextT += sd; step++; }
+  }
+  function play(k) {
+    if (!ctx || k === key) return; key = k;
+    if (out) { const o = out; o.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); setTimeout(() => { try { o.disconnect(); } catch (e) {} }, 2500); out = null; }
+    cur = k === null ? null : THEMES[k];
+    if (cur) { out = ctx.createGain(); out.gain.setValueAtTime(0.0001, ctx.currentTime); out.gain.setTargetAtTime(1, ctx.currentTime, 0.8); out.connect(bus); step = 0; nextT = ctx.currentTime + 0.1; }
+  }
+  return {
+    init() { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); },
+    update() {
+      const on = game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state) && settings.music !== 'off';
+      play(on ? (settings.music === 'map' ? Math.max(0, world.idx) : +settings.music) : null);
+    },
+    duck() { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(0.35, t, 0.03); bus.gain.setTargetAtTime(1, t + 1, 0.5); } },
+    setVol(v) { if (ctx) master.gain.setTargetAtTime(v * 0.55, ctx.currentTime, 0.05); }
+  };
+})();
+
 /* ===================== PANTALLAS ===================== */
 function show(id) { ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
@@ -3737,7 +3806,7 @@ function requestLock(gesture) {
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(lockFailed); } catch (e) { lockFailed(); }
 }
 function startGame(sv) {
-  Sfx.init(); newGame(sv && sv.wave ? sv : null);
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   renderChips(); requestLock(); canvas.focus();
 }
@@ -3745,10 +3814,10 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#sens').value = settings.sens; $('#vol').value = settings.vol;
+  $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music;
   show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
-function resume() { if (state !== 'pause') return; state = 'play'; show(null); requestLock(true); canvas.focus(); }
+function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
 function toMenu() {
   if (game && game.deOn) deadEye(false);
   netLeave();
@@ -3774,7 +3843,8 @@ $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause') 
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } });
 $('#btn-reroll').addEventListener('click', () => { if (state !== 'shop' || game.gold < game.reroll) return; game.gold -= game.reroll; game.reroll += 2; rollOffers(); Sfx.dice(); renderShop(); });
 $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; store.set('sb_sens', settings.sens); });
-$('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); });
+$('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); });
+$('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
 
 /* ===================== CONTROLES ===================== */
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) { lockFails = 0; noLock = false; } if (!locked && state === 'play' && !noLock) pause(); });
@@ -3784,7 +3854,7 @@ window.addEventListener('keydown', e => {
   input.keys[e.code] = true;
   if (state === 'menu' && e.code === 'Enter' && document.activeElement && document.activeElement.tagName !== 'BUTTON') { const sv = store.get(SAVE_KEY, null); startGame(sv); return; }
   if (state === 'perks' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) { const p = perkChoices[+e.code.slice(5) - 1]; if (p) choosePerk(p); return; }
-  if (e.code === 'KeyM') { settings.vol = settings.vol > 0 ? 0 : 0.8; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); hint(settings.vol ? 'Sonido activado' : 'Sonido apagado', 1200); }
+  if (e.code === 'KeyM') { settings.vol = settings.vol > 0 ? 0 : 0.8; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); hint(settings.vol ? 'Sonido activado' : 'Sonido apagado', 1200); }
   if (state === 'pause' && (e.code === 'Escape' || e.code === 'KeyP')) { if (performance.now() - pausedAt > 400) resume(); return; }
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
@@ -3866,7 +3936,7 @@ function frame() {
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
-  Net.tick(dt); updateRemotes(dt);
+  Net.tick(dt); updateRemotes(dt); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll);
   renderer.render(scene, camera);
