@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#120c08">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Seis Balas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -189,6 +192,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .rec{color:var(--gold);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .set{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center;text-align:left;font-size:16px}
 .set input{width:100%;accent-color:var(--brass);min-height:32px}
+.fs-btn{min-height:48px;justify-self:start}
 .set select{width:100%;min-height:48px;padding:0 10px;font:600 16px var(--hud);color:var(--bone);background:rgba(20,15,10,.85);border:1px solid var(--brass);border-radius:8px}
 
 .shop-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;text-align:left}
@@ -352,6 +356,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
           <option value="4">Rascacielos · cuerdas</option>
           <option value="off">Apagada</option>
         </select>
+        <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
       </div>
       <p class="note" id="pause-note"></p>
       <div class="row"><button class="btn" id="btn-resume">Seguir</button><button class="btn2" id="btn-quit">Salir al menú</button></div>
@@ -1502,63 +1507,169 @@ function mkHand(side) {
   return { side, root, k, flash, flashLight, caps: [], loaded: [], idx: 0, ammo: 6, cap: 6, cd: 0, cdMax: 0.32, kick: 0, fl: 0, cylRot: 0, cylTarget: 0, active: side === 0, full: true, cShots: 0, cKills: 0, hud: null, hudRot: 0, model: 'paci' };
 }
 const hands = [mkHand(0), mkHand(1)];
+// ---- Armas: materiales de metal con reflejos, madera con vetas y siluetas de revólver de verdad ----
+const gunEnv = (() => {
+  const t = canvasTex(256, 128, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1a2233'); gr.addColorStop(0.42, '#3b3a44'); gr.addColorStop(0.5, '#c88a4a'); gr.addColorStop(0.56, '#3a2a1e'); gr.addColorStop(1, '#0c0907');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    for (const [x, y, r, c] of [[40, 30, 18, 'rgba(255,240,210,.9)'], [170, 22, 24, 'rgba(255,230,190,.7)'], [120, 58, 30, 'rgba(255,170,90,.55)'], [220, 70, 14, 'rgba(255,200,140,.6)']]) { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  });
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  try { const pm = new THREE.PMREMGenerator(renderer); const e = pm.fromEquirectangular(t).texture; pm.dispose(); return e; } catch (e) { return t; }
+})();
+const woodTex = (base, dark, light) => canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) { const y0 = Math.random() * h, a = 2 + Math.random() * 6, f = 0.01 + Math.random() * 0.03, ph = Math.random() * 6; g.strokeStyle = Math.random() < 0.6 ? dark : light; g.globalAlpha = 0.25 + Math.random() * 0.4; g.lineWidth = 0.6 + Math.random() * 2.2; g.beginPath(); for (let x = 0; x <= w; x += 4) { const y = y0 + Math.sin(x * f + ph) * a + Math.sin(x * 0.11 + ph) * 0.8; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  g.globalAlpha = 1;
+});
+const checkTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#808080'; g.fillRect(0, 0, w, h); g.strokeStyle = '#202020'; g.lineWidth = 2; for (let i = -w; i < w * 2; i += 8) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke(); } }, 1);
+const caseTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#4a4a55'; g.fillRect(0, 0, w, h);
+  const cols = ['rgba(150,90,40,.5)', 'rgba(70,90,160,.55)', 'rgba(120,60,120,.45)', 'rgba(200,170,110,.35)', 'rgba(40,50,70,.6)'];
+  for (let i = 0; i < 90; i++) { const x = Math.random() * w, y = Math.random() * h, r = 8 + Math.random() * 34, rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, cols[i % cols.length]); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+});
+const rustTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#6a6a6e'; g.fillRect(0, 0, w, h); for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${120 + Math.random() * 60},${60 + Math.random() * 30},30,${Math.random() * 0.35})`; const r = 1 + Math.random() * 5; g.fillRect(Math.random() * w, Math.random() * h, r, r); } });
+const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ envMap: gunEnv, envMapIntensity: 1.5 }, o));
+Object.assign(GM, {
+  blue: std({ color: 0x262b36, metalness: 0.9, roughness: 0.32 }),
+  steel: std({ color: 0x8a8e96, metalness: 1, roughness: 0.3 }),
+  chrome: std({ color: 0xd2d4da, metalness: 1, roughness: 0.14 }),
+  black: std({ color: 0x1b1c20, metalness: 0.6, roughness: 0.55 }),
+  stain: std({ color: 0xa6aab2, metalness: 1, roughness: 0.38 }),
+  caseH: std({ color: 0xffffff, map: caseTex, metalness: 0.85, roughness: 0.3 }),
+  brassF: std({ color: 0x9c7432, metalness: 1, roughness: 0.5, envMapIntensity: 0.7 }),
+  rust: std({ color: 0xffffff, map: rustTex, metalness: 0.7, roughness: 0.7 }),
+  wood: std({ map: woodTex('#4a240e', '#1a0a03', '#7a3e18'), metalness: 0, roughness: 0.45, envMapIntensity: 0.5 }),
+  woodL: std({ map: woodTex('#6e4422', '#2e1a0a', '#9a6a3a'), metalness: 0, roughness: 0.75, envMapIntensity: 0.3 }),
+  ivory: std({ color: 0xece2c8, metalness: 0, roughness: 0.35, envMapIntensity: 0.6 }),
+  rubber: std({ color: 0x1a1a1c, bumpMap: checkTex, bumpScale: 0.004, metalness: 0, roughness: 0.85, envMapIntensity: 0.3 }),
+  brass: std({ color: 0xd8a446, metalness: 1, roughness: 0.25 }),
+  spent: std({ color: 0x4d3b1f, metalness: 0.6, roughness: 0.7 }),
+  bore: new THREE.MeshBasicMaterial({ color: 0x050505 }),
+  screw: std({ color: 0xc0c4cc, metalness: 1, roughness: 0.25 }),
+  glove: new THREE.MeshLambertMaterial({ color: 0x6a4428 }), gloveD: new THREE.MeshLambertMaterial({ color: 0x4a2e1a }),
+  heat: new THREE.MeshStandardMaterial({ color: 0x2a1a14, emissive: 0xff4a10, emissiveIntensity: 0.0, metalness: 0.6, roughness: 0.5 })
+});
+// Perfil 2D (adelante = u positivo, arriba = v) extruido de lado a lado y centrado.
+function profileGeo(pts, depth, bevel = 0.004, holes = []) {
+  const s = new THREE.Shape(); pts.forEach(([u, v], i) => i ? s.lineTo(u, v) : s.moveTo(u, v));
+  for (const hp of holes) { const p = new THREE.Path(); hp.forEach(([u, v], i) => i ? p.lineTo(u, v) : p.moveTo(u, v)); s.holes.push(p); }
+  const g = new THREE.ExtrudeGeometry(s, { depth: depth - bevel * 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.9, bevelSegments: 2, curveSegments: 6 });
+  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 9, uv.getY(i) * 9);
+  g.translate(0, 0, -(depth - bevel * 2) / 2); g.rotateY(Math.PI / 2);   // u→ -z (adelante), extrusión → x
+  g.computeVertexNormals(); return g;
+}
+const arc = (cu, cv, r, a0, a1, n = 6) => { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([cu + Math.cos(a) * r, cv + Math.sin(a) * r]); } return o; };
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
   while (h.k.children.length) { const c = h.k.children[0]; h.k.remove(c); c.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   const m = MODELS[id], N = m.cap, L = m.L, R = m.R, mini = id === 'minigun';
   const P_ = (geo, mat, x, y, z, parent = h.k) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); parent.add(o); return o; };
-  const frameM = id === 'viejo' ? GM.brassF : id === 'magnum' || mini ? GM.black : id === 'corto' ? GM.chrome : GM.blue;
-  const barM = id === 'corto' ? GM.chrome : id === 'magnum' ? GM.black : GM.steel;
-  const gripM = id === 'magnum' || mini ? GM.rubber : id === 'viejo' ? GM.woodL : GM.wood;
+  const LOOK = {
+    paci: { frame: GM.caseH, barrel: GM.blue, cyl: GM.blue, grip: GM.wood, trig: GM.brassF },
+    corto: { frame: GM.chrome, barrel: GM.chrome, cyl: GM.chrome, grip: GM.ivory, trig: GM.chrome },
+    viejo: { frame: GM.brassF, barrel: GM.rust, cyl: GM.rust, grip: GM.woodL, trig: GM.brassF },
+    magnum: { frame: GM.stain, barrel: GM.stain, cyl: GM.stain, grip: GM.rubber, trig: GM.stain },
+    minigun: { frame: GM.black, barrel: GM.steel, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
+  }[id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
   let spinG = null, muzzleY = 0.03, muzzleZ;
   h.caps = [];
+  const rot = o => { o.rotation.x = Math.PI / 2; return o; };
   if (mini) {
-    P_(bx(0.05, 0.08, 0.17), frameM, 0, 0, 0);
-    P_(bx(0.016, 0.03, 0.15), GM.steel, 0, 0.07, -0.02);
+    // cuerpo con asa de transporte y protector de cañones
+    P_(profileGeo([[-0.09, -0.04], [0.09, -0.04], [0.1, 0.035], [0.06, 0.05], [-0.07, 0.05], [-0.095, 0.03]], 0.056, 0.006), LOOK.frame, 0, 0, 0.01);
+    P_(profileGeo([[-0.06, 0.05], [-0.05, 0.1], [0.06, 0.1], [0.07, 0.05], [0.05, 0.05], [0.045, 0.085], [-0.035, 0.085], [-0.045, 0.05]], 0.016, 0.003), LOOK.frame, 0, 0, 0.01);
     cylG.position.set(0, 0.012, -0.05);
-    P_(cyl(0.062, 0.062, 0.1, 20), GM.blue, 0, 0, 0, cylSpin).rotation.x = Math.PI / 2;
-    for (let i = 0; i < 12; i++) { const a = i * TAU / 12, c = P_(cyl(0.008, 0.008, 0.006, 8), GM.brass, Math.sin(a) * 0.046, Math.cos(a) * 0.046, 0.051, cylSpin); c.rotation.x = Math.PI / 2; h.caps.push(c); }
+    rot(P_(cyl(0.064, 0.064, 0.1, 28), LOOK.cyl, 0, 0, 0, cylSpin));
+    for (let i = 0; i < 6; i++) { const a = (i + 0.5) * TAU / 6; P_(bx(0.012, 0.012, 0.09), GM.black, Math.sin(a) * 0.062, Math.cos(a) * 0.062, 0, cylSpin); }
+    for (let i = 0; i < 12; i++) { const a = i * TAU / 12, c = rot(P_(cyl(0.008, 0.008, 0.006, 10), GM.brass, Math.sin(a) * 0.046, Math.cos(a) * 0.046, 0.051, cylSpin)); h.caps.push(c); }
     spinG = new THREE.Group(); spinG.position.set(0, 0.012, -0.1); h.k.add(spinG);
-    for (let i = 0; i < 6; i++) { const a = i * TAU / 6; P_(cyl(0.008, 0.008, 0.34, 8), GM.steel, Math.sin(a) * 0.024, Math.cos(a) * 0.024, -0.17, spinG).rotation.x = Math.PI / 2; }
-    for (const zz of [-0.04, -0.2, -0.33]) P_(cyl(0.036, 0.036, 0.012, 14), frameM, 0, 0, zz, spinG).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6; rot(P_(cyl(0.0085, 0.0085, 0.34, 12), LOOK.barrel, Math.sin(a) * 0.024, Math.cos(a) * 0.024, -0.17, spinG)); rot(P_(cyl(0.0045, 0.0045, 0.002, 8), GM.bore, Math.sin(a) * 0.024, Math.cos(a) * 0.024, -0.341, spinG)); }
+    for (const zz of [-0.04, -0.2]) rot(P_(cyl(0.038, 0.038, 0.014, 20), LOOK.frame, 0, 0, zz, spinG));
+    h.heatRing = rot(P_(cyl(0.039, 0.039, 0.03, 20), GM.heat, 0, 0, -0.32, spinG));
     hammer.position.set(0, 0.04, 0.085); P_(bx(0.012, 0.03, 0.016), GM.steel, 0, 0.012, 0, hammer);
-    P_(bx(0.034, 0.12, 0.05), gripM, 0, -0.09, 0.07).rotation.x = -0.38;
-    P_(bx(0.004, 0.022, 0.006), GM.steel, 0, -0.05, 0.012).rotation.x = 0.3;
+    P_(profileGeo([[0.005, -0.03], [-0.01, -0.05], [-0.03, -0.14], [-0.075, -0.14], [-0.07, -0.11], [-0.05, -0.03]], 0.04, 0.008), LOOK.grip, 0, 0, 0.03);
+    rot(P_(new THREE.TorusGeometry(0.02, 0.0035, 8, 16, Math.PI), LOOK.frame, 0, -0.04, 0.0)).rotation.set(0, Math.PI / 2, Math.PI);
+    P_(profileGeo([[0, 0], [-0.004, -0.02], [0.004, -0.026], [0.006, -0.004]], 0.006, 0.0015), LOOK.trig, 0, -0.035, 0.004);
     muzzleY = 0.012; muzzleZ = -0.45;
   } else {
-    P_(bx(0.034, 0.062, 0.13), frameM, 0, 0, 0.01);
-    P_(bx(0.03, 0.012, 0.12), frameM, 0, 0.045, -0.035);
-    P_(cyl(R, R * 1.05, L, id === 'viejo' ? 8 : 12), barM, 0, 0.03, -0.07 - L / 2).rotation.x = Math.PI / 2;
-    if (id === 'magnum') { P_(bx(0.012, 0.009, L), barM, 0, 0.046, -0.07 - L / 2); P_(bx(0.02, 0.022, L * 0.95), barM, 0, 0.011, -0.07 - L * 0.475); }
-    else if (id === 'viejo') P_(bx(0.008, 0.012, L * 0.6), GM.steel, 0, 0.009, -0.07 - L * 0.3);
-    else { const el_ = Math.min(0.16, L * 0.6); P_(cyl(0.0065, 0.0065, el_, 8), frameM, 0, 0.011, -0.07 - el_ / 2).rotation.x = Math.PI / 2; }
-    P_(bx(0.004, 0.014, 0.014), id === 'magnum' ? GM.orange : barM, 0, 0.047, -0.07 - L + 0.012);
-    P_(bx(0.006, 0.01, 0.01), frameM, -0.007, 0.054, 0.04); P_(bx(0.006, 0.01, 0.01), frameM, 0.007, 0.054, 0.04);
-    const rc = id === 'corto' ? 0.031 : 0.034;
+    const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
+    // armazón con ventana para el tambor
+    const fw = 0.032, top = magnum ? 0.054 : 0.05;
+    const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, -0.03], [0.04, -0.036], [-0.02, -0.036], [-0.045, -0.024], [-0.075, -0.012], [-0.08, 0.04], [-0.07, 0.058], [0.02, 0.058], [0.045, 0.056], [0.06, 0.05], [0.075, top - 0.002]];
+    const frameWin = [[-0.071, -0.026], [-0.071, 0.04], [0.001, 0.04], [0.001, -0.026]];
+    P_(profileGeo(frameOut.map(([z, v]) => [-z, v]), fw, 0.004, [frameWin.map(([z, v]) => [-z, v])]), LOOK.frame, 0, 0, 0);
+    // cañón
+    const bseg = viejo ? 8 : 20;
+    rot(P_(cyl(R, R * 1.06, L, bseg), LOOK.barrel, 0, 0.03, -0.07 - L / 2));
+    rot(P_(cyl(R * 0.55, R * 0.55, 0.002, 10), GM.bore, 0, 0.03, -0.0712 - L));
+    rot(P_(cyl(R * 1.18, R * 1.18, 0.012, bseg), LOOK.barrel, 0, 0.03, -0.075 - 0.006));
+    if (magnum) {
+      P_(bx(0.014, 0.012, L), LOOK.barrel, 0, 0.046, -0.07 - L / 2);
+      for (let i = 0; i < 8; i++) P_(bx(0.016, 0.003, 0.003), GM.black, 0, 0.0525, -0.08 - i * (L - 0.02) / 8);
+      P_(bx(0.022, 0.024, L * 0.96), LOOK.barrel, 0, 0.012, -0.07 - L * 0.48);
+      P_(bx(0.014, 0.012, 0.016), GM.black, 0, 0.064, 0.04);
+    } else if (viejo) {
+      P_(bx(0.008, 0.014, L * 0.6), GM.steel, 0, 0.008, -0.07 - L * 0.3);
+      P_(bx(0.01, 0.006, 0.05), GM.brassF, 0, 0.0, -0.09);
+    } else {
+      const el_ = Math.min(0.16, L * 0.6);
+      rot(P_(cyl(0.0068, 0.0068, el_, 10), LOOK.barrel, 0, 0.011, -0.07 - el_ / 2));
+      rot(P_(cyl(0.0085, 0.0085, 0.008, 10), GM.screw, 0, 0.011, -0.07 - el_));
+    }
+    P_(profileGeo([[0, 0], [0.003, 0.014], [0.012, 0.014], [0.014, 0]], 0.0045, 0.001), magnum ? GM.orange : LOOK.barrel, 0, 0.03 + R * 0.8, -0.07 - L + 0.016);
+    P_(bx(0.006, 0.01, 0.01), LOOK.frame, -0.007, top + 0.004, 0.04); P_(bx(0.006, 0.01, 0.01), LOOK.frame, 0.007, top + 0.004, 0.04);
+    // tambor con estrías y biseles
+    const rc = corto ? 0.031 : 0.034, cl = 0.07;
     cylG.position.set(0, 0.005, -0.035);
-    P_(cyl(rc, rc, 0.07, 14), id === 'viejo' ? GM.blue : GM.steel, 0, 0, 0, cylSpin).rotation.x = Math.PI / 2;
-    for (let i = 0; i < N; i++) { const a = i * TAU / N, c = P_(cyl(0.0085, 0.0085, 0.006, 10), GM.brass, Math.sin(a) * rc * 0.62, Math.cos(a) * rc * 0.62, 0.035, cylSpin); c.rotation.x = Math.PI / 2; h.caps.push(c); }
-    for (let i = 0; i < N; i++) { const a = (i + 0.5) * TAU / N; P_(bx(0.006, 0.006, 0.05), GM.blue, Math.sin(a) * rc * 0.97, Math.cos(a) * rc * 0.97, 0, cylSpin); }
+    const lathe = new THREE.LatheGeometry([[0.0001, -cl / 2], [rc - 0.006, -cl / 2], [rc, -cl / 2 + 0.006], [rc, cl / 2 - 0.004], [rc - 0.003, cl / 2], [0.0001, cl / 2]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
+    rot(P_(lathe, LOOK.cyl, 0, 0, 0, cylSpin));
+    if (!viejo) for (let i = 0; i < N; i++) { const a = (i + 0.5) * TAU / N; P_(bx(0.009, 0.006, cl * 0.62), GM.black, Math.sin(a) * rc * 0.96, Math.cos(a) * rc * 0.96, -0.004, cylSpin); }
+    else for (let i = 0; i < N; i++) { const a = (i + 0.5) * TAU / N; rot(P_(cyl(0.004, 0.004, 0.008, 6), GM.steel, Math.sin(a) * rc * 0.62, Math.cos(a) * rc * 0.62, cl / 2 + 0.003, cylSpin)); }
+    for (let i = 0; i < N; i++) { const a = i * TAU / N, c = rot(P_(cyl(0.0085, 0.0085, 0.006, 12), GM.brass, Math.sin(a) * rc * 0.62, Math.cos(a) * rc * 0.62, cl / 2, cylSpin)); h.caps.push(c); }
+    rot(P_(cyl(0.006, 0.006, 0.004, 10), GM.screw, 0, 0, -cl / 2 - 0.001, cylSpin));
+    // martillo con espuela
     hammer.position.set(0, 0.032, 0.072);
-    P_(bx(0.01, 0.032, 0.014), GM.steel, 0, 0.012, 0, hammer); P_(bx(0.012, 0.008, 0.018), GM.steel, 0, 0.028, 0.008, hammer);
-    { const tg = new THREE.Group(); tg.position.set(0, -0.034, -0.002); tg.rotation.y = Math.PI / 2; h.k.add(tg); P_(new THREE.TorusGeometry(0.019, 0.003, 6, 14, Math.PI), frameM, 0, 0, 0, tg).rotation.z = Math.PI; }
-    P_(bx(0.004, 0.02, 0.006), GM.steel, 0, -0.04, 0.002).rotation.x = 0.3;
-    const gl = id === 'corto' ? 0.082 : id === 'magnum' ? 0.115 : 0.105;
-    P_(bx(0.03, gl, 0.042), gripM, 0, -0.025 - gl / 2, 0.062).rotation.x = -0.38;
-    P_(cyl(0.021, 0.021, 0.031, 10), gripM, 0, -0.03 - gl * 0.85, 0.06 + gl * 0.2).rotation.z = Math.PI / 2;
-    if (id === 'magnum') for (let i = 0; i < 3; i++) P_(bx(0.032, 0.006, 0.008), GM.rubber, 0, -0.05 - i * 0.025, 0.04 + i * 0.008);
+    if (!corto) P_(profileGeo([[0.004, -0.012], [-0.006, 0.018], [-0.022, 0.032], [-0.026, 0.026], [-0.012, 0.012], [-0.006, -0.012]], 0.009, 0.0015), GM.steel, 0, 0, 0, hammer);
+    else P_(bx(0.01, 0.014, 0.012), GM.steel, 0, 0.004, 0, hammer);
+    // guardamonte y gatillo curvo
+    const tg = new THREE.Group(); tg.position.set(0, -0.034, 0.004); tg.rotation.y = Math.PI / 2; h.k.add(tg);
+    const tgm = P_(new THREE.TorusGeometry(0.02, 0.0032, 8, 18, Math.PI), LOOK.trig, 0, 0, 0, tg); tgm.rotation.z = Math.PI;
+    P_(profileGeo([[0, 0], [-0.006, -0.012], [-0.002, -0.022], [0.005, -0.016], [0.004, -0.002]], 0.006, 0.0015), LOOK.trig, 0, -0.036, 0.004);
+    // tornillos del armazón
+    for (const [y, z] of [[0.02, 0.05], [-0.018, 0.045], [0.024, -0.062]]) for (const s of [-1, 1]) { const sc = P_(cyl(0.004, 0.004, 0.002, 10), GM.screw, s * (fw / 2 + 0.001), y, z); sc.rotation.z = Math.PI / 2; }
+    // cachas
+    const gl = corto ? 0.082 : magnum ? 0.115 : 0.105;
+    const k_ = gl / 0.105;
+    const grip = corto
+      ? [[-0.032, -0.028], [-0.03, -0.05], [-0.034, -0.072], ...arc(-0.05, -0.084, 0.016, -0.6, -2.9, 7), [-0.07, -0.07], [-0.078, -0.05], [-0.08, -0.032], [-0.07, -0.024]]
+      : magnum
+        ? [[-0.03, -0.028], [-0.036, -0.05], [-0.032, -0.064], [-0.04, -0.074], [-0.036, -0.088], [-0.046, -0.1], [-0.05, -0.12], [-0.06, -0.138], [-0.09, -0.136], [-0.094, -0.1], [-0.088, -0.06], [-0.082, -0.03], [-0.06, -0.024]]
+        : [[-0.03, -0.028], [-0.034, -0.05 * k_], [-0.043, -0.077 * k_], [-0.055, -0.103 * k_], ...arc(-0.077, -0.112 * k_, 0.02, -0.3, -2.8, 8), [-0.098, -0.085 * k_], [-0.091, -0.055], [-0.082, -0.03], [-0.06, -0.024]];
+    if (magnum) for (let i = 0; i < 3; i++) P_(cyl(0.006, 0.006, 0.042, 8), GM.rubber, 0, -0.06 - i * 0.026, 0.035 + i * 0.006).rotation.z = Math.PI / 2;
+    P_(profileGeo(grip, fw + 0.008, 0.007), LOOK.grip, 0, 0, 0);
+    P_(profileGeo(grip.map(([u, v]) => [u + 0.004, v]), fw - 0.006, 0.002), LOOK.frame, 0, -0.002, 0);
+    if (!corto && !magnum) for (const s of [-1, 1]) { const md = P_(cyl(0.006, 0.006, 0.002, 12), GM.brassF, s * (fw / 2 + 0.0055), -0.07, 0.065); md.rotation.z = Math.PI / 2; }
     muzzleZ = -0.075 - L;
   }
-  P_(bx(0.034, 0.085, 0.07), GM.skin, 0.02, -0.074, 0.068).rotation.x = -0.38;
-  P_(bx(0.014, 0.018, 0.05), GM.skin, -0.02, -0.03, 0.05).rotation.x = -0.2;
-  P_(bx(0.075, 0.075, 0.32), GM.sleeve, 0.04, -0.135, 0.25).rotation.x = -0.45;
+  // mano con guante de cuero que rodea la empuñadura
+  const hand = new THREE.Group(); hand.name = 'hand'; h.k.add(hand);
+  P_(bx(0.044, 0.08, 0.05), GM.glove, 0.008, -0.075, 0.09, hand).rotation.x = -0.38;
+  for (let i = 0; i < 3; i++) { const f = P_(cyl(0.0095, 0.0095, 0.05, 8), GM.glove, -0.004, -0.06 - i * 0.022, 0.03 + i * 0.008, hand); f.rotation.z = Math.PI / 2; f.rotation.y = 0.25; }
+  P_(bx(0.012, 0.012, 0.04), GM.glove, -0.004, -0.032, 0.02, hand).rotation.x = -0.6;
+  const th = P_(cyl(0.009, 0.009, 0.055, 8), GM.glove, -0.024, -0.026, 0.05, hand); th.rotation.x = Math.PI / 2 - 0.35; th.rotation.z = -0.2;
+  P_(cyl(0.032, 0.036, 0.05, 14), GM.gloveD, 0.02, -0.12, 0.15, hand).rotation.x = Math.PI / 2 - 0.45;
+  P_(cyl(0.04, 0.042, 0.3, 14), GM.sleeve, 0.04, -0.16, 0.3, hand).rotation.x = Math.PI / 2 - 0.45;
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, muzzleY, muzzleZ); h.k.add(muzzle);
   muzzle.add(h.flash); muzzle.add(h.flashLight);
   h.k.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 1; } });
   Object.assign(h, { cylG, cylSpin, hammer, muzzle, spinG, spinV: 0, model: id, cap: N });
 }
+// luz suave pegada a la cámara: ilumina el arma de noche sin cambiar el resto del mapa
+const gunLight = new THREE.PointLight(0xffe0bc, 0.75, 0.9, 2); gunLight.position.set(0.05, 0.08, -0.15); camera.add(gunLight);
+
 const bulletMats = {};
 function bulletMat(t) {
   if (t === 'normal') return GM.brass;
@@ -3814,7 +3925,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music;
+  $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; fsLabel();
   show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -3844,6 +3955,22 @@ $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refr
 $('#btn-reroll').addEventListener('click', () => { if (state !== 'shop' || game.gold < game.reroll) return; game.gold -= game.reroll; game.reroll += 2; rollOffers(); Sfx.dice(); renderShop(); });
 $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; store.set('sb_sens', settings.sens); });
 $('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); });
+// Pantalla completa: en PC y Android usa la del navegador; el iPhone no la permite en páginas, así que explica cómo lograrla.
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+function fsLabel() { $('#btn-fs').textContent = fsEl() ? 'Salir de pantalla completa' : 'Pantalla completa'; }
+async function toggleFullscreen() {
+  const d = document.documentElement;
+  try {
+    if (fsEl()) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+    else if (d.requestFullscreen || d.webkitRequestFullscreen) {
+      await (d.requestFullscreen || d.webkitRequestFullscreen).call(d, { navigationUI: 'hide' });
+      if (IS_TOUCH && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    } else throw new Error('no');
+  } catch (e) { $('#pause-note').textContent = 'Este teléfono no deja poner la página en pantalla completa. En iPhone: toca Compartir y luego «Añadir a pantalla de inicio», y abre el juego desde ese ícono.'; }
+  setTimeout(fsLabel, 300);
+}
+$('#btn-fs').addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
 $('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
 
 /* ===================== CONTROLES ===================== */
