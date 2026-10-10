@@ -41,6 +41,7 @@ body{font-family:var(--hud);font-size:16px}
 #dmgdir{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 .arc{position:absolute;left:-150px;top:-150px;width:300px;height:300px;border-radius:50%;border-top:7px solid rgba(220,20,20,.9);filter:drop-shadow(0 0 6px rgba(255,0,0,.6));transition:opacity .9s ease-out}
 
+#click-hint{position:absolute;left:50%;top:calc(50% + 48px);transform:translateX(-50%);z-index:4;padding:8px 14px;border-radius:8px;background:rgba(18,12,8,.82);border:1px solid var(--gold);color:var(--bone);font:600 16px var(--hud);letter-spacing:.04em;pointer-events:none;white-space:nowrap}
 #xh{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 #xh i{position:absolute;background:var(--bone);box-shadow:0 0 2px #000,0 0 1px #000}
 #xh .d{width:4px;height:4px;left:-2px;top:-2px;border-radius:50%}
@@ -255,6 +256,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div id="hm"><i style="transform:rotate(45deg) translateX(10px)"></i><i style="transform:rotate(135deg) translateX(10px)"></i><i style="transform:rotate(225deg) translateX(10px)"></i><i style="transform:rotate(315deg) translateX(10px)"></i></div>
 
   <div id="hud" hidden>
+    <div id="click-hint" hidden>Haz clic para apuntar con el ratón</div>
     <div class="hud" id="hud-tl">
       <div class="lbl"><span>Vida</span><span id="hp-n">100</span></div>
       <div class="bar" id="hp"><s></s><b></b></div>
@@ -3720,14 +3722,18 @@ function updateRemotes(dt) {
 /* ===================== PANTALLAS ===================== */
 function show(id) { ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
+// El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
+// una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
+let lockGesture = false;
 function lockFailed() {
-  if (state !== 'play' || locked) return;
-  lockFails++;
-  if (lockFails >= 2) { noLock = true; hint('Mantén pulsado el ratón y arrástralo para mirar', 4000); }
-  else { pause(); $('#pause-note').textContent = 'El navegador no soltó el ratón a tiempo. Espera un segundo y pulsa «Seguir».'; }
+  if (state !== 'play' || locked || !lockGesture) return;
+  lockGesture = false; lockFails++;
+  if (lockFails >= 4) { noLock = true; hint('Tu navegador no presta el ratón: mantén pulsado y arrastra para mirar', 4000); }
+  else hint('Espera un segundo y vuelve a hacer clic para apuntar', 2000);
 }
-function requestLock() {
-  if (IS_TOUCH || noLock) return;
+function requestLock(gesture) {
+  if (IS_TOUCH || locked) return;
+  lockGesture = !!gesture;
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(lockFailed); } catch (e) { lockFailed(); }
 }
 function startGame(sv) {
@@ -3742,7 +3748,7 @@ function pause() {
   $('#sens').value = settings.sens; $('#vol').value = settings.vol;
   show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
-function resume() { if (state !== 'pause') return; state = 'play'; show(null); requestLock(); canvas.focus(); }
+function resume() { if (state !== 'pause') return; state = 'play'; show(null); requestLock(true); canvas.focus(); }
 function toMenu() {
   if (game && game.deOn) deadEye(false);
   netLeave();
@@ -3771,7 +3777,7 @@ $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; sto
 $('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); });
 
 /* ===================== CONTROLES ===================== */
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) lockFails = 0; if (!locked && state === 'play' && !noLock) pause(); });
+document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) { lockFails = 0; noLock = false; } if (!locked && state === 'play' && !noLock) pause(); });
 document.addEventListener('pointerlockerror', lockFailed);
 window.addEventListener('keydown', e => {
   if (e.repeat && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) { input.keys[e.code] = true; return; }
@@ -3794,7 +3800,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (IS_TOUCH || state !== 'play') return;
-  if (!locked && !noLock) { requestLock(); return; }
+  if (!locked && !noLock) { requestLock(true); return; }
   if (e.button === 0) { input.fireHeld = true; tryFire(); }
   if (e.button === 2) gs.aiming = true;
 });
@@ -3851,7 +3857,7 @@ window.addEventListener('mousemove', e => {
 function onResize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); updateScale(); }
 window.addEventListener('resize', onResize);
 onResize();
-const clock = new THREE.Clock();
+const clock = new THREE.Clock(), clickHint = $('#click-hint');
 let tAll = 0;
 function frame() {
   requestAnimationFrame(frame);
@@ -3861,6 +3867,7 @@ function frame() {
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   Net.tick(dt); updateRemotes(dt);
+  if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll);
   renderer.render(scene, camera);
 }
