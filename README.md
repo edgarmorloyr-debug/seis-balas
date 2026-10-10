@@ -14,4 +14,4 @@ Abre `index.html` en el navegador, o la dirección de Vercel cuando esté public
 
 ## Modo en grupo por internet
 
-Sin configuración, el modo en grupo solo funciona entre pestañas del mismo navegador. Para jugar por internet, en `index.html` se rellena `const SUPA = { url: '', key: '' };` con la dirección y la clave pública (anon) de un proyecto de Supabase propio de este juego.
+El modo en grupo usa Supabase Realtime (mensajes en vivo, sin tablas) de un proyecto propio de este juego, separado de Knight Core. La dirección y la clave **pública** están en `const SUPA` dentro de `index.html`. Nunca se pone ahí una clave secreta (`service_role` o `sb_secret_`).
