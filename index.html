@@ -2634,6 +2634,7 @@ function maxAlive() { return Math.min(8 + game.wave * 2, IS_TOUCH ? 16 : 26); }
 
 function hurtPlayer(amount, src, opt = {}) {
   if ((state !== 'play' && !(Net.on && state === 'pause')) || player.down) return;
+  if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')); game.w.hurt = true;
   player.hp -= amount; player.lastHurt = game.time;
   fx.dmg = Math.min(1, fx.dmg + amount / (opt.tick ? 60 : 22));
@@ -3078,6 +3079,9 @@ function updateWave(dt) {
     if (game.toSpawn === 0 && game.alive <= 0) {
       for (let i = cops.length - 1; i >= 0; i--) if (cops[i].npc && !cops[i].dead) rescueNpc(i);
       game.phase = 'cleared'; game.countT = 2.4;
+      // si quedó algún zombi vivo por un error de conteo, se desploma sin dar oro (no te espera al salir de la armería)
+      for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
+      game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]);
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
       Sfx.win();
@@ -4225,7 +4229,7 @@ function snapshot() {
   };
 }
 function applySnapshot(s) {
-  if (!game || state === 'menu' || state === 'trans') return;
+  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks') return;
   game.toSpawn = s.l; game.alive = 0; game.countT = s.ct;
   if (s.w !== game.wave && s.ph === 'count') { game.wave = s.w; }
   if (s.ph === 'fight' && game.fightWave !== s.w) {
