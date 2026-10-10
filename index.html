@@ -3616,12 +3616,17 @@ const Net = {
   ev(e) { if (this.on) this.evq.push(e); },
   tick(dt) {
     if (!this.on || !this.tr) return;
-    this.acc += dt; if (this.acc < 0.12) return; this.acc = 0;
+    this.acc += dt; if (this.acc < (this.host ? 0.14 : this.evq.length ? 0.09 : 0.2)) return; this.acc = 0;
     this.flush();
     const now = performance.now();
-    for (const [id, p] of this.peers) if (now - p.seen > 8000) { removeRemote(p); Voice.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
+    for (const [id, p] of this.peers) if (now - p.seen > 20000) { removeRemote(p); Voice.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
     netStatus(now);
-    if (this.client && this.started && now - this.lastHost > 9000 && game && state !== 'over') { hint('Se perdió la conexión con el anfitrión', 4000); gameOver(); }
+    if (this.client && this.started && game && state !== 'over') {
+      const gap = now - this.lastHost;
+      if (gap > 20000) { hint('Se perdió la conexión con el anfitrión', 4000); gameOver(); }
+      else if (gap > 4000 && !this.warned) { this.warned = true; hint('Conexión inestable con el anfitrión… esperando', 3000); }
+      else if (gap < 1500) this.warned = false;
+    }
   },
   flush() {
     if (!this.tr) return;
@@ -3656,7 +3661,7 @@ async function supaTransport(room) {
   msg.textContent = 'Paso 1 de 2: cargando la conexión…';
   if (!window.supabase) { try { await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js'); } catch (e) { throw new Error('paso 1: no cargó la herramienta de conexión'); } }
   msg.textContent = 'Paso 2 de 2: conectando con el servidor…';
-  const cl = window.supabase.createClient(SUPA.url, SUPA.key, { realtime: { params: { eventsPerSecond: 40 } } });
+  const cl = window.supabase.createClient(SUPA.url, SUPA.key, { realtime: { params: { eventsPerSecond: 25 } } });
   const ch = cl.channel('seisbalas-' + room, { config: { broadcast: { self: false } } });
   ch.on('broadcast', { event: 'm' }, ({ payload }) => Net.recv(payload));
   try {
@@ -3684,6 +3689,7 @@ let netEl = null, sentN = 0;
 function netStatus(now) {
   if (!netEl) { netEl = document.createElement('div'); netEl.id = 'net-status'; document.body.appendChild(netEl); }
   const show_ = Net.on && game && state !== 'menu';
+  if (show_ && Net.client && now - Net.lastHost > 2500) { netEl.hidden = false; netEl.textContent = `Esperando al anfitrión… ${Math.round((now - Net.lastHost) / 1000)} s`; return; }
   netEl.hidden = !show_; if (!show_) return;
   const ps = [...Net.peers.values()];
   netEl.textContent = ps.length ? 'En grupo · ' + ps.map(p => { const a = (now - p.seen) / 1000; return p.name + (a < 1.5 ? ' ✓' : ' · sin señal hace ' + Math.round(a) + ' s') + (Voice.linked(p.id) ? ' (voz)' : ''); }).join(' · ') : 'En grupo · esperando a tus compañeros…';
@@ -3903,6 +3909,7 @@ function applySnapshot(s) {
       if (a[6] & 1) continue;
       z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4];
     }
+    { const tn = performance.now(), dts = z.nt ? Math.max(0.05, (tn - z.nt) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; } else { z.vx = z.vz = 0; } z.nt = tn; }
     z.nx = a[2]; z.nz = a[3]; z.nyaw = a[4]; z.ny = a[5];
     z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0;
     if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0) z.hp = hp; }
@@ -3951,7 +3958,8 @@ function proxyDie(z, info) {
 function proxyStep(z, dt) {
   const pos = z.root.position, k = Math.min(1, dt * 9), ox = pos.x, oz = pos.z;
   if (z.nx === undefined) { z.nx = pos.x; z.nz = pos.z; z.ny = pos.y; z.nyaw = z.yaw; }
-  pos.x += (z.nx - pos.x) * k; pos.z += (z.nz - pos.z) * k; pos.y += (z.ny - pos.y) * k;
+  const lead = z.nt && !z.dead ? Math.min(0.22, (performance.now() - z.nt) / 1000) : 0, tx = z.nx + (z.vx || 0) * lead, tz = z.nz + (z.vz || 0) * lead;
+  pos.x += (tx - pos.x) * k; pos.z += (tz - pos.z) * k; pos.y += (z.ny - pos.y) * k;
   let dy = z.nyaw - z.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; z.yaw += dy * k; z.root.rotation.y = z.yaw;
   const spd = Math.hypot(pos.x - ox, pos.z - oz) / Math.max(dt, 1e-3), moving = spd > 0.25;
   z.phase += dt * (moving ? spd : 0.3) * 3 / z.s; const sw = Math.sin(z.phase);
