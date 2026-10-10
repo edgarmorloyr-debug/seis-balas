@@ -193,6 +193,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .set{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center;text-align:left;font-size:16px}
 .set input{width:100%;accent-color:var(--brass);min-height:32px}
 .fs-btn{min-height:48px;justify-self:start}
+#b-talk{left:calc(16px + env(safe-area-inset-left,0px));top:calc(132px + env(safe-area-inset-top,0px));width:64px;height:64px;font-size:13px}
+#b-talk.lit{background:rgba(60,170,90,.6);border-color:#9be3a8}
 .set select{width:100%;min-height:48px;padding:0 10px;font:600 16px var(--hud);color:var(--bone);background:rgba(20,15,10,.85);border:1px solid var(--brass);border-radius:8px}
 
 .shop-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;text-align:left}
@@ -297,6 +299,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <button class="tb" id="b-scope" aria-label="Disparar con mirilla" aria-pressed="false"><svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="16" cy="16" r="10"/><path d="M16 2v8M16 22v8M2 16h8M22 16h8"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/></svg></button>
     <button class="tb" id="b-de">Ojo<br>Muerto</button>
     <button class="tb" id="b-swap" hidden>Arma</button>
+    <button class="tb" id="b-talk" hidden>Hablar</button>
     <button class="tb" id="b-pause" aria-label="Pausa">II</button>
   </div>
 
@@ -334,6 +337,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div id="lobby-room" hidden>
         <p class="tag">Sala <span id="room-show" class="code"></span></p>
         <ul id="room-list" class="plist"></ul>
+        <div class="set"><label for="voice-lobby">Chat de voz</label><select id="voice-lobby" class="voice-sel"><option value="off">Apagado</option><option value="ptt">Mantener para hablar (tecla V o botón Hablar)</option><option value="open">Micrófono abierto (V o botón para silenciar)</option></select></div>
         <div class="row"><button class="btn" id="btn-go" hidden>Empezar partida</button></div>
       </div>
       <p class="note" id="lobby-msg" aria-live="polite"></p>
@@ -357,6 +361,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
           <option value="off">Apagada</option>
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
+        <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="ptt">Mantener para hablar (tecla V o botón Hablar)</option><option value="open">Micrófono abierto (V o botón para silenciar)</option></select>
       </div>
       <p class="note" id="pause-note"></p>
       <div class="row"><button class="btn" id="btn-resume">Seguir</button><button class="btn2" id="btn-quit">Salir al menú</button></div>
@@ -435,7 +440,7 @@ const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
 if (IS_TOUCH) app.classList.add('touch');
-const settings = { sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
+const settings = { voice: store.get('sb_voice', 'off'), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
 if (typeof THREE === 'undefined') { $('#loading').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga.'; return; }
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
@@ -3614,7 +3619,7 @@ const Net = {
     this.acc += dt; if (this.acc < 0.12) return; this.acc = 0;
     this.flush();
     const now = performance.now();
-    for (const [id, p] of this.peers) if (now - p.seen > 8000) { removeRemote(p); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
+    for (const [id, p] of this.peers) if (now - p.seen > 8000) { removeRemote(p); Voice.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
     netStatus(now);
     if (this.client && this.started && now - this.lastHost > 9000 && game && state !== 'over') { hint('Se perdió la conexión con el anfitrión', 4000); gameOver(); }
   },
@@ -3624,6 +3629,7 @@ const Net = {
     if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0];
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
+    if (Voice.on) m.v = 1;
     try { this.tr.send(m); } catch (e) {}
   },
   recv(m) {
@@ -3632,6 +3638,7 @@ const Net = {
     if (!p) { p = { id: m.id, name: m.n || 'Vaquero', idx: this.nextIdx++, seen: 0, pos: null, down: false, ready: 0 }; this.peers.set(m.id, p); if (state !== 'menu' && game) feed(`${p.name} se unió`, 'gold'); }
     p.seen = performance.now(); p.name = m.n || p.name;
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
+    p.voice = !!m.v; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
     if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.hp = a[7]; p.down = !!a[8]; }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
@@ -3671,6 +3678,7 @@ async function netOpen(room, asHost) {
   Net.room = room; Net.host = asHost; Net.client = !asHost; Net.started = false; Net.hostId = asHost ? Net.id : null; Net.peers.clear(); Net.nextIdx = 1;
   Net.tr = SUPA.url && SUPA.key ? await supaTransport(room) : localTransport(room);
   Net.on = true; Net.flush();
+  if (settings.voice !== 'off') Voice.enable();
 }
 let netEl = null, sentN = 0;
 function netStatus(now) {
@@ -3678,12 +3686,73 @@ function netStatus(now) {
   const show_ = Net.on && game && state !== 'menu';
   netEl.hidden = !show_; if (!show_) return;
   const ps = [...Net.peers.values()];
-  netEl.textContent = ps.length ? 'En grupo · ' + ps.map(p => { const a = (now - p.seen) / 1000; return p.name + (a < 1.5 ? ' ✓' : ' · sin señal hace ' + Math.round(a) + ' s'); }).join(' · ') : 'En grupo · esperando a tus compañeros…';
+  netEl.textContent = ps.length ? 'En grupo · ' + ps.map(p => { const a = (now - p.seen) / 1000; return p.name + (a < 1.5 ? ' ✓' : ' · sin señal hace ' + Math.round(a) + ' s') + (Voice.linked(p.id) ? ' (voz)' : ''); }).join(' · ') : 'En grupo · esperando a tus compañeros…';
+  if (Voice.on) netEl.textContent += settings.voice === 'open' ? (Voice.muted ? ' · Micrófono silenciado' : ' · Micrófono abierto') : (Voice.talking ? ' · Hablando…' : ' · Mantén V para hablar');
 }
 setInterval(() => { if (Net.on && Net.tr && (state === 'menu' || document.hidden)) Net.flush(); }, 500);
 setInterval(() => { if (Net.on && Net.tr && Net.tr.rejoin) Net.tr.rejoin(); }, 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Net.on && Net.tr) { if (Net.tr.rejoin) Net.tr.rejoin(); Net.flush(); } });
+/* ---- Chat de voz: va directo entre los jugadores (WebRTC); Supabase solo ayuda a presentarlos ---- */
+const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }];
+const Voice = {
+  on: false, stream: null, pcs: new Map(), talking: false, muted: false,
+  async enable() {
+    if (settings.voice === 'off') { this.disable(); return; }
+    if (!navigator.mediaDevices || !window.RTCPeerConnection) { hint('Este navegador no permite chat de voz', 3000); return; }
+    if (!this.stream) {
+      try { this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+      catch (e) { hint('No hay permiso para el micrófono. Actívalo en el candado de la barra de direcciones.', 4500); settings.voice = 'off'; store.set('sb_voice', 'off'); syncVoiceSel(); return; }
+    }
+    this.on = true; this.apply();
+    for (const p of Net.peers.values()) this.check(p);
+  },
+  disable() {
+    this.on = false; this.talking = false;
+    for (const id of [...this.pcs.keys()]) this.close(id);
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    this.apply();
+  },
+  apply() {
+    const en = this.on && (settings.voice === 'open' ? !this.muted : this.talking);
+    if (this.stream) this.stream.getAudioTracks().forEach(t => t.enabled = en);
+    const b = $('#b-talk'); if (b) { b.hidden = !(IS_TOUCH && this.on && Net.on); b.classList.toggle('lit', en); b.textContent = settings.voice === 'open' ? (this.muted ? 'Mudo' : 'Mic') : 'Hablar'; }
+  },
+  check(p) { if (this.on && p.voice && !this.pcs.has(p.id) && Net.id < p.id) this.call(p); },
+  mk(p) {
+    const pc = new RTCPeerConnection({ iceServers: ICE }), v = { pc, el: null, pend: [] };
+    this.stream.getTracks().forEach(t => pc.addTrack(t, this.stream));
+    pc.onicecandidate = e => { if (e.candidate) Net.ev(['vo', p.id, { c: e.candidate.toJSON() }]); };
+    pc.ontrack = e => { if (!v.el) { v.el = new Audio(); v.el.autoplay = true; } v.el.srcObject = e.streams[0]; v.el.play().catch(() => {}); };
+    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { this.close(p.id); feed(`No se pudo conectar la voz con ${p.name}`, 'red'); } };
+    this.pcs.set(p.id, v); return v;
+  },
+  async call(p) { try { const v = this.mk(p); await v.pc.setLocalDescription(await v.pc.createOffer()); Net.ev(['vo', p.id, { o: v.pc.localDescription.toJSON() }]); } catch (e) {} },
+  async signal(p, d) {
+    if (!this.on || !this.stream) return;
+    try {
+      let v = this.pcs.get(p.id);
+      if (d.o) {
+        if (v) this.close(p.id); v = this.mk(p);
+        await v.pc.setRemoteDescription(d.o); for (const c of v.pend.splice(0)) await v.pc.addIceCandidate(c).catch(() => {});
+        await v.pc.setLocalDescription(await v.pc.createAnswer()); Net.ev(['vo', p.id, { a: v.pc.localDescription.toJSON() }]);
+      } else if (d.a && v) { await v.pc.setRemoteDescription(d.a); for (const c of v.pend.splice(0)) await v.pc.addIceCandidate(c).catch(() => {}); }
+      else if (d.c && v) { if (v.pc.remoteDescription) await v.pc.addIceCandidate(d.c).catch(() => {}); else v.pend.push(d.c); }
+    } catch (e) {}
+  },
+  close(id) { const v = this.pcs.get(id); if (!v) return; try { v.pc.close(); } catch (e) {} if (v.el) v.el.srcObject = null; this.pcs.delete(id); },
+  linked(id) { const v = this.pcs.get(id); return !!(v && v.pc.connectionState === 'connected'); },
+  key(down) {
+    if (!this.on) return;
+    if (settings.voice === 'ptt') this.talking = down;
+    else if (down) { this.muted = !this.muted; hint(this.muted ? 'Micrófono silenciado' : 'Micrófono abierto', 1200); }
+    this.apply();
+  }
+};
+function syncVoiceSel() { for (const id of ['#voice-lobby', '#voice-pause']) { const e = $(id); if (e) e.value = settings.voice; } }
+for (const id of ['#voice-lobby', '#voice-pause']) $(id).addEventListener('change', e => { settings.voice = e.target.value; store.set('sb_voice', settings.voice); syncVoiceSel(); Voice.muted = false; if (settings.voice === 'off') Voice.disable(); else if (Net.on) Voice.enable(); else Voice.apply(); });
+syncVoiceSel();
 function netLeave() {
+  Voice.disable();
   if (Net.tr) { try { Net.tr.close(); } catch (e) {} }
   Net.tr = null; Net.on = false; Net.host = false; Net.client = false; Net.started = false; Net.waiting = false; Net.evq = [];
   for (const p of Net.peers.values()) removeRemote(p);
@@ -3737,18 +3806,19 @@ function netEvent(p, e) {
   const t = e[0];
   if (t === 'sh') { const a = new THREE.Vector3(e[1], e[2], e[3]), b = new THREE.Vector3(e[4], e[5], e[6]); addTracer(a, b, e[7], 1.2); for (let i = 0; i < 4; i++) PA.add(a.x, a.y, a.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.08, 0.06, 1, 0.8, 0.4, 1, 0, 2, 0, 0); Sfx.pistol(panOf(a), volOf(a, 1.3)); return; }
   if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) netStartAsClient(); return; }
+  if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
   if (Net.host) {
     if (t === 'd') applyRemoteDamage(p.id, e);
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
     else if (t === 'pk') { const i = pickups.findIndex(q => q.id === e[1]); if (i >= 0) { scene.remove(pickups[i].g); pickups.splice(i, 1); } }
     else if (t === 'cop') { const k = ALLY[e[1]] ? e[1] : 'cop'; if (canHire(k)) { spawnCop(k, p.id, e[2] || 1); feed(`${p.name} contrató ${ALLY[k].al}`, 'blue'); renderChips(); } }
-  else if (t === 'alv') setAllyLv(p.id, e[1], e[2]);
-  else if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); }
+    else if (t === 'alv') setAllyLv(p.id, e[1], e[2]);
     else if (t === 'ready') p.ready = e[1];
     else if (t === 'down') { p.down = true; feed(`${p.name} cayó`, 'red'); }
     return;
   }
   if (!Net.client || !game) return;
+  if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
   if (t === 'hurt') { if (e[1] === Net.id) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (state === 'play' && game.phase !== 'cleared') { game.wave = e[1]; game.phase = 'cleared'; waveSummary(); setTimeout(() => { if (state === 'play' && game && game.phase === 'cleared') openPerks(); }, 2400); } }
@@ -4040,7 +4110,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; fsLabel();
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; fsLabel();
   show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -4102,12 +4172,13 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyG') spinCylinder();
+  if (e.code === 'KeyV') Voice.key(true);
   if (e.code === 'KeyF') fan();
   if (e.code === 'KeyQ') deadEye(!game.deOn);
   if (/^Digit[1-7]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
   if (e.code === 'KeyP' || (e.code === 'Escape' && (noLock || !locked))) pause();
 });
-window.addEventListener('keyup', e => { input.keys[e.code] = false; });
+window.addEventListener('keyup', e => { input.keys[e.code] = false; if (e.code === 'KeyV' && settings.voice === 'ptt') Voice.key(false); });
 window.addEventListener('blur', () => { input.keys = {}; if (state === 'play') pause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pause(); });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -4166,6 +4237,7 @@ window.addEventListener('mousemove', e => {
   btn('#b-de', () => { if (game && state === 'play') deadEye(!game.deOn); });
   btn('#b-swap', () => { if (state === 'play') cycleWeapon(1); });
   btn('#b-pause', () => pause());
+  btn('#b-talk', () => Voice.key(true), { up: () => { if (settings.voice === 'ptt') Voice.key(false); } });
 }
 
 /* ===================== BUCLE ===================== */
