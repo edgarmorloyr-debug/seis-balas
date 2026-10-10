@@ -3362,6 +3362,7 @@ function updateMenu(dt) {
 /* ===================== EN GRUPO: red cooperativa ===================== */
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
+const GAME_VER = '7';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -3417,7 +3418,15 @@ async function supaTransport(room) {
     await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('el servidor no respondió en 12 s')), 12000); ch.subscribe((st, err) => { if (st === 'SUBSCRIBED') { clearTimeout(to); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { clearTimeout(to); rej(new Error(st + (err && err.message ? ': ' + err.message : ''))); } }); });
   } catch (e) { try { cl.removeChannel(ch); } catch (e2) {} throw new Error('paso 2: ' + e.message); }
   msg.textContent = '';
-  return { send: m => ch.send({ type: 'broadcast', event: 'm', payload: m }), close: () => { try { cl.removeChannel(ch); } catch (e) {} } };
+  const tr = { ch, cl, send: m => tr.ch.send({ type: 'broadcast', event: 'm', payload: m }), close: () => { tr.closed = true; try { cl.removeChannel(tr.ch); } catch (e) {} },
+    rejoin() {
+      if (tr.closed || tr.busy || !['closed', 'errored'].includes(tr.ch.state)) return; tr.busy = true;
+      try { cl.removeChannel(tr.ch); } catch (e) {}
+      tr.ch = cl.channel('seisbalas-' + room, { config: { broadcast: { self: false } } });
+      tr.ch.on('broadcast', { event: 'm' }, ({ payload }) => Net.recv(payload));
+      tr.ch.subscribe(st => { if (st !== 'SUBSCRIBED' && st !== 'CHANNEL_ERROR' && st !== 'TIMED_OUT' && st !== 'CLOSED') return; tr.busy = false; if (st === 'SUBSCRIBED') Net.flush(); });
+    } };
+  return tr;
 }
 async function netOpen(room, asHost) {
   netLeave();
@@ -3433,6 +3442,9 @@ function netStatus(now) {
   const ps = [...Net.peers.values()];
   netEl.textContent = ps.length ? 'En grupo · ' + ps.map(p => { const a = (now - p.seen) / 1000; return p.name + (a < 1.5 ? ' ✓' : ' · sin señal hace ' + Math.round(a) + ' s'); }).join(' · ') : 'En grupo · esperando a tus compañeros…';
 }
+setInterval(() => { if (Net.on && Net.tr && (state === 'menu' || document.hidden)) Net.flush(); }, 500);
+setInterval(() => { if (Net.on && Net.tr && Net.tr.rejoin) Net.tr.rejoin(); }, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Net.on && Net.tr) { if (Net.tr.rejoin) Net.tr.rejoin(); Net.flush(); } });
 function netLeave() {
   if (Net.tr) { try { Net.tr.close(); } catch (e) {} }
   Net.tr = null; Net.on = false; Net.host = false; Net.client = false; Net.started = false; Net.waiting = false; Net.evq = [];
@@ -3445,7 +3457,7 @@ function genCode() { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let 
 function lobbyOpen() {
   show('lobby');
   $('#nick').value = store.get('sb_nick', '') || ('Vaquero ' + Math.floor(rand(10, 99)));
-  $('#lobby-mode').textContent = SUPA.url ? 'Partida por internet: crea una sala y comparte el código de 4 letras con tus amigos (máximo 4 jugadores).' : 'Modo de prueba: todavía no hay servidor en línea, así que solo funciona entre pestañas de este mismo navegador.';
+  $('#lobby-mode').textContent = SUPA.url ? `Partida por internet (versión ${GAME_VER}): crea una sala y comparte el código de 4 letras con tus amigos (máximo 4 jugadores). Todos deben ver la misma versión.` : 'Modo de prueba: todavía no hay servidor en línea, así que solo funciona entre pestañas de este mismo navegador.';
   $('#lobby-room').hidden = true; $('#lobby-pick').hidden = false; $('#lobby-msg').textContent = '';
   setTimeout(() => $('#btn-host').focus(), 30);
 }
@@ -3454,7 +3466,7 @@ async function lobbyHost() {
   const code = genCode();
   try { await netOpen(code, true); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor (' + (e && e.message || e) + '). Mándale una captura de esto a Claude.'; return; }
   $('#room-show').textContent = code; $('#lobby-room').hidden = false; $('#lobby-pick').hidden = true; $('#btn-go').hidden = false;
-  $('#lobby-msg').textContent = 'Comparte el código. Cuando estén todos, pulsa Empezar partida.'; renderLobby();
+  $('#lobby-msg').textContent = 'Comparte el código sin salir del juego: si cambias de app en el teléfono, la sala se pausa. Cuando estén todos, pulsa Empezar partida.'; renderLobby();
 }
 async function lobbyJoin() {
   const code = $('#room-code').value.trim().toUpperCase();
@@ -3462,8 +3474,10 @@ async function lobbyJoin() {
   Net.name = nickOf(); store.set('sb_nick', Net.name);
   try { await netOpen(code, false); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor (' + (e && e.message || e) + '). Mándale una captura de esto a Claude.'; return; }
   $('#room-show').textContent = code; $('#lobby-room').hidden = false; $('#lobby-pick').hidden = true; $('#btn-go').hidden = true;
-  $('#lobby-msg').textContent = 'Buscando la sala…'; renderLobby();
-  setTimeout(() => { if (Net.on && Net.client && !Net.hostId && state === 'menu') { $('#lobby-msg').textContent = 'No encontré esa sala. Revisa el código.'; netLeave(); $('#lobby-room').hidden = true; $('#lobby-pick').hidden = false; } }, 6000);
+  $('#lobby-msg').textContent = 'Buscando la sala… El anfitrión debe tener el juego abierto en pantalla.'; renderLobby();
+  const tok = Net.joinTok = Math.random();
+  setTimeout(() => { if (Net.joinTok === tok && Net.on && Net.client && !Net.hostId && state === 'menu') $('#lobby-msg').textContent = 'Todavía no aparece el anfitrión. Pídele que vuelva a abrir el juego (si salió a mandar el código, el teléfono lo pausa).'; }, 8000);
+  setTimeout(() => { if (Net.joinTok === tok && Net.on && Net.client && !Net.hostId && state === 'menu') { $('#lobby-msg').textContent = 'No encontré esa sala. Revisen que el código sea el mismo y que los dos usen la misma dirección del juego (versión ' + GAME_VER + ').'; netLeave(); $('#lobby-room').hidden = true; $('#lobby-pick').hidden = false; } }, 25000);
 }
 function renderLobby() {
   if ($('#lobby').hidden) return;
