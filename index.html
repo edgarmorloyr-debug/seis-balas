@@ -177,6 +177,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .only-touch{display:none}
 .touch .only-touch{display:block}
 .touch .only-desk{display:none}
+.npc{font-style:italic;color:#ffe2b0;font-size:16px;text-align:center;margin:4px 0 8px;line-height:1.35}
+.npc.left{text-align:left}
 .ev-ic{font-size:64px;text-align:center;line-height:1.1}
 #ev-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
 #ev-opts .perk:disabled{opacity:.5;cursor:default}
@@ -376,7 +378,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 
   <div class="overlay" id="altar" hidden>
     <div class="card wide">
-      <h2 class="title sm">El altar de las calaveras</h2>
+      <h2 class="title sm">El altar de La Catrina</h2>
+      <p class="npc" id="altar-npc"></p>
       <p class="tag" id="altar-f">💀 0 fichas</p>
       <p class="note">Lo que desbloqueas aparece en tus próximas partidas. No te hace más fuerte: le da más variedad al juego.</p>
       <div id="altar-list"></div>
@@ -434,7 +437,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 
   <div class="overlay" id="rescue-s" hidden>
     <div class="card">
-      <h2 class="title sm">El rescatista llegó</h2>
+      <h2 class="title sm">Llegó el Capitán Ramírez</h2>
+      <p class="npc" id="rs-npc"></p>
       <p class="tag" id="rs-tag">Para salir de esta zona, el grupo tiene que reunir la cuota.</p>
       <div class="rs-pot"><span id="rs-pot">$ 0</span><small id="rs-fee">de 300 $</small><div class="meter"><i id="rs-bar"></i></div></div>
       <p class="note" id="rs-mine">Tu oro: $ 0</p>
@@ -456,6 +460,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="overlay" id="perks" hidden>
     <div class="card wide">
       <h2 class="title sm" id="perk-title">Oleada superada</h2>
+      <p class="npc" id="perk-npc"></p>
       <div class="sum" id="wave-sum"></div>
       <p class="tag">Elige una mejora</p>
       <div id="perk-list"></div>
@@ -466,7 +471,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="overlay" id="shop" hidden>
     <div class="card wide">
       <div class="shop-head">
-        <div><h2 class="title sm">La Armería</h2><p class="tag" style="text-align:left">Abre cada 3 oleadas</p></div>
+        <div><h2 class="title sm">La Armería de Doña Remedios</h2><p class="tag" style="text-align:left">Abre cada 3 oleadas</p><p class="npc left" id="shop-npc"></p></div>
         <div class="purse" id="shop-gold">$ 0<small>Tu oro</small></div>
       </div>
       <h3 class="sec">Revólveres · con dos iguales disparas a dos manos</h3>
@@ -3706,6 +3711,7 @@ function openRescue() {
   if (document.pointerLockElement) document.exitPointerLock();
   input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
   game.rsFee = rescueFee(game.wave); if (!Net.client && game.pot == null) game.pot = 0;
+  $('#rs-npc').textContent = npcLine('ramirez');
   renderRescue(); show('rescue-s'); setTimeout(() => $('#btn-rs-pay').focus(), 50);
   if (Net.client) Net.ev(['rsAsk']);
 }
@@ -3742,7 +3748,7 @@ function rescuePay(remote) {
 function rescueDone() {
   if (!game || game.rescuePaid) return;
   game.rescuePaid = true; game.pot = 0; Sfx.win(); Sfx.cash();
-  banner('¡Rescate pagado!', 'El rescatista los saca de esta zona', 2600);
+  banner('¡Rescate pagado!', npcLine('ramirez', 'ok'), 2600);
   if (state === 'rescue') continueAfter();
 }
 // ---- Horda: si nadie paga, la zona se llena de zombis sin límite ----
@@ -3859,6 +3865,7 @@ function openPerks() {
   perkChoices = [];
   while (perkChoices.length < 3 && avail.length) perkChoices.push(avail.splice(Math.floor(Math.random() * avail.length), 1)[0]);
   $('#perk-title').textContent = `Oleada ${game.wave} superada`;
+  $('#perk-npc').textContent = npcLine('sam', isMapEnd(game.wave) ? 'boss' : null);
   { const tot = game.sum.reduce((a, r) => a + r[1], 0); $('#wave-sum').innerHTML = game.sum.length ? game.sum.map(([k, v]) => `<span>${k}</span><b>${v ? '+' + v + ' $' : '—'}</b>`).join('') + `<span class="tot">Oro por la oleada</span><b class="tot">+${tot} $</b>` : ''; }
   const list = $('#perk-list'); list.innerHTML = '';
   perkChoices.forEach((p, i) => {
@@ -3879,23 +3886,31 @@ function choosePerk(p) {
 function afterPerk() { if (maybeEvent()) return; afterEvent(); }
 function afterEvent() { if (game.wave % 3 === 0) openShop(); else continueAfter(); }
 /* ---- Eventos con tratos: a veces, entre oleadas, aparece alguien con una oferta ---- */
+/* ---- Los personajes de entre oleadas: nombre, icono y frases ---- */
+const NPC = {
+  sam: { n: 'El Viejo Sam', ic: '🔨', say: ['¡¿QUÉ VA A SER, MUCHACHO?! ¡TENGO TRES!', '¡HABLA MÁS FUERTE, QUE NO TE OIGO! ¡ELIGE UNA!', '¡EN MIS TIEMPOS LOS ZOMBIS ERAN MÁS LENTOS!', '¡ESTA LA FORJÉ CON MIS PROPIAS MANOS! ¡O ESO CREO!', '¡NO TOQUES EL YUNQUE, QUE QUEMA!'], boss: ['¡ESO SÍ FUE UN MONSTRUO! ¡TE LO GANASTE, MUCHACHO!', '¡LO OÍ CAER DESDE AQUÍ! ¡Y ESO QUE ESTOY SORDO!'] },
+  remedios: { n: 'Doña Remedios', ic: '👵', say: ['Aquí se paga primero y se llora después.', 'No toques lo que no vas a comprar.', '¿Vienes a comprar o a mirar?', 'Todo lo que ves está a la venta. Hasta mi paciencia.'], poor: ['¿Con esos bolsillos? Ni para una bala, muchacho.', 'Vuelve cuando tengas oro de verdad.'], rich: ['Vaya, vaya… hoy alguien vino con los bolsillos llenos.', 'Siéntate, siéntate. ¿Un café? Para ti, lo que quieras.'] },
+  ramirez: { n: 'Capitán Ramírez', ic: '🚁', say: ['Sin dinero no hay asiento, compadre.', 'El combustible no es gratis. Ni yo tampoco.', 'Tic, tac. Los muertos no esperan y yo tampoco.', 'Yo no hago caridad. Hago vuelos.'], ok: ['Eso es lo que me gusta oír. Suban.', 'Trato hecho. Agárrense fuerte.'] },
+  catrina: { n: 'La Catrina', ic: '💀', say: ['Cada muerte me deja algo, cariño… y a ti también.', 'Vuelve pronto. Siempre vuelves.', 'Tus huesos me cuentan historias muy divertidas.'], none: ['¿Sin fichas? Muere un poco más, cariño.', 'Vuelve cuando la muerte te haya enseñado algo.'] }
+};
+const npcLine = (k, mood) => { const N = NPC[k], list = (mood && N[mood]) || N.say; return `${N.ic} ${N.n}: «${pick(list)}»`; };
 function perkUp(p) { game.perks[p.id] = lv(p.id) + 1; if (p.id === 'hp') { player.maxHp += 25; player.hp = player.maxHp; } if (p.id === 'boots') player.maxSt = 100 * (1 + 0.3 * lv('boots')); }
 function randomBullet() { const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0 && isOpen('b:' + k)), W = [0, 55, 33, 12, 4]; let tot = 0; ids.forEach(k => tot += W[BULLETS[k].rar]); let r = Math.random() * tot; for (const k of ids) if ((r -= W[BULLETS[k].rar]) < 0) return k; return ids[0]; }
 const EVENTS = [
-  { who: 'El Diablo', ic: '😈', say: 'Te ofrezco poder, vaquero… a cambio de un pedazo de tu alma.', opts: [
+  { who: 'Lucio, el Diablo', ic: '😈', say: 'Te ofrezco poder, vaquero… a cambio de un pedazo de tu alma.', opts: [
     { t: '+30 % de daño para siempre', s: 'Pierdes 25 de vida máxima', can: () => player.maxHp > 60, go() { game.devilDmg = (game.devilDmg || 0) + 0.3; player.maxHp -= 25; player.hp = Math.min(player.hp, player.maxHp); return 'Trato hecho. Sientes el fuego en tus balas.'; } },
     { t: 'Oro doble la próxima oleada', s: 'Los zombis vienen un 30 % más rápido', global: true, go() { game.nextMod = Object.assign(game.nextMod || {}, { gold: 2, speed: 1.3 }); return 'La próxima oleada huele a oro… y a sangre.'; } }] },
-  { who: 'El Buhonero', ic: '🎒', say: 'Tengo de todo, forastero. Bueno… casi de todo.', opts: [
+  { who: 'Melquíades, el Buhonero', ic: '🎒', say: 'Tengo de todo, forastero. Bueno… casi de todo.', opts: [
     { t: 'Bala misteriosa', s: '60 $ · una bala especial al azar (puede ser ultra rara)', cost: 60, can: () => game.box.includes('normal'), go() { const k = randomBullet(), i = game.box.indexOf('normal'); game.box[i] = k; return `Te tocó: ${BULLETS[k].name}`; } },
     { t: 'Un ayudante al azar', s: '80 $ · se une a ti ahora', cost: 80, can: () => copsAlive() < ALLY_MAX, go() { const pool = ALLY_POOL.filter(k => canHire(k) && isOpen('a:' + k)); if (!pool.length) return 'No había nadie libre.'; const k = pick(pool); if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1, game.allyGun[k] | 0]); else spawnCop(k); renderChips(); return `${ALLY[k].short} se une a ti`; } },
     { t: 'Dos barriles de pólvora', s: '12 $', cost: 12, can: () => game.powder < 8, go() { game.powder += 2; return '+2 barriles de pólvora'; } }] },
-  { who: 'La Gitana', ic: '🔮', say: 'Déjame leer tu mano… veo oro, y veo muertos. Muchos muertos.', opts: [
+  { who: 'Madame Zafira, la gitana', ic: '🔮', say: 'Déjame leer tu mano… veo oro, y veo muertos. Muchos muertos.', opts: [
     { t: 'Triple de oro la próxima oleada', s: 'Pero vienen el doble de zombis', global: true, go() { game.nextMod = Object.assign(game.nextMod || {}, { gold: 3, count: 2 }); return 'Que la suerte te acompañe.'; } },
     { t: 'Sube una de tus mejoras', s: '40 $ · una mejora que ya tienes, al azar', cost: 40, can: () => PERKS.some(p => lv(p.id) > 0 && lv(p.id) < p.max), go() { const p = pick(PERKS.filter(q => lv(q.id) > 0 && lv(q.id) < q.max)); perkUp(p); renderChips(); return `${p.name} sube a nivel ${lv(p.id)}`; } }] },
-  { who: 'El Predicador', ic: '✝️', say: 'Hijo mío, el Señor perdona… pero cobra en efectivo.', opts: [
+  { who: 'El Padre Tobías', ic: '✝️', say: 'Hijo mío, el Señor perdona… pero cobra en efectivo.', opts: [
     { t: 'Curación completa', s: '50 $ · y +10 de vida máxima', cost: 50, go() { player.maxHp += 10; player.hp = player.maxHp; return 'Te sientes bendecido.'; } },
     { t: 'Dona todo tu oro', s: 'A cambio eliges otra mejora', can: () => game.gold >= 30, go() { game.gold = 0; return 'perk'; } }] },
-  { who: 'El sepulturero borracho', ic: '🍾', say: '¡Hip! ¿Apostamos algo, amigo? ¿O cavamos una tumba?', opts: [
+  { who: 'Gumersindo, el sepulturero borracho', ic: '🍾', say: '¡Hip! ¿Apostamos algo, amigo? ¿O cavamos una tumba?', opts: [
     { t: 'Apostar 50 $', s: 'La mitad de las veces lo duplicas', cost: 50, go() { if (Math.random() < 0.5) { addGold(100); return '¡Ganaste! +100 $'; } return 'Perdiste… el borracho se ríe.'; } },
     { t: 'Desenterrar una tumba', s: '60 %: 120 $ · 40 %: despierta un Carnicero', global: true, go() { if (Math.random() < 0.6) { addGold(120); return '¡Un cofre lleno! +120 $'; } game.nextMod = Object.assign(game.nextMod || {}, { brute: 1 }); return 'Algo despertó… un Carnicero vendrá a buscarte.'; } }] }
 ];
@@ -3953,7 +3968,7 @@ function devilApply(i, c) {
 }
 function openEvent(E) {
   state = 'event'; if (document.pointerLockElement) document.exitPointerLock();
-  $('#ev-ic').textContent = E.ic; $('#ev-who').textContent = E.who; $('#ev-say').textContent = E.say;
+  $('#ev-ic').textContent = E.ic; $('#ev-who').textContent = E.who; $('#ev-say').textContent = `«${E.say}»`;
   const box = $('#ev-opts'); box.innerHTML = '';
   const opts = E.opts.filter(o => !(o.global && Net.client)).concat([{ t: 'Seguir mi camino', s: 'No acepto nada', go: () => '' }]);
   for (const o of opts) {
@@ -3980,7 +3995,7 @@ function rollOffers() {
   }
   game.offers = out.map(id => ({ id, bought: false }));
 }
-function openShop() { state = 'shop'; rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
+function openShop() { $('#shop-npc').textContent = npcLine('remedios', game.gold < 30 ? 'poor' : game.gold >= 300 ? 'rich' : null); state = 'shop'; rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
 function meterRow(label, v) { return `<span>${label}</span><div class="meter"><i style="width:${Math.round(clamp(v, 0.05, 1) * 100)}%"></i></div>`; }
 const ALLY_IC = { cop: ['👮', 'Tirador barato'], pistolero: ['🤠', 'Balas especiales'], bill: ['🎖️', 'Ráfagas'], swat: ['🛡️', 'Aguanta mucho'], pandillero: ['🔫', 'Lluvia de balas'], carlos: ['💥', 'Empuja zombis'], rebeca: ['✌️', 'Dos blancos'], ursula: ['⛑️', 'Cura al grupo'], contador: ['💰', 'Te da oro'], recargador: ['🛢️', 'Pólvora y recarga'], franco: ['🎯', 'Precisión'], dinamitero: ['🧨', 'Explosivos'], carnicero: ['🔪', 'Cuerpo a cuerpo'] };
 // Retrato de cada ayudante, dibujado una vez con su modelo 3D real.
@@ -5465,6 +5480,7 @@ function renderMeta() {
 }
 function renderAltar() {
   $('#altar-f').textContent = `💀 ${META.fichas} fichas de calavera`;
+  if (!renderAltar.said) { renderAltar.said = 1; $('#altar-npc').textContent = npcLine('catrina', META.fichas ? null : 'none'); }
   const L = $('#altar-list'); L.innerHTML = '';
   for (const u of UNLOCKS) {
     const own = !!META.un[u.k], d = document.createElement('div'); d.className = 'item';
@@ -5517,7 +5533,7 @@ function toMenu() {
 $('#btn-start').addEventListener('click', () => startGame());
 $('#sk-minus').addEventListener('click', () => { META.skull = Math.max(0, META.skull - 1); saveMeta(); renderMeta(); });
 $('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
-$('#btn-altar').addEventListener('click', () => { renderAltar(); show('altar'); });
+$('#btn-altar').addEventListener('click', () => { renderAltar.said = 0; renderAltar(); show('altar'); });
 $('#btn-altar-back').addEventListener('click', () => { renderMeta(); show('menu'); });
 renderMeta();
 $('#btn-continue').addEventListener('click', () => { const sv = store.get(SAVE_KEY, null); if (sv) startGame(sv); });
