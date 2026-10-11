@@ -673,6 +673,16 @@ const Sfx = (() => {
       tone({ type: 'sawtooth', f0: 210, f1: 110, dur: 0.22, vol: 0.18, wet: 0.1 }); burst({ ftype: 'lowpass', f0: 700, dur: 0.15, vol: 0.5 });
     },
     help(pan) { for (let r = 0; r < 2; r++) { tone({ type: 'triangle', f0: 880, f1: 700, dur: 0.22, vol: 0.14, pan, delay: r * 0.5, wet: 0.6 }); tone({ type: 'triangle', f0: 740, f1: 520, dur: 0.3, vol: 0.14, pan, delay: r * 0.5 + 0.22, wet: 0.6 }); } },
+    agony(pan, vol = 1, hi = 0, fade = 1) {
+      const f = (hi ? 620 : 360) * (0.9 + Math.random() * 0.25), d = 0.5 + Math.random() * 0.45, v = vol * fade;
+      tone({ type: 'sawtooth', f0: f, f1: f * (0.55 + Math.random() * 0.2), dur: d, vol: 0.15 * v, pan, wet: 0.55, attack: 0.03 });
+      tone({ type: 'square', f0: f * 1.5, f1: f * 0.85, dur: d * 0.8, vol: 0.045 * v, pan, wet: 0.55, attack: 0.05 });
+      tone({ type: 'sine', f0: f * 0.5, f1: f * 0.4, dur: d, vol: 0.08 * v, pan, wet: 0.5, attack: 0.04 });
+      burst({ f0: hi ? 1300 : 950, q: 3, dur: d, vol: 0.07 * v, pan, wet: 0.5, attack: 0.04 });
+    },
+    gurgle(pan, vol = 1) { for (let i = 0; i < 5; i++) burst({ ftype: 'lowpass', f0: 520, f1: 140, q: 1, dur: 0.11, vol: 0.12 * vol, pan, wet: 0.3, delay: i * 0.08 }); tone({ type: 'sine', f0: 130, f1: 55, dur: 0.45, vol: 0.12 * vol, pan }); },
+    ouch(pan, vol = 1, hi = 0) { const f = (hi ? 540 : 300) * (0.9 + Math.random() * 0.2); tone({ type: 'sawtooth', f0: f, f1: f * 0.7, dur: 0.18, vol: 0.11 * vol, pan, wet: 0.3, attack: 0.01 }); },
+    chew(pan, vol = 1) { burst({ ftype: 'lowpass', f0: 900, f1: 200, q: 1.5, dur: 0.16, vol: 0.18 * vol, pan, wet: 0.3 }); burst({ f0: 2400, q: 2, dur: 0.05, vol: 0.06 * vol, pan, delay: 0.05 }); },
     copDown(pan) { tone({ type: 'sawtooth', f0: 320, f1: 140, dur: 0.6, vol: 0.2, pan, wet: 0.5 }); },
     heart() { tone({ f0: 60, f1: 40, dur: 0.14, vol: 0.55, wet: 0 }); tone({ f0: 55, f1: 38, dur: 0.14, vol: 0.4, delay: 0.2, wet: 0 }); },
     step() { burst({ ftype: 'lowpass', f0: rand(300, 450), dur: 0.08, vol: 0.12, wet: 0.05 }); },
@@ -1802,11 +1812,21 @@ const holeDecalMat = new THREE.MeshBasicMaterial({ color: 0x0a0806, polygonOffse
 const holes = []; let holeI = 0;
 for (let i = 0; i < 60; i++) { const m = new THREE.Mesh(holeGeo, holeDecalMat); m.visible = false; scene.add(m); holes.push(m); }
 function addHole(pt, n) { const m = holes[holeI++ % holes.length]; m.visible = true; m.position.copy(pt).addScaledVector(n, 0.006); m.lookAt(pt.x + n.x, pt.y + n.y, pt.z + n.z); }
-const splatGeo = new THREE.CircleGeometry(1, 11);
-const splatMats = [0x3d0507, 0x4a0709, 0x2e0405].map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.85, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }));
+const splatGeo = new THREE.PlaneGeometry(2, 2);
+// Manchas de sangre con forma irregular: charco, salpicadura y goteo
+const splatTex = [0, 1, 2].map(kind => canvasTex(128, 128, (g, w, h) => {
+  g.clearRect(0, 0, w, h); g.fillStyle = '#fff';
+  const blob = (x, y, r) => { g.beginPath(); for (let a = 0; a <= 16; a++) { const t = a / 16 * Math.PI * 2, rr = r * (0.75 + Math.random() * 0.35); g.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr); } g.fill(); };
+  if (kind === 0) { blob(64, 64, 38); for (let i = 0; i < 8; i++) blob(64 + rand(-46, 46), 64 + rand(-46, 46), rand(5, 14)); }
+  else if (kind === 1) { blob(64, 64, 20); for (let i = 0; i < 26; i++) { const a = rand(0, TAU), r = rand(20, 58); blob(64 + Math.cos(a) * r, 64 + Math.sin(a) * r, rand(2, 7)); } }
+  else { for (let i = 0; i < 5; i++) blob(30 + i * 16 + rand(-4, 4), 64 + rand(-14, 14), rand(9, 18)); for (let i = 0; i < 12; i++) blob(rand(12, 116), rand(30, 98), rand(2, 5)); }
+}));
+const splatMats = [];
+for (const c of [0x3d0507, 0x4a0709, 0x2e0405, 0x55080a]) for (const t of splatTex) splatMats.push(new THREE.MeshBasicMaterial({ color: c, map: t, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }));
 const splats = []; let splatI = 0;
-for (let i = 0; i < 50; i++) { const m = new THREE.Mesh(splatGeo, pick(splatMats)); m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); splats.push(m); }
-function addSplat(x, z, s) { const m = splats[splatI++ % splats.length]; m.visible = true; m.position.set(x + rand(-0.3, 0.3), 0.016 + (splatI % 7) * 0.0015, z + rand(-0.3, 0.3)); m.scale.set(s * rand(0.7, 1.2), s, 1); m.rotation.z = rand(0, TAU); }
+for (let i = 0; i < (IS_TOUCH ? 110 : 180); i++) { const m = new THREE.Mesh(splatGeo, pick(splatMats)); m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); splats.push(m); }
+function addSplat(x, z, s) { const m = splats[splatI++ % splats.length]; m.visible = true; m.position.set(x + rand(-0.3, 0.3), 0.016 + (splatI % 7) * 0.0015, z + rand(-0.3, 0.3)); m.scale.set(s * rand(0.7, 1.2), s, 1); m.rotation.z = rand(0, TAU); m.material = pick(splatMats); }
+function hideSplats() { for (const m of splats) m.visible = false; }
 const tracerGeo = new THREE.CylinderGeometry(0.006, 0.006, 1, 4); tracerGeo.translate(0, 0.5, 0);
 const tracers = [];
 for (let i = 0; i < 40; i++) { const m = new THREE.Mesh(tracerGeo, new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.visible = false; scene.add(m); tracers.push({ m, t: 0 }); }
@@ -2787,6 +2807,7 @@ function addGold(n, silent) {
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
+  hideSplats();
   for (let k = zombies.length - 1; k >= 0; k--) removeZombie(k);
   debris.forEach(d => scene.remove(d.m)); debris.length = 0;
   acids.forEach(a => scene.remove(a.m)); acids.length = 0;
@@ -3259,7 +3280,8 @@ function damageZombie(z, amount, info) {
   z.hp -= amount; z.flash = 0.1;
   const head = info.part === 'head';
   if (info.bullet && info.point) {
-    bloodBurst(info.point, info.dir, armorHit ? 3 : head ? 16 : 9, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
+    if (!armorHit && Math.random() < (head ? 0.6 : 0.3)) addSplat(z.root.position.x + (info.dir ? info.dir.x * 0.8 : 0), z.root.position.z + (info.dir ? info.dir.z * 0.8 : 0), rand(0.2, 0.42));
+    bloodBurst(info.point, info.dir, armorHit ? 3 : head ? 26 : 14, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
     if (lv('fire') && !info.ally) { z.burn = 3; z.burnDps = 18 * lv('fire'); }
@@ -3297,7 +3319,8 @@ function killZombie(z, info) {
   const head = info.part === 'head';
   z.fallDir = info.dir ? ((info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw)) > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   const p = z.root.position;
-  addSplat(p.x, p.z, rand(0.5, 0.9) * z.s);
+  addSplat(p.x, p.z, rand(0.6, 1.05) * z.s); for (let i = 0; i < 2; i++) addSplat(p.x + rand(-0.9, 0.9) * z.s, p.z + rand(-0.9, 0.9) * z.s, rand(0.2, 0.45) * z.s);
+  { z.torso.getWorldPosition(_tmp); bloodBurst(_tmp, info.dir || new THREE.Vector3(0, 1, 0), z.def.big ? 30 : 18, true); }
   if (z.def.big) { Sfx.thud(panOf(p)); player.shake = Math.min(1, player.shake + 0.35); } else Sfx.splat(panOf(p), volOf(p, 0.6));
   if (z.type === 'bloater') { z.torso.getWorldPosition(_tmp); const c = _tmp.clone(); z.body.visible = false; Sfx.gas(panOf(p)); explode(c, 4.2, 140, inGame ? 26 : 0, true); makePuddle(c.x, c.z, 2.2, 4); }
   if (!inGame) return;
@@ -4538,9 +4561,24 @@ function updateZombies(dt, canAttack) {
     if (z.groanT <= 0) { z.groanT = rand(3, 9); if (dist < 30) { if (z.type === 'dog') Sfx.bark(panOf(pos), volOf(pos, 0.7)); else Sfx.groan(panOf(pos), volOf(pos, 0.45), z.def.big ? 0.6 : z.type === 'runner' ? 1.3 : z.type === 'screamer' ? 1.5 : 1); } }
   }
 }
+const FEM_ALLY = new Set(['rebeca', 'ursula', 'franco']);
+const allyHi = c => c.npc ? [2, 5, 9].includes(world.idx) : FEM_ALLY.has(c.kind);
+// Gritos, mordiscos y sangre mientras devoran a un ayudante (también en los teléfonos del grupo)
+function eatenFx(c, dt) {
+  if (c.deadT > 6.5) return;
+  const pos = c.root.position; c.agT = (c.agT === undefined ? 0.15 : c.agT) - dt;
+  if (c.agT > 0) return;
+  c.agT = 0.6 + Math.random() * 0.8;
+  const pan = panOf(pos), fade = Math.max(0.25, 1 - c.deadT / 7);
+  if (c.deadT < 4.5 && Math.random() < 0.75) Sfx.agony(pan, volOf(pos, 1.7), allyHi(c), fade); else Sfx.gurgle(pan, volOf(pos, 1.4));
+  Sfx.chew(pan, volOf(pos, 1));
+  bloodBurst(new THREE.Vector3(pos.x + rand(-0.3, 0.3), 0.45, pos.z + rand(-0.3, 0.3)), new THREE.Vector3(rand(-0.6, 0.6), 0.9, rand(-0.6, 0.6)).normalize(), 10, true);
+  if (Math.random() < 0.6) addSplat(pos.x, pos.z, rand(0.5, 0.95));
+}
 function hurtCop(c, dmg) {
   if (c.dead) return;
   c.hp -= dmg; c.flash = 0.12;
+  if (!(c.ouchT > 0)) { c.ouchT = 0.6; Sfx.ouch(panOf(c.root.position), volOf(c.root.position, 1.2), allyHi(c)); }
   c.torso.getWorldPosition(_zp); bloodBurst(_zp, new THREE.Vector3(rand(-1, 1), 0.3, rand(-1, 1)).normalize(), 6, false);
   if (c.hp <= 0) {
     c.dead = true; c.deadT = 0; c.eatT = 8; c.fallDir = Math.random() < 0.5 ? 1 : -1;
@@ -4556,8 +4594,9 @@ function updateCops(dt) {
     const c = cops[i], pos = c.root.position;
     const er = c.flash > 0 ? c.flash / 0.12 * 0.7 : 0; if (c.flash > 0) c.flash -= dt;
     if (er > 0 || c.eOn) { c.mats.forEach(m => m.emissive.setRGB(er, 0, 0)); c.eOn = er > 0; }
+    if (c.ouchT > 0) c.ouchT -= dt;
     if (c.dead) {
-      c.deadT += dt; c.eatT -= dt;
+      c.deadT += dt; c.eatT -= dt; eatenFx(c, dt);
       const ft = clamp(c.deadT / 0.6, 0, 1); c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft;
       if (c.deadT < 6 && Math.random() < 0.15) P.add(pos.x + rand(-0.4, 0.4), 0.2, pos.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.05, 0.42, 0.02, 0.02, 1, 9.8, 0.3, 0, 1);
       if (c.deadT > 8.5) {
@@ -5281,7 +5320,7 @@ function updateCopProxies(dt) {
     c.t += dt; const pos = c.root.position, k = Math.min(1, dt * 9), ox = pos.x, oz = pos.z;
     pos.x += (c.nx - pos.x) * k; pos.z += (c.nz - pos.z) * k;
     let dy = c.nyaw - c.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; c.yaw += dy * k; c.root.rotation.y = c.yaw;
-    if (c.dead) { c.deadT = (c.deadT || 0) + dt; const ft = clamp(c.deadT / 0.6, 0, 1); c.fall.rotation.x = Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; if (c.beam) c.beam.visible = false; continue; }
+    if (c.dead) { c.deadT = (c.deadT || 0) + dt; if (!c.npc || c.beam) eatenFx(c, dt); const ft = clamp(c.deadT / 0.6, 0, 1); c.fall.rotation.x = Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; if (c.beam) c.beam.visible = false; continue; }
     if (c.npc) { c.armLG.rotation.x = -2.5 + Math.sin(c.t * 7) * 0.25; c.armRG.rotation.x = -2.5 + Math.cos(c.t * 7) * 0.25; c.armLG.rotation.z = -0.4; c.armRG.rotation.z = 0.4; c.beamMat.opacity = 0.22 + Math.sin(c.t * 4) * 0.07; continue; }
     const spd = Math.hypot(pos.x - ox, pos.z - oz) / Math.max(dt, 1e-3), sw = Math.sin(c.t * 9);
     c.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); c.legR.rotation.x = -c.legL.rotation.x;
