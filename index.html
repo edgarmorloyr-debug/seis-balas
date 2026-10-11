@@ -5704,7 +5704,7 @@ const saveMeta = () => store.set(META_KEY, META);
 const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', desc: 'Empieza con un oficial de nivel 2 a su lado. Los ayudantes le cuestan un 20 % menos.' },
   johnny: { name: 'Johnny', gun: 'corto', desc: 'Tiene suerte: los zombis le sueltan más cosas y gana más seguido en las apuestas, los dados, la ruleta y el Jackpot.' },
-  armando: { name: 'Don Armando', gun: 'viejo', desc: 'Viejo zorro: empieza con 3 balas especiales al azar en su caja.' }
+  armando: { name: 'Don Velorio', gun: 'viejo', desc: 'Viejo zorro: empieza con 3 balas especiales al azar en su caja.' }
 };
 const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : p;
 const UNLOCKS = [
@@ -5763,113 +5763,170 @@ function applyChar() {
 const charPicCache = {};
 function charPic(id) {
   if (charPicCache[id]) return charPicCache[id];
-  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
+  const S = 320, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.scale(S / 256, S / 256);
+  const T2 = Math.PI * 2;
   const P = {
-    sheriff: { bg: ['#c8803a', '#3a1c0c'], skin: '#c48e64', skinD: '#9a6a46', iris: '#4a6a3a' },
-    johnny: { bg: ['#3a8ab0', '#0c1c2c'], skin: '#dcaa82', skinD: '#b0805c', iris: '#5a3a1e' },
-    armando: { bg: ['#a88a5a', '#2a1c10'], skin: '#b48460', skinD: '#86603e', iris: '#3a2a1a' }
+    sheriff: { hi: '#e8b08a', skin: '#c88a62', sh: '#8a5436', iris: '#5a7a8a', jaw: 1.08 },
+    johnny: { hi: '#f2c8a4', skin: '#dba882', sh: '#a87250', iris: '#5a3a1e', jaw: 0.98 },
+    armando: { hi: '#e2b08a', skin: '#b88660', sh: '#7e5436', iris: '#3a2a1a', jaw: 1 }
   }[id];
-  const ell = (x, y, rx, ry, f, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, TAU); g.fillStyle = f; g.fill(); };
-  const line = (pts, c, w) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); };
-  // fondo
-  const bg = g.createRadialGradient(128, 100, 10, 128, 128, 190); bg.addColorStop(0, P.bg[0]); bg.addColorStop(1, P.bg[1]); g.fillStyle = bg; g.fillRect(0, 0, S, S);
-  // hombros y ropa
-  const torso = () => { g.beginPath(); g.moveTo(14, 256); g.bezierCurveTo(18, 196, 60, 178, 100, 172); g.lineTo(156, 172); g.bezierCurveTo(196, 178, 238, 196, 242, 256); g.closePath(); };
-  // cuello
-  g.fillStyle = P.skinD; g.fillRect(106, 140, 44, 44);
+  const OUT = 'rgba(40,18,8,.85)';
+  const ell = (x, y, rx, ry, f, r = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, T2); g.fillStyle = f; g.fill(); };
+  const stroke = (c, w) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); };
+  const line = (pts, c, w) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); stroke(c, w); };
+  const curve = (pts, c, w) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 4) g.quadraticCurveTo(pts[i], pts[i + 1], pts[i + 2], pts[i + 3]); stroke(c, w); };
+  const lin = (x0, y0, x1, y1, stops) => { const gr = g.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, c]) => gr.addColorStop(o, c)); return gr; };
+  const rad = (x, y, r0, r1, stops, x1 = x, y1 = y) => { const gr = g.createRadialGradient(x, y, r0, x1, y1, r1); stops.forEach(([o, c]) => gr.addColorStop(o, c)); return gr; };
+  const shape = (fn, fill, out = OUT, w = 2) => { g.beginPath(); fn(); g.closePath(); g.fillStyle = fill; g.fill(); if (out) stroke(out, w); };
+  // ---------- fondo ----------
   if (id === 'sheriff') {
-    torso(); g.fillStyle = '#e8dcc0'; g.fill();
-    g.beginPath(); g.moveTo(14, 256); g.bezierCurveTo(18, 196, 60, 178, 104, 172); g.lineTo(122, 256); g.closePath(); g.fillStyle = '#5a3820'; g.fill();
-    g.beginPath(); g.moveTo(242, 256); g.bezierCurveTo(238, 196, 196, 178, 152, 172); g.lineTo(134, 256); g.closePath(); g.fill();
-    line([100, 176, 120, 254], '#3a2412', 3); line([156, 176, 136, 254], '#3a2412', 3);
-    g.beginPath(); g.moveTo(100, 168); g.lineTo(156, 168); g.lineTo(128, 206); g.closePath(); g.fillStyle = '#b02a22'; g.fill();
-    line([108, 172, 128, 200, 148, 172], '#801a14', 2);
-    // estrella de sheriff
-    g.save(); g.translate(76, 214); g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 7 : 17, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath();
-    const sg = g.createLinearGradient(-16, -16, 16, 16); sg.addColorStop(0, '#fff0a0'); sg.addColorStop(0.5, '#e0a830'); sg.addColorStop(1, '#8a5a10'); g.fillStyle = sg; g.fill(); g.strokeStyle = '#6a4208'; g.lineWidth = 1.5; g.stroke();
-    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU / 5; ell(Math.cos(a) * 17, Math.sin(a) * 17, 2.6, 2.6, '#f8d860'); } ell(0, 0, 4, 4, '#c88a20'); g.restore();
+    g.fillStyle = rad(150, 90, 20, 230, [[0, '#fff27a'], [0.5, '#f4d81c'], [1, '#c8960c']]); g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = 'rgba(120,80,20,.35)'; g.lineWidth = 1.2; for (let i = 0; i < 70; i++) { const x = (i * 37) % 256, h = 10 + (i * 13) % 26; g.beginPath(); g.moveTo(x, 256); g.quadraticCurveTo(x + 3, 256 - h / 2, x + ((i % 3) - 1) * 6, 256 - h); g.stroke(); }
   } else if (id === 'johnny') {
-    torso(); g.fillStyle = '#2a5aa8'; g.fill();
-    g.save(); torso(); g.clip();
-    g.globalAlpha = 0.35; g.fillStyle = '#16305e'; for (let x = 0; x < S; x += 26) g.fillRect(x, 160, 10, 100); for (let y = 176; y < S; y += 26) g.fillRect(0, y, S, 10);
-    g.globalAlpha = 0.25; g.fillStyle = '#9ac0f0'; for (let x = 16; x < S; x += 26) g.fillRect(x, 160, 2, 100); for (let y = 192; y < S; y += 26) g.fillRect(0, y, S, 2);
-    g.globalAlpha = 1; g.restore();
-    // cuello de la camisa y botones
-    g.beginPath(); g.moveTo(100, 168); g.lineTo(128, 200); g.lineTo(112, 206); g.lineTo(92, 176); g.closePath(); g.fillStyle = '#244e94'; g.fill();
-    g.beginPath(); g.moveTo(156, 168); g.lineTo(128, 200); g.lineTo(144, 206); g.lineTo(164, 176); g.closePath(); g.fill();
-    g.fillStyle = P.skinD; g.beginPath(); g.moveTo(106, 168); g.lineTo(150, 168); g.lineTo(128, 196); g.closePath(); g.fill();
-    for (let y = 214; y < 256; y += 18) ell(128, y, 3, 3, '#dfe6f0');
-    line([128, 200, 128, 256], '#1c3e78', 2);
+    g.fillStyle = '#120c14'; g.fillRect(0, 0, 256, 256);
+    [[30, 70, 46, '#ffd040'], [214, 40, 40, '#ff4a8a'], [236, 150, 34, '#40c8ff'], [24, 190, 30, '#ff7a30'], [128, 10, 30, '#b070ff']].forEach(([x, y, r, c]) => { g.fillStyle = rad(x, y, 0, r * 1.6, [[0, c], [0.45, c + '99'], [1, c + '00']]); g.fillRect(0, 0, 256, 256); g.beginPath(); g.arc(x, y, r * 0.75, 0, T2); g.strokeStyle = c + 'aa'; g.lineWidth = 4; g.stroke(); });
+    g.fillStyle = 'rgba(10,6,12,.35)'; g.fillRect(0, 0, 256, 256);
   } else {
-    torso(); g.fillStyle = '#6a4a2e'; g.fill();
-    g.save(); torso(); g.clip();
-    [['#b02a22', 196], ['#e8d8b0', 206], ['#2a6a5a', 214], ['#e8d8b0', 222], ['#b02a22', 232], ['#d8a030', 244]].forEach(([c, y]) => { g.fillStyle = c; g.fillRect(0, y, S, 5); });
-    g.restore();
-    g.beginPath(); g.moveTo(98, 170); g.lineTo(158, 170); g.lineTo(128, 194); g.closePath(); g.fillStyle = '#3a2818'; g.fill();
+    g.fillStyle = rad(128, 80, 10, 220, [[0, '#f0c27a'], [0.55, '#b8743a'], [1, '#4a2410']]); g.fillRect(0, 0, 256, 256);
+    g.fillStyle = 'rgba(80,36,14,.5)'; g.beginPath(); g.moveTo(0, 200); for (let x = 0; x <= 256; x += 32) g.lineTo(x, 186 + ((x * 7) % 23)); g.lineTo(256, 256); g.lineTo(0, 256); g.fill();
   }
-  // orejas y cabeza
-  ell(84, 112, 9, 14, P.skinD); ell(172, 112, 9, 14, P.skinD);
-  const head = () => { g.beginPath(); g.ellipse(128, 108, 44, 55, 0, 0, TAU); };
-  head(); g.fillStyle = P.skin; g.fill();
-  g.save(); head(); g.clip(); const sh = g.createLinearGradient(84, 0, 172, 0); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(0.6, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(60,20,0,.28)'); g.fillStyle = sh; g.fillRect(80, 50, 100, 120);
-  const jaw = g.createLinearGradient(0, 130, 0, 165); jaw.addColorStop(0, 'rgba(0,0,0,0)'); jaw.addColorStop(1, 'rgba(60,20,0,.18)'); g.fillStyle = jaw; g.fillRect(80, 130, 100, 40); g.restore();
-  // ojos
-  const eye = (x, open) => { ell(x, 104, 8, open, '#f4efe6'); ell(x + 1, 104, 4, Math.min(4, open), P.iris); ell(x + 1, 104, 2, Math.min(2, open), '#120a06'); ell(x + 2.5, 102.5, 1.2, 1.2, '#fff'); };
-  // nariz
-  const nose = () => { line([126, 100, 121, 126, 130, 129], P.skinD, 3); ell(128, 127, 7, 4, 'rgba(90,40,10,.18)'); };
+  // ---------- torso ----------
+  const torso = () => { g.moveTo(8, 260); g.bezierCurveTo(12, 200, 56, 182, 98, 174); g.lineTo(158, 174); g.bezierCurveTo(200, 182, 244, 200, 248, 260); };
+  // cuello
+  shape(() => { g.moveTo(104, 130); g.lineTo(152, 130); g.lineTo(154, 186); g.lineTo(102, 186); }, lin(0, 140, 0, 186, [[0, P.sh], [1, P.skin]]), null);
   if (id === 'sheriff') {
-    // barba de tres días
-    g.save(); head(); g.clip(); g.fillStyle = 'rgba(50,30,20,.28)'; g.beginPath(); g.ellipse(128, 150, 40, 24, 0, 0, TAU); g.fill(); g.restore();
-    eye(110, 3.6); eye(146, 3.6);
-    line([98, 95, 110, 93, 121, 96], '#3a2414', 4.5); line([135, 96, 146, 93, 158, 95], '#3a2414', 4.5);
-    nose();
-    g.beginPath(); g.moveTo(104, 142); g.quadraticCurveTo(128, 128, 152, 142); g.quadraticCurveTo(150, 150, 144, 146); g.quadraticCurveTo(128, 138, 112, 146); g.quadraticCurveTo(106, 150, 104, 142); g.fillStyle = '#4a2c18'; g.fill();
-    line([116, 150, 140, 150], '#6a3a26', 2.5);
-    // sombrero
-    ell(128, 66, 86, 17, '#6e4e2a'); ell(128, 63, 84, 14, '#8a6438');
-    g.beginPath(); g.moveTo(84, 66); g.bezierCurveTo(82, 34, 96, 16, 116, 22); g.quadraticCurveTo(128, 30, 140, 22); g.bezierCurveTo(160, 16, 174, 34, 172, 66); g.closePath(); g.fillStyle = '#8a6438'; g.fill();
-    g.fillStyle = '#3a2412'; g.fillRect(85, 52, 86, 10);
-    line([128, 26, 128, 46], 'rgba(60,36,14,.6)', 3);
+    shape(torso, lin(0, 170, 0, 256, [[0, '#9a4422'], [1, '#5a2410']]));
+    // canesú con flecos
+    g.save(); g.beginPath(); torso(); g.closePath(); g.clip();
+    for (const s of [-1, 1]) {
+      const x0 = 128 + s * 40; g.beginPath(); g.moveTo(128 + s * 14, 200); g.quadraticCurveTo(x0, 214, 128 + s * 116, 204); stroke('#3a1608', 2.5);
+      for (let i = 0; i < 16; i++) { const t = i / 15, x = 128 + s * (16 + t * 100), y = 202 + Math.sin(t * Math.PI) * 10; line([x, y, x + s * 2, y + 14 + (i % 3) * 3], i % 2 ? '#7a3416' : '#b0582c', 2.2); }
+      ell(128 + s * 50, 236, 16, 11, 'rgba(60,20,8,.35)'); line([128 + s * 36, 228, 128 + s * 64, 228], '#3a1608', 2);
+    }
+    g.fillStyle = lin(60, 0, 256, 0, [[0, 'rgba(255,200,150,.18)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.3)']]); g.fillRect(0, 160, 256, 100); g.restore();
+    line([128, 200, 128, 256], '#3a1608', 2.5); for (let y = 214; y < 256; y += 16) ell(130, y, 2.6, 2.6, '#d8b890');
+    // pañuelo azul
+    shape(() => { g.moveTo(94, 166); g.quadraticCurveTo(128, 186, 162, 166); g.lineTo(168, 184); g.quadraticCurveTo(150, 196, 140, 194); g.lineTo(128, 222); g.lineTo(112, 194); g.quadraticCurveTo(100, 194, 88, 184); }, lin(0, 166, 0, 222, [[0, '#5ab0f0'], [1, '#2a6ab8']]), '#1a3a6a');
+    ell(128, 190, 10, 7, '#3a88d0'); curve([118, 172, 128, 182, 138, 172], 'rgba(20,50,100,.6)', 1.5); curve([120, 198, 124, 210, 128, 218], 'rgba(20,50,100,.5)', 1.5);
+    // estrella
+    g.save(); g.translate(178, 214); g.rotate(-0.12); g.beginPath(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 8 : 19, a = -Math.PI / 2 + i * Math.PI / 5; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath();
+    g.fillStyle = lin(-18, -18, 18, 18, [[0, '#fff6b0'], [0.45, '#e8b030'], [1, '#8a5a10']]); g.fill(); stroke('#5a3608', 1.6);
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * T2 / 5; ell(Math.cos(a) * 19, Math.sin(a) * 19, 3, 3, '#ffe070'); } ell(0, 0, 6, 6, '#c88a20'); ell(-2, -2, 2, 2, '#fff6c0'); g.restore();
   } else if (id === 'johnny') {
-    // pelo castaño con tupé
-    g.beginPath(); g.moveTo(84, 104); g.bezierCurveTo(78, 60, 98, 40, 130, 42); g.bezierCurveTo(166, 42, 180, 66, 172, 104); g.bezierCurveTo(168, 86, 164, 74, 150, 70); g.bezierCurveTo(130, 76, 104, 70, 92, 80); g.bezierCurveTo(88, 88, 86, 96, 84, 104); g.fillStyle = '#6a4426'; g.fill();
-    g.beginPath(); g.moveTo(92, 66); g.bezierCurveTo(100, 34, 150, 28, 170, 56); g.bezierCurveTo(150, 46, 120, 48, 108, 62); g.closePath(); g.fillStyle = '#7e5432'; g.fill();
-    line([110, 54, 140, 44], 'rgba(200,150,100,.5)', 2.5);
-    eye(110, 4.8); eye(146, 4.4);
-    line([97, 92, 110, 88, 122, 91], '#4a2c16', 4); line([134, 94, 146, 92, 158, 95], '#4a2c16', 4);
+    // chaqueta mostaza y camisa celeste
+    shape(torso, lin(0, 170, 0, 256, [[0, '#4a2e1e'], [1, '#22140c']]));
+    shape(() => { g.moveTo(100, 172); g.lineTo(156, 172); g.lineTo(150, 256); g.lineTo(106, 256); }, lin(0, 170, 0, 256, [[0, '#b8d4ec'], [1, '#8aaccc']]), null);
+    // cuello de la camisa
+    shape(() => { g.moveTo(102, 168); g.lineTo(128, 196); g.lineTo(112, 206); g.lineTo(94, 180); }, '#c8e0f4', '#6a8aa8', 1.5);
+    shape(() => { g.moveTo(154, 168); g.lineTo(128, 196); g.lineTo(144, 206); g.lineTo(162, 180); }, '#c8e0f4', '#6a8aa8', 1.5);
+    line([128, 198, 128, 256], '#6a8aa8', 1.5); for (let y = 214; y < 256; y += 16) ell(128, y, 2.2, 2.2, '#eef4fa');
+    // solapas de la chaqueta
+    shape(() => { g.moveTo(96, 176); g.lineTo(80, 188); g.lineTo(104, 256); g.lineTo(110, 256); g.lineTo(104, 210); }, '#5a3826', '#120804', 1.5);
+    shape(() => { g.moveTo(160, 176); g.lineTo(176, 188); g.lineTo(152, 256); g.lineTo(146, 256); g.lineTo(152, 210); }, '#5a3826', '#120804', 1.5);
+    for (const s2 of [-1, 1]) { curve([128 + s2 * 70, 200, 128 + s2 * 80, 230, 128 + s2 * 78, 256], 'rgba(0,0,0,.45)', 2); curve([128 + s2 * 44, 214, 128 + s2 * 56, 212, 128 + s2 * 66, 216], 'rgba(255,220,180,.18)', 2.5); ell(128 + s2 * 34, 236, 2, 2, '#c8b8a0'); }
+    g.save(); g.beginPath(); torso(); g.closePath(); g.clip(); g.fillStyle = lin(0, 0, 256, 0, [[0, 'rgba(255,220,180,.18)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.3)']]); g.fillRect(0, 160, 256, 100); g.restore();
+  } else {
+    shape(torso, '#6a4a2e');
+    g.save(); g.beginPath(); torso(); g.closePath(); g.clip();
+    [['#b02a22', 194, 7], ['#f0e0b8', 203, 4], ['#2a7a6a', 209, 6], ['#f0e0b8', 217, 3], ['#c83a2a', 222, 8], ['#e8a830', 232, 5], ['#3a2a6a', 239, 6], ['#f0e0b8', 247, 3]].forEach(([c, y, h]) => { g.fillStyle = c; g.fillRect(0, y, 256, h); });
+    for (let x = 4; x < 256; x += 8) { g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x, 226, 3, 2); }
+    g.fillStyle = lin(0, 0, 256, 0, [[0, 'rgba(255,220,160,.2)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.35)']]); g.fillRect(0, 160, 256, 100); g.restore();
+    shape(() => { g.moveTo(96, 170); g.lineTo(160, 170); g.lineTo(128, 196); }, '#3a2414', null);
+  }
+  // sombra del mentón sobre el cuello
+  ell(128, 160, 26, 10, 'rgba(60,20,8,.35)');
+  // ---------- cabeza ----------
+  const jw = P.jaw;
+  const face = () => { g.moveTo(128, 48); g.bezierCurveTo(158, 48, 174, 70, 174, 98); g.bezierCurveTo(174, 122, 128 + 42 * jw, 138, 128 + 30 * jw, 152); g.bezierCurveTo(128 + 20 * jw, 162, 136, 166, 128, 166); g.bezierCurveTo(120, 166, 128 - 20 * jw, 162, 128 - 30 * jw, 152); g.bezierCurveTo(128 - 42 * jw, 138, 82, 122, 82, 98); g.bezierCurveTo(82, 70, 98, 48, 128, 48); };
+  const ear = s => { shape(() => { g.moveTo(128 + s * 44, 96); g.bezierCurveTo(128 + s * 58, 88, 128 + s * 60, 118, 128 + s * 44, 124); }, P.skin, OUT, 1.6); curve([128 + s * 47, 100, 128 + s * 54, 108, 128 + s * 47, 118], P.sh, 1.6); };
+  ear(-1); ear(1);
+  shape(face, rad(112, 92, 8, 90, [[0, P.hi], [0.45, P.skin], [1, P.sh]]), OUT, 2.2);
+  g.save(); g.beginPath(); face(); g.clip();
+  g.fillStyle = lin(90, 0, 176, 0, [[0, 'rgba(0,0,0,0)'], [0.62, 'rgba(0,0,0,0)'], [1, 'rgba(70,24,6,.35)']]); g.fillRect(80, 40, 100, 130);
+  ell(106, 122, 12, 7, 'rgba(220,90,70,.16)'); ell(150, 122, 12, 7, 'rgba(220,90,70,.12)');
+  if (id === 'sheriff') { g.fillStyle = 'rgba(50,28,18,.22)'; g.beginPath(); g.moveTo(84, 120); g.bezierCurveTo(96, 170, 160, 170, 172, 120); g.lineTo(172, 172); g.lineTo(84, 172); g.fill(); }
+  g.restore();
+  // ojos (almendra)
+  const eye = (x, y, o, look = 0) => {
+    g.save(); g.beginPath(); g.moveTo(x - 10, y); g.quadraticCurveTo(x, y - 7 * o, x + 10, y); g.quadraticCurveTo(x, y + 5 * o, x - 10, y); g.closePath(); g.fillStyle = '#f6f0e6'; g.fill(); g.clip();
+    ell(x + look, y, 5, 5, P.iris); ell(x + look, y, 2.4, 2.4, '#100804'); ell(x + look + 1.8, y - 1.8, 1.3, 1.3, '#fff'); g.restore();
+    curve([x - 11, y + 0.5, x, y - 7.5 * o, x + 10.5, y - 0.5], '#2a140a', 2.4); curve([x - 8, y + 3 * o, x, y + 5.5 * o, x + 8, y + 3 * o], 'rgba(90,40,20,.45)', 1);
+  };
+  const nose = () => { curve([132, 96, 136, 112, 138, 122], 'rgba(100,50,25,.55)', 2); curve([118, 124, 121, 130, 128, 130], P.sh, 2); curve([128, 130, 135, 130, 138, 124], P.sh, 2); ell(127, 122, 4, 3, 'rgba(255,230,210,.35)'); };
+  if (id === 'sheriff') {
+    // pelo castaño bajo el ala
+    shape(() => { g.moveTo(82, 98); g.bezierCurveTo(80, 76, 86, 66, 96, 62); g.lineTo(98, 86); g.lineTo(92, 80); g.lineTo(88, 102); }, '#5a3418', null);
+    shape(() => { g.moveTo(174, 98); g.bezierCurveTo(176, 76, 170, 66, 160, 62); g.lineTo(158, 86); g.lineTo(164, 80); g.lineTo(168, 102); }, '#5a3418', null);
+    eye(108, 101, 0.7, 1); eye(148, 101, 0.7, 1);
+    shape(() => { g.moveTo(94, 92); g.quadraticCurveTo(108, 84, 122, 91); g.lineTo(121, 95); g.quadraticCurveTo(108, 89, 95, 96); }, '#3a2010', null);
+    shape(() => { g.moveTo(134, 91); g.quadraticCurveTo(148, 84, 162, 92); g.lineTo(161, 96); g.quadraticCurveTo(148, 89, 135, 95); }, '#3a2010', null);
+    line([126, 90, 127, 98], 'rgba(100,50,25,.35)', 1.5);
+    nose();
+    // boca firme, labios entreabiertos
+    shape(() => { g.moveTo(110, 142); g.quadraticCurveTo(128, 138, 146, 142); g.quadraticCurveTo(128, 150, 110, 142); }, '#5a2a1a', null);
+    g.fillStyle = '#f0ece0'; g.fillRect(118, 141, 20, 2.5);
+    curve([108, 142, 128, 136, 148, 142], '#4a2014', 2); curve([116, 150, 128, 153, 140, 150], 'rgba(120,60,40,.6)', 1.6);
+    line([128, 156, 128, 160], 'rgba(90,40,20,.3)', 2);
+    // sombrero negro
+    shape(() => { g.moveTo(26, 74); g.bezierCurveTo(40, 82, 70, 70, 128, 68); g.bezierCurveTo(186, 70, 216, 82, 232, 70); g.bezierCurveTo(226, 92, 200, 92, 128, 88); g.bezierCurveTo(60, 92, 32, 94, 26, 74); }, lin(0, 66, 0, 94, [[0, '#3a3a40'], [1, '#121214']]), '#050506', 2);
+    shape(() => { g.moveTo(80, 76); g.bezierCurveTo(76, 40, 92, 14, 114, 18); g.quadraticCurveTo(128, 28, 142, 18); g.bezierCurveTo(166, 14, 182, 40, 176, 76); g.quadraticCurveTo(128, 70, 80, 76); }, lin(80, 0, 176, 0, [[0, '#4a4a52'], [0.4, '#26262c'], [1, '#0c0c0e']]), '#050506', 2);
+    shape(() => { g.moveTo(80, 68); g.quadraticCurveTo(128, 62, 176, 68); g.lineTo(177, 76); g.quadraticCurveTo(128, 70, 79, 76); }, '#5a3a20', null);
+    curve([128, 24, 124, 40, 128, 58], 'rgba(0,0,0,.6)', 2.5); curve([92, 36, 96, 30, 104, 26], 'rgba(160,170,190,.4)', 2.5); curve([40, 80, 80, 74, 120, 72], 'rgba(150,160,180,.3)', 2);
+  } else if (id === 'johnny') {
+    // pelo largo y ondulado (detrás)
+    shape(() => { g.moveTo(80, 70); g.bezierCurveTo(64, 100, 70, 150, 80, 176); g.bezierCurveTo(88, 182, 98, 176, 100, 168); g.bezierCurveTo(90, 140, 88, 110, 92, 86); g.lineTo(164, 86); g.bezierCurveTo(168, 110, 166, 140, 156, 168); g.bezierCurveTo(158, 176, 168, 182, 176, 176); g.bezierCurveTo(186, 150, 192, 100, 176, 70); }, lin(0, 70, 0, 180, [[0, '#6a4224'], [1, '#4a2c16']]), '#2a1608', 1.8);
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) curve([128 + s * (48 + i * 3), 96 + i * 18, 128 + s * (56 + i * 2), 110 + i * 18, 128 + s * (48 + i * 4), 124 + i * 16], 'rgba(150,100,60,.55)', 1.6);
     nose();
     // sonrisa confiada con dientes de oro blanco
-    g.beginPath(); g.moveTo(104, 136); g.quadraticCurveTo(128, 142, 156, 130); g.quadraticCurveTo(144, 158, 124, 156); g.quadraticCurveTo(108, 152, 104, 136); g.fillStyle = '#4a1414'; g.fill();
-    g.save(); g.clip();
-    const tg = g.createLinearGradient(0, 134, 0, 148); tg.addColorStop(0, '#ffffff'); tg.addColorStop(0.5, '#dfe3ea'); tg.addColorStop(1, '#a8b0bc'); g.fillStyle = tg; g.fillRect(100, 128, 60, 17);
-    for (let x = 112; x < 154; x += 8) line([x, 136, x, 146], 'rgba(110,120,135,.8)', 1.2);
-    g.restore();
-    line([104, 136, 100, 132], P.skinD, 2.5); line([156, 130, 160, 125], P.skinD, 2.5);
-    // brillo del diente
-    g.save(); g.translate(138, 138); g.fillStyle = '#ffffff'; g.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? 1.5 : 7, a = i * Math.PI / 4; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); g.restore();
-    // lentes
-    g.lineWidth = 3.5; g.strokeStyle = '#151515'; g.fillStyle = 'rgba(190,225,255,.18)';
-    for (const x of [94, 130]) { g.beginPath(); g.roundRect ? g.roundRect(x, 94, 32, 21, 6) : g.rect(x, 94, 32, 21); g.fill(); g.stroke(); }
-    line([126, 101, 130, 101], '#151515', 3); line([94, 100, 85, 98], '#151515', 3); line([162, 100, 171, 98], '#151515', 3);
-    line([99, 98, 106, 98], 'rgba(255,255,255,.7)', 2); line([135, 98, 142, 98], 'rgba(255,255,255,.7)', 2);
+    shape(() => { g.moveTo(108, 139); g.quadraticCurveTo(128, 144, 152, 134); g.quadraticCurveTo(144, 154, 127, 154); g.quadraticCurveTo(112, 152, 108, 139); }, '#4a1414', '#3a1008', 1.6);
+    g.save(); g.beginPath(); g.moveTo(108, 139); g.quadraticCurveTo(128, 144, 152, 134); g.quadraticCurveTo(144, 154, 127, 154); g.quadraticCurveTo(112, 152, 108, 139); g.clip();
+    g.fillStyle = lin(0, 134, 0, 150, [[0, '#ffffff'], [0.5, '#e2e6ee'], [1, '#9aa4b2']]); g.fillRect(100, 130, 60, 18);
+    for (let x = 112; x < 154; x += 7) line([x, 136, x, 148], 'rgba(100,110,128,.85)', 1.1);
+    ell(126, 158, 14, 6, '#c86a6a'); g.restore();
+    curve([108, 139, 104, 136, 102, 138], P.sh, 2.2); curve([152, 134, 156, 128, 160, 128], P.sh, 2.2);
+    g.save(); g.translate(140, 139); g.fillStyle = '#fff'; g.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? 1.4 : 7, a = i * Math.PI / 4; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); g.restore();
+    // lentes de aviador dorados
+    const lens = s => () => { const x = 128 + s * 20; g.moveTo(x - s * 14, 92); g.quadraticCurveTo(x, 88, x + s * 16, 92); g.bezierCurveTo(x + s * 20, 104, x + s * 12, 122, x, 120); g.bezierCurveTo(x - s * 12, 118, x - s * 18, 104, x - s * 14, 92); };
+    for (const s of [-1, 1]) { shape(lens(s), lin(0, 88, 0, 122, [[0, '#1e0c04'], [0.55, '#5a2a10'], [1, '#a8682e']]), '#d8a838', 2.2); }
+    line([116, 92, 140, 92], '#d8a838', 2); curve([118, 98, 128, 94, 138, 98], '#d8a838', 1.6);
+    line([92, 94, 82, 96], '#d8a838', 2); line([164, 94, 174, 96], '#d8a838', 2);
+    curve([100, 96, 104, 94, 112, 95], 'rgba(255,255,255,.75)', 2); curve([138, 96, 142, 94, 150, 95], 'rgba(255,255,255,.75)', 2); curve([124 - 16, 110, 128 - 12, 114, 128 - 8, 112], 'rgba(255,220,160,.6)', 1.5);
+    // flequillo
+    shape(() => { g.moveTo(84, 82); g.bezierCurveTo(96, 92, 110, 84, 118, 78); g.bezierCurveTo(130, 86, 150, 88, 172, 80); g.lineTo(172, 66); g.lineTo(84, 66); }, '#5a3820', null);
+    // gorra negra
+    shape(() => { g.moveTo(78, 74); g.bezierCurveTo(74, 30, 100, 14, 128, 14); g.bezierCurveTo(156, 14, 182, 30, 178, 74); g.quadraticCurveTo(128, 64, 78, 74); }, lin(80, 0, 176, 0, [[0, '#3a3a3e'], [0.45, '#1c1c20'], [1, '#08080a']]), '#000', 2);
+    shape(() => { g.moveTo(74, 72); g.quadraticCurveTo(128, 60, 182, 72); g.bezierCurveTo(186, 86, 160, 90, 128, 86); g.bezierCurveTo(96, 90, 70, 86, 74, 72); }, lin(0, 64, 0, 90, [[0, '#2a2a2e'], [1, '#0a0a0c']]), '#000', 2);
+    curve([84, 80, 128, 72, 172, 80], 'rgba(255,255,255,.12)', 2);
+    g.save(); g.translate(128, 44); g.rotate(-0.12);
+    g.beginPath(); g.roundRect ? g.roundRect(-11, -15, 22, 30, 3) : g.rect(-11, -15, 22, 30); g.fillStyle = '#f8f4ea'; g.fill(); stroke('#8a8478', 1);
+    g.fillStyle = '#c81e1e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 17px Georgia, serif'; g.fillText('J', 0, 1);
+    g.font = 'bold 7px Georgia, serif'; g.fillText('J', -6.5, -10); g.fillText('♥', -6.5, -4); g.save(); g.rotate(Math.PI); g.fillText('J', -6.5, -10); g.fillText('♥', -6.5, -4); g.restore();
+    g.restore(); ell(128, 16, 4, 2.5, '#2a2a2e');
   } else {
-    // calvo con pelo blanco a los lados y arrugas
-    for (const [x, y] of [[86, 92], [82, 106], [86, 120], [170, 92], [174, 106], [170, 120]]) ell(x, y, 10, 11, '#ece8e0');
-    ell(128, 60, 30, 9, 'rgba(255,255,255,.18)');
-    line([104, 72, 128, 69, 152, 72], 'rgba(90,50,24,.45)', 2); line([108, 80, 128, 78, 148, 80], 'rgba(90,50,24,.4)', 2);
-    eye(110, 2.8); eye(146, 2.8);
-    line([102, 111, 112, 114, 120, 111], 'rgba(90,50,24,.5)', 1.6); line([138, 111, 146, 114, 156, 111], 'rgba(90,50,24,.5)', 1.6);
-    line([92, 101, 96, 108], 'rgba(90,50,24,.45)', 1.5); line([164, 101, 160, 108], 'rgba(90,50,24,.45)', 1.5);
-    g.fillStyle = '#f4f0e8'; g.beginPath(); g.moveTo(96, 96); g.quadraticCurveTo(110, 82, 124, 94); g.lineTo(122, 98); g.quadraticCurveTo(110, 90, 98, 100); g.closePath(); g.fill();
-    g.beginPath(); g.moveTo(160, 96); g.quadraticCurveTo(146, 82, 132, 94); g.lineTo(134, 98); g.quadraticCurveTo(146, 90, 158, 100); g.closePath(); g.fill();
-    nose(); line([110, 122, 104, 140], 'rgba(90,50,24,.45)', 2); line([146, 122, 152, 140], 'rgba(90,50,24,.45)', 2);
-    // bigotón blanco
-    g.beginPath(); g.moveTo(128, 130); g.bezierCurveTo(112, 124, 98, 132, 94, 154); g.quadraticCurveTo(104, 146, 112, 146); g.quadraticCurveTo(120, 144, 128, 140); g.quadraticCurveTo(136, 144, 144, 146); g.quadraticCurveTo(152, 146, 162, 154); g.bezierCurveTo(158, 132, 144, 124, 128, 130); g.fillStyle = '#f2eee6'; g.fill();
-    line([110, 136, 104, 146], 'rgba(150,140,130,.6)', 1.5); line([146, 136, 152, 146], 'rgba(150,140,130,.6)', 1.5);
-    ell(128, 158, 12, 6, 'rgba(240,236,228,.75)');
+    // pelo blanco abundante: lados, nuca y mechones arriba
+    for (const s of [-1, 1]) {
+      shape(() => { g.moveTo(128 + s * 40, 64); g.bezierCurveTo(128 + s * 64, 64, 128 + s * 66, 96, 128 + s * 58, 112); g.bezierCurveTo(128 + s * 66, 124, 128 + s * 58, 140, 128 + s * 46, 136); g.bezierCurveTo(128 + s * 48, 110, 128 + s * 46, 86, 128 + s * 40, 64); }, lin(0, 60, 0, 140, [[0, '#ffffff'], [1, '#c8c4bc']]), 'rgba(120,110,100,.8)', 1.4);
+      for (let i = 0; i < 4; i++) curve([128 + s * (46 + i * 3), 72 + i * 16, 128 + s * (56 + i * 2), 82 + i * 16, 128 + s * (50 + i * 2), 92 + i * 16], 'rgba(150,140,130,.6)', 1.2);
+    }
+    shape(() => { g.moveTo(90, 70); g.bezierCurveTo(96, 44, 160, 44, 166, 70); g.bezierCurveTo(156, 58, 146, 62, 140, 56); g.bezierCurveTo(132, 64, 122, 54, 114, 60); g.bezierCurveTo(106, 56, 98, 64, 90, 70); }, lin(0, 44, 0, 72, [[0, '#ffffff'], [1, '#d8d4cc']]), 'rgba(120,110,100,.7)', 1.2);
+    shape(() => { g.moveTo(96, 62); g.bezierCurveTo(98, 34, 120, 28, 132, 34); g.bezierCurveTo(146, 26, 166, 38, 162, 62); g.bezierCurveTo(152, 48, 142, 52, 134, 44); g.bezierCurveTo(126, 54, 112, 46, 106, 54); g.bezierCurveTo(102, 54, 98, 58, 96, 62); }, lin(0, 28, 0, 62, [[0, '#ffffff'], [1, '#dedad2']]), 'rgba(120,110,100,.7)', 1.2);
+    for (let i = 0; i < 6; i++) curve([102 + i * 10, 56 - (i % 2) * 4, 106 + i * 10, 42, 112 + i * 10, 36 + (i % 3) * 3], 'rgba(160,150,140,.55)', 1.1);
+    curve([110, 52, 120, 44, 132, 46], 'rgba(255,255,255,.9)', 2.5); curve([134, 50, 146, 44, 152, 54], 'rgba(255,255,255,.9)', 2);
+    // arrugas
+    curve([104, 74, 128, 70, 152, 74], 'rgba(90,50,24,.4)', 1.6); curve([108, 81, 128, 78, 148, 81], 'rgba(90,50,24,.35)', 1.4);
+    eye(108, 103, 0.55); eye(148, 103, 0.55);
+    curve([98, 110, 108, 115, 118, 110], 'rgba(90,50,24,.45)', 1.4); curve([138, 110, 148, 115, 158, 110], 'rgba(90,50,24,.45)', 1.4);
+    line([88, 100, 93, 106], 'rgba(90,50,24,.4)', 1.3); line([168, 100, 163, 106], 'rgba(90,50,24,.4)', 1.3);
+    // cejas blancas tupidas
+    for (const s of [-1, 1]) shape(() => { g.moveTo(128 + s * 6, 94); g.quadraticCurveTo(128 + s * 20, 82, 128 + s * 36, 92); g.lineTo(128 + s * 38, 96); g.quadraticCurveTo(128 + s * 20, 88, 128 + s * 6, 98); }, '#f6f2ea', 'rgba(120,110,100,.6)', 1);
+    nose(); curve([110, 124, 104, 136, 102, 146], 'rgba(90,50,24,.4)', 1.6); curve([146, 124, 152, 136, 154, 146], 'rgba(90,50,24,.4)', 1.6);
+    // bigotón y barba corta
+    g.save(); g.beginPath(); face(); g.clip(); g.fillStyle = 'rgba(240,236,228,.55)'; g.beginPath(); g.ellipse(128, 160, 34, 18, 0, 0, T2); g.fill(); g.restore();
+    shape(() => { g.moveTo(128, 130); g.bezierCurveTo(110, 124, 96, 132, 90, 156); g.quadraticCurveTo(102, 148, 112, 148); g.quadraticCurveTo(120, 146, 128, 142); g.quadraticCurveTo(136, 146, 144, 148); g.quadraticCurveTo(154, 148, 166, 156); g.bezierCurveTo(160, 132, 146, 124, 128, 130); }, lin(0, 124, 0, 156, [[0, '#ffffff'], [1, '#cfcac0']]), 'rgba(120,110,100,.8)', 1.4);
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) curve([128 + s * (6 + i * 7), 134, 128 + s * (10 + i * 8), 142, 128 + s * (12 + i * 9), 150], 'rgba(160,150,140,.6)', 1);
   }
   // viñeta
-  const vg = g.createRadialGradient(128, 128, 90, 128, 128, 182); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = vg; g.fillRect(0, 0, S, S);
+  g.fillStyle = rad(128, 120, 96, 186, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.5)']]); g.fillRect(0, 0, 256, 256);
   return (charPicCache[id] = cv.toDataURL());
 }
 function startGame(sv) {
