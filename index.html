@@ -222,8 +222,10 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .rar-1{color:var(--bone-dim)}
 .rar-2{color:#8fb8ff}
 .rar-3{color:#ff8ad0}
+.rar-4{color:#c79bff;text-shadow:0 0 8px rgba(160,90,255,.6)}
 .item.r2{border-color:rgba(143,184,255,.45)}
 .item.r3{border-color:rgba(255,138,208,.55)}
+.item.r4{border-color:rgba(170,110,255,.8);box-shadow:0 0 18px rgba(140,70,255,.35) inset}
 .item .mast{font-size:15px;color:var(--brass)}
 #fee{font-size:14px;color:#ffc860;margin-top:2px;letter-spacing:.04em}
 #bossbar{position:absolute;top:calc(112px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(560px,78vw);text-align:center;pointer-events:none}
@@ -1766,13 +1768,11 @@ const MODELS = {
   corto: { name: 'Revólver corto', desc: 'Ligero y rapidísimo de disparar y recargar. Solo 5 balas y pierde fuerza de lejos.', cap: 5, dmg: 42, cd: 0.17, reload: 1.5, spread: 1.55, recoil: 0.6, pierce: 0, price: 30, L: 0.09, R: 0.012, near: true },
   viejo: { name: 'Revólver viejo', desc: 'Una reliquia de pólvora negra. Golpea fuerte y echa mucho humo, pero es lento.', cap: 6, dmg: 92, cd: 0.5, reload: 0.7, spread: 1.15, recoil: 1.45, pierce: 0, price: 25, L: 0.31, R: 0.011 },
   magnum: { name: 'Magnum cañón largo', desc: 'Preciso y brutal. Cada bala atraviesa a un zombi más.', cap: 6, dmg: 135, cd: 0.55, reload: 0.85, spread: 0.55, recoil: 2, pierce: 1, price: 90, L: 0.43, R: 0.015 },
-  escopeta: { name: 'Revólver escopeta', desc: 'Dispara 7 perdigones abiertos: destroza de cerca y se pierde de lejos. Ideal contra grupos.', cap: 5, dmg: 24, pellets: 7, pSpread: 0.07, cd: 0.5, reload: 1.2, spread: 1, recoil: 1.8, pierce: 0, price: 110, L: 0.3, R: 0.02, rc: 0.04, near: true },
   minigun: { name: 'Revólver minigun', desc: 'Un revólver gigante de 60 balas que dispara como una ametralladora. Mantén el gatillo.', cap: 60, dmg: 24, cd: 0.065, reload: 1, spread: 1.5, recoil: 0.18, pierce: 0, price: 260, L: 0.36, R: 0.02, auto: true }
 };
-const MODEL_ORDER = ['mono', 'paci', 'corto', 'viejo', 'magnum', 'escopeta', 'minigun'];
+const MODEL_ORDER = ['mono', 'paci', 'corto', 'viejo', 'magnum', 'minigun'];
 const MASTERY = {
   mono: 'Sangre fría: los tiros a la cabeza hacen el doble de daño.',
-  escopeta: 'Perdigón grueso: dispara 9 perdigones en vez de 7.',
   paci: 'Gatillo de fortuna: el 12 % de los disparos no gasta bala.',
   corto: 'A quemarropa: +60 % de daño a menos de 6 m.',
   viejo: 'Estruendo: cada impacto aturde 1 s, incluso a los grandes.',
@@ -1812,11 +1812,12 @@ const BULLETS = {
   eco: { name: 'Bala eco', col: '#a0a0ff', rar: 3, desc: 'Copia el efecto de la última bala especial que disparaste.' },
   ruleta: { name: 'Bala ruleta rusa', col: '#3a3a3a', rar: 3, desc: '1 de cada 3 veces mata a todo lo que atraviesa. Las demás se encasquilla.' },
   laser: { name: 'Bala láser', col: '#ff2020', rar: 3, desc: 'Un rayo rojo que atraviesa a todos los zombis con el triple de daño.' },
+  agujero: { name: 'Bala agujero negro', col: '#5a1a8a', rar: 4, desc: 'Abre un agujero negro que se traga a todos los zombis cercanos durante 5 s y los elimina. A los jefes les arranca un buen trozo de vida.' },
   reloj: { name: 'Bala reloj', col: '#e8d8a0', rar: 3, desc: 'Al dispararla, el tiempo se frena 4 s sin gastar Ojo Muerto.' },
   hipno: { name: 'Bala hipnótica', col: '#ff80c0', rar: 3, desc: 'El zombi se pone de tu lado 10 s y ataca a los demás.' },
   tormenta: { name: 'Bala tormenta', col: '#c0e0ff', rar: 3, desc: 'Un relámpago cae del cielo donde impacta y arrasa la zona.' }
 };
-const RAR = [null, { name: 'Común', copies: 6, price: 16 }, { name: 'Rara', copies: 5, price: 28 }, { name: 'Legendaria', copies: 3, price: 45 }];
+const RAR = [null, { name: 'Común', copies: 6, price: 16 }, { name: 'Rara', copies: 5, price: 28 }, { name: 'Legendaria', copies: 3, price: 45 }, { name: 'Ultra rara', copies: 1, price: 400 }];
 const phong = (c, s, h) => new THREE.MeshPhongMaterial({ color: c, specular: s, shininess: h });
 const GM = {
   blue: phong(0x3a3c42, 0x9a9a9a, 70), steel: phong(0x5b5e66, 0xbbbbbb, 90), chrome: phong(0xaeb2ba, 0xffffff, 130), black: phong(0x1c1d20, 0x666666, 40),
@@ -1890,34 +1891,6 @@ function profileGeo(pts, depth, bevel = 0.004, holes = []) {
   g.computeVertexNormals(); return g;
 }
 const arc = (cu, cv, r, a0, a1, n = 6) => { const o = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([cu + Math.cos(a) * r, cv + Math.sin(a) * r]); } return o; };
-// Diseños del revólver escopeta: 0 es el actual; 1 a 5 son las ideas nuevas.
-let SG_STYLE = 1;
-const SG_LOOK = [null,
-  { frame: GM.brassF, barrel: GM.blue, cyl: GM.blue, grip: GM.woodL, trig: GM.brassF },
-  { frame: GM.black, barrel: GM.black, cyl: GM.stain, grip: GM.rubber, trig: GM.black },
-  { frame: GM.rust, barrel: GM.rust, cyl: GM.steel, grip: GM.wood, trig: GM.steel },
-  { frame: GM.chrome, barrel: GM.chrome, cyl: GM.chrome, grip: GM.ivory, trig: GM.brass },
-  { frame: GM.black, barrel: GM.steel, cyl: GM.black, grip: GM.rubber, trig: GM.orange }];
-function sgExtras(st, P_, rot, L, R) {
-  const by = 0.03, bz = -0.07;
-  if (st === 1) { // LeMat: un segundo cañón grueso de escopeta debajo
-    rot(P_(cyl(0.017, 0.017, L * 0.72, 20), GM.blue, 0, -0.008, bz - L * 0.36)); rot(P_(cyl(0.011, 0.011, 0.002, 12), GM.bore, 0, -0.008, bz - L * 0.72 - 0.001));
-    for (const k of [0.25, 0.6]) P_(bx(0.03, 0.05, 0.012), GM.brassF, 0, 0.012, bz - L * k);
-  } else if (st === 2) { // Juez moderna: riel arriba, mira roja y tornillos
-    P_(bx(0.016, 0.008, L * 0.95), GM.black, 0, by + R + 0.004, bz - L * 0.48);
-    for (let i = 0; i < 9; i++) P_(bx(0.019, 0.003, 0.004), GM.stain, 0, by + R + 0.009, bz - 0.02 - i * L / 9.5);
-    P_(bx(0.005, 0.014, 0.008), GM.heat, 0, by + R + 0.015, bz - L + 0.012);
-  } else if (st === 3) { // Recortada de granja: dos cañones lado a lado
-    for (const x of [-1, 1]) { rot(P_(cyl(R * 0.95, R * 0.95, L * 0.8, 18), GM.rust, x * R * 0.95, by, bz - L * 0.4)); rot(P_(cyl(R * 0.6, R * 0.6, 0.002, 10), GM.bore, x * R * 0.95, by, bz - L * 0.8 - 0.001)); }
-    for (const k of [0.2, 0.7]) P_(bx(R * 4.1, R * 2.1, 0.01), GM.steel, 0, by, bz - L * k);
-  } else if (st === 4) { // Trabuco grabado: boca acampanada y anillos dorados
-    rot(P_(cyl(R * 1.9, R * 1.05, 0.06, 20), GM.chrome, 0, by, bz - L - 0.02)); rot(P_(cyl(R * 1.5, R * 1.5, 0.002, 16), GM.bore, 0, by, bz - L - 0.051));
-    for (const k of [0.15, 0.45, 0.75]) rot(P_(cyl(R * 1.15, R * 1.15, 0.008, 18), GM.brass, 0, by, bz - L * k));
-  } else if (st === 5) { // Tambor gigante táctico: escudo de calor perforado
-    P_(bx(R * 2.6, R * 1.2, L * 0.8), GM.black, 0, by + R * 0.7, bz - L * 0.42);
-    for (let i = 0; i < 7; i++) for (const x of [-1, 1]) P_(bx(0.002, R * 0.6, 0.014), GM.orange, x * R * 1.31, by + R * 0.7, bz - 0.04 - i * L * 0.1);
-  }
-}
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
   while (h.k.children.length) { const c = h.k.children[0]; h.k.remove(c); c.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -1929,7 +1902,6 @@ function buildGun(h, id) {
     viejo: { frame: GM.brassF, barrel: GM.rust, cyl: GM.rust, grip: GM.woodL, trig: GM.brassF },
     magnum: { frame: GM.stain, barrel: GM.stain, cyl: GM.stain, grip: GM.rubber, trig: GM.stain },
     mono: { frame: GM.rust, barrel: GM.blue, cyl: GM.rust, grip: GM.woodL, trig: GM.steel },
-    escopeta: (SG_STYLE && SG_LOOK[SG_STYLE]) || { frame: GM.blue, barrel: GM.blue, cyl: GM.steel, grip: GM.wood, trig: GM.brassF },
     minigun: { frame: GM.black, barrel: GM.steel, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
   }[id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
@@ -1957,7 +1929,7 @@ function buildGun(h, id) {
   } else {
     const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
     // armazón con ventana para el tambor
-    const rc = (id === 'escopeta' && SG_STYLE === 5 ? 0.058 : 0) || m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
+    const rc = m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
     const fb = Math.min(-0.036, -rc - 0.004), wT = 0.005 + rc + 0.002, wB = 0.005 - rc - 0.002, fT = Math.max(0.058, wT + 0.016);
     const fw = id === 'escopeta' ? 0.036 : 0.032, top = magnum ? 0.054 : 0.05;
     const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, fb + 0.006], [0.04, fb], [-0.02, fb], [-0.045, fb + 0.012], [-0.075, -0.012], [-0.08, 0.04], [-0.07, fT], [0.02, fT], [0.045, fT - 0.002], [0.06, 0.05], [0.075, top - 0.002]];
@@ -1983,7 +1955,6 @@ function buildGun(h, id) {
     }
     P_(profileGeo([[0, 0], [0.003, 0.014], [0.012, 0.014], [0.014, 0]], 0.0045, 0.001), magnum ? GM.orange : LOOK.barrel, 0, 0.03 + R * 0.8, -0.07 - L + 0.016);
     P_(bx(0.006, 0.01, 0.01), LOOK.frame, -0.007, top + 0.004, 0.04); P_(bx(0.006, 0.01, 0.01), LOOK.frame, 0.007, top + 0.004, 0.04);
-    if (id === 'escopeta' && SG_STYLE) sgExtras(SG_STYLE, P_, rot, L, R);
     // tambor con estrías y biseles
     cylG.position.set(0, 0.005, -0.035);
     const lathe = new THREE.LatheGeometry([[0.0001, -cl / 2], [rc - 0.006, -cl / 2], [rc, -cl / 2 + 0.006], [rc, cl / 2 - 0.004], [rc - 0.003, cl / 2], [0.0001, cl / 2]].map(([r, y]) => new THREE.Vector2(r, y)), 28);
@@ -2419,9 +2390,10 @@ function buildAlly(kind, lv, owner) {
   allyLook(c, D); allySkin(c, kind);
   return c;
 }
-function spawnCop(kind = 'cop', owner = null, lv = 0) {
+function spawnCop(kind = 'cop', owner = null, lv = 0, glv) {
   lv = lv || (game && game.allyLv && game.allyLv[kind]) || 1;
   const c = buildAlly(kind, lv, owner), root = c.root;
+  setGunTier(c, glv !== undefined ? glv : (!owner || owner === Net.id) && game && game.allyGun ? game.allyGun[kind] | 0 : 0);
   const a = rand(0, TAU); root.position.set(player.pos.x + Math.cos(a) * 2.5, 0, player.pos.z + Math.sin(a) * 2.5); resolve(root.position, 0.35);
   scene.add(root); c.id = ++copUid; cops.push(c);
   return c;
@@ -2498,15 +2470,25 @@ const acids = [], puddles = [], wells = [], traps = [], strikes = [];
 const wellGeo = new THREE.SphereGeometry(0.35, 14, 10), wellMat = new THREE.MeshBasicMaterial({ color: 0x5a1aff });
 const wellHalo = new THREE.SpriteMaterial({ map: glowTex, color: 0x9a5aff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
 const trapMat = new THREE.MeshLambertMaterial({ color: 0x5a5a5e }), trapBaseGeo = new THREE.CircleGeometry(0.42, 14), trapJawGeo = new THREE.TorusGeometry(0.38, 0.035, 4, 14, Math.PI);
-function addWell(p) {
-  const m = new THREE.Mesh(wellGeo, wellMat), q = { x: p.x, z: p.z }; clampArena(q, 0.5);
-  m.position.set(q.x, clamp(p.y, 0.9, 2.2), q.z); const halo = new THREE.Sprite(wellHalo); halo.scale.set(3, 3, 1); m.add(halo);
-  scene.add(m); wells.push({ m, t: 5 }); Sfx.whoosh(panOf(m.position));
+const holeMat = new THREE.MeshBasicMaterial({ color: 0x000000 }), holeHalo = new THREE.SpriteMaterial({ color: 0x8a3aff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+function addWell(p, hole) {
+  const m = new THREE.Mesh(wellGeo, hole ? holeMat : wellMat), q = { x: p.x, z: p.z }; clampArena(q, 0.5);
+  m.position.set(q.x, clamp(p.y, 0.9, 2.2), q.z); const halo = new THREE.Sprite(hole ? holeHalo : wellHalo); halo.scale.set(hole ? 6 : 3, hole ? 6 : 3, 1); m.add(halo);
+  if (hole) { m.scale.setScalar(1.8); if (holeHalo.map !== wellHalo.map) { holeHalo.map = wellHalo.map; holeHalo.needsUpdate = true; } }
+  scene.add(m); wells.push({ m, t: 5, hole: !!hole, r: hole ? 16 : 11 }); Sfx.whoosh(panOf(m.position)); if (hole) { Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.4); }
 }
-function nearestWell(p) { let b = null, bd = 11; for (const w of wells) { const d = Math.hypot(w.m.position.x - p.x, w.m.position.z - p.z); if (d < bd) { bd = d; b = w; } } return b; }
+function nearestWell(p) { let b = null, bd = 99; for (const w of wells) { const d = Math.hypot(w.m.position.x - p.x, w.m.position.z - p.z); if (d < w.r && d < bd) { bd = d; b = w; } } return b; }
 function updateWells(dt) {
   for (let i = wells.length - 1; i >= 0; i--) {
-    const w = wells[i], q = w.m.position; w.t -= dt; w.m.scale.setScalar(1 + Math.sin(w.t * 12) * 0.15);
+    const w = wells[i], q = w.m.position; w.t -= dt; w.m.scale.setScalar((w.hole ? 1.8 : 1) + Math.sin(w.t * 12) * 0.15);
+    if (w.hole) {
+      for (let k = 0; k < 6; k++) { const a = rand(0, TAU), r = rand(2, 7); PA.add(q.x + Math.cos(a) * r, q.y + rand(-1, 1), q.z + Math.sin(a) * r, -Math.cos(a) * r * 1.4, 0, -Math.sin(a) * r * 1.4, 0.7, 0.12, 0.55, 0.15, 1, 0.9, 0, 0, -0.1, 0); }
+      if (!Net.client) for (const z of zombies) {
+        if (z.dead) continue; const d = Math.hypot(z.root.position.x - q.x, z.root.position.z - q.z); if (d > w.r) continue;
+        if (z.boss != null) { if (d < 4) damageZombie(z, z.maxHp * 0.05 * dt, { part: 'body', dir: null, ally: true }); continue; }
+        if (d < 1.6) { z.body.scale.multiplyScalar(0.5); damageZombie(z, 1e6, { part: 'body', dir: null }); }
+      }
+    }
     for (let k = 0; k < 3; k++) { const a = rand(0, TAU), r = rand(1.5, 4); PA.add(q.x + Math.cos(a) * r, q.y + rand(-0.6, 0.6), q.z + Math.sin(a) * r, -Math.cos(a) * r * 1.6, 0, -Math.sin(a) * r * 1.6, 0.6, 0.08, 0.6, 0.3, 1, 0.9, 0, 0, 0, 0); }
     if (w.t <= 0) { for (let k = 0; k < 20; k++) PA.add(q.x, q.y, q.z, rand(-4, 4), rand(-2, 4), rand(-4, 4), 0.5, 0.1, 0.6, 0.3, 1, 1, 0, 2, 0, 0); scene.remove(w.m); wells.splice(i, 1); }
   }
@@ -2586,6 +2568,13 @@ const PERKS = [
   { id: 'magpie', name: 'Urraca', desc: 'Los objetos duran el doble y vuelan hacia ti desde 5 m.', max: 1 },
   { id: 'crit', name: 'Golpe de suerte', desc: '8 % de probabilidad de hacer daño triple.', max: 3 },
   { id: 'tactic', name: 'Recarga táctica', desc: 'Si recargas antes de vaciar el tambor, recargas un 50 % más rápido.', max: 1 },
+  { id: 'ricochet', name: 'Rebote', desc: 'Cuando una bala mata, un 20 % de las veces rebota al zombi más cercano.', max: 2 },
+  { id: 'thorns', name: 'Espinas', desc: 'Cuando te golpean, los zombis a menos de 2,5 m reciben 40 de daño.', max: 3 },
+  { id: 'second', name: 'Segunda oportunidad', desc: 'Una vez por zona, si vas a caer, te levantas con el 30 % de vida.', max: 1 },
+  { id: 'midas', name: 'Toque de Midas', desc: 'Ganas un 15 % más de oro de todo.', max: 3 },
+  { id: 'frenzy', name: 'Frenesí', desc: 'Durante 3 s después de cada muerte disparas un 20 % más seguido.', max: 2 },
+  { id: 'medic', name: 'Botiquín de campaña', desc: 'Al terminar cada oleada te curas 25 de vida extra.', max: 2 },
+  { id: 'leader', name: 'Líder nato', desc: 'Tus ayudantes hacen un 20 % más de daño.', max: 2 },
   { id: 'quick', name: 'Desenfunde rápido', desc: 'Cambias de revólver al instante y la primera bala hace +50 % de daño.', max: 1 }
 ];
 const lv = id => (game && game.perks[id]) || 0;
@@ -2676,6 +2665,7 @@ function dmgArc(src) {
 }
 const fx = { dmg: 0, acid: 0, flash: 0 };
 function addGold(n, silent) {
+  if (n > 0 && lv('midas')) n = Math.round(n * (1 + 0.15 * lv('midas')));
   game.gold += n; game.goldTotal += n;
   el.goldPop.textContent = '+' + n + ' $'; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on');
   if (!silent && n >= 5) Sfx.coin();
@@ -2740,7 +2730,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sb_save2';
-const SAVE_FIELDS = ['wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv'];
+const SAVE_FIELDS = ['wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun'];
 function saveGame() {
   if (!game || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc).map(c => c.kind || 'cop') };
@@ -2753,7 +2743,7 @@ function newGame(sv) {
     wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0,
     gold: 0, goldTotal: 0, goldT: 0, gold5: 0, perks: {}, toSpawn: 0, spawnT: 0, alive: 0, bossQ: [], phase: 'count', countT: 0, lastKill: -9, multi: 0,
     sixes: 0, powder: 3, nextRescue: 2, rescued: 0, npcLost: 0, waveT: 0, owned: { mono: 1 }, equip: null, dual: false, mag: {}, vest: 0, silver: false, endless: false, copsLost: 0,
-    box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}
+    box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}, allyGun: {}
   };
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
@@ -2816,6 +2806,8 @@ function hurtPlayer(amount, src, opt = {}) {
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
   if (!opt.tick || Math.random() < 0.1) Sfx.hurt();
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
+  if (!opt.tick && lv('thorns')) for (const o of zombies) { if (o.dead) continue; if (Math.hypot(o.root.position.x - player.pos.x, o.root.position.z - player.pos.z) < 2.5) damageZombie(o, 40 * lv('thorns'), { part: 'body', dir: null, ally: true }); }
+  if (player.hp <= 0 && lv('second') && game.secondZone !== zoneOf(game.wave)) { game.secondZone = zoneOf(game.wave); player.hp = Math.round(player.maxHp * 0.3); banner('¡Segunda oportunidad!', 'Te levantas una vez más', 2200); Sfx.heart(); return; }
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
 function die() {
@@ -2935,7 +2927,7 @@ function shoot(h, fanned) {
   h.loaded[fired] = 2; h.idx = (h.idx + 1) % h.cap; h.ammo--; h.cylTarget += TAU / h.cap;
   if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) { h.loaded[fired] = 'normal'; h.ammo++; }
   h.hudRot -= 360 / h.cap; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`;
-  const adren = lv('adren') && player.hp < player.maxHp * 0.35 ? 1 + 0.25 * lv('adren') : 1;
+  const adren = (lv('adren') && player.hp < player.maxHp * 0.35 ? 1 + 0.25 * lv('adren') : 1) * (lv('frenzy') && game.time - game.lastKill < 3 ? 1 + 0.2 * lv('frenzy') : 1);
   h.cdMax = m.cd / (1 + 0.18 * lv('rate')) / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
   game.shots++; game.w.shots++;
   if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name, 'gold'); lastBulletFeed = game.time; }
@@ -2999,7 +2991,7 @@ function shoot(h, fanned) {
 }
 function castBullet(o, d, ctx) {
   const t = ctx.type, h = ctx.h, m = ctx.m;
-  ray.set(o, d); ray.far = t === 'gravedad' ? 13 : 200;
+  ray.set(o, d); ray.far = t === 'gravedad' || t === 'agujero' ? 13 : 200;
   const hits = ray.intersectObjects(t === 'fantasma' ? zTargets : targets, false);
   let pen = 1 + m.pierce + lv('pierce') + (t === 'fantasma' ? 1 : 0);
   if (t === 'taladro' || t === 'laser' || ctx.roulette) pen = 999;
@@ -3024,6 +3016,7 @@ function castBullet(o, d, ctx) {
       if (h.model === 'viejo' && wlv('viejo') >= 3 && !killed) z.stagger = Math.max(z.stagger, 1);
       if (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15 && !killed) { z.burn = 3; z.burnDps = 20; }
       onHitZombie(z, hh.point, d, ctx, killed);
+      if (killed && lv('ricochet') && Math.random() < 0.2 * lv('ricochet')) { const nz = nearestZombies(z.root.position, 1, 9, done)[0]; if (nz) { nz.torso.getWorldPosition(_tmp); addTracer(hh.point, _tmp, 0xffe0a0, 1.2); done.add(nz); damageZombie(nz, dd * 0.7, { part: 'body', dir: d.clone(), point: _tmp.clone(), bullet: true, weapon: h.model }); } }
       if (part === 'head' && h.model === 'magnum' && wlv('magnum') >= 3) pen = 999;
       pen--; if (!(t === 'taladro' || t === 'laser' || ctx.roulette)) dmg *= 0.75;
       if (pen <= 0) { end = hh.point; break; }
@@ -3036,7 +3029,7 @@ function castBullet(o, d, ctx) {
       break;
     }
   }
-  end = end ? end.clone() : o.clone().addScaledVector(d, t === 'gravedad' ? 12 : 120);
+  end = end ? end.clone() : o.clone().addScaledVector(d, t === 'gravedad' || t === 'agujero' ? 12 : 120);
   impactFx(end, d, ctx);
   return end;
 }
@@ -3073,6 +3066,7 @@ function impactFx(p, d, ctx) {
     ctx.kills += sub.kills;
   }
   else if (t === 'gravedad') netFx('w', p);
+  else if (t === 'agujero') netFx('b', p);
   else if (t === 'trampa') netFx('t', p);
   else if (t === 'acida') netFx('a', p);
   else if (t === 'tormenta') netFx('s', p);
@@ -3663,7 +3657,7 @@ function waveSummary() {
   if (pw) { game.powder = Math.min(9, game.powder + pw); feed(`El Recargador fabricó ${pw} ${pw === 1 ? 'barril' : 'barriles'} de pólvora`, 'gold'); }
   addGold(g, true);
   banner(`Oleada ${wv} superada`, `+${g} $ · +20 de vida${clean ? ' · ¡sin un rasguño!' : ''}`, 2300);
-  if (!player.down) player.hp = Math.min(player.maxHp, player.hp + 20);
+  if (!player.down) player.hp = Math.min(player.maxHp, player.hp + 20 + 25 * lv('medic'));
 }
 function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; feed('¡Volviste a la pelea!', 'gold'); }
 function victory() {
@@ -3699,7 +3693,7 @@ function choosePerk(p) {
 }
 function afterPerk() { if (game.wave % 3 === 0) openShop(); else continueAfter(); }
 function rollOffers() {
-  const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0), W = [0, 55, 33, 12], out = [];
+  const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0), W = [0, 55, 33, 12, 3], out = [];
   while (out.length < 3) {
     const pool = ids.filter(k => !out.includes(k)); let tot = 0; pool.forEach(k => tot += W[BULLETS[k].rar]); let r = Math.random() * tot;
     for (const k of pool) { if ((r -= W[BULLETS[k].rar]) < 0) { out.push(k); break; } }
@@ -3759,7 +3753,7 @@ function renderShop() {
   game.offers.forEach((o, i) => {
     const B = BULLETS[o.id], R = RAR[B.rar];
     const d = document.createElement('div'); d.className = 'item r' + B.rar;
-    d.innerHTML = `<div class="item-top"><b><i class="dot" style="background:${B.col}"></i>${B.name}</b><span class="own rar-${B.rar}">${R.name} · ${R.copies} balas</span></div><p>${B.desc}</p><div class="row"></div>`;
+    d.innerHTML = `<div class="item-top"><b><i class="dot" style="background:${B.col}"></i>${B.name}</b><span class="own rar-${B.rar}">${R.name} · ${R.copies === 1 ? '1 bala' : R.copies + ' balas'}</span></div><p>${B.desc}</p><div class="row"></div>`;
     const b = document.createElement('button'); b.className = 'buy'; b.id = 'buyb-' + i;
     b.disabled = o.bought || game.gold < R.price || normals < R.copies;
     b.textContent = o.bought ? 'Comprada' : normals < R.copies ? 'No quedan balas normales' : game.gold >= R.price ? `Comprar · ${R.price} $` : `Te faltan ${R.price - game.gold} $`;
@@ -3813,14 +3807,15 @@ function renderShop() {
     const lvl = game.allyLv[k] || 1;
     const d = document.createElement('div'); d.className = 'item ally-item'; const [ic, role] = ALLY_IC[k] || ['★', ''];
     const per = k === 'contador' ? `+${ALLY.contador.gold} $ por oleada, +${ALLY.contador.kill} $ por zombi y +25 % de vida` : k === 'recargador' ? `+${ALLY.recargador.powder} barril por oleada y +25 % de vida` : k === 'ursula' ? '+30 % de curación y daño, +25 % de vida' : '+30 % de daño, +25 % de vida';
-    d.innerHTML = `<div class="ally-pic" style="background-image:url(${allyPortrait(k)}),radial-gradient(circle at 50% 38%,#6a5236,#1a120a 75%)"><span class="ally-ic" aria-hidden="true">${ic}</span></div><div class="ally-body"><div class="item-top"><b>${D.name}</b><span class="own">Nivel ${lvl} · Contigo: ${n} de ${ALLY_EACH}</span></div><span class="ally-role">${ic} ${role}</span><p>${D.desc} Si lo devoran, se levanta como zombi.</p><p class="mast">Cada nivel: ${per}. Ayudantes en total: ${copsAlive()} de ${ALLY_MAX}.</p><div class="row"></div></div>`;
+    const glvTxt = D.gun ? ` · Arma nivel ${game.allyGun[k] | 0} de ${ALLY_GUN_MAX}` : '';
+    d.innerHTML = `<div class="ally-pic" style="background-image:url(${allyPortrait(k)}),radial-gradient(circle at 50% 38%,#6a5236,#1a120a 75%)"><span class="ally-ic" aria-hidden="true">${ic}</span></div><div class="ally-body"><div class="item-top"><b>${D.name}</b><span class="own">Nivel ${lvl}${glvTxt} · Contigo: ${n} de ${ALLY_EACH}</span></div><span class="ally-role">${ic} ${role}</span><p>${D.desc} Si lo devoran, se levanta como zombi.</p><p class="mast">Cada nivel: ${per}.${D.gun ? ' Mejorar su arma: +25 % de daño y dispara más seguido.' : ''} Ayudantes en total: ${copsAlive()} de ${ALLY_MAX}.</p><div class="row"></div></div>`;
     const row = d.querySelector('.row');
     if (offered) {
       const b = document.createElement('button'); b.className = 'buy'; b.id = 'buy-ally-' + k; b.disabled = !can;
       b.textContent = !ok ? hireWhy(k) : can ? `Contratar · ${price} $` : `Te faltan ${price - game.gold} $`;
       b.addEventListener('click', () => {
         const pr = ALLY[k].price + 10 * allyCount(k); if (!canHire(k) || game.gold < pr) return; game.gold -= pr; Sfx.cash();
-        if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1]); else spawnCop(k); feed(`${D.short} se une a ti`, 'blue');
+        if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1, game.allyGun[k] | 0]); else spawnCop(k); feed(`${D.short} se une a ti`, 'blue');
         renderShop(); renderChips();
       });
       row.appendChild(b);
@@ -3835,9 +3830,41 @@ function renderShop() {
       });
       row.appendChild(b);
     }
+    const glv = game.allyGun[k] | 0;
+    if (D.gun && glv < ALLY_GUN_MAX) {
+      const gp = allyGunPrice(k, glv + 1), b = document.createElement('button'); b.className = 'btn2'; b.id = 'gun-ally-' + k; b.disabled = game.gold < gp;
+      b.textContent = game.gold >= gp ? `Mejorar arma · ${gp} $` : `Mejorar arma: faltan ${gp - game.gold} $`;
+      b.addEventListener('click', () => {
+        const cur = game.allyGun[k] | 0, p2 = allyGunPrice(k, cur + 1); if (cur >= ALLY_GUN_MAX || game.gold < p2) return;
+        game.gold -= p2; game.allyGun[k] = cur + 1; Sfx.cash(); Sfx.insert(); setAllyGun(Net.id, k, cur + 1);
+        if (Net.client) Net.ev(['agun', k, cur + 1]); feed(`El arma ${D.al.replace(/^a(l)? /, 'de$1 ')} sube a nivel ${cur + 1}`, 'gold'); renderShop();
+      });
+      row.appendChild(b);
+    }
+    if (n > 0) {
+      const b = document.createElement('button'); b.className = 'btn2 danger'; b.id = 'fire-ally-' + k; b.textContent = 'Despedir a uno';
+      b.addEventListener('click', () => {
+        if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = 'Despedir a uno'; } }, 3000); return; }
+        if (Net.client) Net.ev(['adis', k]); else dismissAlly(Net.id, k);
+        feed(`Despediste ${D.al}`, 'blue'); setTimeout(() => { renderShop(); renderChips(); }, Net.client ? 400 : 0);
+      });
+      row.appendChild(b);
+    }
     if (!row.children.length) row.innerHTML = '<span class="note">Hoy no está en la armería</span>';
     help.appendChild(d);
   }
+}
+// Mejora del arma del ayudante: +25 % de daño y dispara un 10 % más seguido por nivel; el arma cambia de color.
+const ALLY_GUN_MAX = 3, allyGunPrice = (k, g) => Math.round(ALLY[k].price * (0.5 + 0.35 * g));
+const leadMul = c => (c.owner || Net.id) === Net.id ? 1 + 0.2 * lv('leader') : 1;
+function setGunTier(c, g) {
+  c.glv = g | 0; const mat = c.glv >= 3 ? GMAT.brass : c.glv >= 2 ? GMAT.steel : null;
+  if (mat) for (const gg of c.guns || []) gg.traverse(o => { if (o.isMesh && (o.material === GMAT.metal || o.material === GMAT.black)) o.material = mat; });
+}
+function setAllyGun(owner, k, g) { for (const c of cops) if (!c.npc && !c.net && (c.kind || 'cop') === k && (c.owner || Net.id) === owner) setGunTier(c, g); }
+function dismissAlly(owner, k) {
+  for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (!c.npc && !c.net && !c.dead && (c.kind || 'cop') === k && (c.owner || Net.id) === owner) { bfxSpawn('puff', c.root.position.x, c.root.position.z); removeCop(i); return true; } }
+  return false;
 }
 function setAllyLv(owner, k, lv) {
   for (const c of cops) if (!c.npc && !c.net && (c.kind || 'cop') === k && (c.owner || Net.id) === owner) { const f = allyHpMul(lv) / allyHpMul(c.lv || 1); c.lv = lv; c.maxHp *= f; c.hp *= f; }
@@ -4262,21 +4289,21 @@ function updateCops(dt) {
 const DECK_FX = ['frita', 'gravedad', 'trampa', 'acida', 'tormenta'];
 function copShoot(c, z) {
   const D = c.D || ALLY.cop, sc = 1 + 0.05 * (game.wave - 1);
-  c.cd = rand(D.cd[0], D.cd[1]) * (cops.some(o => !o.dead && !o.npc && o.kind === 'recargador') ? 1 - ALLY.recargador.rof : 1);
+  c.cd = rand(D.cd[0], D.cd[1]) * (cops.some(o => !o.dead && !o.npc && o.kind === 'recargador') ? 1 - ALLY.recargador.rof : 1) * (1 - 0.1 * (c.glv | 0));
   const zp = z.root.position, dz_ = Math.hypot(zp.x - c.root.position.x, zp.z - c.root.position.z);
   if (!D.gun) return;
   if (D.melee) {
     if (dz_ > 1.7) { c.cd = 0.15; return; }
     c.swing = 0.25; z.torso.getWorldPosition(_tmp);
     const dir = _tmp.clone().sub(c.root.position).setY(0).normalize();
-    damageZombie(z, D.dmg * sc * allyMul(c.lv), { part: Math.random() < 0.2 ? 'head' : 'body', dir, point: _tmp.clone(), ally: true });
+    damageZombie(z, D.dmg * sc * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c), { part: Math.random() < 0.2 ? 'head' : 'body', dir, point: _tmp.clone(), ally: true });
     z.stagger = Math.max(z.stagger, 0.5); Sfx.splat(panOf(zp), volOf(zp, 0.7)); return;
   }
   if (D.range && dz_ > D.range) { c.cd = 0.3; return; }
   if (D.aoe) {
     c.swing = 0.25; c.muzzle.getWorldPosition(_mp);
     const m = new THREE.Mesh(allyGeo.stick, allyMats.tnt); m.position.copy(_mp); scene.add(m);
-    allyThrows.push({ m, a: _mp.clone(), b: new THREE.Vector3(zp.x, 0.2, zp.z), t: 0, dur: 0.7, dmg: D.dmg * sc * allyMul(c.lv), r: D.aoe });
+    allyThrows.push({ m, a: _mp.clone(), b: new THREE.Vector3(zp.x, 0.2, zp.z), t: 0, dur: 0.7, dmg: D.dmg * sc * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c), r: D.aoe });
     Sfx.whoosh(panOf(c.root.position)); return;
   }
   allyFire(c, z, D);
@@ -4284,7 +4311,7 @@ function copShoot(c, z) {
   if (D.burst) { c.burst = D.burst - 1; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; }
 }
 function allyFire(c, z, D, muz) {
-  const sc = (1 + 0.05 * (game.wave - 1)) * allyMul(c.lv);
+  const sc = (1 + 0.05 * (game.wave - 1)) * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c);
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
   const d = _mp.distanceTo(_tmp), dir = _tmp.clone().sub(_mp).normalize();
   const type = D.deck && game.box.length ? pick(game.box) : 'normal', B = BULLETS[type] || BULLETS.normal;
@@ -4526,7 +4553,7 @@ function updateMenu(dt) {
 /* ===================== EN GRUPO: red cooperativa ===================== */
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
-const GAME_VER = '8';
+const GAME_VER = '9';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -4746,8 +4773,10 @@ function netEvent(p, e) {
     if (t === 'd') applyRemoteDamage(p.id, e);
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
     else if (t === 'pk') { const i = pickups.findIndex(q => q.id === e[1]); if (i >= 0) { scene.remove(pickups[i].g); pickups.splice(i, 1); } }
-    else if (t === 'cop') { const k = ALLY[e[1]] ? e[1] : 'cop'; if (canHire(k)) { spawnCop(k, p.id, e[2] || 1); feed(`${p.name} contrató ${ALLY[k].al}`, 'blue'); renderChips(); } }
+    else if (t === 'cop') { const k = ALLY[e[1]] ? e[1] : 'cop'; if (canHire(k)) { spawnCop(k, p.id, e[2] || 1, e[3] | 0); feed(`${p.name} contrató ${ALLY[k].al}`, 'blue'); renderChips(); } }
     else if (t === 'alv') setAllyLv(p.id, e[1], e[2]);
+    else if (t === 'agun') setAllyGun(p.id, e[1], e[2]);
+    else if (t === 'adis') { if (dismissAlly(p.id, e[1])) feed(`${p.name} despidió ${ALLY[e[1]] ? ALLY[e[1]].al : 'a un ayudante'}`, 'blue'); }
     else if (t === 'ready') p.ready = e[1];
     else if (t === 'down') { p.down = true; feed(`${p.name} cayó`, 'red'); }
     return;
@@ -4767,7 +4796,7 @@ function netEvent(p, e) {
 function netFx(kind, p) { if (Net.client) Net.ev(['fx', kind, r2(p.x), r2(p.y), r2(p.z)]); else spawnFx(kind, p, true); }
 function spawnFx(kind, p, real) {
   if (real && Net.host) Net.ev(['fxv', kind, r2(p.x), r2(p.y), r2(p.z)]);
-  if (kind === 'w') addWell(p); else if (kind === 't') addTrap(p.x, p.z); else if (kind === 'a') makePuddle(p.x, p.z, 2, 5, true); else if (kind === 's') strikes.push({ x: p.x, z: p.z, t: 0.7 });
+  if (kind === 'w') addWell(p); else if (kind === 'b') addWell(p, true); else if (kind === 't') addTrap(p.x, p.z); else if (kind === 'a') makePuddle(p.x, p.z, 2, 5, true); else if (kind === 's') strikes.push({ x: p.x, z: p.z, t: 0.7 });
 }
 function netHurtArea(c, r, dmg, knock, acid) {
   if (!Net.host) return;
@@ -5155,7 +5184,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyV') Voice.key(true);
   if (e.code === 'KeyF') fan();
   if (e.code === 'KeyQ') deadEye(!game.deOn);
-  if (/^Digit[1-7]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
+  if (/^Digit[1-6]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
   if (e.code === 'KeyP' || (e.code === 'Escape' && (noLock || !locked))) pause();
 });
 window.addEventListener('keyup', e => { input.keys[e.code] = false; if (e.code === 'KeyV' && settings.voice === 'ptt') Voice.key(false); });
