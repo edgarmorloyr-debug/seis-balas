@@ -2910,7 +2910,7 @@ function startWave(n) {
   game.waveMod = game.nextMod || null; game.nextMod = null;
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.round(game.toSpawn * game.waveMod.count); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
-    if (n === LAST_WAVE && !game.endless) { game.bossQ.push('abom', 'brute'); sub = '¡Llega la Abominación!'; }
+    if (n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
     else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
   else if (n % WAVES_PER_MAP === 3 && n >= 7) { const b = Math.min(4, Math.max(1, Math.floor(n / 8))); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!'; }
@@ -3599,8 +3599,52 @@ const BOSSES = [
   // ayudantes de jefe (no salen solos)
   { id: 'lion', helper: true, name: 'El León', sub: '', hp: 6000, spd: 4.6, sc: 2.0, dmg: 40,
     look(z) { bRecolor(z, 0, 0xb08040); if (z.head) addL(z.head, LG.box(0.36, 0.36, 0.16), LM(0x5a3010), 0, 0, -0.04); } },
-  { id: 'twin', helper: true, name: 'Gemelo', sub: '', hp: 4000, spd: 2.4, sc: 1.5, dmg: 35, look() {} }
+  { id: 'twin', helper: true, name: 'Gemelo', sub: '', hp: 4000, spd: 2.4, sc: 1.5, dmg: 35, look() {} },
+  // Jefe final del rascacielos: tres fases
+  { id: 'zero', helper: true, final: true, name: 'El Paciente Cero', sub: 'El primer infectado. De aquí salió todo.', hp: 12000, spd: 1.2, sc: 3.0, dmg: 55,
+    look(z) {
+      bRecolor(z, 0, 0xb8c0b0); bRecolor(z, 1, 0x9ab8c8); bRecolor(z, 2, 0x9ab8c8);
+      addL(z.torso, LG.box(0.5, 0.75, 0.31), LM(0x9ab8c8), 0, -0.25, 0);
+      for (const x of [-0.14, 0.14]) addL(z.torso, LG.cyl(0.015, 0.015, 0.7, 6), LM(0xd8e8e8, { transparent: true, opacity: 0.7 }), x, 0.1, -0.17, 0.4, 0, 0);
+      addL(z.torso, LG.box(0.12, 0.16, 0.06), LM(0xc0e0e0, { transparent: true, opacity: 0.8 }), 0, 0.42, -0.2);
+      addL(z.head, LG.box(0.3, 0.04, 0.31), LM(0xf0f0f0), 0, 0.02, 0);
+      z.tent = new THREE.Group(); z.torso.add(z.tent); z.tent.visible = false;
+      const tm = LM(0x6a1a2a, { emissive: 0x300008 });
+      for (let i = 0; i < 6; i++) { const t = addL(z.tent, LG.cone(0.08, 0.9), tm, -0.25 + (i % 3) * 0.25, 0.15 + Math.floor(i / 3) * 0.25, -0.2, -2.2 + rand(-0.3, 0.3), 0, (i % 3 - 1) * 0.6); t.material.side = THREE.DoubleSide; }
+    },
+    tick(z, dt, c) {
+      const r = z.hp / z.maxHp, ph = r > 0.66 ? 0 : r > 0.33 ? 1 : 2;
+      if (ph !== z.bst) {
+        z.bst = ph; z.bt = 0; Sfx.roar(panOf(c.pos), 2); player.shake = 1;
+        if (ph === 1) { z.perch = zeroPerch(c.tp); banner('¡El Paciente Cero trepa por el edificio!', 'Desde arriba te lanza zombis y escombros', 3200); }
+        if (ph === 2) { z.speed = 2.6; z.dmg *= 1.3; z.s *= 1.15; z.body.scale.setScalar(z.s); banner('¡El Paciente Cero muta!', 'Sus tentáculos salen del suelo donde estés', 3200); }
+      }
+      z.bt += dt;
+      if (ph === 0) { if (z.bt > 5 && c.dist < 14 && c.canAttack) { z.bt = 0; const f = bFront(z, 2.5); bossEv('slam', f.x, f.z, 5, z.dmg); } return null; }
+      if (ph === 1) {
+        z.atkCd = 1; z.windup = 0;
+        const dx = z.perch.x - c.pos.x, dz = z.perch.z - c.pos.z, d = Math.hypot(dx, dz);
+        if (d > 1.2) return { mx: dx / d, mz: dz / d, spd: 3 };
+        if (z.bt > 2.2 && c.canAttack) {
+          z.bt = 0; z.throws = (z.throws || 0) + 1;
+          if (z.throws % 3 === 0) bossEv('bomb', c.tp.x, c.tp.z);
+          for (let i = 0; i < 2 && game.alive < 60; i++) { const sp = bSpot(c.tp.x, c.tp.z, 3, 7); if (!sp) continue; bossEv('drop', c.pos.x, c.pos.z, sp.x, sp.z); const w = game.wave; setTimeout(() => { if (game && game.wave === w && game.phase === 'fight') { const o = spawnZombie(pick(['runner', 'walker', 'crawler']), sp.x, sp.z, diffW(w), false); o.state = 'chase'; game.alive++; } }, 800); }
+        }
+        return { spd: 0 };
+      }
+      if (z.bt > 3 && c.canAttack) { z.bt = 0; bossEv('tent', c.tp.x, c.tp.z, z.dmg * 0.8); }
+      z.st2 = (z.st2 || 0) + dt; if (z.st2 > 6 && c.dist < 12 && c.canAttack) { z.st2 = 0; bossEv('slam', c.pos.x, c.pos.z, 6, z.dmg); }
+      return null;
+    } }
 ];
+function zeroPerch(tp) {
+  const a = world.arena;
+  for (let k = 0; k < 30; k++) {
+    let x, z; if (a.t === 'c') { const t = rand(0, TAU); x = Math.cos(t) * (a.r - 3); z = Math.sin(t) * (a.r - 3); } else { x = rand(-1, 1) < 0 ? -(a.hx - 3) : a.hx - 3; z = rand(-a.hz + 3, a.hz - 3); if (Math.random() < 0.5) { const q = x; x = rand(-a.hx + 3, a.hx - 3); z = Math.sign(q) * (a.hz - 3); } }
+    if (insideArena(x, z, 1) && !pointBlocked(x, z, 1) && Math.hypot(x - tp.x, z - tp.z) > 10) return { x, z };
+  }
+  return { x: tp.x + 12, z: tp.z };
+}
 function pickBoss() {
   const all = BOSSES.map((b, i) => i).filter(i => !BOSSES[i].helper);
   game.bossSeen = (game.bossSeen || []).filter(i => all.includes(i));
@@ -3670,6 +3714,10 @@ function bfxSpawn(kind, ...a) {
   } else if (kind === 'laser') {
     const [x1, z1, x2, z2, dmg] = a, A = new THREE.Vector3(x1, 2.0, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
     BFX.push({ k: kind, m: bfxBeam(A, Bv, 0xff1010, 0.75), t: 1.1, A, B: Bv, dmg });
+  } else if (kind === 'drop') {
+    const [x1, z1, x2, z2] = a, m = new THREE.Mesh(bfxBombGeo, new THREE.MeshLambertMaterial({ color: 0x3a3028 })); m.scale.set(1, 1.6, 1); m.position.set(x1, 9, z1); scene.add(m); BFX.push({ k: kind, m, x: x2, z: z2, a: [x1, z1], t: 0.8, d: 0.8 }); Sfx.whoosh(panOf({ x: x2, z: z2 }));
+  } else if (kind === 'tent') {
+    const [x, z, dmg] = a, m = new THREE.Mesh(bfxWebGeo, new THREE.MeshBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.35, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.scale.setScalar(1); m.position.set(x, 0.05, z); scene.add(m); BFX.push({ k: kind, m, x, z, t: 1.3, dmg });
   } else if (kind === 'mshot') {
     const [x1, y1, z1, x2, y2, z2, pid, dmg] = a, A = new THREE.Vector3(x1, y1, z1), Bv = new THREE.Vector3(x2, y2, z2);
     addTracer(A, Bv, 0xd0e0ff, 1.6); Sfx.pistol(panOf(A), volOf(A, 1));
@@ -3693,6 +3741,8 @@ function bossFx(dt) {
       for (let k = 0; k < 2; k++) P.add(f.x + rand(-2.6, 2.6), rand(0.2, 1.6), f.z + rand(-2.6, 2.6), rand(-0.3, 0.3), rand(0, 0.3), rand(-0.3, 0.3), rand(1, 1.8), 0.9, 0.35, 0.75, 0.2, 0.35, -0.1, 1, 0.4, 0);
       f.tk -= dt; if (me && d < 3 && f.tk <= 0) { f.tk = 1; const loss = Math.min(4, Math.max(0, player.maxHp - 60)); if (loss) { player.maxHp -= loss; game.plague = (game.plague || 0) + loss; } player.hp = Math.min(player.hp, player.maxHp); hurtPlayer(5, f); feed('La plaga te quita vida máxima', 'red'); }
     }
+    else if (f.k === 'drop') { const e = 1 - Math.max(0, f.t) / f.d; f.m.position.set(f.a[0] + (f.x - f.a[0]) * e, 9 * (1 - e * e) + 0.4, f.a[1] + (f.z - f.a[1]) * e); f.m.rotation.x += dt * 8; if (f.t <= 0) { dirtBurst(f.x, 0.05, f.z, 18, 3); Sfx.thud(panOf(f)); } }
+    else if (f.k === 'tent') { f.m.material.opacity = 0.25 + 0.25 * Math.sin(f.t * 25); if (f.t <= 0) { for (let k = 0; k < 24; k++) P.add(f.x, 0.2, f.z, rand(-2, 2), rand(3, 7), rand(-2, 2), 1, 0.12, 0.4, 0.05, 0.08, 1, 9.8, 0.5, 0, 0); bloodBurst(new THREE.Vector3(f.x, 0.3, f.z), new THREE.Vector3(0, 1, 0), 14, true); Sfx.thud(panOf(f)); Sfx.splat(panOf(f), volOf(f, 1)); if (me && d < 2.2) hurtPlayer(f.dmg, f, { knock: 9 }); } }
     else if (f.k === 'web') { f.m.material.opacity = 0.45 * Math.min(1, f.t); if (me && d < 2.2) player.webT = 0.25; }
     else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < 1.4 && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4 }); } }
     if (f.t <= 0) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } BFX.splice(i, 1); }
@@ -3713,6 +3763,7 @@ function bossFx(dt) {
     if (B.id === 'bride') { z.body.visible = z.bst === 1 || Math.random() < 0.06; if (z.bst === 1 && !player.down && Math.hypot(player.pos.x - z.root.position.x, player.pos.z - z.root.position.z) < 26) { player.yaw += (Math.random() - 0.5) * 0.06; player.pitch += (Math.random() - 0.5) * 0.03; player.shake = Math.max(player.shake, 0.35); } }
     if (B.id === 'shark') { z.body.position.y = damp(z.body.position.y, z.bst === 0 ? -2.6 : 0, 8, dt); if (z.fin) z.fin.visible = z.bst === 0; if (z.bst === 0 && Math.random() < 0.5) dirtBurst(z.root.position.x, 0.05, z.root.position.z, 1, 1.5); }
     if (B.id === 'fire') { z.torso.getWorldPosition(_zp); for (let i = 0; i < 2; i++) PA.add(_zp.x + rand(-0.3, 0.3) * z.s, _zp.y + rand(-0.4, 0.5) * z.s, _zp.z + rand(-0.3, 0.3) * z.s, rand(-0.2, 0.2), rand(1, 2), rand(-0.2, 0.2), rand(0.3, 0.6), rand(0.12, 0.22), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.15, 0); }
+    if (B.id === 'zero' && z.tent) { z.tent.visible = z.bst === 2; if (z.bst === 2) z.tent.children.forEach((t, i) => t.rotation.x = -2.2 + Math.sin(z.t * 4 + i) * 0.35); }
     if (B.id === 'rider' && z.hlegs) { const sw = Math.sin(z.t * 12); z.hlegs.forEach((g, i) => g.rotation.x = (i === 0 || i === 3 ? sw : -sw) * 0.7); }
     if (z.bossGun && z.armRG) z.bossGun.rotation.x = -z.armRG.rotation.x;
   }
