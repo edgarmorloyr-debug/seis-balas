@@ -184,6 +184,23 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #contract{font-size:14px;color:#9fe0a0;margin-top:2px}
 #contract.done{color:#ffd060}
 #contract.fail{color:#e08080;text-decoration:line-through}
+#doors-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:6px}
+.door{min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;padding:14px 10px;cursor:pointer;color:var(--bone);font-family:var(--hud);border:2px solid rgba(214,165,75,.5);border-radius:70px 70px 6px 6px;background:linear-gradient(#3a2414,#1a0e06);box-shadow:inset 0 0 0 6px rgba(0,0,0,.35)}
+.door:hover,.door:focus-visible{border-color:#ffd060;box-shadow:inset 0 0 0 6px rgba(0,0,0,.35),0 0 18px rgba(255,208,96,.35)}
+.door i{font-style:normal;font-size:44px;line-height:1}
+.door b{font-family:var(--display);font-weight:400;font-size:21px}
+.door span{font-size:14px;color:var(--bone-dim);line-height:1.3;text-align:center}
+#cards-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+.fcard{min-height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px;cursor:pointer;color:var(--bone);font-family:var(--hud);border:2px solid #d6a54b;border-radius:10px;background:repeating-linear-gradient(45deg,#2a1440 0 10px,#3a1c58 10px 20px);transition:transform .25s}
+.fcard i{font-style:normal;font-size:40px;line-height:1}
+.fcard b{font-family:var(--display);font-weight:400;font-size:19px;line-height:1.1}
+.fcard span{font-size:14px;line-height:1.25;color:var(--bone-dim);text-align:center}
+.fcard.up{background:linear-gradient(#f4ead2,#d8c8a0);color:#2a1a0a;cursor:default}
+.fcard.up span{color:#4a3a2a}
+.fcard.up.bad{background:linear-gradient(#d8b8c8,#8a5a6a)}
+.fcard.dim{opacity:.55}
+.fcard.pick{transform:translateY(-6px) scale(1.04);box-shadow:0 0 22px rgba(255,208,96,.5)}
+#cards-res{min-height:20px;font-weight:700;color:#ffd060}
 #relic-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
 .relic-ic{font-size:34px}
 #ev-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
@@ -542,6 +559,23 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <h2 class="title sm">Botín del jefe</h2>
       <p class="tag">Elige una reliquia: te acompaña toda la partida</p>
       <div id="relic-opts"></div>
+    </div>
+  </div>
+  <div class="overlay" id="doors-s" hidden>
+    <div class="card wide">
+      <h2 class="title sm" id="doors-t">¿Qué camino tomas?</h2>
+      <p class="tag">Cada puerta lleva a algo distinto. Elige una.</p>
+      <div id="doors-opts"></div>
+    </div>
+  </div>
+  <div class="overlay" id="cards-s" hidden>
+    <div class="card wide">
+      <div class="ev-ic">🃏</div>
+      <h2 class="title sm">Cartas del destino</h2>
+      <p class="npc" id="cards-say"></p>
+      <div id="cards-opts"></div>
+      <p class="note" id="cards-res"></p>
+      <div class="row"><button class="btn2" id="btn-cards-skip">No tentar a la suerte</button><button class="btn" id="btn-cards-go" hidden>Seguir</button></div>
     </div>
   </div>
   <div class="overlay" id="event-s" hidden>
@@ -2742,7 +2776,7 @@ function updateStrikes(dt) {
   }
 }
 const pickups = []; let pickUid = 0;
-const PK = { bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 } };
+const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 } };
 function makePickup(type, x, z, amount) {
   const g = new THREE.Group(); g.position.set(x, 0.6, z);
   const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
@@ -2750,12 +2784,13 @@ function makePickup(type, x, z, amount) {
   else if (type === 'deadeye') { g.add(new THREE.Mesh(cyl(0.1, 0.12, 0.3, 10), mat)); const n = new THREE.Mesh(cyl(0.035, 0.035, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); n.position.y = 0.2; g.add(n); }
   else if (type === 'powder') { const b = new THREE.Mesh(cyl(0.2, 0.2, 0.36, 12), new THREE.MeshLambertMaterial({ color: 0x5a3a20, emissive: 0x1a0e04 })); g.add(b); for (const y of [-0.12, 0.12]) { const r = new THREE.Mesh(cyl(0.21, 0.21, 0.04, 12), mat); r.position.y = y; g.add(r); } }
   else if (type === 'bala') { const b = new THREE.Mesh(cyl(0.07, 0.07, 0.3, 12), mat); g.add(b); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), mat); tip.position.y = 0.23; g.add(tip); const cs = new THREE.Mesh(cyl(0.075, 0.075, 0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd09a3e, emissive: 0x2a1c04 })); cs.position.y = -0.17; g.add(cs); g.scale.setScalar(1.3); }
+  else if (type === 'key') { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16), mat); r.position.y = 0.16; g.add(r); const sh = new THREE.Mesh(bx(0.04, 0.32, 0.04), mat); sh.position.y = -0.06; g.add(sh); for (const y of [-0.16, -0.08]) { const t = new THREE.Mesh(bx(0.09, 0.04, 0.04), mat); t.position.set(0.05, y, 0); g.add(t); } }
   else if (type === 'bag') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a3a, emissive: 0x2a1a08 })); s.scale.y = 1.1; g.add(s); const k = new THREE.Mesh(cyl(0.08, 0.12, 0.14, 8), mat); k.position.y = 0.32; g.add(k); }
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(1.3, 1.3, 1); g.add(halo);
   scene.add(g);
-  pickups.push({ id: ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  pickups.push({ id: ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -2889,7 +2924,7 @@ function addGold(n, silent) {
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
-  hideSplats();
+  hideSplats(); if (typeof chests !== 'undefined') clearChests();
   for (let k = zombies.length - 1; k >= 0; k--) removeZombie(k);
   debris.forEach(d => scene.remove(d.m)); debris.length = 0;
   acids.forEach(a => scene.remove(a.m)); acids.length = 0;
@@ -2947,7 +2982,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sb_save2';
-const SAVE_FIELDS = ['mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots'];
+const SAVE_FIELDS = ['keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots'];
 function saveGame() {
   if (!game || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc).map(c => c.kind || 'cop') };
@@ -3028,7 +3063,7 @@ function maxAlive() { return Math.min(8 + diffW(game.wave) * 2, IS_TOUCH ? 16 : 
 function hurtPlayer(amount, src, opt = {}) {
   if ((state !== 'play' && !(Net.on && state === 'pause')) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
-  amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')); game.w.hurt = true;
+  amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')) * (dareOn() ? 1.25 : 1); game.w.hurt = true;
   player.hp -= amount; player.lastHurt = game.time;
   fx.dmg = Math.min(1, fx.dmg + amount / (opt.tick ? 60 : 22));
   if (opt.acid) fx.acid = Math.min(1, fx.acid + (opt.tick ? 0.05 : 0.9));
@@ -3434,7 +3469,7 @@ function killZombie(z, info) {
   }
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
-  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; makePickup('bag', p.x, p.z + 0.8, (6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
+  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; if (Math.random() < 0.4) makePickup('key', p.x - 0.8, p.z, 0); makePickup('bag', p.x, p.z + 0.8, (6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
   if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper && !(z.B.id === 'mass' && z.gen)) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
   if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (rl('trebol') ? 2 : 1) * (game.char === 'johnny' ? 1.4 : 1)) {
@@ -3444,7 +3479,7 @@ function killZombie(z, info) {
 }
 function creditKill(def, head, ally, weapon) {
   const hb = head && !ally ? (def.big ? 3 : 1) + lv('bounty') : 0;
-  addGold(Math.round(def.gold + hb));
+  addGold(Math.round((def.gold + hb) * (dareOn() && !ally ? 1.5 : 1)));
   if (!ally) META.st.kills++;
   game.gold5++; if (lv('greed') && game.gold5 % 5 === 0) addGold(lv('greed'), true);
   if (!ally) {
@@ -3472,7 +3507,7 @@ function startReload() {
   Sfx.open();
 }
 function reloadStep(dt) {
-  const rs = (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
+  const rs = (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * (game.clumsyWave === game.wave ? 0.7 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
   gs.pt -= dt; if (gs.pt > 0) return;
   if (gs.phase === 'open') {
     let spent = 0;
@@ -4160,8 +4195,159 @@ function choosePerk(p) {
   if (p.id === 'boots') player.maxSt = 100 * (1 + 0.3 * lv('boots'));
   Sfx.pickup(); afterPerk();
 }
-function afterPerk() { if (maybeEvent()) return; afterEvent(); }
-function afterEvent() { if (game.wave % 3 === 0 || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
+function afterPerk() {
+  if (Net.on && game.evWave !== game.wave && (game.devilVoteWave === game.wave || (game.devilResult && game.devilResult.w === game.wave))) { if (maybeEvent()) return; }
+  if (!isMapEnd(game.wave) && game.doorWave !== game.wave) { openDoors(); return; }
+  afterEvent();
+}
+function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (game.wave % 3 === 0 || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
+
+/* ===================== PUERTAS, CARTAS DEL DESTINO Y COFRES ===================== */
+// Tras cada oleada (menos la del jefe) eliges una puerta: cada una lleva a algo distinto
+const DOORS = {
+  shop: { ic: '🛒', name: 'Apocalipsis Delivery', desc: 'La tienda: armas, balas y ayudantes', w: 30 },
+  event: { ic: '❓', name: 'Encuentro', desc: 'Alguien te espera con una oferta… o una trampa', w: 20 },
+  cards: { ic: '🃏', name: 'Cartas del destino', desc: 'Voltea una carta: bendición o maldición', w: 22 },
+  treasure: { ic: '🎁', name: 'Tesoro', desc: 'Un poco de oro y, con suerte, una llave', w: 14 },
+  dare: { ic: '💀', name: 'Desafío', desc: 'La próxima oleada: +50 % de oro por zombi, pero te pegan un 25 % más fuerte', w: 14 }
+};
+function openDoors() {
+  game.doorWave = game.wave; state = 'doors';
+  if (document.pointerLockElement) document.exitPointerLock();
+  input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  const pool = Object.keys(DOORS), picks = [];
+  if (game.wave % WAVES_PER_MAP === 1) { picks.push('shop'); pool.splice(pool.indexOf('shop'), 1); }
+  while (picks.length < 3 && pool.length) { let t = 0; pool.forEach(k => t += DOORS[k].w); let r = Math.random() * t; let i = 0; for (; i < pool.length - 1; i++) if ((r -= DOORS[pool[i]].w) < 0) break; picks.push(pool.splice(i, 1)[0]); }
+  $('#doors-t').textContent = `Oleada ${game.wave} superada · ¿qué camino tomas?`;
+  const box = $('#doors-opts'); box.innerHTML = '';
+  for (const k of shuffled(picks)) {
+    const D = DOORS[k], b = document.createElement('button'); b.className = 'door'; b.id = 'door-' + k;
+    b.innerHTML = `<i>${D.ic}</i><b>${D.name}</b><span>${D.desc}</span>`;
+    b.addEventListener('click', () => { if (state === 'doors') takeDoor(k); });
+    box.appendChild(b);
+  }
+  show('doors-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus(); }, 50);
+}
+function takeDoor(k) {
+  Sfx.holster();
+  if (k === 'shop') { openShop(); return; }
+  if (k === 'event') { game.evWave = game.wave; openEvent(pick(Net.on ? EVENTS.slice(1) : EVENTS)); return; }
+  if (k === 'cards') { openCards(); return; }
+  if (k === 'treasure') {
+    const g = 20 + 10 * zoneOf(game.wave); addGold(g, true); Sfx.cash();
+    if (Math.random() < 0.5) { game.keys = (game.keys || 0) + 1; banner('🎁 Tesoro', `+${g} $ y una llave 🔑`, 2600); }
+    else { const b = randomBullet(), i = game.box.indexOf('normal'); if (i >= 0) game.box[i] = b; banner('🎁 Tesoro', `+${g} $ y una ${BULLETS[b].name}`, 2600); }
+    renderChips(); continueAfter(); return;
+  }
+  if (k === 'dare') { game.dareWave = game.wave + 1; banner('💀 Desafío aceptado', 'La próxima oleada pagará más… y dolerá más', 2600); continueAfter(); }
+}
+const dareOn = () => game && game.dareWave === game.wave && game.phase === 'fight';
+
+// Cartas del destino: 3 cartas boca abajo; la mayoría ayudan, alguna maldice
+const FATE_GOOD = [
+  { ic: '💰', name: 'Fortuna', txt: g => { const n = 40 + 20 * zoneOf(game.wave); addGold(n, true); Sfx.cash(); return `+${n} $`; } },
+  { ic: '❤️', name: 'Bendición', txt: () => { player.maxHp += 10; player.hp = player.maxHp; return 'Vida llena y +10 de vida máxima'; } },
+  { ic: '✨', name: 'Arsenal', txt: () => { let n = 0; for (let k = 0; k < 2; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = randomBullet(); n++; } } return `${n} balas especiales a tu caja`; } },
+  { ic: '🔑', name: 'La llave', txt: () => { game.keys = (game.keys || 0) + 1; return 'Una llave para abrir cofres dorados'; } },
+  { ic: '⭐', name: 'Talento', txt: () => { const ok = PERKS.filter(p => lv(p.id) < p.max); if (!ok.length) { addGold(50, true); return '+50 $'; } const p = pick(ok); game.perks[p.id] = lv(p.id) + 1; if (p.id === 'hp') { player.maxHp += 25; player.hp = player.maxHp; } if (p.id === 'boots') player.maxSt = 100 * (1 + 0.3 * lv('boots')); return `${p.name} sube a nivel ${lv(p.id)}`; } }
+];
+const FATE_BAD = [
+  { ic: '🦹', name: 'El ladrón', txt: () => { const n = Math.floor(game.gold * 0.3); game.gold -= n; return `Te roban ${n} $`; } },
+  { ic: '🩸', name: 'La herida', txt: () => { player.maxHp = Math.max(50, player.maxHp - 15); player.hp = Math.min(player.hp, player.maxHp); return '−15 de vida máxima'; } },
+  { ic: '💧', name: 'Pólvora mojada', txt: () => { let n = 0; for (let k = 0; k < 4; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = 'mala'; n++; } } return `${n} balas malas en tu caja`; } },
+  { ic: '🐌', name: 'Manos torpes', txt: () => { game.clumsyWave = game.wave + 1; return 'La próxima oleada recargas un 30 % más lento'; } }
+];
+function fateCard() { const good = Math.random() < luck(0.65, 1.15); return Object.assign({ good }, pick(good ? FATE_GOOD : FATE_BAD)); }
+function openCards() {
+  state = 'cards'; const cards = [fateCard(), fateCard(), fateCard()];
+  $('#cards-say').textContent = '«Tres cartas, tres destinos. Elige una… si te atreves.» — Madame Zafira';
+  $('#cards-res').textContent = ''; $('#btn-cards-go').hidden = true; $('#btn-cards-skip').hidden = false;
+  const box = $('#cards-opts'); box.innerHTML = '';
+  cards.forEach((c, i) => {
+    const b = document.createElement('button'); b.className = 'fcard'; b.id = 'fcard-' + i; b.innerHTML = '<i>❔</i><b>?</b>';
+    b.addEventListener('click', () => {
+      if (state !== 'cards' || game.cardDone) return; game.cardDone = true;
+      const res = c.txt(); renderChips();
+      box.querySelectorAll('.fcard').forEach((x, j) => { const cj = cards[j]; x.classList.add('up'); if (!cj.good) x.classList.add('bad'); if (j !== i) x.classList.add('dim'); x.innerHTML = `<i>${cj.ic}</i><b>${cj.name}</b><span>${j === i ? res : cj.good ? 'Bendición' : 'Maldición'}</span>`; });
+      b.classList.add('pick'); $('#cards-res').textContent = (c.good ? '¡Bendición! ' : 'Maldición… ') + res;
+      if (c.good) Sfx.win(); else Sfx.ouch(0, 1);
+      $('#btn-cards-skip').hidden = true; $('#btn-cards-go').hidden = false; $('#btn-cards-go').focus();
+    });
+    box.appendChild(b);
+  });
+  game.cardDone = false; show('cards-s'); Sfx.open();
+}
+
+// Cofres en el mapa: dorado (pide llave), de hueso (te cuesta vida) y maldito (suerte o desgracia)
+const chests = [];
+const CHESTS = {
+  gold: { name: 'Cofre dorado', body: 0xc89a30, trim: 0x6a4a10, glow: 0xffd060, w: 45 },
+  bone: { name: 'Cofre de hueso', body: 0xe8dcc0, trim: 0x8a7a60, glow: 0xfff2d0, w: 30 },
+  curse: { name: 'Cofre maldito', body: 0x3a1a4a, trim: 0x8aff6a, glow: 0x8aff6a, w: 25 }
+};
+function spawnChest(kind) {
+  const a = world.arena; let spot = null;
+  for (let k = 0; k < 120 && !spot; k++) {
+    const x = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hx, a.hx), z = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hz, a.hz), d = Math.hypot(x - player.pos.x, z - player.pos.z);
+    if (d < 8 || d > 28 || !insideArena(x, z, 2) || pointBlocked(x, z, 0.8) || nav.mainDist[cellOf(x, z)] >= 1e9) continue;
+    spot = { x, z };
+  }
+  if (!spot) return;
+  if (!kind) { let t = 0; for (const k in CHESTS) t += CHESTS[k].w; let r = Math.random() * t; for (const k in CHESTS) { kind = k; if ((r -= CHESTS[k].w) < 0) break; } }
+  const C = CHESTS[kind], g = new THREE.Group(), mb = new THREE.MeshLambertMaterial({ color: C.body, emissive: C.body, emissiveIntensity: 0.15 }), mt = new THREE.MeshLambertMaterial({ color: C.trim, emissive: C.trim, emissiveIntensity: kind === 'curse' ? 0.8 : 0.2 });
+  const base = new THREE.Mesh(bx(0.9, 0.5, 0.6), mb); base.position.y = 0.25; g.add(base);
+  const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.3); g.add(lid);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 12, 1, false, 0, Math.PI), mb); top.rotation.z = Math.PI / 2; top.position.z = 0.3; lid.add(top);
+  for (const x of [-0.36, 0.36]) { const s = new THREE.Mesh(bx(0.08, 0.52, 0.62), mt); s.position.set(x, 0.25, 0); g.add(s); }
+  const lock = new THREE.Mesh(bx(0.14, 0.16, 0.06), mt); lock.position.set(0, 0.45, 0.31); g.add(lock);
+  if (kind === 'bone') { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mt); sk.position.set(0, 0.3, 0.32); g.add(sk); }
+  const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: C.glow, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); beam.scale.set(0.5, 1, 0.5); beam.position.y = 15; g.add(beam);
+  g.position.set(spot.x, 0, spot.z); g.rotation.y = rand(0, TAU); scene.add(g);
+  chests.push({ kind, g, lid, beam, t: 0, open: 0, warnT: 0 });
+  feed(`Apareció un ${C.name.toLowerCase()} en el mapa`, 'gold');
+}
+function clearChests() { for (const c of chests) scene.remove(c.g); chests.length = 0; }
+function openChest(c) {
+  c.open = 0.001; const p = c.g.position, z = zoneOf(game.wave);
+  if (c.kind === 'gold') {
+    game.keys--; const g = 50 + 25 * z, b = bossBullet(), i = game.box.indexOf('normal'); addGold(g, true); if (i >= 0) game.box[i] = b;
+    banner('Cofre dorado', `+${g} $ y una ${BULLETS[b].name}`, 2600); Sfx.cash();
+  } else if (c.kind === 'bone') {
+    player.hp -= 15; let n = 0; for (let k = 0; k < 2; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = randomBullet(); n++; } } const g = 15 + 5 * z; addGold(g, true);
+    banner('Cofre de hueso', `Te costó 15 de vida · ${n} balas especiales y +${g} $`, 2600); Sfx.ouch(0, 1);
+  } else {
+    if (Math.random() < luck(0.5, 1.2)) {
+      const pool = Object.keys(RELICS).filter(k => !rl(k));
+      if (pool.length && Math.random() < 0.5) { const k = pick(pool), R_ = RELICS[k]; game.relics = game.relics || {}; game.relics[k] = 1; if (R_.take) R_.take(); banner('¡El cofre maldito te sonríe!', `Reliquia: ${R_.ic} ${R_.name}`, 3000); }
+      else { const g = 100 + 30 * z; addGold(g, true); banner('¡El cofre maldito te sonríe!', `+${g} $`, 2600); }
+      Sfx.win();
+    } else {
+      player.hp = Math.max(1, player.hp - 25); let n = 0; for (let k = 0; k < 3; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = 'mala'; n++; } }
+      banner('La maldición del cofre', `−25 de vida y ${n} balas malas`, 2800); Sfx.ouch(0, 1);
+    }
+  }
+  for (let k = 0; k < 40; k++) PA.add(p.x + rand(-0.4, 0.4), rand(0.4, 1.2), p.z + rand(-0.4, 0.4), rand(-1.5, 1.5), rand(2, 5), rand(-1.5, 1.5), rand(0.8, 1.4), rand(0.06, 0.14), 1, 0.85, 0.3, 1, -1, 0.5, 0, 0);
+  renderChips();
+}
+function updateChests(dt) {
+  if (!game) return;
+  if (state === 'play' && game.phase === 'fight' && game.chestWave !== game.wave) {
+    game.chestWave = game.wave;
+    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && Math.random() < 0.35 + (game.keys > 0 ? 0.15 : 0)) spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null);
+  }
+  for (let i = chests.length - 1; i >= 0; i--) {
+    const c = chests[i]; c.t += dt; c.warnT -= dt;
+    if (c.open) { c.open += dt; c.lid.rotation.x = -Math.min(1.9, c.open * 5); c.beam.material.opacity = Math.max(0, 0.16 - c.open * 0.08); if (c.open > 3) { scene.remove(c.g); chests.splice(i, 1); } continue; }
+    c.beam.material.opacity = 0.12 + Math.sin(c.t * 3) * 0.05;
+    if (state !== 'play' || player.down) continue;
+    const d = Math.hypot(player.pos.x - c.g.position.x, player.pos.z - c.g.position.z);
+    if (d > 1.6) continue;
+    if (c.kind === 'gold' && !(game.keys > 0)) { if (c.warnT <= 0) { hint('🔒 Cofre dorado: necesitas una llave 🔑 (la sueltan los zombis élite)', 2600); c.warnT = 4; } continue; }
+    if (c.kind === 'bone' && player.hp <= 20) { if (c.warnT <= 0) { hint('Cofre de hueso: abrirlo cuesta 15 de vida', 2200); c.warnT = 4; } continue; }
+    openChest(c);
+  }
+}
+
 /* ---- Eventos con tratos: a veces, entre oleadas, aparece alguien con una oferta ---- */
 /* ---- Los personajes de entre oleadas: nombre, icono y frases ---- */
 const NPC = {
@@ -4510,6 +4696,7 @@ function renderChips() {
   if (game.vest) out.push(`<span class="chip">Chaleco ${ROMAN[game.vest]}</span>`);
   if (game.silver) out.push('<span class="chip">Balas de plata</span>');
   const ca = copsAlive(); if (ca) out.push(`<span class="chip blue">Ayudantes ${ca}</span>`);
+  if (game.keys > 0) out.push(`<span class="chip gold">🔑 ${game.keys}</span>`);
   for (const k of Object.keys(game.relics || {})) if (RELICS[k]) out.push(`<span class="chip gold" title="${RELICS[k].desc}">${RELICS[k].ic} ${RELICS[k].name}</span>`);
   for (const p of PERKS) { const l = lv(p.id); if (l) out.push(`<span class="chip">${p.name} ${ROMAN[l]}</span>`); }
   el.chips.innerHTML = out.join('') + '<span class="chip gold" id="gold-chip" hidden></span>';
@@ -5042,6 +5229,7 @@ function updatePickups(dt) {
       if (p.type === 'health') { const h = Math.min(35, player.maxHp - player.hp); player.hp += h; feed(`Vida +${Math.round(h)}`, 'red'); }
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
       else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; let i = game.box.indexOf('normal'); if (i < 0) i = game.box.indexOf('mala'); if (i < 0) i = Math.floor(Math.random() * game.box.length); game.box[i] = k; Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
+      else if (p.type === 'key') { game.keys = (game.keys || 0) + 1; Sfx.coin(); feed(`🔑 Llave · tienes ${game.keys}`, 'gold'); renderChips(); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
       else if (p.type === 'powder') { game.powder = Math.min(9, game.powder + 1); feed(`Barril de pólvora · tienes ${game.powder}`, 'gold'); }
       else { game.goldT = Math.min(30, game.goldT + 15); feed('¡Balas doradas! Daño doble', 'gold'); }
@@ -5164,7 +5352,7 @@ function updatePlay(dt) {
   updateZombies(wdt, state === 'play' || state === 'pause');
   bossFx(wdt);
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
-  updateAcid(wdt); updatePickups(dt); updateDebris(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
+  updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
   P.update(wdt); PA.update(wdt);
   if (game) updateHud(dt);
 }
@@ -5184,7 +5372,7 @@ function updateMenu(dt) {
 /* ===================== EN GRUPO: red cooperativa ===================== */
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
-const GAME_VER = '15';
+const GAME_VER = '16';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -5485,7 +5673,7 @@ function snapshot() {
   };
 }
 function applySnapshot(s) {
-  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic') return;
+  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic' || state === 'doors' || state === 'cards') return;
   game.toSpawn = s.l; game.alive = 0; game.countT = s.ct;
   if (s.w !== game.wave && s.ph === 'count') { game.wave = s.w; }
   if (s.ph === 'fight' && game.fightWave !== s.w) {
@@ -5728,7 +5916,7 @@ const Music = (() => {
 })();
 
 /* ===================== PANTALLAS ===================== */
-function show(id) { if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
@@ -6171,6 +6359,8 @@ $('#btn-rs-pay').addEventListener('click', () => rescuePay(false));
 $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') startHorde(false); });
 $('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; Net.ev(['start', META.skull | 0]); Net.flush(); startGame(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause') saveBest(); toMenu(); });
+$('#btn-cards-go').addEventListener('click', () => { if (state === 'cards') continueAfter(); });
+$('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && !game.cardDone) continueAfter(); });
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } });
 for (const id of ['#box-grid', '#box-list']) { const e_ = $(id); e_.addEventListener('click', boxPick); e_.addEventListener('mouseover', boxPick); e_.addEventListener('mouseleave', () => boxInfo(game && game.boxSel)); }
 document.querySelectorAll('.sh-tab').forEach(b => b.addEventListener('click', () => { if (!game) return; game.shopOpen = null; shopTab(b.dataset.t); Sfx.holster(); }));
