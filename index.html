@@ -180,6 +180,12 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .npc{font-style:italic;color:#ffe2b0;font-size:16px;text-align:center;margin:4px 0 8px;line-height:1.35}
 .npc.left{text-align:left}
 .ev-ic{font-size:64px;text-align:center;line-height:1.1}
+.ev-ic{}
+#contract{font-size:14px;color:#9fe0a0;margin-top:2px}
+#contract.done{color:#ffd060}
+#contract.fail{color:#e08080;text-decoration:line-through}
+#relic-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+.relic-ic{font-size:34px}
 #ev-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
 #ev-opts .perk:disabled{opacity:.5;cursor:default}
 #ev-opts .perk.picked{opacity:1;border-color:#ffd060;box-shadow:0 0 0 2px rgba(255,208,96,.4) inset}
@@ -352,7 +358,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="bar" id="de"><b></b><em></em></div>
       <div id="chips"></div>
     </div>
-    <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="rescue" hidden></div><div id="fee"></div></div>
+    <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="rescue" hidden></div><div id="fee"></div><div id="contract"></div></div>
     <div class="hud" id="hud-tr">
       <div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div>
       <canvas id="map" width="260" height="260"></canvas>
@@ -481,6 +487,14 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="row"><button class="btn" id="btn-rs-pay">Pagar y subir al helicóptero</button></div>
       <div class="row"><button class="btn2 danger" id="btn-rs-cancel">Cancelar y quedarse</button></div>
       <p class="note">Si cancelan, la zona se llena de zombis de todo tipo, sin límite y desde todas partes, hasta que caigan todos.</p>
+    </div>
+  </div>
+  <div class="overlay" id="relic-s" hidden>
+    <div class="card wide">
+      <div class="ev-ic">🏺</div>
+      <h2 class="title sm">Botín del jefe</h2>
+      <p class="tag">Elige una reliquia: te acompaña toda la partida</p>
+      <div id="relic-opts"></div>
     </div>
   </div>
   <div class="overlay" id="event-s" hidden>
@@ -2893,7 +2907,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sb_save2';
-const SAVE_FIELDS = ['wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills'];
+const SAVE_FIELDS = ['wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots'];
 function saveGame() {
   if (!game || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc).map(c => c.kind || 'cop') };
@@ -2935,8 +2949,12 @@ function startWave(n) {
   game.wave = n; game.toSpawn = Math.round(waveCount(diffW(n)) * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
   let sub;
   if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
+  clearWaveMod();
   game.waveMod = game.nextMod || null; game.nextMod = null;
-  if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.round(game.toSpawn * game.waveMod.count); if (game.waveMod.brute) game.bossQ.push('brute'); }
+  if (n % WAVES_PER_MAP === 1) newContract();
+  if (rl('mapa') && n > 1) { addGold(15, true); feed('Mapa del tesoro: +15 $', 'gold'); }
+  if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
+  if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
     if (n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
     else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
@@ -2945,13 +2963,14 @@ function startWave(n) {
   else if (n % WAVES_PER_MAP === 1 && !(zoneOf(n) === MAP_COUNT - 1 && !game.endless)) sub = `Reúnan ${rescueFee(n)} $ para el rescate de esta zona`;
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
   game.toSpawn += game.bossQ.length;
-  if (game.waveMod) sub = game.waveMod.gold ? `¡Oleada maldita! Oro x${game.waveMod.gold}` : '¡Algo despertó en las tumbas!';
+  if (game.waveMod) sub = game.waveMod.name ? `¡${game.waveMod.name}! ${game.waveMod.sub}` : game.waveMod.gold ? `¡Oleada maldita! Oro x${game.waveMod.gold}` : '¡Algo despertó en las tumbas!';
   banner(`Oleada ${n}`, sub, game.bossQ.length ? 3000 : 2400);
   Sfx.bell();
   saveGame();
 }
 function chooseType(n) {
   if (game.bossQ.length) return game.bossQ.shift();
+  if (game.waveMod && game.waveMod.only) return pick(game.waveMod.only);
   const mx = k => world.mix[k] || 1;
   const w = [['walker', 10], ['crawler', n >= 2 ? (2 + n * 0.25) * mx('crawler') : 0], ['runner', n >= 3 ? (2 + n * 0.4) * mx('runner') : 0],
     ['dog', n >= 4 ? (1.5 + n * 0.25) * mx('dog') : 0], ['spitter', n >= 5 ? (1 + n * 0.22) * mx('spitter') : 0], ['screamer', n >= 6 ? (0.7 + n * 0.1) * mx('screamer') : 0],
@@ -2974,6 +2993,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (!opt.tick || Math.random() < 0.1) Sfx.hurt();
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
   if (!opt.tick && lv('thorns')) for (const o of zombies) { if (o.dead) continue; if (Math.hypot(o.root.position.x - player.pos.x, o.root.position.z - player.pos.z) < 2.5) damageZombie(o, 40 * lv('thorns'), { part: 'body', dir: null, ally: true }); }
+  if (player.hp <= 0 && rl('biblia') && game.bibleWave !== game.wave) { game.bibleWave = game.wave; player.hp = 1; banner('La Biblia te salvó', 'La bala se quedó en sus páginas', 2000); return; }
   if (player.hp <= 0 && lv('second') && game.secondZone !== zoneOf(game.wave)) { game.secondZone = zoneOf(game.wave); player.hp = Math.round(player.maxHp * 0.3); banner('¡Segunda oportunidad!', 'Te levantas una vez más', 2200); Sfx.heart(); return; }
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
@@ -3074,7 +3094,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = MODELS[id].name + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return m.dmg * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0)) * (game.goldT > 0 ? 2 : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return m.dmg * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -3100,6 +3120,7 @@ function shoot(h, fanned) {
   const adren = (lv('adren') && player.hp < player.maxHp * 0.35 ? 1 + 0.25 * lv('adren') : 1) * (lv('frenzy') && game.time - game.lastKill < 3 ? 1 + 0.2 * lv('frenzy') : 1);
   h.cdMax = m.cd / (1 + 0.18 * lv('rate')) / adren; if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
   game.shots++; game.w.shots++;
+  if (type !== 'normal' && type !== 'mala') game.specShots = (game.specShots || 0) + 1;
   if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name, 'gold'); lastBulletFeed = game.time; }
   camera.updateMatrixWorld(); camera.getWorldPosition(_cp);
   const cam = camera.getWorldDirection(new THREE.Vector3());
@@ -3113,7 +3134,9 @@ function shoot(h, fanned) {
   if (world.ground) targets.push(world.ground);
   for (const z of zombies) if (!z.dead) { z.root.updateMatrixWorld(true); for (const mm of z.hits) { targets.push(mm); zTargets.push(mm); } }
   h.muzzle.getWorldPosition(_mp);
-  const ctx = { type, h, m, kills: 0, hitZ: false, dmgMul: 1, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : 0xffe2a0) : hexCol(BULLETS[type].col) };
+  const firstOfDrum = !!h.firstShot; h.firstShot = false;
+  game.shotN = (game.shotN || 0) + 1;
+  const ctx = { type, h, m, kills: 0, hitZ: false, boomRelic: rl('polvora') && game.shotN % 10 === 0, dmgMul: (rl('herradura') && firstOfDrum ? 3 : 1), col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : 0xffe2a0) : hexCol(BULLETS[type].col) };
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
   let pellets = m.pellets ? m.pellets + (h.model === 'escopeta' && wlv('escopeta') >= 3 ? 2 : 0) : 1;
   if (m.jackpot) {
@@ -3154,6 +3177,7 @@ function shoot(h, fanned) {
   }
   refreshChambers();
   const kills = ctx.kills;
+  if (kills >= 2) game.colls = (game.colls || 0) + 1;
   if (kills >= 2 && !m.auto && pellets <= 1 && type !== 'acme') { addGold(kills - 1, true); feed(`${kills >= 3 ? '¡Triple colateral!' : '¡Colateral!'} · +${kills - 1} $`, 'gold'); }
   if (h.full) {
     h.cShots++; if (kills > 0) h.cKills++;
@@ -3181,7 +3205,7 @@ function castBullet(o, d, ctx) {
       done.add(z); ctx.hitZ = true;
       let part = hh.object.userData.part;
       if (t === 'cabeza' && (part === 'body' || part === 'limb')) part = 'head';
-      let dd = dmg * (part === 'head' ? 2.4 * (1 + 0.6 * lv('head')) * (game.char === 'cazadora' ? 1.25 : 1) : part === 'limb' ? 0.7 : 1);
+      let dd = dmg * (part === 'head' ? 2.4 * (1 + 0.6 * lv('head')) * (game.char === 'cazadora' ? 1.25 : 1) * (rl('ojo') ? 1.5 : 1) : part === 'limb' ? 0.7 : 1);
       if (m.near) dd *= hh.distance < 8 ? 1.2 : hh.distance < 16 ? 1 : 0.6;
       if (h.model === 'corto' && wlv('corto') >= 3 && hh.distance < 6) dd *= 1.6;
       if (h.model === 'mono' && wlv('mono') >= 3 && part === 'head') dd *= 2;
@@ -3210,6 +3234,7 @@ function castBullet(o, d, ctx) {
   }
   end = end ? end.clone() : o.clone().addScaledVector(d, t === 'gravedad' || t === 'agujero' ? 12 : 120);
   impactFx(end, d, ctx);
+  if (ctx.boomRelic) { ctx.boomRelic = false; Sfx.boom(); explode(end, 3, 120, 0, false); }
   if (m.boom) rocketBoom(end, h.model === 'bazuca' && wlv('bazuca') >= 3 ? m.boom * 1.4 : m.boom, bulletDmg(h) / m.dmg * m.boomDmg);
   if (ctx.bounceN) {
     const n = ctx.bounceN; ctx.bounceN = null; ctx.bounced = (ctx.bounced || 0) + 1;
@@ -3369,10 +3394,10 @@ function killZombie(z, info) {
   }
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
-  if (z.elite) { makePickup('bag', p.x, p.z + 0.8, 6 + 2 * zoneOf(game.wave) + (z.stolen || 0) * 2); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
+  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; makePickup('bag', p.x, p.z + 0.8, (6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
   if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper && !(z.B.id === 'mass' && z.gen)) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
   if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
-  if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck'))) {
+  if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (rl('trebol') ? 2 : 1)) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
     makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.72 ? 'powder' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, 3);
   }
@@ -3383,6 +3408,8 @@ function creditKill(def, head, ally, weapon) {
   game.gold5++; if (lv('greed') && game.gold5 % 5 === 0) addGold(lv('greed'), true);
   if (!ally) {
     game.w.kills++;
+    if (rl('diente')) addGold(1, true);
+    if (rl('corazon')) player.hp = Math.min(player.maxHp, player.hp + 2);
     const kb = Math.min(ALLY.contador.killMax, myAllies().reduce((t, c) => t + (c.kind === 'contador' ? ALLY.contador.kill * (c.lv || 1) : 0), 0)); if (kb) addGold(kb, true);
     if (weapon && MODELS[weapon]) gainXp(weapon);
     if (game.time - game.lastKill < 1.4) game.multi++; else game.multi = 1;
@@ -3403,7 +3430,7 @@ function startReload() {
   Sfx.open();
 }
 function reloadStep(dt) {
-  const rs = (1 + 0.25 * lv('reload')) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
+  const rs = (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1), act = activeHands();
   gs.pt -= dt; if (gs.pt > 0) return;
   if (gs.phase === 'open') {
     let spent = 0;
@@ -3421,6 +3448,7 @@ function reloadStep(dt) {
     if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = 0.4 / rs;
   } else if (gs.phase === 'close') {
     gs.reloading = false; gs.phase = ''; Sfx.close();
+    for (const h of act) h.firstShot = true;
     for (const h of act) { h.full = !h.loaded.some(x => x === 0 || x === 2); h.cShots = h.cKills = 0; }
     if (act.every(h => h.full) && !gs.wantStop) { for (const h of act) { h.cylTarget += TAU; h.hudRot -= 360; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`; } Sfx.spin(); }
     if (gs.wantStop) { gs.wantStop = false; act.forEach(h => h.cd = 0); tryFire(); }
@@ -3871,7 +3899,7 @@ const ELITE = {
 const ELITE_KEYS = Object.keys(ELITE);
 function maybeElite(z) {
   if (!z || z.boss != null || z.type === 'abom' || game.wave < 2) return;
-  if (Math.random() < Math.min(0.12, 0.04 + 0.004 * zoneOf(game.wave)) * (game.eliteMul || 1)) makeElite(z, pick(ELITE_KEYS));
+  if (Math.random() < Math.min(0.12, 0.04 + 0.004 * zoneOf(game.wave)) * (game.eliteMul || 1) * (rl('vela') ? 2 : 1)) makeElite(z, pick(ELITE_KEYS));
 }
 function makeElite(z, k, net) {
   z.elite = k;
@@ -3898,6 +3926,96 @@ function hordeStep(dt) {
   }
 }
 
+/* ===================== RELIQUIAS, OLEADAS ESPECIALES Y ENCARGOS ===================== */
+// Reliquias: tras cada jefe eliges 1 de 3. Duran toda la partida.
+const RELICS = {
+  herradura: { ic: '🧲', name: 'Herradura', desc: 'La primera bala de cada tambor hace daño triple.' },
+  diente: { ic: '🦷', name: 'Diente de oro', desc: '+1 $ por cada zombi que matas, pero −20 de vida máxima.', take() { player.maxHp = Math.max(40, player.maxHp - 20); player.hp = Math.min(player.hp, player.maxHp); } },
+  calavera: { ic: '💎', name: 'Calavera de cristal', desc: 'El Ojo Muerto se recarga solo, poco a poco.' },
+  espuelas: { ic: '⭐', name: 'Espuelas de plata', desc: 'Correr no gasta aguante.' },
+  cantimplora: { ic: '🫗', name: 'Cantimplora', desc: '+40 de vida máxima y te curas por completo.', take() { player.maxHp += 40; player.hp = player.maxHp; } },
+  biblia: { ic: '📖', name: 'Biblia agujereada', desc: 'Una vez por oleada, un golpe mortal te deja con 1 de vida.' },
+  dados: { ic: '🎲', name: 'Dados cargados', desc: 'Las ofertas de balas nunca son comunes.' },
+  sombrero: { ic: '🎩', name: 'Sombrero del muerto', desc: '+6 % de daño por cada ayudante vivo que tengas.' },
+  cinturon: { ic: '🎗️', name: 'Cinturón de balas', desc: 'Recargas un 40 % más rápido.' },
+  ojo: { ic: '👁️', name: 'Ojo de vidrio', desc: 'Los tiros a la cabeza hacen +50 % de daño.' },
+  iman: { ic: '🧭', name: 'Brújula imantada', desc: 'Los objetos vuelan hacia ti desde 8 metros.' },
+  reloj: { ic: '⏱️', name: 'Reloj de bolsillo', desc: 'Todo en Apocalipsis Delivery cuesta un 20 % menos.' },
+  lazo: { ic: '🪢', name: 'Lazo de vaquero', desc: 'El zombi que te golpea queda aturdido 1 segundo.' },
+  vela: { ic: '🕯️', name: 'Vela negra', desc: 'Los zombis élite salen el doble y su bolsa de oro vale el triple.' },
+  corazon: { ic: '🫀', name: 'Corazón de zombi', desc: 'Te curas 2 de vida por cada zombi que matas.' },
+  polvora: { ic: '🧨', name: 'Pólvora negra', desc: 'Cada 10 disparos, la bala siguiente explota.' },
+  escapulario: { ic: '📿', name: 'Escapulario', desc: 'Recuperas 1 de vida por segundo, siempre.' },
+  trebol: { ic: '🍀', name: 'Trébol de cuatro hojas', desc: 'Los zombis sueltan objetos el doble de seguido.' },
+  mapa: { ic: '🗺️', name: 'Mapa del tesoro', desc: 'Al empezar cada oleada encuentras 15 $.' }
+};
+const rl = id => !!(game && game.relics && game.relics[id]);
+function relicTime() { return game && isMapEnd(game.wave) && !(game.wave === LAST_WAVE && !game.endless) && game.relicWave !== game.wave; }
+function afterClear() { if (relicTime()) openRelics(); else openPerks(); }
+function openRelics() {
+  state = 'relic'; game.relicWave = game.wave; if (document.pointerLockElement) document.exitPointerLock();
+  input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  const pool = Object.keys(RELICS).filter(k => !rl(k)), pickN = [];
+  while (pickN.length < 3 && pool.length) pickN.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  if (!pickN.length) { openPerks(); return; }
+  const box = $('#relic-opts'); box.innerHTML = '';
+  for (const k of pickN) {
+    const R = RELICS[k], b = document.createElement('button'); b.className = 'perk';
+    b.innerHTML = `<span class="relic-ic">${R.ic}</span><b>${R.name}</b><span>${R.desc}</span>`;
+    b.addEventListener('click', () => { if (state !== 'relic') return; game.relics = game.relics || {}; game.relics[k] = 1; if (R.take) R.take(); Sfx.win(); feed(`Reliquia: ${R.name}`, 'gold'); renderChips(); openPerks(); });
+    box.appendChild(b);
+  }
+  show('relic-s'); setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus(); }, 50);
+}
+
+// Oleadas especiales: a veces una oleada trae una regla propia (la decide el anfitrión)
+const WAVE_MODS = {
+  blood: { name: 'Luna de sangre', sub: 'Zombis más rápidos · oro doble', gold: 2, speed: 1.25 },
+  fog: { name: 'Niebla espesa', sub: 'Casi no se ve · oro ×1,5', gold: 1.5, fog: 2.6 },
+  acid: { name: 'Lluvia ácida', sub: 'Pierdes vida poco a poco · oro doble', gold: 2, acid: 1 },
+  eclipse: { name: 'Eclipse', sub: 'Solo zombis grandes · oro doble', gold: 2, only: ['bloater', 'brute', 'armored'], count: 0.35 },
+  dogs: { name: 'Jauría', sub: 'Solo perros, muchos perros', gold: 1.5, only: ['dog'], count: 1.4 }
+};
+function applyWaveMod(key) {
+  const M = WAVE_MODS[key]; if (!M) return;
+  game.waveMod = Object.assign({ key }, M);
+  if (M.fog) { game.fogBase = scene.fog.density; scene.fog.density *= M.fog; }
+}
+function clearWaveMod() { if (game && game.fogBase) { scene.fog.density = game.fogBase; game.fogBase = 0; } if (game) game.waveMod = null; }
+
+// Encargos: un reto opcional por zona, con premio
+const CONTRACTS = {
+  heads: { t: 'Mata {n} zombis de un tiro a la cabeza', n: 15, val: g => g.heads },
+  clean: { t: 'Termina {n} oleadas sin recibir daño', n: 2, val: g => g.cleanW || 0 },
+  colls: { t: 'Haz {n} colaterales (2 o más de un disparo)', n: 4, val: g => g.colls || 0 },
+  elite: { t: 'Mata {n} zombis élite', n: 3, val: g => g.eliteKills || 0 },
+  savior: { t: 'Salva a {n} sobreviviente', n: 1, val: g => g.rescued },
+  nospec: { t: 'No dispares balas especiales en esta zona', end: true, val: g => g.specShots || 0 },
+  noloss: { t: 'Que no devoren a ningún ayudante en esta zona', end: true, val: g => g.copsLost || 0 }
+};
+function newContract() {
+  const k = pick(Object.keys(CONTRACTS).filter(x => x !== (game.contract && game.contract.k))), C = CONTRACTS[k];
+  game.contract = { k, base: C.val(game), done: false, fail: false, zone: zoneOf(game.wave) };
+  feed(`Encargo: ${C.t.replace('{n}', C.n)}`, 'gold');
+}
+function contractReward() {
+  const c = game.contract; c.done = true;
+  const g = 30 + 15 * zoneOf(game.wave), k = bossBullet(); addGold(g, true);
+  let i = game.box.indexOf('normal'); if (i >= 0) game.box[i] = k;
+  banner('¡Encargo cumplido!', `+${g} $ y una ${BULLETS[k].name}`, 2800); Sfx.win();
+}
+function contractStep(endOfZone) {
+  const c = game && game.contract; if (!c || c.done || c.fail) return;
+  const C = CONTRACTS[c.k], v = C.val(game) - c.base;
+  if (C.end) { if (v > 0) { c.fail = true; feed('Encargo fallido', 'red'); } else if (endOfZone) contractReward(); }
+  else if (v >= C.n) contractReward();
+}
+function contractText() {
+  const c = game && game.contract; if (!c) return '';
+  const C = CONTRACTS[c.k], v = Math.max(0, C.val(game) - c.base);
+  return `📜 ${C.t.replace('{n}', C.n)}${C.end || c.done ? '' : ` · ${Math.min(v, C.n)}/${C.n}`}${c.done ? ' ✓' : ''}`;
+}
+
 /* ---- Oleadas, mejoras, tienda y lugares ---- */
 function updateWave(dt) {
   if (game.phase === 'fight') {
@@ -3920,7 +4038,7 @@ function updateWave(dt) {
     }
     if (game.toSpawn === 0 && game.alive <= 0) {
       for (let i = cops.length - 1; i >= 0; i--) if (cops[i].npc && !cops[i].dead) rescueNpc(i);
-      game.phase = 'cleared'; game.countT = 2.4; game.waveMod = null;
+      game.phase = 'cleared'; game.countT = 2.4; clearWaveMod();
       // si quedó algún zombi vivo por un error de conteo, se desploma sin dar oro (no te espera al salir de la armería)
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
@@ -3931,7 +4049,7 @@ function updateWave(dt) {
     }
   } else if (game.phase === 'cleared') {
     game.countT -= dt;
-    if (game.countT <= 0) { if (game.wave === LAST_WAVE && !game.endless) victory(); else openPerks(); }
+    if (game.countT <= 0) { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); }
   } else if (game.phase === 'count') {
     game.countT -= dt; if (game.countT <= 0) startWave(game.wave + 1);
   } else if (game.phase === 'horde') hordeStep(dt);
@@ -3951,6 +4069,8 @@ function waveSummary() {
   addGold(g, true);
   banner(`Oleada ${wv} superada`, `+${g} $ · +20 de vida${clean ? ' · ¡sin un rasguño!' : ''}`, 2300);
   if (!player.down) player.hp = Math.min(player.maxHp, player.hp + (sk(8) ? 0 : 20) + 25 * lv('medic'));
+  if (!game.w.hurt) game.cleanW = (game.cleanW || 0) + 1;
+  contractStep(isMapEnd(wv));
 }
 function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; feed('¡Volviste a la pelea!', 'gold'); }
 function victory() {
@@ -4092,7 +4212,7 @@ function openEvent(E) {
   show('event-s'); setTimeout(() => { const f = box.querySelector('button:not(:disabled)'); if (f) f.focus(); }, 50);
 }
 function rollOffers() {
-  const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0 && isOpen('b:' + k)), W = [0, 55, 33, 12, 3], out = [];
+  const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > (rl('dados') ? 1 : 0) && isOpen('b:' + k)), W = [0, 55, 33, 12, 3], out = [];
   while (out.length < 3) {
     const pool = ids.filter(k => !out.includes(k)); let tot = 0; pool.forEach(k => tot += W[BULLETS[k].rar]); let r = Math.random() * tot;
     for (const k of pool) { if ((r -= W[BULLETS[k].rar]) < 0) { out.push(k); break; } }
@@ -4328,6 +4448,7 @@ function renderChips() {
   if (game.vest) out.push(`<span class="chip">Chaleco ${ROMAN[game.vest]}</span>`);
   if (game.silver) out.push('<span class="chip">Balas de plata</span>');
   const ca = copsAlive(); if (ca) out.push(`<span class="chip blue">Ayudantes ${ca}</span>`);
+  for (const k of Object.keys(game.relics || {})) if (RELICS[k]) out.push(`<span class="chip gold" title="${RELICS[k].desc}">${RELICS[k].ic} ${RELICS[k].name}</span>`);
   for (const p of PERKS) { const l = lv(p.id); if (l) out.push(`<span class="chip">${p.name} ${ROMAN[l]}</span>`); }
   el.chips.innerHTML = out.join('') + '<span class="chip gold" id="gold-chip" hidden></span>';
   el.bSwap.hidden = MODEL_ORDER.filter(k => game.owned[k]).length < 2;
@@ -4344,7 +4465,7 @@ function updatePlayer(dt) {
   const len = Math.hypot(ix, iz); if (len > 1) { ix /= len; iz /= len; }
   const wantSprint = (k.ShiftLeft || k.ShiftRight || input.sprintTouch) && iz > 0.3 && gs.aim < 0.5;
   const sprint = wantSprint && player.st > 0 && player.stLock <= 0;
-  if (sprint) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
+  if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
   const sp = 5 * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.3 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
@@ -4561,7 +4682,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); }
+          else if (z.tk === 'p' && dist < reach + 0.4) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -4848,7 +4969,7 @@ function updatePickups(dt) {
   for (let i = pickups.length - 1; i >= 0; i--) {
     const p = pickups[i]; p.t += dt;
     p.g.rotation.y += dt * 2; p.g.position.y = 0.65 + Math.sin(p.t * 3) * 0.1;
-    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (lv('magpie') && pdd < 5)) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
+    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (lv('magpie') && pdd < 5) || (rl('iman') && pdd < 8)) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
       if (Net.client) Net.ev(['pk', p.id]);
@@ -4916,6 +5037,7 @@ function updateHud(dt) {
   setText(el.wave, 'wave', `Oleada ${game.wave}`);
   const left = game.toSpawn + Math.max(0, game.alive);
   setText(el.waveSub, 'wsub', game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : 'Despejado');
+  { const ct = $('#contract'), tx = contractText(); setText(ct, 'ctr', tx); const cl = game.contract ? (game.contract.done ? 'done' : game.contract.fail ? 'fail' : '') : ''; if (ct.className !== cl) ct.className = cl; if (game.phase === 'fight' && !(game.time % 0.5 < 0.02)) contractStep(false); }
   setText(el.fee, 'fee', game.phase === 'horde' ? 'No hay rescate' : zoneOf(game.wave) === MAP_COUNT - 1 && !game.endless ? 'Última zona: sin rescate' : `Rescate de la zona: ${rescueFee(game.wave)} $`);
   setText(el.gold, 'gold', `$ ${game.gold}`);
   setText(el.boxN, 'boxn', `${game.queue.length && game.queue[game.queue.length - 1] === 'mala' ? 'Balas malas' : 'Caja'} ${game.queue.length} de 50 · Pólvora ${game.powder}`);
@@ -4957,6 +5079,9 @@ function updatePlay(dt) {
   const wdt = dt * game.ts;
   if (state === 'play' || state === 'pause') {
     game.time += dt;
+    if (rl('calavera') && !game.deOn) game.de = Math.min(100, game.de + 1.5 * dt);
+    if (rl('escapulario') && !player.down) player.hp = Math.min(player.maxHp, player.hp + dt);
+    if (game.waveMod && game.waveMod.acid && game.phase === 'fight' && !player.down && player.hp > 5) player.hp -= 1.2 * dt;
     updatePlayer(dt);
     if (!Net.client) updateWave(wdt);
     if (Net.host) netHostStep();
@@ -5199,6 +5324,7 @@ function netStartAsClient() {
 function netEvent(p, e) {
   const t = e[0];
   if (t === 'horde') { startHorde(true); return; }
+  if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800); } return; }
   if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
   if (t === 'dv') { if (Net.host && game && e[2] === game.wave) devilVote(p.id, e[1]); return; }
   if (t === 'dvCount') { if (!Net.host && game) devilShowCount(e[1]); return; }
@@ -5229,7 +5355,7 @@ function netEvent(p, e) {
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
   if (t === 'hurt') { if (e[1] === Net.id) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
-  else if (t === 'clear') { if (state === 'play' && game.phase !== 'cleared') { game.wave = e[1]; game.phase = 'cleared'; waveSummary(); setTimeout(() => { if (state === 'play' && game && game.phase === 'cleared') openPerks(); }, 2400); } }
+  else if (t === 'clear') { if (state === 'play' && game.phase !== 'cleared') { game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); setTimeout(() => { if (state === 'play' && game && game.phase === 'cleared') afterClear(); }, 2400); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2]); }
   else if (t === 'over') gameOver();
   else if (t === 'rescue') { addGold(e[1], true); game.rescued++; Sfx.win(); banner(`¡${e[2]} está a salvo!`, `+${e[1]} $ para todos`, 2600); }
@@ -5294,7 +5420,7 @@ function snapshot() {
   };
 }
 function applySnapshot(s) {
-  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event') return;
+  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic') return;
   game.toSpawn = s.l; game.alive = 0; game.countT = s.ct;
   if (s.w !== game.wave && s.ph === 'count') { game.wave = s.w; }
   if (s.ph === 'fight' && game.fightWave !== s.w) {
@@ -5537,7 +5663,7 @@ const Music = (() => {
 })();
 
 /* ===================== PANTALLAS ===================== */
-function show(id) { if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
@@ -5576,7 +5702,7 @@ const charOpen = id => !CHARS[id].cost || !!META.un['c:' + id];
 const SKULLS = ['Los jefes tienen +25 % de vida', 'El rescate cuesta un 25 % más', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
 const sk = n => game && (game.skull | 0) >= n;
 // Precios de la tienda: +10 % por zona (y +15 % en Calavera 6)
-const shopP = n => Math.round(n * (sk(6) ? 1.15 : 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
+const shopP = n => Math.round(n * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
 function renderMeta() {
   $('#fichas').textContent = `💀 ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
   const cl = $('#char-list'); cl.innerHTML = '';
