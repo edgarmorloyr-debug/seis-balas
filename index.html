@@ -228,6 +228,10 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .sh-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 12px;position:sticky;top:-16px;z-index:2;background:rgba(12,9,7,.96);padding:6px 0}
 .sh-tab{min-height:48px;font-family:var(--hud);font-weight:700;font-size:15px;color:var(--bone-dim);background:rgba(0,0,0,.35);border:1px solid rgba(214,165,75,.4);cursor:pointer;padding:0 4px}
 .sh-tab.on{background:#d6a54b;color:#1a1208;border-color:#d6a54b}
+.box-info{margin:8px 0;padding:10px 12px;font-size:15px;line-height:1.4;color:var(--bone);background:rgba(0,0,0,.45);border:1px solid rgba(214,165,75,.35);text-align:left;min-height:48px}
+.box-info b{font-family:var(--display);font-weight:400;font-size:17px}
+#box-grid i{cursor:pointer}#box-grid i.sel{outline:2px solid #ffd060;outline-offset:1px}
+.bx-n{cursor:pointer}.bx-n.sel{color:#ffd060}
 .sh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 @media (max-width:620px){.sh-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.sc{padding:8px 6px}.sc-pic{height:70px}.sc-pic img{max-height:70px}.sc-n{font-size:16px}.sc-act .buy{font-size:14px;letter-spacing:.04em;padding:0 4px}}
 .sc{position:relative;display:flex;flex-direction:column;gap:4px;padding:10px;background:rgba(0,0,0,.45);border:1px solid rgba(214,165,75,.32);cursor:pointer;min-width:0}
@@ -504,7 +508,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="sh-top"><div><h2 class="title sm">Apocalipsis Delivery</h2></div><div class="purse" id="shop-gold">$ 0</div></div>
       <div class="sh-tabs" role="tablist"><button class="sh-tab" role="tab" data-t="guns">Armas</button><button class="sh-tab" role="tab" data-t="bullets">Balas</button><button class="sh-tab" role="tab" data-t="allies">Ayudantes</button><button class="sh-tab" role="tab" data-t="supplies">Útiles</button></div>
       <div class="sh-pane" id="sh-guns"><div class="sh-grid" id="shop-guns"></div></div>
-      <div class="sh-pane" id="sh-bullets" hidden><div class="sh-grid" id="shop-bullets"></div><div class="row" style="justify-content:flex-start"><button class="btn2" id="btn-reroll">Cambiar ofertas</button></div><h3 class="sec">Tu caja · 50 balas</h3><div id="box-grid"></div><div class="box-list" id="box-list"></div></div>
+      <div class="sh-pane" id="sh-bullets" hidden><div class="sh-grid" id="shop-bullets"></div><div class="row" style="justify-content:flex-start"><button class="btn2" id="btn-reroll">Cambiar ofertas</button></div><h3 class="sec">Tu caja · 50 balas</h3><div id="box-grid"></div><div id="box-info" class="box-info">Toca una bala de tu caja para ver qué hace.</div><div class="box-list" id="box-list"></div></div>
       <div class="sh-pane" id="sh-allies" hidden><p class="note left" id="ally-note"></p><div class="sh-grid" id="shop-allies"></div></div>
       <div class="sh-pane" id="sh-supplies" hidden><div class="sh-grid" id="shop-help"></div></div>
       <div class="sh-go"><button class="btn" id="btn-shop-go">Seguir</button></div>
@@ -4160,6 +4164,19 @@ function shopCard(key, o) {
   return { d, act: d.querySelector('.sc-act'), more: d.querySelector('.sc-more-act') };
 }
 function shopBtn(parent, id, cls, text, disabled, fn) { const b = document.createElement('button'); b.className = cls; if (id) b.id = id; b.textContent = text; b.disabled = !!disabled; b.addEventListener('click', fn); parent.appendChild(b); return b; }
+// Qué hace cada bala de tu caja: al tocarla o pasar el ratón por encima
+function boxInfo(k) {
+  const el_ = $('#box-info'); if (!el_) return;
+  const B = k && BULLETS[k];
+  if (!B) { el_.textContent = 'Toca una bala de tu caja para ver qué hace.'; return; }
+  const n = game.box.filter(x => x === k).length, R = RAR[B.rar];
+  el_.innerHTML = `<i class="dot" style="background:${B.col}"></i><b>${B.name}</b>${R ? ` <span class="rar-${B.rar}">${R.name}</span>` : ''} · tienes ${n}<br>${B.desc || 'Bala común: daño normal, sin efecto especial.'}`;
+}
+function boxPick(e) {
+  const t = e.target.closest('[data-k]'); if (!t || !game) return;
+  if (e.type === 'click') { game.boxSel = game.boxSel === t.dataset.k ? null : t.dataset.k; document.querySelectorAll('#box-grid i, #box-list .bx-n').forEach(x => x.classList.toggle('sel', x.dataset.k === game.boxSel)); boxInfo(game.boxSel || t.dataset.k); }
+  else boxInfo(t.dataset.k);
+}
 function renderShop() {
   if (!game.shopTab) game.shopTab = 'guns';
   $('#shop-gold').textContent = `$ ${game.gold}`;
@@ -4194,13 +4211,14 @@ function renderShop() {
   const rr = $('#btn-reroll'); rr.textContent = `Cambiar ofertas · ${game.reroll} $`; rr.disabled = game.gold < game.reroll;
   const order = Object.keys(BULLETS);
   const sorted = game.box.slice().sort((a, b) => (a === 'normal') - (b === 'normal') || order.indexOf(a) - order.indexOf(b));
-  $('#box-grid').innerHTML = sorted.map(b => `<i style="background:${BULLETS[b].col}${b === 'normal' ? ';opacity:.45' : ''}" title="${BULLETS[b].name}"></i>`).join('');
+  $('#box-grid').innerHTML = sorted.map(b => `<i data-k="${b}" class="${game.boxSel === b ? 'sel' : ''}" style="background:${BULLETS[b].col}${b === 'normal' ? ';opacity:.45' : ''}" title="${BULLETS[b].name}"></i>`).join('');
+  boxInfo(game.boxSel);
   const counts = {}; game.box.forEach(b => { if (b !== 'normal') counts[b] = (counts[b] || 0) + 1; });
   const list = $('#box-list'); list.innerHTML = '';
   for (const k of Object.keys(counts)) {
     const B = BULLETS[k], R = RAR[B.rar], refund = Math.max(1, Math.floor(R.price / R.copies / 2));
     const row = document.createElement('div'); row.className = 'box-row';
-    row.innerHTML = `<span><i class="dot" style="background:${B.col}"></i>${B.name} × ${counts[k]}</span>`;
+    row.innerHTML = `<span class="bx-n${game.boxSel === k ? ' sel' : ''}" data-k="${k}"><i class="dot" style="background:${B.col}"></i>${B.name} × ${counts[k]}</span>`;
     shopBtn(row, null, 'btn2', `Quitar · +${refund} $`, false, () => { const i = game.box.indexOf(k); if (i < 0) return; game.box[i] = 'normal'; game.gold += refund; Sfx.coin(); renderShop(); });
     list.appendChild(row);
   }
@@ -5652,6 +5670,7 @@ $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') st
 $('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; Net.ev(['start', META.skull | 0]); Net.flush(); startGame(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause') saveBest(); toMenu(); });
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } });
+for (const id of ['#box-grid', '#box-list']) { const e_ = $(id); e_.addEventListener('click', boxPick); e_.addEventListener('mouseover', boxPick); e_.addEventListener('mouseleave', () => boxInfo(game && game.boxSel)); }
 document.querySelectorAll('.sh-tab').forEach(b => b.addEventListener('click', () => { if (!game) return; game.shopOpen = null; shopTab(b.dataset.t); Sfx.holster(); }));
 $('#btn-reroll').addEventListener('click', () => { if (state !== 'shop' || game.gold < game.reroll) return; game.gold -= game.reroll; game.reroll += 2; rollOffers(); Sfx.dice(); renderShop(); });
 $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; store.set('sb_sens', settings.sens); });
