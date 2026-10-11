@@ -180,6 +180,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .ev-ic{font-size:64px;text-align:center;line-height:1.1}
 #ev-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
 #ev-opts .perk:disabled{opacity:.5;cursor:default}
+#ev-opts .perk.picked{opacity:1;border-color:#ffd060;box-shadow:0 0 0 2px rgba(255,208,96,.4) inset}
+.dv-n{font-style:normal;color:#ffd060;font-size:15px;min-height:1em}
 #perk-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 @media (max-width:620px){#perk-list{grid-template-columns:1fr}}
 .perk{min-width:0;min-height:48px;display:flex;flex-direction:column;gap:6px;text-align:left;padding:14px;cursor:pointer;background:rgba(0,0,0,.45);border:1px solid rgba(214,165,75,.4);color:var(--bone);font-family:var(--hud)}
@@ -560,6 +562,7 @@ const Sfx = (() => {
     ballesta: { lp: 2500, end: 400, dur: 0.18, vol: 0.8, th: 300, te: 120, wet: 0.2 },
     sierra: { lp: 12000, end: 2500, dur: 0.25, vol: 0.7, th: 600, te: 300, wet: 0.3 },
     tesla: { lp: 14000, end: 3000, dur: 0.16, vol: 0.55, th: 900, te: 300, wet: 0.3 },
+    jackpot: { lp: 9500, end: 500, dur: 0.3, vol: 1, th: 170, te: 50, wet: 0.6 },
     bazuca: { lp: 4000, end: 80, dur: 0.9, vol: 1.6, th: 70, te: 18, wet: 1 }
   };
   return {
@@ -1794,9 +1797,10 @@ Object.assign(MODELS, {
   ballesta: { name: 'Revólver ballesta', desc: 'Estacas que atraviesan a toda la fila de zombis sin perder fuerza.', cap: 6, dmg: 170, cd: 0.55, reload: 0.8, spread: 0.6, recoil: 0.9, pierce: 99, noFall: true, price: 380, L: 0.3, R: 0.008, tr: 0x8a5a2a },
   sierra: { name: 'Revólver sierra', desc: 'Lanza discos de sierra que cortan a 3 zombis y rebotan en las paredes.', cap: 8, dmg: 80, cd: 0.35, reload: 0.9, spread: 0.8, recoil: 0.6, pierce: 2, noFall: true, bounce: 1, price: 420, L: 0.24, R: 0.014, tr: 0xd8dce4 },
   tesla: { name: 'Revólver Tesla', desc: 'Rayos que saltan de zombi en zombi (hasta 3). Mantén el gatillo; al vaciarse se enfría.', cap: 20, dmg: 42, cd: 0.2, reload: 0.7, spread: 0.7, recoil: 0.25, pierce: 0, price: 460, L: 0.26, R: 0.016, rc: 0.042, auto: true, chain: 3, tr: 0x9ac8ff },
+  jackpot: { name: 'Revólver Jackpot', desc: 'Una tragamonedas con gatillo. Cada disparo tiene 1 entre 20 de darte 20 $ y 1 entre 100 de darte 500 $.', cap: 6, dmg: 50, cd: 0.4, reload: 1, spread: 1, recoil: 1, pierce: 0, price: 250, L: 0.24, R: 0.012, jackpot: true, tr: 0xffd040 },
   bazuca: { name: 'Revólver bazuca', desc: 'Cuatro cohetes con una explosión enorme. Cuidado: si estalla cerca, también te quema a ti.', cap: 4, dmg: 90, cd: 1, reload: 0.55, spread: 0.6, recoil: 2.6, pierce: 0, price: 600, L: 0.42, R: 0.045, rc: 0.062, boom: 4.5, boomDmg: 420, tr: 0xffa040 }
 });
-const MODEL_ORDER = ['mono', 'paci', 'corto', 'viejo', 'magnum', 'minigun', 'arpon', 'mp5', 'ballesta', 'sierra', 'tesla', 'bazuca'];
+const MODEL_ORDER = ['mono', 'paci', 'corto', 'viejo', 'magnum', 'minigun', 'arpon', 'mp5', 'ballesta', 'sierra', 'tesla', 'jackpot', 'bazuca'];
 const MASTERY = {
   mono: 'Sangre fría: los tiros a la cabeza hacen el doble de daño.',
   paci: 'Gatillo de fortuna: el 12 % de los disparos no gasta bala.',
@@ -1809,6 +1813,7 @@ const MASTERY = {
   ballesta: 'Estaca bendita: cada estaca aturde 1 s a todos los que atraviesa.',
   sierra: 'Disco loco: los discos rebotan dos veces.',
   tesla: 'Bobina doble: el rayo salta a 5 zombis.',
+  jackpot: 'Racha de suerte: los premios de 20 $ salen 1 de cada 12.',
   bazuca: 'Megatón: la explosión es un 40 % más grande.'
 };
 const WLV = [0, 25, 70, 150];
@@ -1947,6 +1952,9 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
     for (let i = 0; i < 3; i++) rot(P_(new THREE.TorusGeometry(R * 1.6, 0.004, 8, 20), GM.brass, 0, by, bz - 0.05 - i * L * 0.3));
     P_(new THREE.SphereGeometry(0.022, 14, 10), tlMat, 0, by + R + 0.028, bz - 0.02);
     rot(P_(cyl(R * 0.5, R * 0.5, L * 0.95, 10), tlMat, 0, by, bz - L * 0.5));
+  } else if (id === 'jackpot') {
+    for (let i = 0; i < 3; i++) P_(bx(0.012, 0.016, 0.016), [GM.orange, GM.brass, GM.chrome][i], 0.019, 0.025, 0.02 - i * 0.018);
+    P_(bx(0.006, 0.05, 0.006), GM.chrome, 0.022, 0.06, 0.05); P_(new THREE.SphereGeometry(0.009, 10, 8), GM.orange, 0.022, 0.088, 0.05);
   } else if (id === 'arpon') {
     rot(P_(cyl(0.005, 0.005, L + 0.06, 8), GM.steel, 0, by, bz - L / 2 - 0.03)); rot(P_(new THREE.ConeGeometry(0.014, 0.05, 6), GM.steel, 0, by, bz - L - 0.085)).rotation.x = -Math.PI / 2;
     rot(P_(new THREE.TorusGeometry(0.022, 0.006, 6, 14), GM.woodL, 0.03, by - 0.01, -0.02)).rotation.y = Math.PI / 2;
@@ -1969,6 +1977,7 @@ function buildGun(h, id) {
     ballesta: { frame: GM.woodL, barrel: GM.steel, cyl: GM.wood, grip: GM.wood, trig: GM.brassF },
     sierra: { frame: GM.stain, barrel: GM.stain, cyl: GM.steel, grip: GM.rubber, trig: GM.orange },
     tesla: { frame: GM.brassF, barrel: GM.blue, cyl: GM.brassF, grip: GM.wood, trig: GM.brassF },
+    jackpot: { frame: GM.brass, barrel: GM.chrome, cyl: GM.brass, grip: GM.ivory, trig: GM.orange },
     bazuca: { frame: GM.blue, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
   }[id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
@@ -3018,6 +3027,11 @@ function shoot(h, fanned) {
   const ctx = { type, h, m, kills: 0, hitZ: false, dmgMul: 1, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : 0xffe2a0) : hexCol(BULLETS[type].col) };
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
   let pellets = m.pellets ? m.pellets + (h.model === 'escopeta' && wlv('escopeta') >= 3 ? 2 : 0) : 1;
+  if (m.jackpot) {
+    const r = Math.random();
+    if (r < 0.01) { addGold(500); banner('¡JACKPOT!', '+500 $', 2600); Sfx.win(); Sfx.cash(); for (let i = 0; i < 40; i++) PA.add(_mp.x, _mp.y, _mp.z, rand(-3, 3), rand(1, 5), rand(-3, 3), 1.2, 0.07, 1, 0.82, 0.25, 1, 6, 0.5, 0, 0); }
+    else if (r < 0.01 + (wlv('jackpot') >= 3 ? 1 / 12 : 1 / 20)) { addGold(20); feed('¡Premio! +20 $', 'gold'); Sfx.coin(); }
+  }
   if (type === 'iman') { for (const p of pickups) p.mag = true; Sfx.whoosh(0); }
   if (type === 'reloj') { game.slowT = 4; applySlowFx(); Sfx.deadeye(true); }
   if (type === 'dado') { pellets = 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Dado: ${pellets} ${pellets === 1 ? 'bala' : 'balas'}`, 'gold'); }
@@ -3765,6 +3779,7 @@ function updateWave(dt) {
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]);
+      if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
       Sfx.win();
     }
@@ -3847,8 +3862,56 @@ const EVENTS = [
     { t: 'Desenterrar una tumba', s: '60 %: 120 $ · 40 %: despierta un Carnicero', global: true, go() { if (Math.random() < 0.6) { addGold(120); return '¡Un cofre lleno! +120 $'; } game.nextMod = Object.assign(game.nextMod || {}, { brute: 1 }); return 'Algo despertó… un Carnicero vendrá a buscarte.'; } }] }
 ];
 function maybeEvent() {
-  if (!game || game.evWave === game.wave || isMapEnd(game.wave) || game.wave < 2 || Math.random() > 0.3) return false;
-  game.evWave = game.wave; openEvent(pick(EVENTS)); return true;
+  if (!game || game.evWave === game.wave) return false;
+  if (Net.on && (game.devilVoteWave === game.wave || (game.devilResult && game.devilResult.w === game.wave))) { game.evWave = game.wave; openDevilVote(); return true; }
+  if (isMapEnd(game.wave) || game.wave < 2 || Math.random() > 0.3) return false;
+  game.evWave = game.wave; openEvent(pick(Net.on ? EVENTS.slice(1) : EVENTS)); return true;
+}
+/* ---- En grupo, los tratos del Diablo se deciden por votación ---- */
+function devilOpts() { return EVENTS[0].opts.concat([{ t: 'Seguir mi camino', s: 'No aceptamos nada', go: () => '' }]); }
+function openDevilVote() {
+  const E = EVENTS[0]; state = 'event'; if (document.pointerLockElement) document.exitPointerLock();
+  $('#ev-ic').textContent = E.ic; $('#ev-who').textContent = E.who; $('#ev-say').textContent = E.say + ' Decidan entre todos: gana lo más votado.';
+  const box = $('#ev-opts'); box.innerHTML = '';
+  devilOpts().forEach((o, i) => {
+    const b = document.createElement('button'); b.className = 'perk'; b.dataset.i = i;
+    b.innerHTML = `<b>${o.t}</b><span>${o.s}${o.global ? ' · para todo el grupo' : ' · para cada uno'}</span><em class="dv-n"></em>`;
+    b.addEventListener('click', () => {
+      if (state !== 'event' || game.myDevilVote != null) return;
+      game.myDevilVote = i; box.querySelectorAll('button').forEach(x => { x.disabled = true; }); b.classList.add('picked');
+      Sfx.pickup(); if (Net.host) devilVote(Net.id, i); else Net.ev(['dv', i, game.wave]);
+      $('#ev-gold').textContent = 'Tu voto está hecho. Esperando a los demás…';
+    });
+    box.appendChild(b);
+  });
+  $('#ev-gold').textContent = 'Vota una opción'; game.myDevilVote = null;
+  show('event-s');
+  if (game.devilResult && game.devilResult.w === game.wave) devilApply(game.devilResult.i, game.devilResult.c);
+}
+function devilVote(id, i) {
+  if (!Net.host || !game.dvVotes) return;
+  game.dvVotes[id] = i; const total = Net.peers.size + 1, n = Object.keys(game.dvVotes).length;
+  const c = devilOpts().map((_, k) => Object.values(game.dvVotes).filter(v => v === k).length);
+  Net.ev(['dvCount', c]); devilShowCount(c);
+  if (!game.dvTimer) { const w = game.wave; game.dvTimer = setTimeout(() => { if (game && game.wave === w && game.dvVotes) devilResolve(); }, 25000); }
+  if (n >= total) devilResolve();
+}
+function devilResolve() {
+  if (!game.dvVotes) return;
+  const c = devilOpts().map((_, k) => Object.values(game.dvVotes).filter(v => v === k).length), mx = Math.max(...c);
+  const top = c.map((v, k) => v === mx ? k : -1).filter(k => k >= 0), i = mx ? pick(top) : devilOpts().length - 1;
+  game.dvVotes = null; clearTimeout(game.dvTimer); game.dvTimer = null;
+  Net.ev(['dvRes', i, c, game.wave]); devilApply(i, c);
+}
+function devilShowCount(c) { if (state !== 'event') return; $('#ev-opts').querySelectorAll('button').forEach(b => { const e = b.querySelector('.dv-n'); if (e) e.textContent = c[+b.dataset.i] ? `${c[+b.dataset.i]} ${c[+b.dataset.i] === 1 ? 'voto' : 'votos'}` : ''; }); }
+function devilApply(i, c) {
+  game.devilResult = { w: game.wave, i, c }; game.devilVoteWave = null;
+  if (state !== 'event' || game.evWave !== game.wave || game.devilApplied === game.wave) return;
+  game.devilApplied = game.wave;
+  const o = devilOpts()[i]; let r = '';
+  if ((!o.global || Net.host) && (!o.can || o.can())) r = o.go() || '';
+  banner('El grupo eligió', o.t + (r ? ' · ' + r : ''), 3000); Sfx.win();
+  show(null); afterEvent();
 }
 function openEvent(E) {
   state = 'event'; if (document.pointerLockElement) document.exitPointerLock();
@@ -4939,6 +5002,10 @@ function netStartAsClient() {
 function netEvent(p, e) {
   const t = e[0];
   if (t === 'horde') { startHorde(true); return; }
+  if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
+  if (t === 'dv') { if (Net.host && game && e[2] === game.wave) devilVote(p.id, e[1]); return; }
+  if (t === 'dvCount') { if (!Net.host && game) devilShowCount(e[1]); return; }
+  if (t === 'dvRes') { if (!Net.host && game && e[3] === game.wave) devilApply(e[1], e[2]); return; }
   if (t === 'bfx') { if (!Net.host && game) bfxSpawn(e[1], ...e.slice(2)); return; }
   if (t === 'rsPot') { if (!Net.host && game) { game.pot = e[1]; game.rsFee = e[2]; renderRescue(); } return; }
   if (t === 'rsDone') { if (!Net.host && game) rescueDone(); return; }
@@ -5161,7 +5228,7 @@ function makeAvatar(p) {
   return av;
 }
 // Revólver que lleva cada compañero, con su forma y color, y su nombre sobre la cabeza.
-const RV_COL = { mono: [0xb0b4bc, 0x6a4020], paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], arpon: [0xb88a3a, 0x9a6a3a], mp5: [0x1c1d20, 0x18181a], ballesta: [0x9a6a3a, 0x6e3b1b], sierra: [0xaeb2ba, 0xff7a20], tesla: [0xb88a3a, 0x3a90ff], bazuca: [0x3a3c42, 0x5a6a3a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
+const RV_COL = { mono: [0xb0b4bc, 0x6a4020], paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], arpon: [0xb88a3a, 0x9a6a3a], mp5: [0x1c1d20, 0x18181a], ballesta: [0x9a6a3a, 0x6e3b1b], sierra: [0xaeb2ba, 0xff7a20], tesla: [0xb88a3a, 0x3a90ff], jackpot: [0xd09a3e, 0xece2c8], bazuca: [0x3a3c42, 0x5a6a3a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
 function revolverMini(id) {
   const Md = MODELS[id] || MODELS.paci, [fc, gc] = RV_COL[id] || RV_COL.paci, g = new THREE.Group(), fm = LM(fc, { emissive: 0x141518 }), gm = LM(gc);
   const L = Math.round((Md.L * 1.1 + 0.06) * 100) / 100, r = Math.round((Md.R || 0.011) * 1400) / 1000, cr = id === 'escopeta' || id === 'minigun' ? 0.045 : 0.035;
