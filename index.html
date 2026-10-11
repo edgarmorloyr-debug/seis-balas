@@ -220,6 +220,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .purse{font-family:var(--display);font-size:34px;color:var(--gold);font-variant-numeric:tabular-nums;text-align:right}
 .purse small{display:block;font-family:var(--hud);font-size:14px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim)}
 .sec{font-size:15px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--brass);margin:4px 0 -6px;text-align:left;border-bottom:1px solid rgba(214,165,75,.3);padding-bottom:4px}
+.gun-pic{display:block;width:100%;max-width:320px;aspect-ratio:16/9;object-fit:contain;margin:-4px auto 2px;background:radial-gradient(ellipse at 50% 55%,rgba(120,90,50,.45),rgba(0,0,0,0) 70%);border-radius:8px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (max-width:640px){.grid2{grid-template-columns:1fr}}
 .item{min-width:0;display:flex;flex-direction:column;gap:8px;text-align:left;padding:14px;background:rgba(0,0,0,.42);border:1px solid rgba(214,165,75,.3)}
@@ -2873,7 +2874,7 @@ const isMapEnd = w => mapForWave(w + 1) !== mapForWave(w);
 // Dificultad: cada mapa dura 4 oleadas, pero los zombis crecen como si fueran 7.
 const diffW = n => Math.round(n * 1.75);
 const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
-const rescueFee = w => Math.round((300 + 150 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
+const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => isMapEnd(w) && !(w === LAST_WAVE && !game.endless);
 function waveCount(n) { const m = Math.min(n, 30), k = Math.min(n, 50); return Math.floor(6 + k * 2.7 + m * m * 0.13); }
 function startWave(n) {
@@ -4003,6 +4004,31 @@ function allyPortrait(k) {
     return (portraitCache[k] = cv.toDataURL());
   } catch (e) { return (portraitCache[k] = ''); }
 }
+// Foto de cada revólver para la armería, hecha una vez con su modelo 3D real
+const gunPicCache = {}; let gunPicR = null;
+function gunPic(id) {
+  if (gunPicCache[id] !== undefined) return gunPicCache[id];
+  try {
+    const W = 320, H = 180;
+    if (!gunPicR) { const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff0dd, 0x302418, 0.9)); const d1 = new THREE.DirectionalLight(0xffffff, 1.3); d1.position.set(2, 3, 2); sc.add(d1); const d2 = new THREE.DirectionalLight(0xffc890, 0.6); d2.position.set(-3, 1, -1); sc.add(d2); gunPicR = { sc, cam: new THREE.PerspectiveCamera(28, W / H, 0.01, 10), rt: new THREE.WebGLRenderTarget(W, H), buf: new Uint8Array(W * H * 4) }; }
+    const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D() }; buildGun(h, id);
+    h.k.traverse(o => { if (o.name === 'hand') o.visible = false; });
+    const w = new THREE.Group(); w.add(h.k); w.rotation.set(0.12, -Math.PI / 2 + 0.25, 0); gunPicR.sc.add(w); w.updateMatrixWorld(true);
+    const box = new THREE.Box3(); h.gunG.traverse(o => { if (o.isMesh) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const dist = Math.max(sz.x / gunPicR.cam.aspect, sz.y) * 0.5 / Math.tan(14 * Math.PI / 180) * 1.15;
+    gunPicR.cam.position.set(c.x, c.y, c.z + dist); gunPicR.cam.lookAt(c);
+    const prevT = renderer.getRenderTarget(), prevC = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
+    renderer.setRenderTarget(gunPicR.rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(gunPicR.sc, gunPicR.cam);
+    renderer.readRenderTargetPixels(gunPicR.rt, 0, 0, W, H, gunPicR.buf);
+    renderer.setRenderTarget(prevT); renderer.setClearColor(prevC, prevA);
+    gunPicR.sc.remove(w); h.k.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) im.data.set(gunPicR.buf.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    g.putImageData(im, 0, 0);
+    return (gunPicCache[id] = cv.toDataURL());
+  } catch (e) { return (gunPicCache[id] = ''); }
+}
 function renderShop() {
   $('#shop-gold').innerHTML = `$ ${game.gold}<small>Tu oro</small>`;
   const nextMap = mapForWave(game.wave + 1) !== world.idx;
@@ -4013,7 +4039,8 @@ function renderShop() {
     const d = document.createElement('div'); d.className = 'item' + (eq ? ' eq' : '');
     const ownTxt = own === 0 ? 'No lo tienes' : own === 1 ? 'Tienes 1 · compra otro para duales' : 'Tienes 2 · duales';
     const lvTxt = own ? ` · Nivel ${l}${l < 4 ? ` (${x}/${WLV[l]} bajas)` : ''}` : '';
-    d.innerHTML = `<div class="item-top"><b>${m.name}</b><span class="own${own >= 2 ? ' dual' : ''}">${eq ? 'En la mano · ' : ''}${ownTxt}${lvTxt}</span></div><p>${m.desc}</p>
+    const pic = gunPic(id);
+    d.innerHTML = `${pic ? `<img class="gun-pic" alt="" src="${pic}">` : ''}<div class="item-top"><b>${m.name}</b><span class="own${own >= 2 ? ' dual' : ''}">${eq ? 'En la mano · ' : ''}${ownTxt}${lvTxt}</span></div><p>${m.desc}</p>
       <div class="meters">${meterRow('Daño', m.dmg * (m.pellets ? m.pellets * 0.6 : 1) / 140)}${meterRow('Cadencia', 0.12 / m.cd)}${meterRow('Recarga', m.reload / 1.5)}${meterRow('Precisión', 0.55 / m.spread)}<span>Balas</span><span style="color:var(--bone)">${m.cap}</span></div>
       <p class="mast">Nivel 3: ${MASTERY[id]}</p><div class="row"></div>`;
     const row = d.querySelector('.row');
