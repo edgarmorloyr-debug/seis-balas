@@ -471,7 +471,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="overlay" id="shop" hidden>
     <div class="card wide">
       <div class="shop-head">
-        <div><h2 class="title sm">La Armería de Doña Remedios</h2><p class="tag" style="text-align:left">Abre cada 3 oleadas</p><p class="npc left" id="shop-npc"></p></div>
+        <div><h2 class="title sm">La Armería de Doña Remedios</h2><p class="tag" style="text-align:left">Abre cada 3 oleadas y al llegar a cada lugar</p><p class="npc left" id="shop-npc"></p></div>
         <div class="purse" id="shop-gold">$ 0<small>Tu oro</small></div>
       </div>
       <h3 class="sec">Revólveres · con dos iguales disparas a dos manos</h3>
@@ -2661,19 +2661,20 @@ function updateStrikes(dt) {
   }
 }
 const pickups = []; let pickUid = 0;
-const PK = { health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 } };
+const PK = { bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 } };
 function makePickup(type, x, z, amount) {
   const g = new THREE.Group(); g.position.set(x, 0.6, z);
-  const c = PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
+  const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
   if (type === 'health') { g.add(new THREE.Mesh(bx(0.42, 0.13, 0.13), mat)); g.add(new THREE.Mesh(bx(0.13, 0.42, 0.13), mat)); }
   else if (type === 'deadeye') { g.add(new THREE.Mesh(cyl(0.1, 0.12, 0.3, 10), mat)); const n = new THREE.Mesh(cyl(0.035, 0.035, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); n.position.y = 0.2; g.add(n); }
   else if (type === 'powder') { const b = new THREE.Mesh(cyl(0.2, 0.2, 0.36, 12), new THREE.MeshLambertMaterial({ color: 0x5a3a20, emissive: 0x1a0e04 })); g.add(b); for (const y of [-0.12, 0.12]) { const r = new THREE.Mesh(cyl(0.21, 0.21, 0.04, 12), mat); r.position.y = y; g.add(r); } }
+  else if (type === 'bala') { const b = new THREE.Mesh(cyl(0.07, 0.07, 0.3, 12), mat); g.add(b); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), mat); tip.position.y = 0.23; g.add(tip); const cs = new THREE.Mesh(cyl(0.075, 0.075, 0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd09a3e, emissive: 0x2a1c04 })); cs.position.y = -0.17; g.add(cs); g.scale.setScalar(1.3); }
   else if (type === 'bag') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a3a, emissive: 0x2a1a08 })); s.scale.y = 1.1; g.add(s); const k = new THREE.Mesh(cyl(0.08, 0.12, 0.14, 8), mat); k.position.y = 0.32; g.add(k); }
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(1.3, 1.3, 1); g.add(halo);
   scene.add(g);
-  pickups.push({ id: ++pickUid, type, g, t: 0, life: (type === 'bag' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  pickups.push({ id: ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -3342,7 +3343,7 @@ function killZombie(z, info) {
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
   if (z.elite) { makePickup('bag', p.x, p.z + 0.8, 6 + 2 * zoneOf(game.wave) + (z.stolen || 0) * 2); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
-  if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); return; }
+  if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper && !(z.B.id === 'mass' && z.gen)) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
   if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck'))) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
@@ -3958,7 +3959,7 @@ function choosePerk(p) {
   Sfx.pickup(); afterPerk();
 }
 function afterPerk() { if (maybeEvent()) return; afterEvent(); }
-function afterEvent() { if (game.wave % 3 === 0) openShop(); else continueAfter(); }
+function afterEvent() { if (game.wave % 3 === 0 || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
 /* ---- Eventos con tratos: a veces, entre oleadas, aparece alguien con una oferta ---- */
 /* ---- Los personajes de entre oleadas: nombre, icono y frases ---- */
 const NPC = {
@@ -3969,6 +3970,9 @@ const NPC = {
 };
 const npcLine = (k, mood) => { const N = NPC[k], list = (mood && N[mood]) || N.say; return `${N.ic} ${N.n}: «${pick(list)}»`; };
 function perkUp(p) { game.perks[p.id] = lv(p.id) + 1; if (p.id === 'hp') { player.maxHp += 25; player.hp = player.maxHp; } if (p.id === 'boots') player.maxSt = 100 * (1 + 0.3 * lv('boots')); }
+const BKEYS = Object.keys(BULLETS);
+// Balas del botín de un jefe: más raras que las de la armería
+function bossBullet() { const ids = BKEYS.filter(k => BULLETS[k].rar > 0 && isOpen('b:' + k)), W = [0, 25, 45, 25, 5]; let tot = 0; ids.forEach(k => tot += W[BULLETS[k].rar]); let r = Math.random() * tot; for (const k of ids) if ((r -= W[BULLETS[k].rar]) < 0) return k; return ids[0]; }
 function randomBullet() { const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0 && isOpen('b:' + k)), W = [0, 55, 33, 12, 4]; let tot = 0; ids.forEach(k => tot += W[BULLETS[k].rar]); let r = Math.random() * tot; for (const k of ids) if ((r -= W[BULLETS[k].rar]) < 0) return k; return ids[0]; }
 const EVENTS = [
   { who: 'Lucio, el Diablo', ic: '😈', say: 'Te ofrezco poder, vaquero… a cambio de un pedazo de tu alma.', opts: [
@@ -4827,6 +4831,7 @@ function updatePickups(dt) {
       if (Net.client) Net.ev(['pk', p.id]);
       if (p.type === 'health') { const h = Math.min(35, player.maxHp - player.hp); player.hp += h; feed(`Vida +${Math.round(h)}`, 'red'); }
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
+      else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; let i = game.box.indexOf('normal'); if (i < 0) i = game.box.indexOf('mala'); if (i < 0) i = Math.floor(Math.random() * game.box.length); game.box[i] = k; Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
       else if (p.type === 'powder') { game.powder = Math.min(9, game.powder + 1); feed(`Barril de pólvora · tienes ${game.powder}`, 'gold'); }
       else { game.goldT = Math.min(30, game.goldT + 15); feed('¡Balas doradas! Daño doble', 'gold'); }
