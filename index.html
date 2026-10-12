@@ -638,7 +638,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="overlay" id="win" hidden>
     <div class="card">
       <h2 class="title sm">¡Sobreviviste!</h2>
-      <p class="tag">70 oleadas y los 10 lugares</p>
+      <p class="tag">Llegaste a la cima y venciste al Paciente Cero</p>
       <div class="stats" id="win-stats"></div>
       <p class="note">Puedes seguir sin fin: los lugares vuelven a empezar y los zombis siguen haciéndose más duros.</p>
       <div class="row"><button class="btn" id="btn-endless">Seguir sin fin</button><button class="btn2" id="btn-win-menu">Menú</button></div>
@@ -3329,7 +3329,7 @@ function newGame(sv, run) {
   if (!sv) applyChar(); else game.eliteMul = (game.skull | 0) >= 3 ? 2 : 1;
   startWave(w0);
 }
-const WAVES_PER_MAP = 3, MAP_COUNT = 10, LAST_WAVE = WAVES_PER_MAP * MAP_COUNT;
+const WAVES_PER_MAP = 2, MAP_COUNT = 10, LAST_WAVE = WAVES_PER_MAP * MAP_COUNT;
 // El camino: game.route[zona] es el mapa elegido en las puertas (−1 = zona saltada por un atajo).
 function mapForWave(w, route) {
   const r = route || (game && game.route), z = zoneOf(w);
@@ -3337,8 +3337,8 @@ function mapForWave(w, route) {
   return w <= LAST_WAVE ? z : z % MAP_COUNT;
 }
 const isMapEnd = w => w % WAVES_PER_MAP === 0;
-// Dificultad: cada mapa dura 3 oleadas, pero los zombis crecen como si fueran 7.
-const diffW = n => Math.round(n * 7 / 3);
+// Dificultad: cada mapa dura 2 oleadas, pero los zombis crecen como si fueran 7.
+const diffW = n => Math.round(n * 7 / WAVES_PER_MAP);
 const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
 const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => isMapEnd(w) && !(w === LAST_WAVE && !game.endless);
@@ -3357,7 +3357,7 @@ function startWave(n) {
     if (n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
     else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
-  else if (n % WAVES_PER_MAP === 2 && n >= 5) { const b = Math.min(4, Math.max(1, Math.floor(n / 6))); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!'; }
+  else if (n % WAVES_PER_MAP === WAVES_PER_MAP - 1 && n >= 5) { const b = Math.min(4, Math.max(1, Math.floor(n / 4))); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') + (zoneOf(n) === MAP_COUNT - 1 && !game.endless ? '' : ` · Reúnan ${rescueFee(n)} $ para el rescate`); }
   else if (n % WAVES_PER_MAP === 1 && !(zoneOf(n) === MAP_COUNT - 1 && !game.endless)) sub = `Reúnan ${rescueFee(n)} $ para el rescate de esta zona`;
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
   game.toSpawn += game.bossQ.length;
@@ -4472,10 +4472,10 @@ function clearWaveMod() { if (game && game.fogBase) { scene.fog.density = game.f
 
 // Encargos: un reto opcional por zona, con premio
 const CONTRACTS = {
-  heads: { t: 'Mata {n} zombis de un tiro a la cabeza', n: 15, val: g => g.heads },
-  clean: { t: 'Termina {n} oleadas sin recibir daño', n: 2, val: g => g.cleanW || 0 },
-  colls: { t: 'Haz {n} colaterales (2 o más de un disparo)', n: 4, val: g => g.colls || 0 },
-  elite: { t: 'Mata {n} zombis élite', n: 3, val: g => g.eliteKills || 0 },
+  heads: { t: 'Mata {n} zombis de un tiro a la cabeza', n: 10, val: g => g.heads },
+  clean: { t: 'Termina {n} oleada sin recibir daño', n: 1, val: g => g.cleanW || 0 },
+  colls: { t: 'Haz {n} colaterales (2 o más de un disparo)', n: 3, val: g => g.colls || 0 },
+  elite: { t: 'Mata {n} zombis élite', n: 2, val: g => g.eliteKills || 0 },
   savior: { t: 'Salva a {n} sobreviviente', n: 1, val: g => g.rescued },
   nospec: { t: 'No dispares balas especiales en esta zona', end: true, val: g => g.specShots || 0 },
   noloss: { t: 'Que no devoren a ningún ayudante en esta zona', end: true, val: g => g.copsLost || 0 }
@@ -4611,7 +4611,7 @@ function afterPerk() {
   if (!isMapEnd(game.wave) && game.doorWave !== game.wave) { openDoors(); return; }
   afterEvent();
 }
-function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (game.wave % 3 === 0 || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
+function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (isMapEnd(game.wave) || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
 
 /* ===================== EL CAMINO: TRES PUERTAS DE COLORES AL TERMINAR CADA LUGAR ===================== */
 // Cada puerta lleva a un lugar al azar y trae una regla para todo ese lugar. A veces una es un atajo que se salta un lugar.
