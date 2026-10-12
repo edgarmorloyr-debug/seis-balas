@@ -544,6 +544,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
           <option value="off">Apagada</option>
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
+        <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="ptt">Mantener para hablar (tecla V o botón Hablar)</option><option value="open">Micrófono abierto (V o botón para silenciar)</option></select>
       </div>
       <p class="note" id="pause-note"></p>
@@ -664,7 +665,7 @@ const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
 if (IS_TOUCH) app.classList.add('touch');
-const settings = { voice: store.get('sb_voice', 'off'), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
+const settings = { gfx: store.get('sb_gfx', null), voice: store.get('sb_voice', 'off'), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
 if (typeof THREE === 'undefined') { $('#loading').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga.'; return; }
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
@@ -838,8 +839,13 @@ const Sfx = (() => {
 /* ===================== RENDER Y ESCENA ===================== */
 const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_TOUCH, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2));
-renderer.shadowMap.enabled = true;
+// Gráficos: «rápido» (sin sombras, menos luces) o «calidad». En teléfonos empieza en rápido.
+if (settings.gfx !== 'rapido' && settings.gfx !== 'calidad') settings.gfx = IS_TOUCH ? 'rapido' : 'calidad';
+const FAST = () => settings.gfx === 'rapido';
+const PR_MAX = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? (settings.gfx === 'rapido' ? 1.25 : 1.5) : 2);
+let prNow = PR_MAX;
+renderer.setPixelRatio(prNow);
+renderer.shadowMap.enabled = !FAST();
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const FOGC = new THREE.Color(0x111822);
@@ -980,7 +986,8 @@ function addGround(size, tex) {
   g.rotation.x = -Math.PI / 2; g.receiveShadow = true; world.group.add(g); world.ground = g; return g;
 }
 function lampLight(x, y, z, color, intensity, dist, parent, flick = 1) {
-  const l = new THREE.PointLight(color, intensity, dist, 1.7); l.position.set(x, y, z); (parent || world.group).add(l);
+  const real = !FAST() || (world.lampN = (world.lampN || 0) + 1) <= 3;
+  const l = real ? new THREE.PointLight(color, intensity, dist, 1.7) : new THREE.Object3D(); l.position.set(x, y, z); (parent || world.group).add(l);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(2.4, 2.4, 1); halo.position.set(x, y + 0.15, z); (parent || world.group).add(halo);
   const seed = Math.random() * 100;
@@ -1093,6 +1100,7 @@ function disposeObj(o) {
   });
 }
 function buildMap(i) {
+  world.lampN = 0;
   if (world.group) { scene.remove(world.group); disposeObj(world.group); }
   if (typeof casings !== 'undefined') { casings.forEach(c => scene.remove(c.m)); casings.length = 0; }
   if (typeof BFX !== 'undefined') bossClear();
@@ -1499,7 +1507,7 @@ function buildRooftop() {
 const nav = { cs: 1, nx: 0, nz: 0, ox: 0, oz: 0, blk: null, dist: null, hN: null, hK: null, hs: 0, tx: 1e9, tz: 1e9 };
 // ---- Fuego reutilizable (barriles, fogatas, escombros)
 function fireAt(x, z, y = 0.9, light = true, big = 1) {
-  const l = light ? new THREE.PointLight(0xff7a20, 1.8 * big, 14 * big, 1.6) : null;
+  const l = light && !FAST() ? new THREE.PointLight(0xff7a20, 1.8 * big, 14 * big, 1.6) : null;
   if (l) { l.position.set(x, y + 0.8, z); world.group.add(l); }
   world.anims.push(() => {
     if (l) l.intensity = (1.5 + Math.random() * 0.8) * big;
@@ -4821,7 +4829,7 @@ function travel(ni) {
   $('#fade-s').textContent = M_.place; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc;
   el.fade.classList.add('on');
   setTimeout(() => {
-    clearActors(); buildMap(ni);
+    clearActors(); buildMap(ni); try { renderer.compile(scene, camera); } catch (e) {}
     player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
     for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead) removeCop(i);
     cops.forEach((c, i) => { c.root.position.set(world.start.x + (i - 1) * 1.5, 0, world.start.z + 2); resolve(c.root.position, 0.35); });
@@ -4946,7 +4954,7 @@ function updateGun(dt) {
     } else h.hammer.rotation.x = gs.reloading ? 0 : -0.65 * clamp(1 - h.cd / h.cdMax, 0, 1);
     h.flash.visible = h.fl > 0;
     if (h.flash.visible) { h.flash.rotation.z = Math.random() * TAU; const s = rand(0.8, 1.4) * (h.model === 'escopeta' ? 1.8 : h.model === 'magnum' || h.model === 'viejo' ? 1.4 : 1); h.flash.scale.set(s, s, s); }
-    h.flashLight.intensity = h.fl > 0 ? 3.2 : 0;
+    h.flashLight.intensity = h.fl > 0 && !(FAST() && h.side) ? 3.2 : 0;
   }
 }
 function retarget(z, canAttack) {
@@ -4991,7 +4999,7 @@ function updateZombies(dt, canAttack) {
       z.torsoG.rotation.x = damp(z.torsoG.rotation.x, z.type === 'crawler' ? 1.3 : 0, 6, dt);
       z.armLG.rotation.x = damp(z.armLG.rotation.x, -0.2, 5, dt); z.armRG.rotation.x = damp(z.armRG.rotation.x, 0.3, 5, dt);
       if (ft >= 1 && !z.landed) { z.landed = true; z.root.getWorldPosition(_zp); dirtBurst(_zp.x, 0.05, _zp.z, 6, 1); }
-      const many = zombies.length > 34;
+      const many = zombies.length > (FAST() ? 16 : 34);
       if (z.deadT > (many ? 3 : 7)) z.root.position.y -= dt * 0.35;
       if (z.deadT > (many ? 5 : 10)) removeZombie(k);
       continue;
@@ -6478,7 +6486,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; fsLabel();
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel();
   show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -6536,6 +6544,7 @@ async function toggleFullscreen() {
 $('#btn-fs').addEventListener('click', toggleFullscreen);
 document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
 $('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
+$('#gfx').addEventListener('change', e => { settings.gfx = e.target.value; store.set('sb_gfx', settings.gfx); renderer.shadowMap.enabled = !FAST(); scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); }); $('#pause-note').textContent = 'Las luces de los faroles cambian al pasar al siguiente mapa.'; });
 
 /* ===================== CONTROLES ===================== */
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) { lockFails = 0; noLock = false; } if (!locked && state === 'play' && !noLock) pause(); });
@@ -6625,9 +6634,21 @@ window.addEventListener('resize', onResize);
 onResize();
 const clock = new THREE.Clock(), clickHint = $('#click-hint');
 let tAll = 0;
+const perf = { t: 0, n: 0, good: 0 };
+function autoRes(rawDt) {
+  if (state !== 'play') { perf.t = perf.n = 0; return; }
+  perf.t += rawDt; perf.n++;
+  if (perf.t < 2) return;
+  const avg = perf.t / perf.n; perf.t = perf.n = 0;
+  const min = IS_TOUCH ? 0.7 : 0.8;
+  if (avg > 1 / 40 && prNow > min) { prNow = Math.max(min, +(prNow - 0.15).toFixed(2)); renderer.setPixelRatio(prNow); perf.good = 0; }
+  else if (avg < 1 / 56 && prNow < PR_MAX) { if (++perf.good >= 3) { prNow = Math.min(PR_MAX, +(prNow + 0.1).toFixed(2)); renderer.setPixelRatio(prNow); perf.good = 0; } }
+  else perf.good = 0;
+}
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05);
+  autoRes(Math.min(rawDt, 0.25));
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
@@ -6638,7 +6659,10 @@ function frame() {
   renderer.render(scene, camera);
 }
 buildMap(0);
+try { renderer.compile(scene, camera); } catch (e) {}
 state = 'menu';
+// Prepara poco a poco las fotos de la tienda mientras estás en el menú (así abrirla no da tirones)
+(() => { const q = [...MODEL_ORDER.map(k => () => gunPic(k)), ...Object.keys(ALLY).map(k => () => allyPortrait(k))]; const step = () => { if (!q.length) return; if (state === 'menu') q.shift()(); setTimeout(step, 250); }; setTimeout(step, 1500); })();
 updateBest();
 for (let i = 0; i < 6; i++) { const a = rand(0, TAU), r = rand(6, 18); const z = spawnZombie(pick(['walker', 'walker', 'crawler', 'runner', 'brute', 'dog']), Math.cos(a) * r, Math.sin(a) * r, 1); z.state = 'chase'; z.root.position.y = 0; }
 $('#loading').remove();
