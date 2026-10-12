@@ -303,11 +303,6 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .sh-top .purse{font-family:var(--display);font-size:30px;color:#ffd060;white-space:nowrap}
 .sh-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0 12px;position:sticky;top:-16px;z-index:2;background:rgba(12,9,7,.96);padding:6px 0}
 .sh-tab{min-height:48px;font-family:var(--hud);font-weight:700;font-size:15px;color:var(--bone-dim);background:rgba(0,0,0,.35);border:1px solid rgba(214,165,75,.4);cursor:pointer;padding:0 4px}
-.mode-row{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px}
-.mode-row>span{font-size:14px;color:var(--bone-dim)}
-.mode-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.mode-opts .mode{min-height:48px;font-size:14px;padding:4px 6px}
-.mode-opts .mode.on{background:#d6a54b;color:#1a1208;border-color:#d6a54b}
 .sig-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;text-align:left}
 .sig-head img{width:96px;height:54px;object-fit:contain}
 .sig-head b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--bone)}
@@ -478,7 +473,6 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <div class="meta-top"><span id="fichas">0 fichas de calavera</span><button class="btn2" id="btn-altar">Desbloqueos</button></div>
         <h3 class="sec">Elige tu vaquero</h3>
         <div id="char-list"></div>
-        <div class="mode-row" id="mode-row"><span>Tipo de juego</span><div class="mode-opts"><button class="btn2 mode" data-m="clasico">Clásico</button><button class="btn2 mode" data-m="cuartos">B · Cuartos</button><button class="btn2 mode" data-m="secciones">B · Secciones</button></div><p class="note" id="mode-desc"></p></div>
         <div class="skull-row"><span>Nivel Calavera</span><button class="btn2 sq" id="sk-minus" aria-label="Bajar nivel">−</button><b id="sk-n">0</b><button class="btn2 sq" id="sk-plus" aria-label="Subir nivel">+</button></div>
         <p class="note" id="sk-desc"></p>
       </div>
@@ -951,8 +945,6 @@ function freeSpot(x, z, r, clear = 7) {
 }
 function insideArena(x, z, r) { const a = world.arena; return a.t === 'c' ? Math.hypot(x, z) <= a.r - r : Math.abs(x) <= a.hx - r && Math.abs(z) <= a.hz - r; }
 function clampArena(p, r) {
-  if (p === player.pos && game && game.room) { const q = game.room; p.x = clamp(p.x, q.x0 + r, q.x1 - r); p.z = clamp(p.z, q.z0 + r, q.z1 - r); return; }
-  if (p === player.pos && game && game.sec && game.mode === 'secciones') p.x = Math.min(p.x, game.sec.edges[game.sec.open + 1] - r);
   const a = world.arena;
   if (a.t === 'c') { const d = Math.hypot(p.x, p.z); if (d > a.r - r) { p.x *= (a.r - r) / d; p.z *= (a.r - r) / d; } }
   else { p.x = clamp(p.x, -a.hx + r, a.hx - r); p.z = clamp(p.z, -a.hz + r, a.hz - r); }
@@ -2519,7 +2511,6 @@ function buildZombie(type) {
   return z;
 }
 function spawnPoint(far) {
-  if (game && game.mode === 'secciones' && game.sec) { const sp = secSpawn(far); if (sp) return sp; }
   const opts = world.spawns.filter(g => Math.hypot(g.x - player.pos.x, g.z - player.pos.z) > far);
   const g = opts.length ? pick(opts) : pick(world.spawns);
   return { x: g.x + rand(-0.4, 0.4), z: g.z + rand(-0.4, 0.4), rise: g.rise };
@@ -2952,7 +2943,7 @@ function addGold(n, silent) {
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
-  hideSplats(); if (typeof chests !== 'undefined') clearChests(); if (typeof tbClear !== 'undefined') tbClear();
+  hideSplats(); if (typeof chests !== 'undefined') clearChests();
   for (let k = zombies.length - 1; k >= 0; k--) removeZombie(k);
   debris.forEach(d => scene.remove(d.m)); debris.length = 0;
   acids.forEach(a => scene.remove(a.m)); acids.length = 0;
@@ -3010,7 +3001,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sb_save2';
-const SAVE_FIELDS = ['mode', 'sig', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots'];
+const SAVE_FIELDS = ['sig', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots'];
 function saveGame() {
   if (!game || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc).map(c => c.kind || 'cop') };
@@ -3028,7 +3019,6 @@ function newGame(sv, run) {
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
   if (!CHARS[game.char]) game.char = 'sheriff';
-  if (!sv) game.mode = run && run.mode && !Net.on ? run.mode : 'clasico'; if (Net.on || !MODES[game.mode]) game.mode = 'clasico';
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
   game.owned[CHARS[game.char].gun] = 1;
@@ -3060,7 +3050,6 @@ function startWave(n) {
   clearWaveMod();
   game.waveMod = game.nextMod || null; game.nextMod = null;
   if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
-  if (game.mode === 'secciones') secEnsure(n);
   if (rl('mapa') && n > 1) { addGold(15, true); feed('Mapa del tesoro: +15 $', 'gold'); }
   if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
@@ -4317,239 +4306,12 @@ function choosePerk(p) {
   Sfx.pickup(); afterPerk();
 }
 function afterPerk() {
-  if (game.mode && game.mode !== 'clasico' && !isMapEnd(game.wave) && game.tbWave !== game.wave) { tbAfterWave(); return; }
   if (Net.on && game.evWave !== game.wave && (game.devilVoteWave === game.wave || (game.devilResult && game.devilResult.w === game.wave))) { if (maybeEvent()) return; }
   if (!isMapEnd(game.wave) && game.doorWave !== game.wave) { openDoors(); return; }
   afterEvent();
 }
 function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (game.wave % 3 === 0 || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
 
-/* ===================== TIPO DE JUEGO B: lo que hay detrás de cada puerta ===================== */
-const SURPRISE = {
-  shop: { w: 16, room: 'La bodega', ic: 'cart', look: { shirt: 0xa8281e, pants: 0x2a2a2e, hat: 'cap' } },
-  devil: { w: 7, room: 'El cuarto rojo', ic: 'devil', ev: 0, look: { skin: 0xb8281e, shirt: 0x141414, pants: 0x141414 } },
-  padre: { w: 7, room: 'La capilla', ic: 'cross', ev: 3, look: { shirt: 0x121212, pants: 0x121212 } },
-  buhonero: { w: 7, room: 'El almacén', ic: 'backpack', ev: 1, look: { shirt: 0x7a5a30, pants: 0x4a3a28, hat: 'straw' } },
-  zafira: { w: 7, room: 'La tienda de la gitana', ic: 'orb', ev: 2, look: { shirt: 0x6a2a8a, pants: 0x3a1a4a } },
-  gumersindo: { w: 6, room: 'La cantina', ic: 'bottle', ev: 4, look: { shirt: 0x6a6a5a, pants: 0x3a3a30, hat: 'cap' } },
-  cards: { w: 9, room: 'El salón de juego', ic: 'cards' },
-  treasure: { w: 9, room: 'La cámara', ic: 'chest' },
-  nothing: { w: 9, room: 'Un cuarto vacío', ic: null },
-  ambush: { w: 9, trap: true },
-  bandits: { w: 11, trap: true }
-};
-function pickSurprises(n, forceShop) {
-  const preBoss = game && isMapEnd(game.wave + 1), pool = Object.keys(SURPRISE).filter(k => !(k === 'devil' && Net.on) && !(preBoss && SURPRISE[k].trap)), out = [];
-  if (forceShop) { out.push('shop'); pool.splice(pool.indexOf('shop'), 1); }
-  while (out.length < n && pool.length) { let t = 0; pool.forEach(k => t += SURPRISE[k].w); let r = Math.random() * t, i = 0; for (; i < pool.length - 1; i++) if ((r -= SURPRISE[pool[i]].w) < 0) break; out.push(pool.splice(i, 1)[0]); }
-  return out;
-}
-// Cartel flotante con el icono (dibujado en un lienzo)
-function iconSprite(name, col = '#ffd060', size = 1) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const tex = new THREE.CanvasTexture(cv);
-  const img = new Image(); img.onload = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, 128, 128); g.fillStyle = 'rgba(20,12,6,.75)'; g.beginPath(); g.arc(64, 64, 60, 0, TAU); g.fill(); g.strokeStyle = col; g.lineWidth = 4; g.stroke(); g.drawImage(img, 22, 22, 84, 84); tex.needsUpdate = true; };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="84" height="84" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${(ICONS[name] || ICONS.question).replace(/class="f"/g, `fill="${col}" stroke="none"`)}</svg>`);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); sp.scale.set(0.9 * size, 0.9 * size, 1); return sp;
-}
-// Figura de un personaje (el que te espera detrás de la puerta)
-function tbFigure(look) {
-  const root = new THREE.Group(), fall = new THREE.Group(), body = new THREE.Group(); root.add(fall); fall.add(body);
-  const skin = new THREE.MeshLambertMaterial({ color: look.skin || 0xc89a78 }), shirt = new THREE.MeshLambertMaterial({ color: look.shirt }), pants = new THREE.MeshLambertMaterial({ color: look.pants });
-  const c = { root, fall, body, mats: [skin, shirt, pants] };
-  const mk = (geo, mat, part, parent, x = 0, y = 0, zz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, zz); parent.add(m); return m; };
-  humanoid(c, { skin, shirt, pants, eye: npcEyeMat, hat: look.hat || null }, mk);
-  c.armLG.rotation.x = -0.15; c.armRG.rotation.x = -0.15;
-  return c;
-}
-// Lo que hay en el lugar: un puesto, una figura, una mesa, un cofre… o nada
-function tbMarker(kind, x, z, faceYaw) {
-  const S = SURPRISE[kind], g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = faceYaw || 0;
-  const wood = new THREE.MeshLambertMaterial({ color: 0x6a4424 }), dark = new THREE.MeshLambertMaterial({ color: 0x2a1a10 });
-  const box = (w, h, d, m, px, py, pz) => { const o = new THREE.Mesh(bx(w, h, d), m); o.position.set(px, py, pz); g.add(o); return o; };
-  if (kind === 'shop') {
-    box(2.2, 1, 0.7, wood, 0, 0.5, 0.6); box(2.4, 0.08, 1.2, dark, 0, 2.3, 0.5);
-    for (let i = 0; i < 6; i++) box(0.4, 0.06, 1.25, new THREE.MeshLambertMaterial({ color: i % 2 ? 0xe8e0d0 : 0xa8281e }), -1 + i * 0.4, 2.36, 0.5);
-    for (const sx of [-1.1, 1.1]) box(0.08, 2.3, 0.08, dark, sx, 1.15, 1.05);
-    for (let i = 0; i < 3; i++) box(0.5, 0.4, 0.5, new THREE.MeshLambertMaterial({ color: 0x8a6a3a }), -0.7 + i * 0.7, 1.2, 0.5);
-  }
-  if (kind === 'cards' || kind === 'zafira') {
-    box(1.4, 0.08, 0.9, new THREE.MeshLambertMaterial({ color: 0x3a1a4a }), 0, 0.85, 0.9); box(0.12, 0.85, 0.12, dark, 0, 0.42, 0.9);
-    if (kind === 'cards') for (let i = 0; i < 3; i++) { const c = box(0.25, 0.01, 0.36, new THREE.MeshLambertMaterial({ color: 0xd6a54b, emissive: 0x4a2a6a, emissiveIntensity: 0.6 }), -0.4 + i * 0.4, 0.9, 0.9); c.rotation.y = (i - 1) * 0.2; }
-    else { const b = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), new THREE.MeshLambertMaterial({ color: 0xa8c8ff, emissive: 0x4a6ab8, emissiveIntensity: 0.8, transparent: true, opacity: 0.85 })); b.position.set(0, 1.1, 0.9); g.add(b); }
-  }
-  if (kind === 'treasure') {
-    const gm = new THREE.MeshLambertMaterial({ color: 0xc89a30, emissive: 0xc89a30, emissiveIntensity: 0.25 });
-    box(0.9, 0.5, 0.6, gm, 0, 0.25, 0.6); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 12, 1, false, 0, Math.PI), gm); top.rotation.z = Math.PI / 2; top.position.set(0, 0.5, 0.6); g.add(top);
-  }
-  if (S.look) { const f = tbFigure(S.look); f.root.position.set(0, 0, kind === 'shop' ? -0.1 : 0); g.add(f.root); g.userData.fig = f;
-    if (kind === 'devil') for (const sx of [-0.09, 0.09]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.14, 8), new THREE.MeshLambertMaterial({ color: 0x1a0a0a })); h.position.set(sx, 0.2, 0); f.head.add(h); }
-    if (kind === 'padre') { const col = new THREE.Mesh(bx(0.12, 0.04, 0.02), new THREE.MeshBasicMaterial({ color: 0xffffff })); col.position.set(0, 0.32, 0.15); f.torso.add(col); }
-    if (kind === 'buhonero') box(0.45, 0.6, 0.3, new THREE.MeshLambertMaterial({ color: 0x5a3a1e }), 0, 1.3, -0.35);
-  }
-  if (S.ic) { const sp = iconSprite(S.ic); sp.position.set(0, 2.9, 0.4); g.add(sp); g.userData.sp = sp; }
-  scene.add(g); return g;
-}
-function tbClear() {
-  if (!game || !game.tb) return;
-  for (const d of game.tb.doors || []) scene.remove(d.g);
-  if (game.tb.marker) scene.remove(game.tb.marker);
-  if (game.tb.roomG) scene.remove(game.tb.roomG);
-  game.room = null; game.tb = null;
-  if (game.sec) { if (game.sec.g) scene.remove(game.sec.g); game.sec = null; }
-}
-function tbSpot(minD, maxD) {
-  const a = world.arena;
-  for (let k = 0; k < 160; k++) {
-    const x = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hx, a.hx), z = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hz, a.hz), d = Math.hypot(x - player.pos.x, z - player.pos.z);
-    if (d < minD || d > maxD || !insideArena(x, z, 2.5) || pointBlocked(x, z, 1.2) || nav.mainDist[cellOf(x, z)] >= 1e9) continue;
-    return { x, z };
-  }
-  return { x: player.pos.x + 4, z: player.pos.z };
-}
-// Después de cada oleada (menos la del jefe)
-function tbAfterWave() {
-  game.tbWave = game.wave; game.doorWave = game.wave; game.evWave = game.wave;
-  show(null); state = 'play'; game.phase = 'explore'; requestLock(); canvas.focus();
-  const first = game.wave % WAVES_PER_MAP === 1;
-  if (game.mode === 'cuartos') {
-    const kinds = pickSurprises(Math.random() < 0.5 ? 2 : 3, first), doors = [];
-    for (const k of kinds) { const sp = tbSpot(6, 18); doors.push({ kind: k, g: tbDoor(sp.x, sp.z), x: sp.x, z: sp.z }); }
-    game.tb = { doors, busy: false };
-    banner('Se abrieron puertas', `${doors.length} puertas en el mapa. No sabes qué hay detrás.`, 3000, 'question');
-  } else {
-    secOpenNext(pickSurprises(1, first)[0]);
-  }
-}
-function tbDoor(x, z) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = Math.atan2(player.pos.x - x, player.pos.z - z);
-  const frame = new THREE.MeshLambertMaterial({ color: 0x3a2414 }), leaf = new THREE.MeshLambertMaterial({ color: 0x6a4424, emissive: 0x2a1406, emissiveIntensity: 0.3 });
-  for (const sx of [-0.75, 0.75]) { const p = new THREE.Mesh(bx(0.16, 2.6, 0.2), frame); p.position.set(sx, 1.3, 0); g.add(p); }
-  const top = new THREE.Mesh(bx(1.66, 0.18, 0.2), frame); top.position.y = 2.6; g.add(top);
-  const d = new THREE.Mesh(bx(1.34, 2.5, 0.08), leaf); d.position.y = 1.25; g.add(d);
-  const glow = new THREE.Mesh(bx(1.3, 2.4, 0.02), new THREE.MeshBasicMaterial({ color: 0xffc860, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.set(0, 1.22, 0.06); g.add(glow);
-  const sp = iconSprite('question'); sp.position.set(0, 3.2, 0); g.add(sp);
-  scene.add(g); return g;
-}
-// ---- Cuartos: entras por la puerta a un lugar distinto ----
-const RX = 600;
-function enterRoom(door) {
-  const T = game.tb; for (const d of T.doors) scene.remove(d.g); T.doors = []; T.back = { x: door.x, z: door.z };
-  const S = SURPRISE[door.kind];
-  if (S.trap) { tbTrap(door.kind); return; }
-  state = 'trans'; Sfx.open();
-  $('#fade-s').textContent = 'Detrás de la puerta…'; $('#fade-t').textContent = S.room; $('#fade-d').textContent = '';
-  el.fade.classList.add('on');
-  setTimeout(() => {
-    buildRoom(door.kind);
-    player.pos.set(RX, 0, 3.4); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = -0.05; updateCamera(0.016);
-  }, 600);
-  setTimeout(() => { el.fade.classList.remove('on'); state = 'play'; game.phase = 'explore'; if (door.kind === 'nothing') { hint('Aquí no hay nada… solo polvo y silencio.', 2600); setTimeout(() => { if (game && game.tb) tbResolved(); }, 2200); } }, 1500);
-}
-function buildRoom(kind) {
-  const T = game.tb, g = new THREE.Group(); T.roomG = g;
-  const theme = { devil: [0x3a0a08, 0x5a1410], padre: [0xd8d0c0, 0x8a7a60], cards: [0x2a1a3a, 0x4a2a5a], zafira: [0x2a1a3a, 0x4a2a5a], shop: [0x5a4028, 0x3a2818], treasure: [0x3a3020, 0x6a5020], gumersindo: [0x4a3020, 0x2a1a10], buhonero: [0x4a3a28, 0x3a2a1a], nothing: [0x3a3632, 0x2a2622] }[kind] || [0x4a3a28, 0x2a1a10];
-  const wall = new THREE.MeshLambertMaterial({ color: theme[0] }), floor = new THREE.MeshLambertMaterial({ color: theme[1] });
-  const box = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(bx(w, h, d), m); o.position.set(RX + x, y, z); g.add(o); return o; };
-  box(10, 0.1, 10, floor, 0, -0.05, 0); box(10, 0.1, 10, wall, 0, 3.6, 0);
-  box(10, 3.6, 0.2, wall, 0, 1.8, -5); box(10, 3.6, 0.2, wall, 0, 1.8, 5); box(0.2, 3.6, 10, wall, -5, 1.8, 0); box(0.2, 3.6, 10, wall, 5, 1.8, 0);
-  for (let i = -4; i <= 4; i += 2) box(0.12, 3.6, 0.12, new THREE.MeshLambertMaterial({ color: 0x1a0e06 }), i, 1.8, -4.9);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshBasicMaterial({ color: kind === 'devil' ? 0xff4020 : 0xffd080 })); lamp.position.set(RX, 3.2, 0); g.add(lamp);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: kind === 'devil' ? 0xff4020 : 0xffc060, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(4, 4, 1); halo.position.set(RX, 3, 0); g.add(halo);
-  if (kind === 'padre') { box(0.3, 1.6, 0.3, new THREE.MeshLambertMaterial({ color: 0xc8a040 }), 0, 2.2, -4.6); box(1.1, 0.3, 0.3, new THREE.MeshLambertMaterial({ color: 0xc8a040 }), 0, 2.6, -4.6); }
-  if (kind === 'gumersindo') for (let i = 0; i < 4; i++) box(0.6, 0.9, 0.6, new THREE.MeshLambertMaterial({ color: 0x5a3a1e }), -3.5 + i * 0.7, 0.45, -4.3);
-  scene.add(g);
-  game.room = { x0: RX - 4.8, x1: RX + 4.8, z0: -4.8, z1: 4.8 };
-  T.marker = tbMarker(kind, RX, -2.2, 0); T.kind = kind; T.used = kind === 'nothing';
-}
-function tbTrap(kind) {
-  const n = game.wave + 1;
-  banner(kind === 'bandits' ? '¡Asaltantes armados!' : '¡Emboscada!', kind === 'bandits' ? 'Te estaban esperando con las armas listas' : 'Era una trampa: ya vienen', 2600, kind === 'bandits' ? 'gun' : 'skull');
-  Sfx.roar(0, 1); tbClearMarks();
-  startWave(n);
-  if (kind === 'bandits') { const b = 3 + Math.min(4, zoneOf(n)); for (let i = 0; i < b; i++) game.bossQ.push('bandit'); game.toSpawn += b; game.spawnT = 0.2; }
-  else { game.spawnT = 0; game.toSpawn = Math.round(game.toSpawn * 1.15); }
-}
-function tbClearMarks() { const T = game.tb; if (!T) return; for (const d of T.doors || []) scene.remove(d.g); if (T.marker) scene.remove(T.marker); game.tb = null; }
-function tbTrigger(kind) {
-  const S = SURPRISE[kind], T = game.tb; T.used = true;
-  if (kind === 'shop') { openShop(); return; }
-  if (S.ev !== undefined) { openEvent(EVENTS[S.ev]); return; }
-  if (kind === 'cards') { openCards(); return; }
-  if (kind === 'treasure') { const g = 40 + 20 * zoneOf(game.wave), b = bossBullet(), i = game.box.indexOf('normal'); addGold(g, true); if (i >= 0) game.box[i] = b; if (Math.random() < 0.5) game.keys = (game.keys || 0) + 1; renderChips(); banner('Tesoro', `+${g} $ y una ${BULLETS[b].name}`, 2600, 'chest'); Sfx.cash(); setTimeout(() => { if (game && game.tb) tbResolved(); }, 1600); return; }
-  tbResolved();
-}
-// Se terminó lo que había: volver a la pelea
-function tbResolved() {
-  const T = game.tb; if (!T) return; T.busy = false;
-  show(null); requestLock(); canvas.focus(); renderChips();
-  if (game.mode === 'cuartos' && game.room) {
-    state = 'trans'; $('#fade-s').textContent = ''; $('#fade-t').textContent = 'De vuelta al mapa'; $('#fade-d').textContent = ''; el.fade.classList.add('on');
-    setTimeout(() => { if (T.roomG) scene.remove(T.roomG); if (T.marker) scene.remove(T.marker); game.room = null; player.pos.set(T.back.x, 0, T.back.z); resolve(player.pos, 0.4); updateCamera(0.016); }, 600);
-    setTimeout(() => { el.fade.classList.remove('on'); game.tb = null; state = 'play'; game.phase = 'count'; game.countT = 3; renderChips(); }, 1300);
-    return;
-  }
-  if (T.marker) scene.remove(T.marker);
-  game.tb = null; state = 'play'; game.phase = 'count'; game.countT = 3; renderChips();
-}
-// ---- Secciones: el mapa en 4 tramos con portones ----
-function secEnsure(n) {
-  const idx = (n - 1) % WAVES_PER_MAP;
-  if (game.sec && game.sec.map === world.idx) { game.sec.cur = idx; game.sec.open = Math.max(game.sec.open, idx); return; }
-  if (game.sec && game.sec.g) scene.remove(game.sec.g);
-  const a = world.arena, W = a.t === 'c' ? a.r : a.hx, edges = []; for (let k = 0; k <= WAVES_PER_MAP; k++) edges.push(-W + k * 2 * W / WAVES_PER_MAP);
-  const g = new THREE.Group(), gates = [], post = new THREE.MeshLambertMaterial({ color: 0x3a2414 }), plank = new THREE.MeshLambertMaterial({ color: 0x6a4a2a });
-  for (let k = 1; k < WAVES_PER_MAP; k++) {
-    const x = edges[k], half = a.t === 'c' ? Math.sqrt(Math.max(0, a.r * a.r - x * x)) : a.hz;
-    for (let z = -half; z <= half; z += 2) {
-      if (Math.abs(z) < 2.2) continue;
-      const p = new THREE.Mesh(bx(0.22, 2.4, 0.22), post); p.position.set(x, 1.2, z); g.add(p);
-      for (const y of [0.6, 1.3, 2]) { const pl = new THREE.Mesh(bx(0.08, 0.28, 2), plank); pl.position.set(x, y, z + 1); g.add(pl); }
-    }
-    const gate = new THREE.Group(); gate.position.set(x, 0, -2);
-    for (let i = 0; i < 5; i++) { const pl = new THREE.Mesh(bx(0.1, 2.5, 0.75), plank); pl.position.set(0, 1.25, 0.4 + i * 0.8); gate.add(pl); }
-    const bar = new THREE.Mesh(bx(0.14, 0.24, 4), post); bar.position.set(0.06, 1.6, 2); gate.add(bar);
-    g.add(gate); gates.push(gate);
-  }
-  scene.add(g);
-  game.sec = { map: world.idx, edges, g, gates, cur: idx, open: idx, kind: null, crossed: true };
-  if (idx === 0 && player.pos.x > edges[1] - 1) { player.pos.x = (edges[0] + edges[1]) / 2; player.pos.z = 0; resolve(player.pos, 0.4); }
-}
-function secSpawn(far) {
-  const S = game.sec, x0 = S.edges[S.cur], x1 = S.edges[S.cur + 1];
-  const opts = world.spawns.filter(g => g.x > x0 + 0.5 && g.x < x1 - 0.5 && Math.hypot(g.x - player.pos.x, g.z - player.pos.z) > far);
-  if (opts.length) { const g = pick(opts); return { x: g.x + rand(-0.4, 0.4), z: g.z + rand(-0.4, 0.4), rise: g.rise }; }
-  for (let k = 0; k < 60; k++) { const x = rand(x0 + 1, x1 - 1), a = world.arena, h = a.t === 'c' ? Math.sqrt(Math.max(0, a.r * a.r - x * x)) : a.hz, z = rand(-h + 1, h - 1); if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.5) && Math.hypot(x - player.pos.x, z - player.pos.z) > Math.min(far, 8)) return { x, z, rise: true }; }
-  return null;
-}
-function secOpenNext(kind) {
-  const S = game.sec; if (!S) { game.phase = 'count'; game.countT = 3; return; }
-  const k = S.cur + 1; S.open = k; S.kind = kind; S.crossed = false; S.gateT = 0; S.gateI = k - 1;
-  Sfx.open(); banner('¡Se abrió el portón!', '¿Qué habrá del otro lado?', 2600, 'question');
-  game.tb = { busy: false, doors: [] };
-  if (!SURPRISE[kind].trap && kind !== 'nothing') { const cx = (S.edges[k] + S.edges[k + 1]) / 2; game.tb.marker = tbMarker(kind, cx, 0, -Math.PI / 2); game.tb.kind = kind; game.tb.used = false; }
-}
-function updateTB(dt) {
-  if (!game || state !== 'play') return;
-  const T = game.tb;
-  if (game.sec && game.sec.gateI !== undefined && game.sec.gateT < 1) { game.sec.gateT = Math.min(1, game.sec.gateT + dt * 1.2); const gt = game.sec.gates[game.sec.gateI]; if (gt) gt.rotation.y = -game.sec.gateT * 1.6; }
-  if (!T) return;
-  if (T.marker && T.marker.userData.sp) T.marker.userData.sp.position.y = 2.9 + Math.sin(menuT * 2) * 0.1;
-  if (T.marker && T.marker.userData.fig) { const f = T.marker.userData.fig; f.root.rotation.y = Math.atan2(player.pos.x - T.marker.position.x, player.pos.z - T.marker.position.z) - T.marker.rotation.y; }
-  if (T.doors && T.doors.length && game.phase === 'explore') {
-    for (const d of T.doors) { d.g.children[d.g.children.length - 1].position.y = 3.2 + Math.sin(menuT * 2 + d.x) * 0.1; if (Math.hypot(player.pos.x - d.x, player.pos.z - d.z) < 1.3) { enterRoom(d); return; } }
-  }
-  if (game.mode === 'secciones' && game.sec && !game.sec.crossed && game.phase === 'explore') {
-    const S = game.sec;
-    if (player.pos.x > S.edges[S.open] + 1.2) {
-      S.crossed = true; S.cur = S.open;
-      if (SURPRISE[S.kind].trap) { tbTrap(S.kind); return; }
-      if (S.kind === 'nothing') { hint('Aquí no hay nada… solo polvo y silencio.', 2400); tbResolved(); return; }
-    }
-  }
-  if (T.marker && !T.used && !T.busy && game.phase === 'explore' && (game.mode === 'cuartos' || game.sec.crossed)) {
-    if (Math.hypot(player.pos.x - T.marker.position.x, player.pos.z - T.marker.position.z) < 2.4) { T.busy = true; tbTrigger(T.kind); }
-  }
-}
 /* ===================== PUERTAS, CARTAS DEL DESTINO Y COFRES ===================== */
 // Tras cada oleada (menos la del jefe) eliges una puerta: cada una lleva a algo distinto
 const DOORS = {
@@ -5040,7 +4802,6 @@ function setAllyLv(owner, k, lv) {
   for (const c of cops) if (!c.npc && !c.net && (c.kind || 'cop') === k && (c.owner || Net.id) === owner) { const f = allyHpMul(lv) / allyHpMul(c.lv || 1); c.lv = lv; c.maxHp *= f; c.hp *= f; }
 }
 function continueAfter() {
-  if (game && game.tb && game.tb.busy) { tbResolved(); return; }
   if (game && needsRescue(game.wave) && !game.rescuePaid && game.phase !== 'horde') { openRescue(); return; }
   show(null); requestLock(); canvas.focus();
   if (Net.client) { Net.ev(['ready', game.wave]); state = 'play'; game.phase = 'wait'; renderChips(); return; }
@@ -5743,7 +5504,7 @@ function updatePlay(dt) {
   updateZombies(wdt, state === 'play' || state === 'pause');
   bossFx(wdt);
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
-  updateAcid(wdt); updatePickups(dt); updateChests(dt); updateTB(dt); updateDebris(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
+  updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
   P.update(wdt); PA.update(wdt);
   if (game) updateHud(dt);
 }
@@ -5763,7 +5524,7 @@ function updateMenu(dt) {
 /* ===================== EN GRUPO: red cooperativa ===================== */
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
-const GAME_VER = '19';
+const GAME_VER = '20';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -6326,7 +6087,7 @@ function requestLock(gesture) {
 /* ===================== PROGRESO ENTRE PARTIDAS ===================== */
 // Fichas de calavera, vaqueros, desbloqueos y niveles Calavera. Se guarda en este navegador.
 const META_KEY = 'sb_meta';
-const META = Object.assign({ mode: 'clasico', fichas: 0, un: {}, char: 'sheriff', skull: 0, skullMax: 0 }, store.get(META_KEY, {}) || {});
+const META = Object.assign({ fichas: 0, un: {}, char: 'sheriff', skull: 0, skullMax: 0 }, store.get(META_KEY, {}) || {});
 const saveMeta = () => store.set(META_KEY, META);
 const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', desc: 'Empieza con un oficial de nivel 2 a su lado. Los ayudantes le cuestan un 20 % menos.' },
@@ -6357,7 +6118,7 @@ const sk = n => game && (game.skull | 0) >= n;
 const shopP = n => Math.round(n * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
 function renderMeta() {
   $('#fichas').innerHTML = `${ico('skull')} ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
-  renderCarousel(0); renderModes();
+  renderCarousel(0);
   META.skull = clamp(META.skull | 0, 0, META.skullMax | 0);
   $('#sk-n').textContent = META.skull;
   $('#sk-minus').disabled = META.skull <= 0; $('#sk-plus').disabled = META.skull >= META.skullMax;
@@ -6366,17 +6127,6 @@ function renderMeta() {
 // Elección de personaje en carrusel: se desliza a la izquierda o a la derecha (como en Isaac)
 const CHAR_IDS = Object.keys(CHARS);
 let carI = -1;
-const MODES = {
-  clasico: 'El juego de siempre: tras cada oleada eliges una puerta en el menú.',
-  cuartos: 'Prueba del tipo B: al pasar una oleada aparecen puertas en el mapa. Entra a una sin saber qué hay detrás. Solo para un jugador.',
-  secciones: 'Prueba del tipo B: el mapa está dividido en 4 tramos con portones. Cada oleada abre el siguiente tramo, y no sabes qué te espera. Solo para un jugador.'
-};
-function renderModes() {
-  if (!MODES[META.mode]) META.mode = 'clasico';
-  document.querySelectorAll('#mode-row .mode').forEach(b => { const on = b.dataset.m === META.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
-  $('#mode-desc').textContent = MODES[META.mode];
-}
-document.querySelectorAll('#mode-row .mode').forEach(b => b.addEventListener('click', () => { META.mode = b.dataset.m; saveMeta(); renderModes(); Sfx.init(); Sfx.holster(); }));
 function renderCarousel(dir) {
   const cl = $('#char-list'), n = CHAR_IDS.length;
   if (!CHARS[META.char] || !charOpen(META.char)) META.char = 'sheriff';
@@ -6718,7 +6468,7 @@ function charPic(id) {
   return (charPicCache[id] = cv.toDataURL());
 }
 function startGame(sv) {
-  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: META.char, skull: Net.client ? (Net.skull | 0) : META.skull, mode: Net.on ? 'clasico' : META.mode });
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: META.char, skull: Net.client ? (Net.skull | 0) : META.skull });
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${MODELS[CHARS[game.char].gun].name}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada abre Apocalipsis Delivery.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
