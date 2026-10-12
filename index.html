@@ -303,6 +303,12 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .sh-top .purse{font-family:var(--display);font-size:30px;color:#ffd060;white-space:nowrap}
 .sh-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0 12px;position:sticky;top:-16px;z-index:2;background:rgba(12,9,7,.96);padding:6px 0}
 .sh-tab{min-height:48px;font-family:var(--hud);font-weight:700;font-size:15px;color:var(--bone-dim);background:rgba(0,0,0,.35);border:1px solid rgba(214,165,75,.4);cursor:pointer;padding:0 4px}
+#spec{position:absolute;left:50%;bottom:calc(52px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;padding:6px;background:rgba(10,7,5,.82);border:1px solid rgba(214,165,75,.6);max-width:calc(100% - 32px)}
+#spec[hidden]{display:none}
+.spec-nav{width:52px;height:48px;font-size:32px;line-height:1;color:#ffd060;background:rgba(0,0,0,.4);border:1px solid rgba(214,165,75,.5);cursor:pointer}
+.spec-txt{display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center}
+.spec-txt b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--bone)}
+.spec-txt span{font-size:14px;color:var(--bone-dim)}
 .sig-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;text-align:left}
 .sig-head img{width:96px;height:54px;object-fit:contain}
 .sig-head b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--bone)}
@@ -448,6 +454,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div id="banner"><div id="banner-i"></div><div id="banner-t"></div><div id="banner-s"></div></div>
   <div id="feed"></div>
   <div id="hint"></div>
+  <div id="spec" hidden><button class="spec-nav" id="spec-prev" aria-label="Ver al anterior">‹</button><div class="spec-txt"><b id="spec-name"></b><span id="spec-sub"></span></div><button class="spec-nav" id="spec-next" aria-label="Ver al siguiente">›</button></div>
 
   <div id="touch" hidden>
     <div id="t-look"></div>
@@ -3105,7 +3112,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
 function die() {
-  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.6; Sfx.death(); Net.ev(['down']); banner('Caíste', 'Si tu grupo supera la oleada, vuelves a la siguiente', 3000); gs.aiming = false; input.fireHeld = false; return; }
+  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.6; Sfx.death(); Net.ev(['down']); banner('Caíste', 'Mira a tu grupo: si superan la oleada, vuelves en la siguiente', 3000); gs.aiming = false; input.fireHeld = false; return; }
   state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); gs.aiming = false; input.fireHeld = false; }
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
@@ -4881,7 +4888,23 @@ function updatePlayer(dt) {
   if (player.onGround && hs > 0.5) { const prev = player.bob; player.bob += dt * hs * 1.9; if (Math.floor(prev / Math.PI) !== Math.floor(player.bob / Math.PI)) Sfx.step(); }
   if (lv('regen') && game.time - player.lastHurt > 4) player.hp = Math.min(player.maxHp, player.hp + 3 * lv('regen') * dt);
 }
+// Modo espectador: en grupo, si caes, la cámara sigue a un compañero vivo
+const spec = { i: 0, on: false };
+const specTargets = () => [...Net.peers.values()].filter(p => p.pos && !p.down);
+const specActive = () => Net.on && !!game && player.down && state === 'play' && specTargets().length > 0;
+function specCycle(d) { const t = specTargets(); if (!t.length) return; spec.i = (spec.i + d + t.length) % t.length; spec.snap = true; Sfx.holster(); }
+function specCamera(dt) {
+  const t = specTargets(); spec.i %= t.length; const p = t[spec.i], at = p.av ? p.av.root.position : p.pos, y = (p.y || 0);
+  const yaw = p.yaw || 0, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  const tx = at.x - fx * 3.6, ty = y + 2.7, tz = at.z - fz * 3.6, k = spec.snap ? 1 : Math.min(1, dt * 6); spec.snap = false;
+  camera.position.x += (tx - camera.position.x) * k; camera.position.y += (ty - camera.position.y) * k; camera.position.z += (tz - camera.position.z) * k;
+  camera.lookAt(at.x + fx * 5, y + 1.3 - (p.pitch || 0) * 2, at.z + fz * 5);
+  if (Math.abs(75 - lastFov) > 0.01) { camera.fov = 75; camera.updateProjectionMatrix(); lastFov = 75; updateScale(); }
+  setText($('#spec-name'), 'specn', `Viendo a ${p.name}`);
+  setText($('#spec-sub'), 'specs', `Vida ${p.hp == null ? '?' : p.hp} %${t.length > 1 ? (IS_TOUCH ? ' · Toca las flechas para cambiar' : ' · Clic o ← → para cambiar') : ''}`);
+}
 function updateCamera(dt) {
+  { const on = specActive(); if (on !== spec.on) { spec.on = on; $('#spec').hidden = !on; $('#xh').style.visibility = on ? 'hidden' : ''; spec.snap = true; $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; } if (on) { $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; specCamera(dt); return; } }
   player.recoil *= Math.exp(-7 * dt);
   player.shake = Math.max(0, player.shake - dt * 2.2);
   const sh = player.shake * player.shake * (REDUCED ? 0.25 : 1), hs = Math.hypot(player.vx, player.vz);
@@ -6001,7 +6024,7 @@ function updateRemotes(dt) {
     av.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); av.legR.rotation.x = -av.legL.rotation.x;
     setAvGun(av, p);
     av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = p.dual ? -1.5 - (p.pitch || 0) : -sw * 0.4;
-    av.label.visible = Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 4;
+    av.label.visible = Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 4 && !(spec.on && specTargets()[spec.i % Math.max(1, specTargets().length)] === p);
     av.fall.rotation.x = damp(av.fall.rotation.x, p.down ? -Math.PI / 2 * 0.95 : 0, 6, dt); av.fall.position.y = p.down ? 0.15 : 0;
   }
 }
@@ -6580,6 +6603,10 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('wheel', e => { if (state === 'play') { e.preventDefault(); cycleWeapon(e.deltaY > 0 ? 1 : -1); } }, { passive: false });
 window.addEventListener('mouseup', e => { if (e.button === 0) input.fireHeld = false; if (e.button === 2) gs.aiming = false; });
+$('#spec-prev').addEventListener('click', e => { e.stopPropagation(); specCycle(-1); });
+$('#spec-next').addEventListener('click', e => { e.stopPropagation(); specCycle(1); });
+window.addEventListener('keydown', e => { if (!spec.on) return; if (e.code === 'ArrowRight' || e.code === 'KeyD') specCycle(1); else if (e.code === 'ArrowLeft' || e.code === 'KeyA') specCycle(-1); });
+canvas.addEventListener('mousedown', () => { if (spec.on) specCycle(1); });
 window.addEventListener('mousemove', e => {
   if (state !== 'play' || IS_TOUCH) return;
   if (locked) lookDelta(e.movementX || 0, e.movementY || 0, 0.0022);
