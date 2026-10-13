@@ -7,13 +7,17 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Allow-Origin', '*');
   const out = [];
-  const key = process.env.METERED_TURN_API_KEY, app = process.env.METERED_APP_NAME;
-  if (key && app) {
+  const key = (process.env.METERED_TURN_API_KEY || '').trim();
+  let app = (process.env.METERED_APP_NAME || '').trim().replace(/^https?:\/\//, '').replace(/\.metered\.live.*$/, '').replace(/\/.*$/, '');
+  let reason = '';
+  if (!key || !app) reason = `faltan variables en Vercel: ${!key ? 'METERED_TURN_API_KEY ' : ''}${!app ? 'METERED_APP_NAME' : ''}`.trim();
+  else {
     try {
       const r = await fetch(`https://${encodeURIComponent(app)}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(key)}`);
-      const j = await r.json();
-      if (Array.isArray(j)) for (const s of j) if (s && s.urls) out.push({ urls: s.urls, username: s.username, credential: s.credential });
-    } catch (e) { /* sin TURN: el juego usa el respaldo por Supabase */ }
+      const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) {}
+      if (Array.isArray(j)) { for (const s of j) if (s && s.urls) out.push({ urls: s.urls, username: s.username, credential: s.credential }); if (!out.length) reason = 'Metered respondió sin servidores'; }
+      else reason = `Metered respondió ${r.status} para la app «${app}»: ${String((j && (j.message || j.error)) || txt).slice(0, 120)}`;
+    } catch (e) { reason = `no se pudo contactar a ${app}.metered.live (¿nombre de la app correcto?)`; }
   }
   const urls = process.env.TURN_URLS, secret = process.env.TURN_SECRET;
   if (urls && secret) {
@@ -21,5 +25,5 @@ module.exports = async (req, res) => {
     const credential = crypto.createHmac('sha1', secret).update(username).digest('base64');
     out.push({ urls: urls.split(',').map(u => u.trim()).filter(Boolean), username, credential });
   }
-  res.status(200).json({ iceServers: out, turn: out.length > 0 });
+  res.status(200).json({ iceServers: out, turn: out.length > 0, reason: out.length ? undefined : reason || 'sin TURN configurado' });
 };
