@@ -15352,7 +15352,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
 function die() {
-  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.6; Sfx.death(); Net.ev(['down']); banner('Caíste', 'Mira a tu grupo: si superan la oleada, vuelves en la siguiente', 3000); gs.aiming = false; input.fireHeld = false; return; }
+  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.22; Sfx.death(); Net.ev(['down']); game.downT = DOWN_T; game.revP = 0; const can = game.revW !== game.wave; banner('Caíste', can ? `Sigues disparando desde el suelo (−70 % de daño). Un compañero puede levantarte: ${DOWN_T} s` : 'Ya te levantaron en esta oleada: dispara desde el suelo hasta que termine', 3200); gs.aiming = false; input.fireHeld = false; return; }
   state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); gs.aiming = false; input.fireHeld = false; }
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
@@ -15431,7 +15431,7 @@ function shuffleChambers(h) {
 function tryFire() {
   if (gs.twirl > 0) gs.twirl = 0;
   if (gs.spinC > 0) return;
-  if (state !== 'play' || gs.draw > 0 || player.down) return;
+  if (state !== 'play' || gs.draw > 0 || (player.down && !canFloor())) return;
   if (game && (game.phase === 'room' || game.phase === 'exit')) { if (input.fireHeld) { input.fireHeld = false; hint('Aquí no se dispara: guarda tus balas', 1400); } return; }
   if (gs.reloading) { if (gs.phase === 'insert' && totalAmmo() > 0) gs.wantStop = true; return; }
   if (gs.fan > 0) return;
@@ -15579,6 +15579,7 @@ function castBullet(o, d, ctx) {
   let dmg = bulletDmg(h) * ctx.dmgMul * (hasB(t, 'laser') ? 3 : 1);
   if (ctx.roulette) dmg = 1e6;
   if (t === 'mala') dmg *= 0.5;
+  if (player.down) dmg *= 0.3;   // desde el suelo: 70 % menos de daño
   let end = null; const done = new Set();
   for (const hh of hits) {
     if (hh.object.userData && hh.object.userData.proj) { popProj(hh.object.userData.proj, hh.point); end = hh.point; break; }
@@ -17412,7 +17413,30 @@ function waveSummary() {
   if (!game.w.hurt) game.cleanW = (game.cleanW || 0) + 1;
   contractStep(isMapEnd(wv));
 }
-function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; feed('¡Volviste a la pelea!', 'gold'); }
+function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; game.downT = 0; game.revP = 0; feed('¡Volviste a la pelea!', 'gold'); }
+// Caído en grupo: puedes disparar desde el suelo con las balas del tambor (−70 % de daño) durante DOWN_T segundos.
+// Un compañero que se quede a tu lado REV_T segundos te levanta; solo una vez por oleada a cada jugador.
+const DOWN_T = 30, REV_T = 5, REV_R = 2.2;
+const canFloor = () => player.down && game && game.downT > 0;
+let revSend = 0;
+function downStep(dt) {
+  if (!Net.on || !game) return;
+  if (player.down && game.downT > 0) {
+    game.downT -= dt;
+    if (game.downT <= 0) { game.downT = 0; banner('Te desangraste', 'Mira a tu grupo: si superan la oleada, vuelves en la siguiente', 3000); }
+    else if (!(game.revP > 0) && Math.ceil(game.downT) !== game.downS) game.downS = Math.ceil(game.downT), hint(game.revW === game.wave ? `En el suelo: ${Math.ceil(game.downT)} s · dispara mientras puedas` : `En el suelo: ${Math.ceil(game.downT)} s · que un compañero se quede a tu lado para levantarte`, 1100);
+  }
+  // levantar a un compañero caído que esté cerca
+  if (player.down || state !== 'play') { game.revTgt = null; return; }
+  let tgt = null;
+  for (const p of Net.peers.values()) if (p.down && p.rv && p.pos && Math.hypot(p.pos.x - player.pos.x, p.pos.z - player.pos.z) < REV_R) { tgt = p; break; }
+  if (!tgt) { if (game.revTgt) { Net.ev(['revp', game.revTgt, 0]); game.revTgt = null; game.revK = 0; } return; }
+  if (game.revTgt !== tgt.id) { game.revTgt = tgt.id; game.revK = 0; }
+  game.revK += dt; const pc = Math.min(1, game.revK / REV_T);
+  hint(`Levantando a ${tgt.name}… ${Math.round(pc * 100)} % · quédate a su lado`, 600);
+  revSend -= dt; if (revSend <= 0) { revSend = 0.4; Net.ev(['revp', tgt.id, Math.round(pc * 100)]); }
+  if (pc >= 1) { Net.ev(['rev', tgt.id]); Net.flush(); feed(`Levantaste a ${tgt.name}`, 'gold'); Sfx.heart(); tgt.rv = 0; game.revTgt = null; game.revK = 0; }
+}
 function victory() {
   META.st.wins++; META.st['w_' + game.char] = 1; if ((game.skull | 0) >= 1) META.st.skullWin = 1; checkUnlocks(); checkAch();
   state = 'win'; game.phase = 'win'; if (document.pointerLockElement) document.exitPointerLock();
@@ -18102,7 +18126,7 @@ function updatePlayer(dt) {
 // Modo espectador: en grupo, si caes, la cámara sigue a un compañero vivo
 const spec = { i: 0, on: false };
 const specTargets = () => [...Net.peers.values()].filter(p => p.pos && !p.down);
-const specActive = () => Net.on && !!game && player.down && state === 'play' && specTargets().length > 0;
+const specActive = () => Net.on && !!game && player.down && !canFloor() && state === 'play' && specTargets().length > 0;
 function specCycle(d) { const t = specTargets(); if (!t.length) return; spec.i = (spec.i + d + t.length) % t.length; spec.snap = true; Sfx.holster(); }
 function specCamera(dt) {
   const t = specTargets(); spec.i %= t.length; const p = t[spec.i], at = p.av ? p.av.root.position : p.pos, y = (p.y || 0);
@@ -18741,7 +18765,7 @@ function updatePlay(dt) {
     updatePlayer(dt);
     if (!Net.client) updateWave(wdt); else if (game.phase === 'room' || game.phase === 'exit') roomStep(wdt);
     if (world.uses.length && game.phase !== 'room' && game.phase !== 'exit') mapUseStep();
-    updateChicken(dt); checkAch(dt);
+    updateChicken(dt); checkAch(dt); downStep(dt);
     ammoCheck(dt);
     if (tuto) tutoStep(dt);
     if (Net.host) netHostStep();
@@ -19654,7 +19678,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 21';
+const GAME_BUILD = '13-oct-2026 · 22';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -19680,7 +19704,7 @@ const Net = {
   flush() {
     if (!this.tr) return;
     const m = { id: this.id, n: this.name, h: this.host ? 1 : 0, st: this.started ? 1 : 0 };
-    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0, CHAR_KEYS.indexOf(game.char), totalAmmo(), game.box.length, game.phase === 'wait' ? 1 : 0];
+    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0, CHAR_KEYS.indexOf(game.char), totalAmmo(), game.box.length, game.phase === 'wait' ? 1 : 0, player.down && game.downT > 0 && game.revW !== game.wave ? 1 : 0];
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
     if (Voice.on) m.v = 1;
@@ -19694,7 +19718,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; }
+    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -20053,6 +20077,10 @@ function netEvent(p, e) {
   if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; netStartAsClient(); } return; }
   if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
   if (t === 'vinv') { if (!Voice.on && Voice.eligible()) { banner('Chat de voz', `${e[1] || p.name} te invita: pulsa Voz${IS_TOUCH ? '' : ' o la tecla B'}`, 3200); Sfx.bell(); const j = $('#vb-join'); if (j) { j.classList.add('inv'); setTimeout(() => j.classList.remove('inv'), 7000); } } return; }
+  if (t === 'rev') { if (e[1] === Net.id && player.down && game && game.downT > 0 && game.revW !== game.wave) { game.revW = game.wave; revive(); banner('¡Te levantaron!', `${p.name} te puso de pie`, 2200); Sfx.heart(); Net.ev(['up']); } }
+  else if (t === 'revp') { if (e[1] === Net.id && player.down && game && game.downT > 0) { game.revP = e[2]; if (e[2] > 0) hint(`${p.name} te está levantando… ${e[2]} %`, 700); } }
+  else if (t === 'up') { p.down = false; p.rv = false; }
+  if (t === 'rev' || t === 'revp' || t === 'up') return;
   if (Net.host) {
     if (t === 'd') applyRemoteDamage(p.id, e);
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
@@ -20064,7 +20092,7 @@ function netEvent(p, e) {
     else if (t === 'agun') setAllyGun(p.id, e[1], e[2]);
     else if (t === 'adis') { if (dismissAlly(p.id, e[1])) feed(`${p.name} despidió ${ALLY[e[1]] ? ALLY[e[1]].al : 'a un ayudante'}`, 'blue'); }
     else if (t === 'ready') p.ready = e[1];
-    else if (t === 'down') { p.down = true; feed(`${p.name} cayó`, 'red'); }
+    else if (t === 'down') { p.down = true; feed(`${p.name} cayó: acércate y quédate a su lado ${REV_T} s para levantarlo`, 'red'); }
     return;
   }
   if (!Net.client || !game) return;
