@@ -721,7 +721,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <div class="meta-top"><span id="fichas">0 fichas de calavera</span><button class="btn2" id="btn-ach">Logros</button><button class="btn2" id="btn-altar">Desbloqueos</button></div>
         <h3 class="sec">Elige tu vaquero</h3>
         <div id="char-list"></div>
-        <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
+        <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><p class="note" id="top-mine"></p><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
       </div>
       <div class="row"><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
       <div class="diff-row" role="radiogroup" aria-label="Dificultad"><button class="btn2" role="radio" data-d="normal">Normal</button><button class="btn2" role="radio" data-d="dificil">Difícil</button><button class="btn2 apoc" role="radio" data-d="apoc">Apocalipsis</button></div>
@@ -17177,7 +17177,7 @@ function statsRows() {
   if (game.newSkull) rows.push(['¡Nuevo nivel!', `Calavera ${game.newSkull}`]);
   return rows.map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
 }
-function saveBest() { const best = store.get('sbB_best', null), isRec = !best || game.wave > best.wave || (game.wave === best.wave && game.kills > best.kills); if (isRec) store.set('sbB_best', { wave: game.wave, kills: game.kills, gold: game.goldTotal }); return isRec; }
+function saveBest() { const best = store.get('sbB_best', null), isRec = !best || game.wave > best.wave || (game.wave === best.wave && game.kills > best.kills); if (isRec) { store.set('sbB_best', { wave: game.wave, kills: game.kills, gold: game.goldTotal }); game.newRec = true; } return isRec || !!game.newRec; }
 function gameOver() {
   if (tuto) { toMenu(); return; }
   checkUnlocks();
@@ -17185,7 +17185,7 @@ function gameOver() {
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock();
   store.set(SAVE_KEY, null);
   if (Net.on) setTimeout(netLeave, 600);
-  awardFichas(false); submitRun();
+  awardFichas(false); submitRun(true);
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
   show('over'); el.hud.hidden = true; $('#touch').hidden = true;
@@ -17196,7 +17196,8 @@ function updateBest() {
   const sv = store.get(SAVE_KEY, null), bc = $('#btn-continue');
   bc.hidden = !sv; $('#save-note').hidden = !sv; $('#btn-start').className = sv ? 'btn2' : 'btn';
   if (sv) bc.textContent = `Continuar · oleada ${sv.wave} · ${(MAPS[mapForWave(sv.wave, sv.route || [])] || MAPS[0]).name}`;
-  const b = store.get('sbB_best', null); $('#best-line').textContent = b ? `Récord: oleada ${b.wave} · ${b.kills} zombis · ${b.gold} $ ganados` : 'Todavía no tienes récord'; }
+  const b = store.get('sbB_best', null); $('#best-line').textContent = b ? `Tu oleada máxima: ${b.wave} · ${b.kills} zombis · ${b.gold} $ ganados` : 'Todavía no tienes récord';
+  const tm = $('#top-mine'); if (tm) tm.textContent = b ? `Tu oleada máxima: ${b.wave}` : ''; }
 function deadEye(on) {
   if (on === game.deOn) return;
   if (on && game.de < 20) { hint('El Ojo Muerto necesita más carga', 1200); return; }
@@ -19486,7 +19487,7 @@ function downStep(dt) {
 function victory() {
   META.st.wins++; META.st['w_' + game.char] = 1; if ((game.skull | 0) >= 1) META.st.skullWin = 1; checkUnlocks(); checkAch();
   state = 'win'; game.phase = 'win'; if (document.pointerLockElement) document.exitPointerLock();
-  awardFichas(true); submitRun(); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
+  awardFichas(true); submitRun(true); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
   setTimeout(() => $('#btn-endless').focus(), 50);
 }
 let perkChoices = [];
@@ -21826,7 +21827,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 33';
+const GAME_BUILD = '13-oct-2026 · 34';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22879,8 +22880,11 @@ async function loadTop(force) {
     ol.innerHTML = rows.length ? rows.map(x => `<li class="${String(x.name).toLowerCase() === me ? 'me' : ''}"><b>${escH(x.name)}</b> · oleada ${x.wave | 0} <small>· ${x.kills | 0} zombis · ${CHARS[x.personaje] ? CHARS[x.personaje].name : ''}</small></li>`).join('') : '<li class="note">Todavía no hay nadie. ¡Sé el primero!</li>';
   } catch (e) { ol.innerHTML = '<li class="note">El top no está disponible ahora.</li>'; }
 }
-function submitRun() {
-  if (!game || game.sentTop || (game.wave | 0) < 2 || !SUPA.url) return; game.sentTop = true;
+// Se manda al Top cada vez que llegas a una oleada nueva (así cuentan también los que siguen jugando) y una vez más al terminar
+function submitRun(final) {
+  if (!game || tuto || (game.wave | 0) < 2 || !SUPA.url) return;
+  if (final) { if (game.sentFinal) return; game.sentFinal = true; } else if ((game.wave | 0) <= (game.sentWave | 0)) return;
+  game.sentWave = Math.max(game.sentWave | 0, game.wave | 0);
   const wave = Math.min(300, game.wave | 0), body = { name: myNick(), personaje: CHARS[game.char] ? game.char : 'sheriff', wave, kills: Math.min(wave * 250, game.kills | 0), gold: Math.max(0, game.goldTotal | 0), secs: Math.max(wave * 8, Math.round(game.time || 0)), skull: game.skull | 0, grupo: !!Net.on, ver: GAME_VER };
   fetch(SUPA.url + '/rest/v1/sb_ranking', { method: 'POST', headers: Object.assign(TOP_H(), { Prefer: 'return=minimal' }), body: JSON.stringify(body) }).then(() => { topT = -1e9; }).catch(() => {});
 }
@@ -23615,6 +23619,7 @@ function frame() {
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
+  if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
