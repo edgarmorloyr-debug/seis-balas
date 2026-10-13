@@ -465,6 +465,13 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .vmic.wait{border-style:dashed}
 .tm .vmic{left:-5px;bottom:5px;width:22px;height:22px}
 .tb#b-chat{right:calc(86px + env(safe-area-inset-right,0px));top:calc(14px + env(safe-area-inset-top,0px));width:56px;height:48px;border-radius:10px;font-size:13px}
+#grab{position:absolute;z-index:7;left:50%;top:58%;transform:translate(-50%,-50%);width:min(380px,86vw);text-align:center;pointer-events:none;padding:12px 16px;background:rgba(40,6,6,.95);border:2px solid #e0503a}
+#grab b{display:block;font:700 24px var(--hud);letter-spacing:.1em;text-transform:uppercase;color:#ffb0a0}
+#grab span{display:block;font-size:16px;color:var(--bone);margin:4px 0 8px}
+#grab .gbar{height:12px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.3)}
+#grab .gbar i{display:block;height:100%;width:0;background:#ffd04a}
+#grab.shake{animation:grabsh .12s linear infinite}
+@keyframes grabsh{0%{margin-left:-3px}50%{margin-left:3px}100%{margin-left:-3px}}
 #chatlog{position:absolute;z-index:6;left:calc(16px + env(safe-area-inset-left,0px));top:42%;width:min(360px,60vw);display:flex;flex-direction:column;gap:4px;pointer-events:none}
 #chatlog div{padding:5px 10px;border-radius:8px;background:rgba(10,8,6,.72);color:var(--bone);font:600 15px/1.3 var(--hud);text-shadow:0 1px 2px #000;animation:chatFade 10s forwards;overflow-wrap:anywhere}
 #chatlog b{color:#ffd47a;margin-right:6px}
@@ -700,6 +707,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <button class="tb" id="b-pause" aria-label="Pausa">II</button>
     <button class="tb" id="b-chat" hidden>Chat</button>
   </div>
+  <div id="grab" class="shake" hidden role="alert"><b>¡Te agarró!</b><span id="grab-k"></span><div class="gbar"><i id="grab-b"></i></div></div>
   <div id="chatlog" aria-live="polite"></div>
   <form id="chatbox" hidden><input id="chat-in" type="text" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Escribe al grupo y pulsa Enter" aria-label="Mensaje al grupo"></form>
 
@@ -17043,6 +17051,7 @@ function saveGame() {
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
+  player.grab = null; { const gb = document.getElementById('grab'); if (gb) gb.hidden = true; }
   if (!sv && !tuto) META.st.runs = (META.st.runs | 0) + 1;
   clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
   game = {
@@ -17233,6 +17242,7 @@ function shuffleChambers(h) {
   idx.forEach((i, k) => h.loaded[i] = vals[k]);
 }
 function tryFire() {
+  if (player.grab) { grabTap(); return; }
   if (gs.twirl > 0) gs.twirl = 0;
   if (gs.spinC > 0) return;
   if (state !== 'play' || gs.draw > 0 || (player.down && !canFloor())) return;
@@ -17580,7 +17590,7 @@ function loseLimb(z, k, dir) {
     detach(g, vel);
     if (!left && z.saw) { z.saw = null; z.dmg *= 0.5; }
     if (!left && z.type === 'axer') z.spitCd = 1e9;
-    z.dmg *= 0.85; stumps.push({ z, node: z.torsoG, off: at, t: 2.4 });
+    z.dmg *= ZONE.armLostDmg; stumps.push({ z, node: z.torsoG, off: at, t: 2.4 });
     const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.copy(at); z.torsoG.add(st);
   } else {
     const m = left ? z.legL : z.legR; if (!m || !m.parent) return;
@@ -17657,6 +17667,7 @@ function damageZombie(z, amount, info) {
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
     if (lv('fire') && !info.ally) { z.burn = 3; z.burnDps = 18 * lv('fire'); }
     if (!armorHit) goreHit(z, info, amount, false);
+    if (!armorHit && z.hp > 0) zoneHit(z, info);
     if (z.hp > 0) hitReact(z, info, amount);
   }
   if (z.hp <= 0) { killZombie(z, info); if (info.bullet && !info.ally) hitmarker('kill'); return true; }
@@ -17689,6 +17700,7 @@ function killZombie(z, info) {
   }
   const head = info.part === 'head';
   z.fallDir = info.dir ? ((info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw)) > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
+  if (!z.def.quad && z.fall && z.torsoG) startRagdoll(z, info);
   if (z.saw && z.saw.parent) { detach(z.saw, new THREE.Vector3(rand(-1.5, 1.5), rand(2, 3.5), rand(-1.5, 1.5)), 8); z.saw = null; }
   const p = z.root.position;
   addSplat(p.x, p.z, rand(0.6, 1.05) * z.s); for (let i = 0; i < 2; i++) addSplat(p.x + rand(-0.9, 0.9) * z.s, p.z + rand(-0.9, 0.9) * z.s, rand(0.2, 0.45) * z.s);
@@ -19102,6 +19114,78 @@ function miniDied(z, p) {
   if (M.ab === 'split') { for (let i = 0; i < MINI_AB.split.n; i++) { const a = i / MINI_AB.split.n * TAU, x = p.x + Math.cos(a) * 1.4, zz = p.z + Math.sin(a) * 1.4; if (!insideArena(x, zz, 0.5) || pointBlocked(x, zz, 0.4)) continue; const o = spawnZombie(M.base === 'bloater' ? 'crawler' : 'runner', x, zz, diffW(game.wave), false); o.state = 'chase'; o.rage = 1e9; game.alive++; }
     feed(`¡${M.name} se partió en pedazos!`, 'red'); }
 }
+/* ---- Zonas del cuerpo, agarre y caída de muñeco de trapo ---- */
+// Disparo a la pierna: cojea un rato. Disparo al brazo mientras prepara el golpe: se lo cancelas.
+const ZONE = { limpT: 2.5, limpX: 0.6, stumble: 0.3, armCancel: true, armLostDmg: 0.6 };
+function zoneHit(z, info) {
+  if (info.part !== 'limb' || !info.obj || z.dead || z.boss != null || z.def.quad) return;
+  const k = limbKey(z, info.obj); if (!k) return;
+  if (k[0] === 'l') { z.limp = ZONE.limpT; if (Math.random() < ZONE.stumble) z.stagger = Math.max(z.stagger, 0.7); if (!info.ally && !game.zoneHintL) { game.zoneHintL = 1; feed('Tiro a la pierna: cojea y va más lento', ''); } }
+  else if (z.windup > 0 && !info.ally) { z.windup = 0; z.atkCd = Math.max(z.atkCd, 0.9); z.stagger = Math.max(z.stagger, 0.4); feed('¡Brazo! Le cancelaste el golpe', 'gold'); }
+}
+// Agarre: algunos zombis te sujetan al golpear. Toca rápido (o pulsa Espacio) para soltarte.
+const GRAB = { p: { normal: 0.2, dificil: 0.28, apoc: 0.36 }, n: { normal: 7, dificil: 9, apoc: 11 }, t: 2.6, cd: 7, dps: 7, bite: 1.3 };
+function tryGrab(z) {
+  if (tuto || player.grab || player.down || z.def.quad || z.def.big || z.boss != null || z.mini || (game.grabCd || 0) > 0) return;
+  if (Math.random() >= (GRAB.p[game.diff] || GRAB.p.normal)) return;
+  player.grab = { z, n: 0, need: GRAB.n[game.diff] || GRAB.n.normal, t: GRAB.t }; z.grabbing = true;
+  gs.aiming = false; input.fireHeld = false; if (gs.reloading) gs.wantStop = true;
+  $('#grab-k').textContent = IS_TOUCH ? 'Toca la pantalla rápido para soltarte' : 'Pulsa ESPACIO o haz clic rápido para soltarte';
+  $('#grab').hidden = false; Sfx.groan(panOf(z.root.position), 1, 0.8); player.shake = Math.min(1, player.shake + 0.4);
+}
+function grabTap() {
+  const g = player.grab; if (!g) return false;
+  g.n++; player.shake = Math.min(1, player.shake + 0.08); Sfx.dry();
+  if (g.n >= g.need) grabEnd(true);
+  return true;
+}
+function grabEnd(won) {
+  const g = player.grab; if (!g) return; player.grab = null; $('#grab').hidden = true; game.grabCd = GRAB.cd;
+  const z = g.z; z.grabbing = false;
+  if (won) { if (!z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); const dx = z.root.position.x - player.pos.x, dz = z.root.position.z - player.pos.z, d = Math.hypot(dx, dz) || 1; z.kbx = dx / d * 5; z.kbz = dz / d * 5; } feed('¡Te soltaste!', 'gold'); Sfx.whoosh(0); }
+}
+function grabStep(dt) {
+  game.grabCd = Math.max(0, (game.grabCd || 0) - dt);
+  const g = player.grab; if (!g) return;
+  const z = g.z;
+  if (z.dead || player.down || state === 'dying' || state === 'over') { grabEnd(false); return; }
+  if (state !== 'play') return;
+  g.t -= dt; hurtPlayer(GRAB.dps * dt, null, { tick: true });
+  const want = Math.atan2(-(z.root.position.x - player.pos.x), -(z.root.position.z - player.pos.z)); let dy = want - player.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; player.yaw += dy * Math.min(1, dt * 5);
+  $('#grab-b').style.width = Math.min(100, g.n / g.need * 100).toFixed(0) + '%';
+  if (g.t <= 0) { grabEnd(false); if (!z.dead) { hurtPlayer(z.dmg * GRAB.bite, z.root.position); feed('¡Te mordió!', 'red'); } }
+}
+// Muñeco de trapo: al morir, el disparo lo empuja, se tambalea, cae hacia donde lo empujaron y sus brazos quedan sueltos
+const RAG = { push: 1.6, tip: 2.2, grav: 9, spin: 2.2, fric: 6, air: 1.2 };
+function startRagdoll(z, info) {
+  const m = info.weapon && MODELS[info.weapon], w = m ? m.dmg : 55;
+  let str = (0.8 + w / 90 + (info.part === 'head' ? 0.35 : 0) + (info.weapon === 'escopeta' ? 1.4 : 0)) / Math.max(1, z.s * 0.8);
+  let d = info.dir; if (!d) { const a = rand(0, TAU); d = { x: Math.cos(a), z: Math.sin(a) }; str *= 0.7; }
+  const dl = Math.hypot(d.x, d.z) || 1, dx = d.x / dl, dz = d.z / dl;
+  const fx = Math.sin(z.yaw), fz = Math.cos(z.yaw), df = dx * fx + dz * fz, dr = dx * fz - dz * fx;   // hacia delante y hacia la derecha del zombi
+  const low = z.type === 'crawler' || z.crawlMode;
+  z.rd = { vx: dx * str * RAG.push, vz: dz * str * RAG.push, vy: info.part === 'head' && str > 1.6 ? 1.5 : 0, y: 0, th: 0.02, w: str * RAG.tip, ax: new THREE.Vector3(df, 0, -dr).normalize(), spin: -dr * str * RAG.spin, lim: low ? 0.25 : Math.PI / 2 * 0.96, land: false,
+    L: [[z.armLG, 'x', -0.2], [z.armRG, 'x', 0.3], [z.armLG, 'z', -0.5], [z.armRG, 'z', 0.5], [z.neck, 'x', 0.3], [z.torsoG, 'x', low ? 1.3 : 0.15], [z.legL, 'x', -0.15], [z.legR, 'x', 0.2]].filter(l => l[0]).map(l => ({ o: l[0], k: l[1], to: l[2], v: rand(-4, 4) * str })) };
+  z.rd.ax.set(z.rd.ax.z, 0, -z.rd.ax.x);   // eje de giro = arriba × dirección de caída
+}
+function ragdollStep(z, dt) {
+  const r = z.rd, p = z.root.position;
+  if (r.vx || r.vz) {
+    const nx = p.x + r.vx * dt, nz = p.z + r.vz * dt;
+    if (pointBlocked(nx, nz, 0.25) || !insideArena(nx, nz, 0.2)) { r.vx *= -0.25; r.vz *= -0.25; if (!r.land) r.w += 2.5; }
+    else { p.x = nx; p.z = nz; }
+    const f = Math.exp(-(r.land ? RAG.fric : RAG.air) * dt); r.vx *= f; r.vz *= f; if (Math.abs(r.vx) + Math.abs(r.vz) < 0.02) r.vx = r.vz = 0;
+  }
+  r.vy -= 18 * dt; r.y = Math.max(0, r.y + r.vy * dt); if (r.y <= 0 && r.vy < 0) r.vy = 0;
+  if (!r.done) {
+    r.w += RAG.grav * Math.sin(Math.max(0.05, r.th)) * dt; r.th += r.w * dt;
+    if (r.th >= r.lim) { r.th = r.lim; if (r.w > 1.2) { r.w = -r.w * 0.28; if (!r.land) { r.land = true; z.root.getWorldPosition(_zp); dirtBurst(_zp.x, 0.05, _zp.z, 6, 1); Sfx.thud(panOf(p)); for (const l of r.L) l.v += rand(-5, 5); } } else { r.w = 0; r.done = r.land = true; } }
+    if (r.th < 0) { r.th = 0; r.w = Math.abs(r.w) * 0.3; }
+  }
+  z.fall.quaternion.setFromAxisAngle(r.ax, r.th); z.fall.position.y = 0.12 * z.s * (r.th / r.lim) + r.y;
+  z.root.rotation.y += r.spin * dt; r.spin *= Math.exp(-3 * dt);
+  for (const l of r.L) { const a = l.o.rotation[l.k]; l.v += (-14 * (a - l.to) - 3.5 * l.v) * dt; l.o.rotation[l.k] = a + l.v * dt; }
+}
 function hordeStep(dt) {
   game.hordeT += dt; game.spawnT -= dt;
   if (game.spawnT > 0) return;
@@ -20070,7 +20154,7 @@ function updatePlayer(dt) {
   const sprint = wantSprint && player.st > 0 && player.stLock <= 0;
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
-  const sp = 5 * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.3 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1);
+  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.3 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
   player.vx = damp(player.vx, tvx, acc, dt); player.vz = damp(player.vz, tvz, acc, dt);
@@ -20215,12 +20299,15 @@ function updateZombies(dt, canAttack) {
     if (z.dead) {
       z.deadT += dt;
       const ft = clamp(z.deadT / 0.6, 0, 1);
-      if (z.def.quad) z.fall.rotation.z = z.fallDir * Math.PI / 2 * 0.95 * ft * ft;
-      else z.fall.rotation.x = z.fallDir * (z.type === 'crawler' ? 0.2 : Math.PI / 2 * 0.96) * ft * ft;
-      z.fall.position.y = 0.12 * z.s * ft;
-      z.torsoG.rotation.x = damp(z.torsoG.rotation.x, z.type === 'crawler' ? 1.3 : 0, 6, dt);
-      z.armLG.rotation.x = damp(z.armLG.rotation.x, -0.2, 5, dt); z.armRG.rotation.x = damp(z.armRG.rotation.x, 0.3, 5, dt);
-      if (ft >= 1 && !z.landed) { z.landed = true; z.root.getWorldPosition(_zp); dirtBurst(_zp.x, 0.05, _zp.z, 6, 1); }
+      if (z.rd) ragdollStep(z, dt);
+      else {
+        if (z.def.quad) z.fall.rotation.z = z.fallDir * Math.PI / 2 * 0.95 * ft * ft;
+        else z.fall.rotation.x = z.fallDir * (z.type === 'crawler' ? 0.2 : Math.PI / 2 * 0.96) * ft * ft;
+        z.fall.position.y = 0.12 * z.s * ft;
+        if (z.torsoG) z.torsoG.rotation.x = damp(z.torsoG.rotation.x, z.type === 'crawler' ? 1.3 : 0, 6, dt);
+        if (z.armLG) { z.armLG.rotation.x = damp(z.armLG.rotation.x, -0.2, 5, dt); z.armRG.rotation.x = damp(z.armRG.rotation.x, 0.3, 5, dt); }
+        if (ft >= 1 && !z.landed) { z.landed = true; z.root.getWorldPosition(_zp); dirtBurst(_zp.x, 0.05, _zp.z, 6, 1); }
+      }
       const many = zombies.length > (FAST() ? 16 : 34);
       if (z.deadT > (many ? 3 : 7)) z.root.position.y -= dt * 0.35;
       if (z.deadT > (many ? 5 : 10)) removeZombie(k);
@@ -20259,6 +20346,8 @@ function updateZombies(dt, canAttack) {
     if (dist > 2.2 && ((z.tk === 'p' && !z.los) || (z.tk !== 'p' && !lineClear(pos.x, pos.z, tp.x, tp.z, z.r * 0.9)))) { if (flowDir(pos.x, pos.z, z.r * 0.9)) { mx = FD.x; mz = FD.z; direct = false; } }
     if (z.unstuck > 0) { z.unstuck -= dt; mx = z.ux; mz = z.uz; }
     let spd = z.speed * (z.rage > 0 ? 1.45 : 1);
+    if (z.limp > 0) { z.limp -= dt; spd *= ZONE.limpX; }
+    if (z.grabbing) spd = 0;
     if (z.state === 'enter') spd *= 0.4;
     if (z.stagger > 0) { z.stagger -= dt; spd *= 0.15; }
     const reach = z.def.reach;
@@ -20324,7 +20413,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); }
+          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -20723,6 +20812,7 @@ function updateScale() {
 let flowT = 0;
 function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx - nav.tx, tz - nav.tz) > 1.2) { nav.dist = nav.mainDist; computeFlow(tx, tz); flowT = 0.4; } }
 function updatePlay(dt) {
+  grabStep(dt);
   if (game.deOn) { game.de -= dt * 22 / (1 + 0.35 * lv('cold')) / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
   if (game.killcamT > 0) game.killcamT -= dt;
@@ -21736,7 +21826,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 31';
+const GAME_BUILD = '13-oct-2026 · 32';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -23421,6 +23511,7 @@ window.addEventListener('keydown', e => {
   if (state === 'inv' && ['KeyI', 'Tab', 'Escape'].includes(e.code)) { e.preventDefault(); closeInv(); return; }
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+  if (player.grab && (e.code === 'Space' || e.code === 'KeyE' || e.code === 'KeyF')) { e.preventDefault(); if (!e.repeat) grabTap(); return; }
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyE') useNear();
   if (e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); openInv(); }
