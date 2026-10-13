@@ -790,7 +790,7 @@ const fmt = n => Math.round(n).toLocaleString('es-ES');
 const Sfx = (() => {
   let ctx = null, out, lp, revIn, noise, hurtT = 0, windG = null, windLevel = 0.07;
   // Eco de cada lugar y oído 3D (lo que suena detrás se oye más apagado)
-  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, sawN = null;
+  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null;
   // Sonidos grabados (de uso libre, CC0: Kenney y OpenGameArt; ver snd/CREDITOS.txt). Si no cargan, suena lo sintetizado.
   const SND = ['shot_sheriff', 'shot_johnny', 'shot_velorio', 'shot_francois', 'shot_lilith', 'card_place', 'card_slide', 'cards_shuffle', 'chips', 'clang0', 'clang1', 'clang2', 'coins', 'coins2', 'confirm', 'dice', 'door_close', 'door_open', 'error', 'fall0', 'fall1', 'fall2', 'jingle_boss', 'jingle_buy', 'jingle_item', 'metalClick', 'metalLatch', 'step_carpet0', 'step_carpet1', 'step_carpet2', 'step_concrete0', 'step_concrete1', 'step_concrete2', 'step_grass0', 'step_grass1', 'step_grass2', 'step_snow0', 'step_snow1', 'step_snow2', 'step_wood0', 'step_wood1', 'step_wood2', 'zom_enemy0', 'zom_enemy1', 'zom_enemy2', 'zom_enemy3', 'zom_enemy4', 'zom_ghoul0', 'zom_ghoul1', 'zom_ghoul2', 'zom_ghoul3', 'zom_ghoul4', 'zom_ghoul5'], SMP = {}; let smpLoaded = false;
   function loadSamples() {
@@ -823,7 +823,7 @@ const Sfx = (() => {
     try { ctx = new AC(); } catch (e) { ctx = null; return; }
     out = ctx.createGain(); out.gain.value = settings.vol;
     lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 20000;
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -7; comp.knee.value = 6; comp.ratio.value = 6; comp.attack.value = 0.002; comp.release.value = 0.12;
     lp.connect(comp); comp.connect(out); out.connect(ctx.destination);
     const rev = ctx.createConvolver(); rev.buffer = impulse(2.6, 2.6); revNode = rev;
     revIn = ctx.createGain(); revIn.gain.value = 0.5; revIn.connect(rev); rev.connect(lp);
@@ -834,7 +834,7 @@ const Sfx = (() => {
   function bus(pan = 0, wet = 0.25) {
     const g = ctx.createGain();
     let node = g;
-    const bh = behindNext; behindNext = 0;
+    const bh = performance.now() - behindT < 3 ? behindNext : 0; behindNext = 0;
     if (bh > 0.08) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 16000 - 12500 * bh; f.Q.value = 0.5; const a = ctx.createGain(); a.gain.value = 1 - 0.3 * bh; node.connect(f); f.connect(a); node = a; }
     if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
     node.connect(lp);
@@ -880,7 +880,7 @@ const Sfx = (() => {
   return {
     init,
     setRoom(o) { room = Object.assign({ sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, o); applyRoom(); },
-    setBehind(b) { behindNext = b; },
+    setBehind(b) { behindNext = b; behindT = performance.now(); },
     // Motor de motosierra: un solo sonido continuo que sigue al zombi más cercano (v = volumen, rev = acelerando)
     saw(v, pan, rev) {
       if (!ctx) return;
@@ -916,7 +916,7 @@ const Sfx = (() => {
       // disparo grabado: ya trae su propia cola, solo se le suma un poco del eco del lugar
       if (SHOT_SMP[model] && smp(SHOT_SMP[model], { vol: model === 'uzi' ? 0.62 : 0.95, rate: rand(0.97, 1.03), wet: 0.16, choke: true })) {
         if (gold) tone({ type: 'triangle', f0: 2400, f1: 1800, dur: 0.25, vol: 0.12, wet: 0.5 });
-        return;
+        return true;
       }
       burst({ ftype: 'highpass', f0: 2500, q: 0.7, dur: 0.025, vol: mini ? 0.5 : 0.9, wet: 0.1 });
       burst({ ftype: 'lowpass', f0: p.lp, f1: p.end, q: 0.5, dur: p.dur, vol: p.vol, wet: p.wet });
@@ -8997,8 +8997,8 @@ function shoot(h, fanned) {
   smokePuff(_mp, cam, h.model === 'viejo' || h.model === 'escopeta' ? 10 : m.auto ? 1 : 4, h.model === 'viejo' ? 2.2 : h.model === 'escopeta' ? 1.6 : 1);
   for (let i = 0; i < (m.auto ? 2 : 6); i++) PA.add(_mp.x, _mp.y, _mp.z, cam.x * rand(2, 6) + rand(-1, 1), cam.y * rand(2, 6) + rand(-1, 1), cam.z * rand(2, 6) + rand(-1, 1), rand(0.05, 0.15), 0.012, 1, 0.7, 0.3, 1, 0, 2, 0, 0);
   }
-  Sfx.shot(h.model, game.goldT > 0);
-  if (!m.auto || h.streak % 3 === 0) Sfx.cylTick(!!m.auto);
+  const rec = Sfx.shot(h.model, game.goldT > 0);
+  if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
   if (ctx.hitZ && hasB(type, 'bumeran')) { h.loaded[fired] = 'bumeran'; h.ammo++; feed('La bumerán volvió al tambor', 'gold'); }
   if (ctx.hitZ && hasB(type, 'junior')) {
     let n = 0;
