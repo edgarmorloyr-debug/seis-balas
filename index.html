@@ -803,9 +803,9 @@ const fmt = n => Math.round(n).toLocaleString('es-ES');
 const Sfx = (() => {
   let ctx = null, out, lp, revIn, noise, hurtT = 0, windG = null, windLevel = 0.07;
   // Eco de cada lugar y oído 3D (lo que suena detrás se oye más apagado)
-  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null;
+  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null, echoIn, echoD, echoF, echoFb, echoOut, earF, earO, earG, ear = 0, takeN = {};
   // Sonidos grabados (de uso libre, CC0: Kenney y OpenGameArt; ver snd/CREDITOS.txt). Si no cargan, suena lo sintetizado.
-  const SND = ['shot_sheriff', 'shot_johnny', 'shot_velorio', 'shot_francois', 'shot_lilith', 'card_place', 'card_slide', 'cards_shuffle', 'chips', 'clang0', 'clang1', 'clang2', 'coins', 'coins2', 'confirm', 'dice', 'door_close', 'door_open', 'error', 'fall0', 'fall1', 'fall2', 'jingle_boss', 'jingle_buy', 'jingle_item', 'metalClick', 'metalLatch', 'step_carpet0', 'step_carpet1', 'step_carpet2', 'step_concrete0', 'step_concrete1', 'step_concrete2', 'step_grass0', 'step_grass1', 'step_grass2', 'step_snow0', 'step_snow1', 'step_snow2', 'step_wood0', 'step_wood1', 'step_wood2', 'zom_enemy0', 'zom_enemy1', 'zom_enemy2', 'zom_enemy3', 'zom_enemy4', 'zom_ghoul0', 'zom_ghoul1', 'zom_ghoul2', 'zom_ghoul3', 'zom_ghoul4', 'zom_ghoul5'], SMP = {}; let smpLoaded = false;
+  const SND = ['shot_sheriff', 'shot_johnny', 'shot_velorio', 'shot_francois', 'shot_lilith', 'shot_sheriff_2', 'shot_johnny_2', 'shot_velorio_2', 'shot_francois_2', 'shot_lilith_2', 'clink0', 'clink1', 'clink2', 'tick0', 'tick1', 'tick2', 'card_place', 'card_slide', 'cards_shuffle', 'chips', 'clang0', 'clang1', 'clang2', 'coins', 'coins2', 'confirm', 'dice', 'door_close', 'door_open', 'error', 'fall0', 'fall1', 'fall2', 'jingle_boss', 'jingle_buy', 'jingle_item', 'metalClick', 'metalLatch', 'step_carpet0', 'step_carpet1', 'step_carpet2', 'step_concrete0', 'step_concrete1', 'step_concrete2', 'step_grass0', 'step_grass1', 'step_grass2', 'step_snow0', 'step_snow1', 'step_snow2', 'step_wood0', 'step_wood1', 'step_wood2', 'zom_enemy0', 'zom_enemy1', 'zom_enemy2', 'zom_enemy3', 'zom_enemy4', 'zom_ghoul0', 'zom_ghoul1', 'zom_ghoul2', 'zom_ghoul3', 'zom_ghoul4', 'zom_ghoul5'], SMP = {}; let smpLoaded = false;
   function loadSamples() {
     if (smpLoaded || !ctx || !window.fetch) return; smpLoaded = true;
     const dec = b => new Promise((ok, no) => { try { const r = ctx.decodeAudioData(b, ok, no); if (r && r.catch) r.catch(no); } catch (e) { no(e); } });
@@ -819,6 +819,7 @@ const Sfx = (() => {
     s.buffer = b; s.playbackRate.value = o.rate || 1; g.gain.value = o.vol == null ? 1 : o.vol;
     s.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.2 : o.wet)); s.start(t);
     // disparos: el nuevo corta al anterior en un instante, así al disparar seguido no se amontonan
+    if (o.echo && echoIn) { const e = ctx.createGain(); e.gain.value = o.echo; g.connect(e); e.connect(echoIn); }
     if (o.choke) { if (lastShot) { try { lastShot.g.gain.setTargetAtTime(0, t, 0.06); lastShot.s.stop(t + 0.35); } catch (e) {} } lastShot = { s, g }; }
     return true;
   }
@@ -827,7 +828,7 @@ const Sfx = (() => {
   const MODELS_AUTO = new Set(['uzi', 'minigun', 'mp5']);
   // Disparos grabados que eligió el dueño, uno por revólver de cada personaje (el resto, sintetizado)
   const SHOT_SMP = { paci: 'shot_sheriff', corto: 'shot_johnny', viejo: 'shot_velorio', magnum: 'shot_francois', uzi: 'shot_lilith' };
-  function applyRoom() { if (!ctx || !revNode) return; revNode.buffer = impulse(room.sec, room.decay); revIn.gain.setTargetAtTime(room.wet, ctx.currentTime, 0.1); lp.frequency.cancelScheduledValues(ctx.currentTime); lp.frequency.setTargetAtTime(room.lp, ctx.currentTime, 0.2); }
+  function applyRoom() { if (!ctx || !revNode) return; const E = room.echo || [0.3, 0, 0, 2000], t0 = ctx.currentTime; if (echoD) { echoD.delayTime.setValueAtTime(E[0] || 0.01, t0); echoOut.gain.setTargetAtTime(E[1], t0, 0.1); echoFb.gain.setTargetAtTime(E[2], t0, 0.1); echoF.frequency.setTargetAtTime(E[3], t0, 0.1); } revNode.buffer = impulse(room.sec, room.decay); revIn.gain.setTargetAtTime(room.wet, ctx.currentTime, 0.1); lp.frequency.cancelScheduledValues(ctx.currentTime); lp.frequency.setTargetAtTime(room.lp, ctx.currentTime, 0.2); }
   function impulse(sec, decay) {
     const len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
@@ -845,6 +846,12 @@ const Sfx = (() => {
     revIn = ctx.createGain(); revIn.gain.value = 0.5; revIn.connect(rev); rev.connect(lp);
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // eco del lugar (rebote lejano o cercano según el mapa); solo lo usan los disparos
+    echoIn = ctx.createGain(); echoD = ctx.createDelay(1.5); echoF = ctx.createBiquadFilter(); echoF.type = 'lowpass'; echoFb = ctx.createGain(); echoOut = ctx.createGain();
+    echoIn.connect(echoD); echoD.connect(echoF); echoF.connect(echoOut); echoF.connect(echoFb); echoFb.connect(echoD); echoOut.connect(lp); echoOut.gain.value = 0;
+    // D · oídos aturdidos: filtro general y un pitido muy suave
+    earF = ctx.createBiquadFilter(); earF.type = 'lowpass'; earF.frequency.value = 20000; comp.disconnect(); comp.connect(earF); earF.connect(out);
+    earO = ctx.createOscillator(); earO.type = 'sine'; earO.frequency.value = 3900; earG = ctx.createGain(); earG.gain.value = 0; earO.connect(earG); earG.connect(out); earO.start();
     ambient(); applyRoom(); loadSamples();
   }
   function bus(pan = 0, wet = 0.25) {
@@ -897,6 +904,12 @@ const Sfx = (() => {
     init,
     setRoom(o) { room = Object.assign({ sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, o); applyRoom(); },
     setBehind(b) { behindNext = b; behindT = performance.now(); },
+    deafen(a) { ear = Math.min(1.6, ear + a); },
+    earStep(dt, on) {
+      if (!ctx || !earF) return; ear = Math.max(0, ear - dt * (on ? 0.32 : 2)); const k = Math.max(0, ear - 0.55), t = ctx.currentTime;
+      earF.frequency.setTargetAtTime(k > 0 ? Math.max(1400, 20000 - k * 17000) : 20000, t, 0.08);
+      earG.gain.setTargetAtTime(on ? Math.min(0.018, k * 0.025) : 0, t, 0.15);
+    },
     // diagnóstico para el menú de pausa: versión, grabaciones listas y si el disparo usa la grabación
     diag(model) { const n = Object.keys(SMP).length, rec = !!(SHOT_SMP[model] && SMP[SHOT_SMP[model]]); return `Versión ${GAME_BUILD} · Sonido: ${ctx ? (ctx.state === 'running' ? 'activo' : 'en pausa') : 'apagado'} · ${n} de ${SND.length} grabaciones listas · tu disparo: ${rec ? 'grabado' : SHOT_SMP[model] ? 'sintético (falta la grabación)' : 'sintético'}${smpErr.length ? ' · fallaron: ' + smpErr.slice(0, 3).join(', ') : ''}`; },
     // Motor de motosierra: un solo sonido continuo que sigue al zombi más cercano (v = volumen, rev = acelerando)
@@ -929,10 +942,15 @@ const Sfx = (() => {
     get on() { return !!ctx; },
     setVol(v) { if (out) out.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
     setWind(v) { windLevel = v; if (windG) windG.gain.setTargetAtTime(v, ctx.currentTime, 0.5); },
-    shot(model, gold) {
+    shot(model, gold, last) {
       if (!ctx) return; const p = SHOTS[model] || SHOTS.paci, mini = model === 'minigun';
       // disparo grabado: ya trae su propia cola, solo se le suma un poco del eco del lugar
-      if (SHOT_SMP[model] && smp(SHOT_SMP[model], { vol: model === 'uzi' ? 1.05 : 1.5, rate: rand(0.97, 1.03), wet: 0.12, choke: true })) {
+      // B · dos tomas que se alternan; el último tiro del tambor suena más grave y con más eco
+      let nm = SHOT_SMP[model]; if (nm) { takeN[model] = (takeN[model] | 0) + 1; if (takeN[model] % 2 === 0 && SMP[nm + '_2']) nm += '_2'; }
+      if (nm && smp(nm, { vol: model === 'uzi' ? 1.05 : 1.5, rate: rand(0.97, 1.03) * (last ? 0.94 : 1), wet: 0.12, choke: true, echo: model === 'uzi' ? 0.45 : last ? 1.2 : 0.85 })) {
+        // C · peso: un golpe grave que se siente en el pecho
+        const big = model === 'magnum' || model === 'viejo'; tone({ f0: big ? 72 : 85, f1: 30, dur: big ? 0.28 : 0.18, vol: model === 'uzi' ? 0.25 : big ? 0.75 : 0.5, wet: 0 });
+        ear = Math.min(1.6, ear + (model === 'magnum' ? 0.13 : model === 'uzi' ? 0.035 : 0.075));
         if (gold) tone({ type: 'triangle', f0: 2400, f1: 1800, dur: 0.25, vol: 0.12, wet: 0.5 });
         return true;
       }
@@ -961,8 +979,8 @@ const Sfx = (() => {
     open() { if (smp('metalLatch', { vol: 0.45, rate: rand(0.95, 1.08), wet: 0.05 })) return; burst({ f0: 2600, q: 6, dur: 0.02, vol: 0.3, wet: 0.05 }); tone({ type: 'triangle', f0: 900, f1: 480, dur: 0.14, vol: 0.08, delay: 0.02, wet: 0.2 }); burst({ f0: 1300, f1: 700, q: 3, dur: 0.12, vol: 0.18, delay: 0.03, wet: 0.1 }); tone({ type: 'triangle', f0: 3800, dur: 0.08, vol: 0.03, delay: 0.1, wet: 0.4 }); },
     close() { if (smp('metalClick', { vol: 0.55, rate: rand(0.95, 1.08), wet: 0.08 })) return; burst({ f0: 2000, q: 4, dur: 0.04, vol: 0.45, wet: 0.1 }); tone({ f0: 320, f1: 140, dur: 0.07, vol: 0.25 }); tone({ type: 'triangle', f0: 4100, dur: 0.12, vol: 0.04, delay: 0.01, wet: 0.4 }); },
     holster() { burst({ f0: 900, q: 1, dur: 0.12, vol: 0.2, wet: 0.05 }); burst({ f0: 2400, q: 4, dur: 0.03, vol: 0.2, delay: 0.15 }); },
-    spin() { let t = 0; for (let i = 0; i < 14; i++) { t += 0.02 + i * i * 0.0012; burst({ f0: 3400 - i * 60, q: 7, dur: 0.015, vol: 0.16 * (1 - i / 16), delay: t, wet: 0.08 }); } tone({ type: 'triangle', f0: 4600, dur: 0.18, vol: 0.03, delay: t, wet: 0.5 }); },
-    insert() { burst({ f0: 1800, f1: 3600, q: 2, dur: 0.06, vol: 0.12, wet: 0.05 }); burst({ f0: 4200, q: 6, dur: 0.02, vol: 0.22, delay: 0.06, wet: 0.05 }); tone({ type: 'square', f0: 2200, f1: 1600, dur: 0.03, vol: 0.05, delay: 0.06 }); tone({ type: 'triangle', f0: 3300, dur: 0.09, vol: 0.035, delay: 0.07, wet: 0.4 }); },
+    spin() { if (SMP.tick0) { let t = 0; for (let i = 0; i < 12; i++) { t += 0.022 + i * i * 0.0013; smp(i % 2 ? 'tick0' : 'tick1', { vol: 0.32 * (1 - i / 14), rate: rand(1.2, 1.4), delay: t, wet: 0.06 }); } return; } let t = 0; for (let i = 0; i < 14; i++) { t += 0.02 + i * i * 0.0012; burst({ f0: 3400 - i * 60, q: 7, dur: 0.015, vol: 0.16 * (1 - i / 16), delay: t, wet: 0.08 }); } tone({ type: 'triangle', f0: 4600, dur: 0.18, vol: 0.03, delay: t, wet: 0.5 }); },
+    insert() { if (smpOf('clink', 3, { vol: 0.32, rate: rand(1.5, 1.8), wet: 0.04 })) { smp('tick1', { vol: 0.3, rate: rand(0.9, 1.1), delay: 0.05, wet: 0.03 }); return; } burst({ f0: 1800, f1: 3600, q: 2, dur: 0.06, vol: 0.12, wet: 0.05 }); burst({ f0: 4200, q: 6, dur: 0.02, vol: 0.22, delay: 0.06, wet: 0.05 }); tone({ type: 'square', f0: 2200, f1: 1600, dur: 0.03, vol: 0.05, delay: 0.06 }); tone({ type: 'triangle', f0: 3300, dur: 0.09, vol: 0.035, delay: 0.07, wet: 0.4 }); },
     clink(pan, v = 1) { tone({ type: 'triangle', f0: rand(3200, 4600), f1: rand(2400, 3000), dur: 0.06, vol: 0.05 * v, pan, wet: 0.2 }); tone({ type: 'sine', f0: rand(6000, 7600), dur: 0.03, vol: 0.02 * v, pan, wet: 0.1 }); },
     shells() { for (let i = 0; i < 6; i++) { const d = 0.22 + i * rand(0.03, 0.08), pn = rand(-0.4, 0.4); tone({ type: 'triangle', f0: rand(2600, 3800), f1: rand(1800, 2400), dur: 0.1, vol: 0.06, delay: d, pan: pn, wet: 0.25 }); tone({ type: 'triangle', f0: rand(4200, 5200), dur: 0.05, vol: 0.025, delay: d + 0.08, pan: pn, wet: 0.3 }); } },
     hit(head, pan) {
@@ -1310,6 +1328,27 @@ function disposeObj(o) {
   });
 }
 // Cómo suena cada lugar: duración y fuerza del eco, y cuánto se apagan los agudos
+// Eco de los disparos en cada lugar: [cuánto tarda en volver (s), volumen, rebotes, brillo (Hz)]
+const ECHO = [
+  [0.55, 0.28, 0.22, 2200],   // cementerio: eco lejano en el campo
+  [0.6, 0.25, 0.2, 2000],     // granja
+  [0.14, 0.3, 0.32, 3500],    // calles: rebota en las casas
+  [0.07, 0.22, 0.38, 4000],   // supermercado
+  [0.09, 0.18, 0.3, 3000],    // circo
+  [0.11, 0.25, 0.4, 3500],    // cine
+  [0.7, 0.12, 0.1, 1800],     // playa: casi nada vuelve
+  [0.16, 0.3, 0.35, 3500],    // calles en caos
+  [0.45, 0.22, 0.25, 2500],   // parque de atracciones
+  [0.8, 0.2, 0.25, 1800],     // rascacielos: la ciudad responde lejos
+  [0.32, 0.35, 0.5, 2500],    // centro de la Tierra: caverna
+  [0.18, 0.25, 0.4, 5000],    // estación espacial: cúpula metálica
+  [0.06, 0.2, 0.45, 3000],    // backrooms
+  [0.25, 0.25, 0.3, 3000],    // universidad
+  [0.5, 0.2, 0.2, 2200],      // zoológico
+  [0.3, 0, 0, 1000],          // la Luna: sin aire, sin eco
+  [0.65, 0.15, 0.15, 1600],   // ártico
+  [0.05, 0.15, 0.3, 3000]     // trastienda
+];
 const ACOUSTIC = [
   { sec: 1.8, decay: 3, wet: 0.4, step: 'grass' },               // cementerio: noche abierta
   { sec: 1.2, decay: 3.5, wet: 0.3, step: 'grass' },             // granja
@@ -1342,7 +1381,7 @@ function buildMap(i) {
   world.idx = i; srand = mulberry32(1866 + i * 977);
   [buildCemetery, buildFarm, buildStreets, buildMarket, buildCircus, buildCinema, buildBeach, buildChaos, buildPark, buildRooftop, buildCore, buildISS, buildBackrooms, buildUniversity, buildZoo, buildMoon, buildArctic, buildShopRoom][i]();
   moonMesh.visible = moonHalo.visible = !world.noMoon;
-  Sfx.setRoom(ACOUSTIC[i] || {});
+  Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
   buildNav();
 }
@@ -9017,7 +9056,7 @@ function shoot(h, fanned) {
   smokePuff(_mp, cam, h.model === 'viejo' || h.model === 'escopeta' ? 10 : m.auto ? 1 : 4, h.model === 'viejo' ? 2.2 : h.model === 'escopeta' ? 1.6 : 1);
   for (let i = 0; i < (m.auto ? 2 : 6); i++) PA.add(_mp.x, _mp.y, _mp.z, cam.x * rand(2, 6) + rand(-1, 1), cam.y * rand(2, 6) + rand(-1, 1), cam.z * rand(2, 6) + rand(-1, 1), rand(0.05, 0.15), 0.012, 1, 0.7, 0.3, 1, 0, 2, 0, 0);
   }
-  const rec = Sfx.shot(h.model, game.goldT > 0);
+  const rec = Sfx.shot(h.model, game.goldT > 0, h.ammo === 0);
   if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
   if (ctx.hitZ && hasB(type, 'bumeran')) { h.loaded[fired] = 'bumeran'; h.ammo++; feed('La bumerán volvió al tambor', 'gold'); }
   if (ctx.hitZ && hasB(type, 'junior')) {
@@ -9300,6 +9339,7 @@ function dropHit(z, m) { const i = z.hits.indexOf(m); if (i >= 0) z.hits.splice(
 function panOf(p) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz) || 1; Sfx.setBehind(clamp((dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / d, 0, 1)); return clamp((dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / d, -1, 1); }
 function volOf(p, base = 1) { return base / (1 + Math.hypot(p.x - player.pos.x, p.z - player.pos.z) * 0.18); }
 function explode(c, r, dmgZ, dmgP, green) {
+  { const pd0 = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd0 < 10) Sfx.deafen(0.9 * (1 - pd0 / 10)); }
   for (let i = 0; i < 50; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
   for (let i = 0; i < 14; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
   const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z);
@@ -12197,7 +12237,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B3';
-const GAME_BUILD = '13-oct-2026 · 5';
+const GAME_BUILD = '13-oct-2026 · 6';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -13426,7 +13466,7 @@ function frame() {
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
-  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); sawAudio();
+  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying');
   renderer.render(scene, camera);
 }
 buildMap(0);
