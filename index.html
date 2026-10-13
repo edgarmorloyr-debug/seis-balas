@@ -640,6 +640,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="ptt">Mantener para hablar (tecla V o botón Hablar)</option><option value="open">Micrófono abierto (V o botón para silenciar)</option></select>
       </div>
       <p class="note" id="pause-note"></p>
+      <p class="note" id="snd-diag"></p>
+      <div class="row"><button class="btn2" id="btn-snd-test">Probar disparo</button></div>
       <div class="row"><button class="btn" id="btn-resume">Seguir</button><button class="btn2" id="btn-quit">Salir al menú</button></div>
     </div>
   </div>
@@ -795,7 +797,10 @@ const Sfx = (() => {
   const SND = ['shot_sheriff', 'shot_johnny', 'shot_velorio', 'shot_francois', 'shot_lilith', 'card_place', 'card_slide', 'cards_shuffle', 'chips', 'clang0', 'clang1', 'clang2', 'coins', 'coins2', 'confirm', 'dice', 'door_close', 'door_open', 'error', 'fall0', 'fall1', 'fall2', 'jingle_boss', 'jingle_buy', 'jingle_item', 'metalClick', 'metalLatch', 'step_carpet0', 'step_carpet1', 'step_carpet2', 'step_concrete0', 'step_concrete1', 'step_concrete2', 'step_grass0', 'step_grass1', 'step_grass2', 'step_snow0', 'step_snow1', 'step_snow2', 'step_wood0', 'step_wood1', 'step_wood2', 'zom_enemy0', 'zom_enemy1', 'zom_enemy2', 'zom_enemy3', 'zom_enemy4', 'zom_ghoul0', 'zom_ghoul1', 'zom_ghoul2', 'zom_ghoul3', 'zom_ghoul4', 'zom_ghoul5'], SMP = {}; let smpLoaded = false;
   function loadSamples() {
     if (smpLoaded || !ctx || !window.fetch) return; smpLoaded = true;
-    for (const n of SND) fetch('snd/' + n + (n.startsWith('shot_') ? '.wav' : '.mp3')).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) ctx.decodeAudioData(b, buf => { SMP[n] = buf; }, () => {}); }).catch(() => {});
+    const dec = b => new Promise((ok, no) => { try { const r = ctx.decodeAudioData(b, ok, no); if (r && r.catch) r.catch(no); } catch (e) { no(e); } });
+    const get = (n, ext, tries) => fetch('snd/' + n + ext, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(dec).then(buf => { SMP[n] = buf; })
+      .catch(e => { if (tries > 0) return new Promise(r => setTimeout(r, 1500)).then(() => get(n, ext, tries - 1)); smpErr.push(n + ' (' + (e && e.message || 'no se pudo leer') + ')'); });
+    for (const n of SND) get(n, n.startsWith('shot_') ? '.wav' : '.mp3', 2);
   }
   function smp(name, o = {}) {
     const b = SMP[name]; if (!ctx || !b) return false;
@@ -806,7 +811,7 @@ const Sfx = (() => {
     if (o.choke) { if (lastShot) { try { lastShot.g.gain.setTargetAtTime(0, t, 0.02); lastShot.s.stop(t + 0.12); } catch (e) {} } lastShot = { s, g }; }
     return true;
   }
-  let lastShot = null;
+  let lastShot = null; const smpErr = [];
   const smpOf = (pre, n, o) => smp(pre + Math.floor(Math.random() * n), o);
   const MODELS_AUTO = new Set(['uzi', 'minigun', 'mp5']);
   // Disparos grabados que eligió el dueño, uno por revólver de cada personaje (el resto, sintetizado)
@@ -881,6 +886,8 @@ const Sfx = (() => {
     init,
     setRoom(o) { room = Object.assign({ sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, o); applyRoom(); },
     setBehind(b) { behindNext = b; behindT = performance.now(); },
+    // diagnóstico para el menú de pausa: versión, grabaciones listas y si el disparo usa la grabación
+    diag(model) { const n = Object.keys(SMP).length, rec = !!(SHOT_SMP[model] && SMP[SHOT_SMP[model]]); return `Versión ${GAME_BUILD} · Sonido: ${ctx ? (ctx.state === 'running' ? 'activo' : 'en pausa') : 'apagado'} · ${n} de ${SND.length} grabaciones listas · tu disparo: ${rec ? 'grabado' : SHOT_SMP[model] ? 'sintético (falta la grabación)' : 'sintético'}${smpErr.length ? ' · fallaron: ' + smpErr.slice(0, 3).join(', ') : ''}`; },
     // Motor de motosierra: un solo sonido continuo que sigue al zombi más cercano (v = volumen, rev = acelerando)
     saw(v, pan, rev) {
       if (!ctx) return;
@@ -914,7 +921,7 @@ const Sfx = (() => {
     shot(model, gold) {
       if (!ctx) return; const p = SHOTS[model] || SHOTS.paci, mini = model === 'minigun';
       // disparo grabado: ya trae su propia cola, solo se le suma un poco del eco del lugar
-      if (SHOT_SMP[model] && smp(SHOT_SMP[model], { vol: model === 'uzi' ? 0.62 : 0.95, rate: rand(0.97, 1.03), wet: 0.16, choke: true })) {
+      if (SHOT_SMP[model] && smp(SHOT_SMP[model], { vol: model === 'uzi' ? 0.75 : 1.15, rate: rand(0.97, 1.03), wet: 0.16, choke: true })) {
         if (gold) tone({ type: 'triangle', f0: 2400, f1: 1800, dur: 0.25, vol: 0.12, wet: 0.5 });
         return true;
       }
@@ -12156,6 +12163,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B3';
+const GAME_BUILD = '13-oct-2026 · 3';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -13172,7 +13180,7 @@ function pause() {
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
   syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel();
-  show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
+  $('#snd-diag').textContent = Sfx.diag(game && game.equip); show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
 function toMenu() {
@@ -13195,6 +13203,7 @@ $('#btn-menu').addEventListener('click', toMenu);
 $('#btn-win-menu').addEventListener('click', toMenu);
 $('#btn-endless').addEventListener('click', () => { if (state !== 'win') return; game.endless = true; show(null); openPerks(); });
 $('#btn-resume').addEventListener('click', resume);
+$('#btn-snd-test').addEventListener('click', () => { Sfx.init(); if (game) Sfx.shot(game.equip); setTimeout(() => { $('#snd-diag').textContent = Sfx.diag(game && game.equip); }, 300); });
 $('#btn-coop').addEventListener('click', () => { Sfx.init(); lobbyOpen(); });
 // el primer toque en el menú ya prepara el sonido (así el primer disparo suena con su grabación)
 document.addEventListener('pointerdown', () => Sfx.init(), { once: true, capture: true });
