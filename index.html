@@ -431,6 +431,11 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .char .ch-req{color:#ffd060;font-weight:700}
 .char.lock b{color:var(--bone-dim)}
 @media (max-width:560px){.char{padding:6px}.char b{font-size:17px}.ch-gun img{width:40px;height:24px}}
+.diff-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.diff-row button{flex:1 1 0;min-width:0;padding:0 6px;font-size:14px;letter-spacing:.04em;white-space:nowrap}
+.diff-row button[aria-checked="true"]{border-color:var(--brass);color:var(--brass);background:rgba(214,165,75,.12);box-shadow:inset 0 0 0 1px var(--brass)}
+.diff-row button.apoc[aria-checked="true"]{border-color:#e0503a;color:#ff8a70;background:rgba(224,80,58,.14);box-shadow:inset 0 0 0 1px #e0503a}
+#app.noxh #xh{display:none}
 .skull-row{display:flex;align-items:center;gap:10px;margin-top:10px}
 .skull-row b{font-size:22px;min-width:24px;text-align:center}
 .btn2.sq{min-width:48px;padding:0 12px}
@@ -711,6 +716,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
       </div>
       <div class="row"><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
+      <div class="diff-row" role="radiogroup" aria-label="Dificultad"><button class="btn2" role="radio" data-d="normal">Normal</button><button class="btn2" role="radio" data-d="dificil">Difícil</button><button class="btn2 apoc" role="radio" data-d="apoc">Apocalipsis</button></div>
+      <p class="note" id="diff-desc"></p>
       <div class="skull-row"><span>Nivel Calavera</span><button class="btn2 sq" id="sk-minus" aria-label="Bajar nivel">−</button><b id="sk-n">0</b><button class="btn2 sq" id="sk-plus" aria-label="Subir nivel">+</button></div>
       <p class="note" id="sk-desc"></p>
     </div>
@@ -14781,6 +14788,7 @@ function spawnZombie(type, x, zz, wave, rise = true) {
   z.speed = rand(d.speed[0], d.speed[1]) * (1 + Math.min(0.35, (w - 1) * 0.02));
   z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || 1);
   z.dmg = d.dmg * (1 + (w - 1) * 0.04);
+  if (game && state !== 'menu' && !tuto) { const D_ = DF(); z.maxHp = z.hp = z.maxHp * D_.hp; z.dmg *= D_.dmg; z.speed *= D_.spd; }
   z.r = d.quad ? 0.32 : 0.33 * z.s;
   z.yaw = rand(0, TAU); z.phase = rand(0, TAU);
   z.state = rise ? 'rise' : 'enter'; z.riseT = 0; z.riseDur = type === 'runner' || type === 'dog' ? 0.8 : d.big ? 1.8 : 1.3; z.enterT = 0.7;
@@ -15280,7 +15288,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge'];
+const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -15294,7 +15302,7 @@ function newGame(sv, run) {
     wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0,
     gold: 0, goldTotal: 0, goldT: 0, gold5: 0, perks: {}, toSpawn: 0, spawnT: 0, alive: 0, bossQ: [], phase: 'count', countT: 0, lastKill: -9, multi: 0,
     sixes: 0, powder: 3, nextRescue: 2, rescued: 0, npcLost: 0, waveT: 0, owned: {}, equip: null, dual: false, mag: {}, vest: 0, silver: false, endless: false, copsLost: 0,
-    box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}, allyGun: {}, char: run && CHARS[run.char] ? run.char : 'sheriff', skull: run ? run.skull : 0, bossKills: 0, route: [0], zmod: null, items: {}, nextRescue: 1e9
+    box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}, allyGun: {}, char: run && CHARS[run.char] ? run.char : 'sheriff', skull: run ? run.skull : 0, diff: run && DIFF[run.diff] ? run.diff : 'normal', bossKills: 0, route: [0], zmod: null, items: {}, nextRescue: 1e9
   };
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
@@ -15339,7 +15347,7 @@ const needsRescue = w => false;
 function waveCount(n) { const z = zoneOf(n), p = wavePos(n); return p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; }
 function startWave(n) {
   if (tuto) { game.wave = n; game.phase = 'tuto'; game.toSpawn = 0; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0; return; }
-  game.wave = n; game.toSpawn = Math.round(waveCount(n) * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
+  game.wave = n; game.toSpawn = Math.round(waveCount(n) * DF().n * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
   let sub;
   if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
@@ -15405,6 +15413,7 @@ function die() {
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
   const rows = [['Oleada', game.wave], ['Lugar', MAPS[world.idx].name.replace(/^(El|La|Las|Los) /, '')], ['Zombis', game.kills], ['A la cabeza', game.heads], ['Puntería', acc + ' %'], ['Oro ganado', game.goldTotal + ' $'], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`]];
+  if (game.diff && game.diff !== 'normal') rows.push(['Dificultad', DF().name]);
   if (game.bestCombo >= 2) rows.push(['Mejor combo', '×' + game.bestCombo]);
   if (game.sixes) rows.push(['Tambor perfecto', game.sixes]);
   if (game.rescued || game.npcLost) rows.push(['Rescatados', `${game.rescued} de ${game.rescued + game.npcLost}`]);
@@ -16987,7 +16996,7 @@ function pickBoss() {
   let pool = all.filter(i => !game.bossSeen.includes(i)); if (!pool.length) { game.bossSeen = []; pool = all; }
   const i = pick(pool); game.bossSeen.push(i); return i;
 }
-function bossHpFor(B) { return B.hp * 0.38 * 3 *   // jefes con el triple de vida
+function bossHpFor(B) { return B.hp * 0.38 * 3 * DF().hp *   // jefes con el triple de vida
    (sk(1) ? 1.25 : 1) * zoneHp(zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
 function applyBoss(z, idx, opt = {}) {
   const B = BOSSES[idx]; if (!B) return;
@@ -16995,7 +17004,7 @@ function applyBoss(z, idx, opt = {}) {
   let sc = B.sc; if (B.id === 'mass') { z.gen = opt.gen | 0; sc = B.sc * Math.pow(0.78, z.gen); }
   z.s = sc; z.body.scale.setScalar(sc); z.r = (z.def.quad ? 0.32 : 0.33) * sc;
   if (!opt.net) {
-    z.maxHp = z.hp = opt.hp || bossHpFor(B); z.speed = B.spd; z.dmg = B.dmg * (1 + 0.08 * zoneOf(game.wave));
+    z.maxHp = z.hp = opt.hp || bossHpFor(B); z.speed = B.spd * DF().spd; z.dmg = B.dmg * DF().dmg * (1 + 0.08 * zoneOf(game.wave));
     if (B.id === 'colossus') z.armor = z.armorMax = z.maxHp;
     if (B.id === 'mass') z.bst = z.gen;
   } else { z.maxHp = z.hp = 100; }
@@ -17282,7 +17291,7 @@ function applyMini(z, idx, net) {
   miniHat(z, M.hat);
   if (M.ab === 'shield') { const sh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(...M.glow), transparent: true, opacity: 0.28, depthWrite: false })); sh.position.y = 1.0; sh.visible = false; z.body.add(sh); z.mShieldM = sh; }
   if (!net) {
-    z.maxHp = z.hp = MINI_HP * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
+    z.maxHp = z.hp = MINI_HP * DF().hp * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
     banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}`, 4200);
     Sfx.roar(panOf(z.root.position), 1.8); player.shake = Math.min(1, player.shake + 0.3);
@@ -19980,7 +19989,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 29';
+const GAME_BUILD = '13-oct-2026 · 30';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20425,7 +20434,7 @@ function netEvent(p, e) {
     return;
   }
   if (t === 'sh') { const a = new THREE.Vector3(e[1], e[2], e[3]), b = new THREE.Vector3(e[4], e[5], e[6]); addTracer(a, b, e[7], 1.2); for (let i = 0; i < 4; i++) PA.add(a.x, a.y, a.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.08, 0.06, 1, 0.8, 0.4, 1, 0, 2, 0, 0); Sfx.shotAt(p && (MODEL_ORDER[p.model] || (CHARS[p.char] && CHARS[p.char].gun)), panOf(a), volOf(a, 1.3)); return; }
-  if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; netStartAsClient(); } return; }
+  if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; Net.diff = DIFF_KEYS[e[2] | 0] || 'normal'; netStartAsClient(); } return; }
   if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
   if (t === 'vinv') return;
   if (t === 'chat') { chatAdd(p.name, String(e[1] || '').slice(0, 80)); Sfx.holster(); return; }
@@ -20963,6 +20972,14 @@ const unl = k => !!META.un[k];
 const isOpen = k => { const u = UNLOCKS.find(x => x.k === k); return !u || !!META.un[k]; };
 const SKULLS = ['Los jefes tienen +25 % de vida', 'Los zombis élite tienen un 25 % más de vida', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
 const sk = n => game && (game.skull | 0) >= n;
+// Dificultad de la partida: Normal, Difícil y Apocalipsis (sin mira en la pantalla)
+const DIFF = {
+  normal: { name: 'Normal', hp: 1, dmg: 1, spd: 1, n: 1, fichas: 1, d: 'La experiencia de siempre.' },
+  dificil: { name: 'Difícil', hp: 1.4, dmg: 1.3, spd: 1.08, n: 1.2, fichas: 1.5, d: 'Zombis más duros, rápidos y numerosos. Ganas un 50 % más de fichas.' },
+  apoc: { name: 'Apocalipsis', hp: 1.9, dmg: 1.6, spd: 1.15, n: 1.35, fichas: 2.2, noXh: true, d: 'Sin mira en la pantalla: apuntas a ojo. Zombis mucho más duros y feroces. Fichas x2,2.' }
+};
+const DIFF_KEYS = Object.keys(DIFF);
+const DF = () => DIFF[game && game.diff] || DIFF.normal;
 // Precios de la tienda: +10 % por zona (y +15 % en Calavera 6)
 const shopP = n => Math.round(n * ST.shopX * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (zmodOn('shop') || 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
 function renderMeta() {
@@ -20971,6 +20988,9 @@ function renderMeta() {
   renderCarousel(0);
   META.skull = clamp(META.skull | 0, 0, META.skullMax | 0);
   $('#sk-n').textContent = META.skull;
+  if (!DIFF[META.diff]) META.diff = 'normal';
+  document.querySelectorAll('.diff-row button').forEach(b => b.setAttribute('aria-checked', b.dataset.d === META.diff ? 'true' : 'false'));
+  $('#diff-desc').textContent = DIFF[META.diff].d;
   $('#sk-minus').disabled = META.skull <= 0; $('#sk-plus').disabled = META.skull >= META.skullMax;
   $('#sk-desc').textContent = META.skullMax ? (META.skull ? `Activo: ${SKULLS.slice(0, META.skull).join(' · ')}. Ganas un ${META.skull * 25} % más de fichas.` : 'Sin dificultad extra.') : `Gana una partida (las ${LAST_WAVE} oleadas) para desbloquear el nivel Calavera 1.`;
 }
@@ -21042,7 +21062,7 @@ function renderAltar() {
 }
 function awardFichas(win) {
   if (!game || game.awarded) return 0; game.awarded = true;
-  const n = Math.round((zoneOf(game.wave) + (game.bossKills || 0) + (win ? 5 : 0)) * (1 + 0.25 * (game.skull | 0)));
+  const n = Math.round((zoneOf(game.wave) + (game.bossKills || 0) + (win ? 5 : 0)) * (1 + 0.25 * (game.skull | 0)) * DF().fichas);
   META.fichas += n; if (win && (game.skull | 0) >= (META.skullMax | 0) && META.skullMax < SKULLS.length) { META.skullMax++; game.newSkull = META.skullMax; }
   saveMeta(); game.fichasWon = n; return n;
 }
@@ -21554,7 +21574,7 @@ $('#btn-tu-play').addEventListener('click', () => { tutoStop(); startGame(); });
 $('#btn-tu-again').addEventListener('click', () => { tutoStop(); tutoStart(); });
 $('#btn-tu-menu').addEventListener('click', () => toMenu());
 function startGame(sv) {
-  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: META.char, skull: Net.client ? (Net.skull | 0) : META.skull });
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: META.char, skull: Net.client ? (Net.skull | 0) : META.skull, diff: Net.client ? (Net.diff || 'normal') : META.diff });
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${MODELS[CHARS[game.char].gun].name}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
@@ -21580,6 +21600,7 @@ function toMenu() {
 }
 $('#btn-start').addEventListener('click', () => startGame());
 $('#sk-minus').addEventListener('click', () => { META.skull = Math.max(0, META.skull - 1); saveMeta(); renderMeta(); });
+document.querySelectorAll('.diff-row button').forEach(b => b.addEventListener('click', () => { META.diff = b.dataset.d; saveMeta(); renderMeta(); }));
 $('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
 $('#top-nick').addEventListener('change', e => { const v = e.target.value.trim().slice(0, 12); if (v) store.set('sb_nick', v); e.target.value = myNick(); loadTop(true); });
 $('#top-box').addEventListener('toggle', e => { if (e.target.open) loadTop(); });
@@ -21605,7 +21626,7 @@ $('#salas-list').addEventListener('click', e => { const b = e.target.closest('.s
 $('#room-code').addEventListener('keydown', e => { if (e.key === 'Enter') lobbyJoin(); });
 $('#btn-rs-pay').addEventListener('click', () => rescuePay(false));
 $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') startHorde(false); });
-$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; Net.ev(['start', META.skull | 0]); Net.flush(); startGame(); });
+$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; Net.ev(['start', META.skull | 0, DIFF_KEYS.indexOf(META.diff)]); Net.flush(); startGame(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause' && !tuto) saveBest(); toMenu(); });
 $('#btn-inv-close').addEventListener('click', closeInv);
 $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
@@ -21756,6 +21777,7 @@ function frame() {
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
+  { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
