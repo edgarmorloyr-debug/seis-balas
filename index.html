@@ -86,6 +86,26 @@ body{font-family:var(--hud);font-size:16px}
 #hud-bl{z-index:4;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px))}
 .touch #hud-bl{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
 #team{margin-bottom:0}
+#ach-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-top:12px;max-height:58vh;overflow-y:auto;padding:2px}
+.ach{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(214,165,75,.25);text-align:left}
+.ach>i{flex:0 0 40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.05);color:#8a7a60;font-size:22px}
+.ach>i svg{width:24px;height:24px}
+.ach b{display:block;font:700 16px var(--hud);color:var(--bone-dim)}
+.ach span{display:block;font-size:14px;color:var(--bone-dim);line-height:1.3;margin-top:2px}
+.ach em{display:block;font-style:normal;font:700 13px var(--hud);margin-top:4px;color:#8fd08f}
+.ach em.pr{color:#c9b48c}
+.ach.ok{border-color:rgba(255,200,90,.7);background:linear-gradient(180deg,rgba(80,56,20,.55),rgba(20,14,6,.6));box-shadow:0 0 14px rgba(255,180,60,.15)}
+.ach.ok>i{background:#d8a838;color:#1a1008}
+.ach.ok b{color:#ffd47a}
+.ach-p{height:6px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:6px;overflow:hidden}.ach-p s,.ach-all s{display:block;height:100%;background:#d8a838;text-decoration:none}
+.ach-all{height:8px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;max-width:420px;margin:4px auto 0}
+#ach-toast{position:fixed;z-index:23;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-20px);opacity:0;display:flex;gap:12px;align-items:center;padding:10px 16px;border-radius:12px;background:rgba(18,12,6,.96);border:2px solid #d8a838;box-shadow:0 0 30px rgba(255,190,70,.45);pointer-events:none;transition:opacity .35s,transform .35s;max-width:calc(100% - 32px)}
+#ach-toast.on{opacity:1;transform:translate(-50%,0)}
+#ach-toast>i{flex:0 0 42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#d8a838;color:#1a1008}
+#ach-toast>i svg{width:26px;height:26px}
+#ach-toast small{display:block;font:800 12px var(--hud);letter-spacing:.14em;text-transform:uppercase;color:#d8a838}
+#ach-toast b{display:block;font:700 18px var(--hud);color:#ffd47a}
+#ach-toast span{display:block;font-size:14px;color:var(--bone)}
 #wait-call{position:fixed;z-index:22;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 18px;border-radius:10px;background:rgba(18,12,6,.94);border:2px solid #d8a838;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 0 24px rgba(216,168,56,.45);text-align:center;pointer-events:none;animation:waitPulse 1.6s ease-in-out infinite}
 #wait-call b{display:block;font:700 17px var(--hud);color:#ffd47a;letter-spacing:.04em}
 #wait-call span{display:block;font:600 14px var(--hud);color:var(--bone);margin-top:2px}
@@ -611,7 +631,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <p class="tag">Tu revólver y zombis sin fin.</p>
       <div class="best" id="best-line">Todavía no tienes récord</div>
       <div id="run-setup">
-        <div class="meta-top"><span id="fichas">0 fichas de calavera</span><button class="btn2" id="btn-altar">Desbloqueos</button></div>
+        <div class="meta-top"><span id="fichas">0 fichas de calavera</span><button class="btn2" id="btn-ach">Logros</button><button class="btn2" id="btn-altar">Desbloqueos</button></div>
         <h3 class="sec">Elige tu vaquero</h3>
         <div id="char-list"></div>
         <div class="skull-row"><span>Nivel Calavera</span><button class="btn2 sq" id="sk-minus" aria-label="Bajar nivel">−</button><b id="sk-n">0</b><button class="btn2 sq" id="sk-plus" aria-label="Subir nivel">+</button></div>
@@ -632,6 +652,17 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <p class="note">Las balas no son infinitas. Si te quedas sin balas, mueres.</p>
     </div>
   </div>
+
+  <div class="overlay" id="ach-s" hidden>
+    <div class="card wide">
+      <h2 class="title sm">Logros</h2>
+      <p class="tag" id="ach-count">0 conseguidos</p>
+      <div class="ach-all"><s id="ach-bar"></s></div>
+      <div id="ach-list"></div>
+      <div class="row"><button class="btn" id="btn-ach-back">Volver</button></div>
+    </div>
+  </div>
+  <div id="ach-toast" role="status" aria-live="polite" hidden></div>
 
   <div class="overlay" id="altar" hidden>
     <div class="card wide">
@@ -1482,6 +1513,7 @@ function buildMap(i) {
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = [];
   world.idx = i; srand = mulberry32(1866 + i * 977);
+  if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   [buildCemetery, buildFarm, buildStreets, buildMarket, buildCircus, buildCinema, buildBeach, buildChaos, buildPark, buildRooftop, buildCore, buildISS, buildBackrooms, buildUniversity, buildZoo, buildMoon, buildArctic, buildShopRoom, buildHeaven, buildIsland, buildFairy, buildChoco, buildOcean, buildPolice, buildSunken, buildTokyo, buildVegas, buildArcade, buildPipes][i]();
   moonMesh.visible = moonHalo.visible = !world.noMoon;
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
@@ -8960,6 +8992,7 @@ function saveGame() {
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
+  if (!sv) META.st.runs = (META.st.runs | 0) + 1;
   clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
   game = {
     wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0,
@@ -9099,7 +9132,7 @@ function updateBest() {
 function deadEye(on) {
   if (on === game.deOn) return;
   if (on && game.de < 20) { hint('El Ojo Muerto necesita más carga', 1200); return; }
-  game.deOn = on; Sfx.deadeye(on);
+  game.deOn = on; Sfx.deadeye(on); if (on) META.st.des = (META.st.des | 0) + 1;
   applySlowFx();
 }
 function applySlowFx() { const on = !!game && (game.deOn || game.slowT > 0); el.fxDe.style.opacity = on ? 1 : 0; canvas.style.filter = on ? 'sepia(.55) saturate(1.5) contrast(1.08)' : ''; }
@@ -9160,7 +9193,7 @@ function cockGun(h) { const fast = wlv(h.model) >= 3; h.cocked = true; h.cockT =
 function fan() {
   if (state !== 'play' || gs.reloading || totalAmmo() <= 0 || gs.fan > 0 || gs.draw > 0) return;
   if (MODELS[game.equip].auto) { hint(`${MODELS[game.equip].name} no se abanica: mantén el gatillo`, 1500); return; }
-  gs.fan = totalAmmo(); gs.fanT = 0; gs.aiming = false;
+  gs.fan = totalAmmo(); gs.fanT = 0; gs.aiming = false; META.st.fans = (META.st.fans | 0) + 1;
 }
 function wlv(id) { const x = (game && game.wxp[id]) || 0; let l = 1; for (let i = 1; i < WLV.length; i++) if (x >= WLV[i]) l = i + 1; return l; }
 function gainXp(id) {
@@ -9628,7 +9661,7 @@ function killZombie(z, info) {
 function creditKill(def, head, ally, weapon) {
   const hb = head && !ally ? (def.big ? 3 : 1) + lv('bounty') : 0;
   addGold(Math.round((def.gold + hb) * (dareOn() && !ally ? 1.5 : 1)));
-  if (!ally) META.st.kills++;
+  if (!ally) { META.st.kills++; if (def.human) META.st.bandits = (META.st.bandits | 0) + 1; }
   game.gold5++; if (lv('greed') && game.gold5 % 5 === 0) addGold(lv('greed'), true);
   if (!ally) {
     game.w.kills++;
@@ -10444,7 +10477,7 @@ function waveSummary() {
 }
 function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; feed('¡Volviste a la pelea!', 'gold'); }
 function victory() {
-  META.st.wins++; checkUnlocks();
+  META.st.wins++; META.st['w_' + game.char] = 1; if ((game.skull | 0) >= 1) META.st.skullWin = 1; checkUnlocks(); checkAch();
   state = 'win'; game.phase = 'win'; if (document.pointerLockElement) document.exitPointerLock();
   awardFichas(true); submitRun(); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
   setTimeout(() => $('#btn-endless').focus(), 50);
@@ -11769,7 +11802,7 @@ function updatePlay(dt) {
     updatePlayer(dt);
     if (!Net.client) updateWave(wdt); else if (game.phase === 'room' || game.phase === 'exit') roomStep(wdt);
     if (world.uses.length && game.phase !== 'room' && game.phase !== 'exit') mapUseStep();
-    updateChicken(dt);
+    updateChicken(dt); checkAch(dt);
     ammoCheck(dt);
     if (Net.host) netHostStep();
     if (game.goldT > 0) game.goldT -= dt;
@@ -12258,7 +12291,7 @@ function openTaller() {
       b.innerHTML = `<span class="relic-ic">${ico(U.ic)}</span><em>${done ? 'Al máximo' : U.max > 1 ? `Nivel ${l} de ${U.max}` : 'Pieza única'}</em><b>${U.name}</b><span>${U.desc}</span><span class="tl-p">${done ? 'Instalada' : game.gold >= pr ? `Instalar · ${pr} $` : `Faltan ${pr - game.gold} $`}</span>`;
       b.addEventListener('click', () => {
         const p2 = shopP(U.price(sigLv(U.id)) * TALLER_X); if (state !== 'items' || sigLv(U.id) >= U.max || game.gold < p2) return;
-        game.gold -= p2; game.sig = game.sig || {}; game.sig[U.id] = sigLv(U.id) + 1; Sfx.cash(); Sfx.clang(0); setTimeout(() => Sfx.insert(), 160);
+        game.gold -= p2; game.sig = game.sig || {}; game.sig[U.id] = sigLv(U.id) + 1; Sfx.cash(); Sfx.clang(0); META.st.taller = (META.st.taller | 0) + 1; setTimeout(() => Sfx.insert(), 160);
         if (U.id === 'cap') { sigApply(); if (game.equip === g) equip(g, true); }
         feed(`${U.name} instalada`, 'gold'); renderChips(); draw();
       });
@@ -12349,7 +12382,7 @@ function goldenChicken() {
   chicken = { g, body, t: 3, dir: Math.atan2(fz * side, -fx * side), turnT: 0.5, legs };
   body.userData.onShot = head.userData.onShot = () => {
     if (!chicken) return; const c = chicken.g.position;
-    addGold(500); banner('¡GALLINA DORADA!', '+500 $', 2600, 'coins'); Sfx.win(); Sfx.cash();
+    addGold(500); banner('¡GALLINA DORADA!', '+500 $', 2600, 'coins'); Sfx.win(); Sfx.cash(); META.st.chickens = (META.st.chickens | 0) + 1;
     for (let i = 0; i < 50; i++) PA.add(c.x, 0.6, c.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.6, 1.3), 0.08, 1, 0.82, 0.25, 1, 9.8, 0.5, 0, 0);
     removeChicken();
   };
@@ -13308,7 +13341,7 @@ const Music = (() => {
 })();
 
 /* ===================== PANTALLAS ===================== */
-function show(id) { if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'ach-s'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
@@ -13344,6 +13377,71 @@ function checkUnlocks() {
   let any = false;
   for (const [id, C] of Object.entries(CHARS)) if (C.req && !META.un['c:' + id] && (META.st[C.req.k] | 0) >= C.req.n) { META.un['c:' + id] = 1; any = true; banner('¡Personaje desbloqueado!', `${C.name} ya se puede elegir`, 3200, 'star'); Sfx.win(); }
   saveMeta(); return any;
+}
+// ---- Logros: metas para completar, con su progreso (se guardan entre partidas)
+const itemsN = () => game && game.items ? Object.values(game.items).reduce((a, b) => a + (b | 0), 0) : 0;
+const ACH = [
+  { id: 'sangre', ic: 'blood', name: 'Primera sangre', d: 'Mata a tu primer zombi', n: 1, v: () => META.st.kills | 0 },
+  { id: 'cazador', ic: 'skull', name: 'Cazador', d: 'Mata 500 zombis sumando todas tus partidas', n: 500, v: () => META.st.kills | 0 },
+  { id: 'exterm', ic: 'skull', name: 'Exterminador', d: 'Mata 5000 zombis sumando todas tus partidas', n: 5000, v: () => META.st.kills | 0 },
+  { id: 'leyenda', ic: 'star', name: 'Leyenda del Oeste', d: 'Mata 20 000 zombis sumando todas tus partidas', n: 20000, v: () => META.st.kills | 0 },
+  { id: 'punteria', ic: 'target', name: 'Buena puntería', d: '25 tiros a la cabeza en una partida', n: 25, run: () => game.heads | 0 },
+  { id: 'halcon', ic: 'eye', name: 'Ojo de halcón', d: '150 tiros a la cabeza en una partida', n: 150, run: () => game.heads | 0 },
+  { id: 'ol5', ic: 'shield', name: 'Sobreviviente', d: 'Llega a la oleada 5', n: 5, run: () => game.wave | 0 },
+  { id: 'ol15', ic: 'shield', name: 'Veterano', d: 'Llega a la oleada 15', n: 15, run: () => game.wave | 0 },
+  { id: 'ol30', ic: 'medal', name: 'Hasta el final', d: `Llega a la oleada ${LAST_WAVE}`, n: LAST_WAVE, run: () => game.wave | 0 },
+  { id: 'gana', ic: 'medal', name: 'Fin de la pesadilla', d: 'Gana una partida completa', n: 1, v: () => META.st.wins | 0 },
+  { id: 'sinfin', ic: 'infinity', name: 'Sin fin', d: 'Llega a la oleada 40 en el modo sin fin', n: 40, run: () => game.endless ? game.wave | 0 : 0 },
+  { id: 'jefe1', ic: 'urn', name: 'Matajefes', d: 'Vence a tu primer jefe', n: 1, v: () => META.st.bosses | 0 },
+  { id: 'jefe10', ic: 'urn', name: 'Coleccionista de jefes', d: 'Vence a 10 jefes', n: 10, v: () => META.st.bosses | 0 },
+  { id: 'jefe50', ic: 'devil', name: 'Pesadilla de los jefes', d: 'Vence a 50 jefes', n: 50, v: () => META.st.bosses | 0 },
+  { id: 'combo5', ic: 'burst', name: 'Racha', d: 'Haz un combo de 5 muertes seguidas', n: 5, run: () => game.multi | 0 },
+  { id: 'combo10', ic: 'burst', name: 'Masacre', d: 'Haz un combo de 10 muertes seguidas', n: 10, run: () => game.multi | 0 },
+  { id: 'seis', ic: 'revolver', name: 'Seis de seis', d: 'Mata a un zombi con cada bala de un tambor', n: 1, run: () => game.sixes | 0 },
+  { id: 'seis5', ic: 'revolver', name: 'Pistolero perfecto', d: 'Consigue 5 «Seis de seis» en una partida', n: 5, run: () => game.sixes | 0 },
+  { id: 'ahorro', ic: 'coins', name: 'Colchón de oro', d: 'Ten 500 $ en el bolsillo a la vez', n: 500, run: () => game.gold | 0 },
+  { id: 'rico', ic: 'coins', name: 'Millonario del fin del mundo', d: 'Gana 25 000 $ sumando todas tus partidas', n: 25000, v: () => META.st.gold | 0 },
+  { id: 'resc1', ic: 'heli', name: 'Buen samaritano', d: 'Rescata a un superviviente', n: 1, run: () => game.rescued | 0 },
+  { id: 'resc5', ic: 'heli', name: 'Héroe del pueblo', d: 'Rescata a 5 supervivientes en una partida', n: 5, run: () => game.rescued | 0 },
+  { id: 'abanico', ic: 'twin', name: 'Mano de abanico', d: 'Abanica el martillo (F) 50 veces', n: 50, v: () => META.st.fans | 0 },
+  { id: 'ojo', ic: 'eye', name: 'El tiempo es mío', d: 'Usa el Ojo Muerto 25 veces', n: 25, v: () => META.st.des | 0 },
+  { id: 'objetos', ic: 'backpack', name: 'Bolsillos llenos', d: 'Junta 15 objetos en una partida', n: 15, run: itemsN },
+  { id: 'grupo', ic: 'badge', name: 'Nadie se queda atrás', d: 'Supera la oleada 3 jugando en grupo', n: 1, v: () => META.st.coop | 0 },
+  { id: 'gallina', ic: 'coins', name: 'La gallina de los huevos de oro', d: 'Dale a la gallina dorada', n: 1, v: () => META.st.chickens | 0 },
+  { id: 'taller', ic: 'hammer', name: 'Manos de mecánico', d: 'Instala una mejora en el Taller de armas', n: 1, v: () => META.st.taller | 0 },
+  { id: 'saq', ic: 'gun', name: 'Ladrón que roba a ladrón', d: 'Mata a 20 saqueadores armados', n: 20, v: () => META.st.bandits | 0 },
+  { id: 'calavera', ic: 'skull', name: 'Calavera', d: 'Gana una partida con nivel Calavera 1 o más', n: 1, v: () => META.st.skullWin | 0 },
+  { id: 'sheriff', ic: 'badge', name: 'La ley ha vuelto', d: 'Gana con El Sheriff', n: 1, v: () => META.st.w_sheriff | 0 },
+  { id: 'todos', ic: 'star', name: 'Los cinco forajidos', d: 'Gana con los cinco personajes', n: 5, v: () => Object.keys(CHARS).filter(k => META.st['w_' + k]).length },
+  { id: 'lugares10', ic: 'compass', name: 'Trotamundos', d: 'Pelea en 10 lugares distintos', n: 10, v: () => Object.keys(META.pl || {}).length },
+  { id: 'lugares20', ic: 'map', name: 'Turista del apocalipsis', d: 'Pelea en 20 lugares distintos', n: 20, v: () => Object.keys(META.pl || {}).length },
+  { id: 'partidas', ic: 'cards', name: 'Cliente habitual', d: 'Juega 10 partidas', n: 10, v: () => META.st.runs | 0 }
+];
+META.ach = META.ach || {}; META.ab = META.ab || {};
+const achVal = A => A.run ? Math.max(META.ab[A.id] | 0, game ? A.run() : 0) : A.v();
+const achQ = []; let achBusy = false, achT = 0;
+function checkAch(dt) {
+  if (dt !== undefined) { achT -= dt; if (achT > 0) return; achT = 1; }
+  if (game && Net.on && (game.wave | 0) >= 4) META.st.coop = 1;
+  let any = false;
+  for (const A of ACH) {
+    if (A.run && game) { const v = A.run(); if (v > (META.ab[A.id] | 0)) { META.ab[A.id] = v; any = true; } }
+    if (!META.ach[A.id] && achVal(A) >= A.n) { META.ach[A.id] = Date.now(); any = true; achQ.push(A); }
+  }
+  if (any) saveMeta();
+  achShow();
+}
+function achShow() {
+  if (achBusy || !achQ.length) return; const A = achQ.shift(), el_ = $('#ach-toast'); if (!el_) return;
+  achBusy = true; el_.innerHTML = `<i>${ico(A.ic)}</i><div><small>¡Logro conseguido!</small><b>${A.name}</b><span>${A.d}</span></div>`; el_.hidden = false;
+  el_.classList.remove('on'); void el_.offsetWidth; el_.classList.add('on'); Sfx.coin(); setTimeout(() => Sfx.bell(), 120);
+  setTimeout(() => { el_.classList.remove('on'); setTimeout(() => { el_.hidden = true; achBusy = false; achShow(); }, 400); }, 3600);
+}
+function renderAch() {
+  const done = ACH.filter(A => META.ach[A.id]).length;
+  $('#ach-count').textContent = `${done} de ${ACH.length} conseguidos`;
+  $('#ach-bar').style.width = `${Math.round(done / ACH.length * 100)}%`;
+  $('#ach-list').innerHTML = ACH.map(A => { const ok = !!META.ach[A.id], v = Math.min(A.n, achVal(A)); return `<div class="ach${ok ? ' ok' : ''}"><i>${ico(A.ic)}</i><div><b>${A.name}</b><span>${A.d}</span>${ok ? '<em>Conseguido</em>' : A.n > 1 ? `<div class="ach-p"><s style="width:${Math.round(v / A.n * 100)}%"></s></div><em class="pr">${v.toLocaleString('es')} / ${A.n.toLocaleString('es')}</em>` : '<em class="pr">Pendiente</em>'}</div></div>`; }).join('');
 }
 const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : p;
 const UNLOCKS = [
@@ -13762,6 +13860,8 @@ $('#sk-minus').addEventListener('click', () => { META.skull = Math.max(0, META.s
 $('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
 $('#top-nick').addEventListener('change', e => { const v = e.target.value.trim().slice(0, 12); if (v) store.set('sb_nick', v); e.target.value = myNick(); loadTop(true); });
 $('#top-box').addEventListener('toggle', e => { if (e.target.open) loadTop(); });
+$('#btn-ach').addEventListener('click', () => { checkAch(); renderAch(); show('ach-s'); });
+$('#btn-ach-back').addEventListener('click', () => { renderMeta(); show('menu'); });
 $('#btn-altar').addEventListener('click', () => { renderAltar.said = 0; renderAltar(); show('altar'); });
 $('#btn-altar-back').addEventListener('click', () => { renderMeta(); show('menu'); });
 renderMeta();
