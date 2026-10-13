@@ -2,11 +2,12 @@
 
 Juego 3D en el navegador: un revólver de seis balas contra zombis sin fin.
 
-- Cinco mapas (Cementerio, Granja, Calles, Supermercado, Rascacielos), 10 oleadas cada uno.
-- Caja de 50 balas con 30 tipos de balas especiales, armería cada 3 oleadas y pólvora para fabricar cajas nuevas.
-- Policías aliados, civiles que rescatar y mejoras por arma.
+- 17 lugares; cada lugar dura 3 oleadas y en la 3.ª sale el jefe. Al vencerlo eliges entre tres puertas de color el siguiente lugar (10 lugares por partida, o menos con un atajo).
+- Solo el revólver de tu personaje, que mejoras con 100 objetos que se compran en la Trastienda entre oleadas.
+- Las balas se acaban: compras en Apocalipsis Delivery y algunos zombis sueltan balas. Si te quedas sin ninguna, se acaba la partida.
+- Inventario sin límite y fusión de balas (2 balas especiales distintas = 1 con los dos efectos).
 - La partida se guarda sola en el navegador al empezar cada oleada.
-- Modo en grupo cooperativo (2 a 4 jugadores).
+- La versión anterior (modo clásico, "Seis Balas A") está guardada en la rama `seis-balas-a`.
 
 ## Cómo jugar
 
