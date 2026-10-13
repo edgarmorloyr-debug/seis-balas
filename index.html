@@ -15347,7 +15347,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
 function die() {
-  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.22; Sfx.death(); Net.ev(['down']); game.downT = DOWN_T; game.revP = 0; const can = game.revW !== game.wave; banner('Caíste', can ? `Sigues disparando desde el suelo (−70 % de daño). Un compañero puede levantarte: ${DOWN_T} s` : 'Ya te levantaron en esta oleada: dispara desde el suelo hasta que termine', 3200); gs.aiming = false; input.fireHeld = false; return; }
+  if (Net.on) { player.down = true; player.hp = 0; player.roll = 0.22; Sfx.death(); Net.ev(['down']); game.downT = DOWN_T; game.revP = 0; const can = canRevive(); banner('Caíste', can ? `Sigues disparando desde el suelo (−70 % de daño). Un compañero puede levantarte: ${DOWN_T} s` : `Ya te levantaron ${REV_MAX} veces en esta oleada: dispara desde el suelo hasta que termine`, 3200); gs.aiming = false; input.fireHeld = false; return; }
   state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); gs.aiming = false; input.fireHeld = false; }
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
@@ -17408,10 +17408,12 @@ function waveSummary() {
   if (!game.w.hurt) game.cleanW = (game.cleanW || 0) + 1;
   contractStep(isMapEnd(wv));
 }
-function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0.5); player.roll = 0; game.downT = 0; game.revP = 0; feed('¡Volviste a la pelea!', 'gold'); }
+function revive(f = 0.5) { player.down = false; player.hp = Math.max(1, Math.round(player.maxHp * f)); player.roll = 0; game.downT = 0; game.revP = 0; feed('¡Volviste a la pelea!', 'gold'); }
 // Caído en grupo: puedes disparar desde el suelo con las balas del tambor (−70 % de daño) durante DOWN_T segundos.
 // Un compañero que se quede a tu lado REV_T segundos te levanta; solo una vez por oleada a cada jugador.
-const DOWN_T = 30, REV_T = 5, REV_R = 2.2;
+const DOWN_T = 30, REV_T = 5, REV_R = 2.2, REV_MAX = 3;
+const revN = () => game && game.revWv === game.wave ? game.revN | 0 : 0;   // levantadas en esta oleada: vuelves con 30 %, 20 % y 10 % de vida
+const canRevive = () => revN() < REV_MAX;
 const canFloor = () => player.down && game && game.downT > 0;
 let revSend = 0;
 function downStep(dt) {
@@ -17419,7 +17421,7 @@ function downStep(dt) {
   if (player.down && game.downT > 0) {
     game.downT -= dt;
     if (game.downT <= 0) { game.downT = 0; banner('Te desangraste', 'Mira a tu grupo: si superan la oleada, vuelves en la siguiente', 3000); }
-    else if (!(game.revP > 0) && Math.ceil(game.downT) !== game.downS) game.downS = Math.ceil(game.downT), hint(game.revW === game.wave ? `En el suelo: ${Math.ceil(game.downT)} s · dispara mientras puedas` : `En el suelo: ${Math.ceil(game.downT)} s · que un compañero se quede a tu lado para levantarte`, 1100);
+    else if (!(game.revP > 0) && Math.ceil(game.downT) !== game.downS) game.downS = Math.ceil(game.downT), hint(!canRevive() ? `En el suelo: ${Math.ceil(game.downT)} s · dispara mientras puedas` : `En el suelo: ${Math.ceil(game.downT)} s · que un compañero se quede a tu lado para levantarte`, 1100);
   }
   // levantar a un compañero caído que esté cerca
   if (player.down || state !== 'play') { game.revTgt = null; return; }
@@ -19674,7 +19676,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 23';
+const GAME_BUILD = '13-oct-2026 · 24';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -19700,7 +19702,7 @@ const Net = {
   flush() {
     if (!this.tr) return;
     const m = { id: this.id, n: this.name, h: this.host ? 1 : 0, st: this.started ? 1 : 0 };
-    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0, CHAR_KEYS.indexOf(game.char), totalAmmo(), game.box.length, game.phase === 'wait' ? 1 : 0, player.down && game.downT > 0 && game.revW !== game.wave ? 1 : 0];
+    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0, CHAR_KEYS.indexOf(game.char), totalAmmo(), game.box.length, game.phase === 'wait' ? 1 : 0, player.down && game.downT > 0 && canRevive() ? 1 : 0];
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
     if (Voice.on) m.v = Voice.sending() || settings.voice === 'ptt' ? 1 : 2;
@@ -20093,7 +20095,7 @@ function netEvent(p, e) {
   if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; netStartAsClient(); } return; }
   if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
   if (t === 'vinv') return;
-  if (t === 'rev') { if (e[1] === Net.id && player.down && game && game.downT > 0 && game.revW !== game.wave) { game.revW = game.wave; revive(); banner('¡Te levantaron!', `${p.name} te puso de pie`, 2200); Sfx.heart(); Net.ev(['up']); } }
+  if (t === 'rev') { if (e[1] === Net.id && player.down && game && game.downT > 0 && canRevive()) { const k = revN(); game.revWv = game.wave; game.revN = k + 1; revive(0.3 - 0.1 * k); banner('¡Te levantaron!', `${p.name} te puso de pie con ${30 - 10 * k} % de vida · ${REV_MAX - k - 1 > 0 ? `te pueden levantar ${REV_MAX - k - 1} ${REV_MAX - k - 1 === 1 ? 'vez' : 'veces'} más en esta oleada` : 'ya no te pueden levantar más en esta oleada'}`, 2600); Sfx.heart(); Net.ev(['up']); } }
   else if (t === 'revp') { if (e[1] === Net.id && player.down && game && game.downT > 0) { game.revP = e[2]; if (e[2] > 0) hint(`${p.name} te está levantando… ${e[2]} %`, 700); } }
   else if (t === 'up') { p.down = false; p.rv = false; }
   if (t === 'rev' || t === 'revp' || t === 'up') return;
