@@ -921,6 +921,8 @@ const Sfx = (() => {
     setRoom(o) { room = Object.assign({ sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, o); applyRoom(); },
     setBehind(b) { behindNext = b; behindT = performance.now(); },
     deafen(a) { ear = Math.min(1.6, ear + a); },
+    // cámara lenta: el mundo se apaga un instante y suena un golpe grave
+    killcam(t) { if (!ctx) return; const n = ctx.currentTime; lp.frequency.cancelScheduledValues(n); lp.frequency.setTargetAtTime(1300, n, 0.03); lp.frequency.setTargetAtTime(room.lp, n + t * 0.75, 0.18); tone({ f0: 70, f1: 34, dur: 0.6, vol: 0.55, wet: 0.5 }); },
     earStep(dt, on) {
       if (!ctx || !earF) return; ear = Math.max(0, ear - dt * (on ? 0.32 : 2)); const k = Math.max(0, ear - 0.55), t = ctx.currentTime;
       earF.frequency.setTargetAtTime(k > 0 ? Math.max(1400, 20000 - k * 17000) : 20000, t, 0.08);
@@ -9017,6 +9019,7 @@ function shoot(h, fanned) {
   camera.updateMatrixWorld(); camera.getWorldPosition(_cp);
   const cam = camera.getWorldDirection(new THREE.Vector3());
   _r.setFromMatrixColumn(camera.matrixWorld, 0); _u.setFromMatrixColumn(camera.matrixWorld, 1);
+  gs.fovKick = Math.max(gs.fovKick || 0, 1.7 * m.recoil * (1 - gs.aim * 0.5)); player.rollKick = (Math.random() < 0.5 ? -1 : 1) * 0.011 * m.recoil;
   player.recoil += (fanned ? 0.035 : 0.05) * m.recoil * (1 - gs.aim * 0.35) * st * (game.dual ? 0.8 : 1);
   player.yaw += rand(-0.012, 0.012) * st * (fanned ? 2 : 1) * m.recoil;
   gs.bloom = Math.min(0.09, gs.bloom + 0.03 * st * m.recoil);
@@ -9242,6 +9245,26 @@ function showRibs(z, pt) {
   for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(goreGeo.rib, goreMats.bone); r.position.set(x, y - 0.09 + i * 0.06, 0.165 * side); r.rotation.z = (i % 2 ? 0.06 : -0.06); t.add(r); }
   const m = new THREE.Mesh(goreGeo.blob, goreMats.meat); m.position.set(x + 0.05, y - 0.02, 0.15 * side); m.scale.set(1.2, 1, 0.5); t.add(m);
 }
+// Reacción al golpe: el zombi se ladea según de dónde viene el tiro, la cabeza se va atrás,
+// la pierna se dobla o el brazo sale despedido (se suma a la animación y se apaga sola)
+function hitReact(z, info, amount) {
+  if (!info || !info.bullet || z.dead || z.def.quad) return;
+  const d = info.dir || _up, yw = z.yaw || 0, fwd = d.x * Math.sin(yw) + d.z * Math.cos(yw), side = d.x * Math.cos(yw) - d.z * Math.sin(yw);
+  const str = clamp(amount / Math.max(1, z.maxHp) * 3, 0.35, 1) * (z.boss != null ? 0.3 : z.def.big ? 0.45 : 1);
+  const o = info.obj, part = info.part, hr = z.hr || (z.hr = { t: 0 });
+  hr.t = 0.38; hr.px = clamp(fwd * 0.5 * str, -0.6, 0.6); hr.ty = side * 0.55 * str; hr.rz = -side * 0.22 * str;
+  hr.head = part === 'head' ? 0.75 * str : 0; hr.hz = part === 'head' ? side * 0.5 * str : 0;
+  hr.legL = part === 'limb' && o === z.legL ? 0.7 * str : 0; hr.legR = part === 'limb' && o === z.legR ? 0.7 * str : 0;
+  hr.armL = part === 'limb' && o === z.armL ? 1.1 * str : 0; hr.armR = part === 'limb' && o === z.armR ? 1.1 * str : 0;
+}
+function applyHitReact(z, dt) {
+  const hr = z.hr; if (!hr || hr.t <= 0) { if (hr && hr.on) { z.body.rotation.set(0, 0, 0); hr.on = false; } return; }
+  hr.t -= dt; hr.on = true; const k = Math.max(0, hr.t / 0.38), e = k * k * (3 - 2 * k);
+  z.body.rotation.set(hr.px * e, hr.ty * e, hr.rz * e);
+  if (z.neck) { z.neck.rotation.x -= hr.head * e; z.neck.rotation.z += hr.hz * e; }
+  if ((hr.legL || hr.legR) && !z.crawlMode) { z.body.position.y -= 0.14 * Math.max(hr.legL, hr.legR) * e; if (hr.legL && z.legL) z.legL.rotation.x += hr.legL * e; if (hr.legR && z.legR) z.legR.rotation.x += hr.legR * e; }
+  if (hr.armL && z.armLG) z.armLG.rotation.x += hr.armL * e; if (hr.armR && z.armRG) z.armRG.rotation.x += hr.armR * e;
+}
 function goreHit(z, info, amount, net) {
   if (!info.bullet || !info.point || !goreOK(z)) return;
   const dir = info.dir || _up, low = IS_TOUCH || FAST(), part = info.part, o = info.obj, mx = z.maxHp || 100;
@@ -9308,6 +9331,10 @@ function updateStumps(dt) {
 }
 function syncLost(z, f) { for (const [b, k] of LIMB_BITS) if ((f & b) && !(z.lost && z.lost[k])) loseLimb(z, k, null); }
 const lostBits = z => z.lost ? (z.lost.armL ? 64 : 0) | (z.lost.armR ? 128 : 0) | (z.lost.legL ? 256 : 0) | (z.lost.legR ? 512 : 0) : 0;
+function killcam(t, zoom) {
+  if (!game) return; game.killcamT = Math.max(game.killcamT || 0, t); game.kcLast = game.time; gs.fovKick = zoom;
+  Sfx.killcam(t);
+}
 function damageZombie(z, amount, info) {
   if (z.dead) return false;
   if (z.type === 'knight') {
@@ -9346,6 +9373,7 @@ function damageZombie(z, amount, info) {
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
     if (lv('fire') && !info.ally) { z.burn = 3; z.burnDps = 18 * lv('fire'); }
     if (!armorHit) goreHit(z, info, amount, false);
+    if (z.hp > 0) hitReact(z, info, amount);
   }
   if (z.hp <= 0) { killZombie(z, info); if (info.bullet && !info.ally) hitmarker('kill'); return true; }
   if (info.bullet && !info.ally) hitmarker(armorHit ? 'armor' : head ? 'head' : '');
@@ -9371,6 +9399,10 @@ function killZombie(z, info) {
   z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false;
   const inGame = !!game && state !== 'menu';
   if (inGame) { game.alive--; game.kills++; }
+  if (inGame && game.phase === 'fight' && !Net.client) {
+    if (game.toSpawn <= 0 && game.alive <= 0 && !(game.bossQ && game.bossQ.length)) killcam(1.0, -7);
+    else if (info && info.part === 'head' && !info.ally && !Net.on && game.time - (game.kcLast || -99) > 8 && Math.random() < 0.18) killcam(0.32, -3);
+  }
   const head = info.part === 'head';
   z.fallDir = info.dir ? ((info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw)) > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   if (z.saw && z.saw.parent) { detach(z.saw, new THREE.Vector3(rand(-1.5, 1.5), rand(2, 3.5), rand(-1.5, 1.5)), 8); z.saw = null; }
@@ -10926,8 +10958,9 @@ function updateCamera(dt) {
   const sh = player.shake * player.shake * (REDUCED ? 0.25 : 1), hs = Math.hypot(player.vx, player.vz);
   const bobAmt = Math.min(1, hs / 5) * (1 - gs.aim * 0.8) * (player.onGround ? 1 : 0), by = Math.abs(Math.sin(player.bob)) * 0.06 * bobAmt;
   camera.position.set(player.pos.x + rand(-1, 1) * sh * 0.08, player.pos.y + (player.down ? 0.35 : 1.65) + by + rand(-1, 1) * sh * 0.06, player.pos.z + rand(-1, 1) * sh * 0.08);
-  camera.rotation.set(player.pitch + player.recoil + rand(-1, 1) * sh * 0.02, player.yaw, player.roll + Math.sin(player.bob * 0.5) * 0.008 * bobAmt);
-  const fov = game && game.dual ? lerp(75, 66, gs.aim) : lerp(75, 56, gs.aim);
+  gs.fovKick = (gs.fovKick || 0) * Math.exp(-13 * dt); player.rollKick = (player.rollKick || 0) * Math.exp(-11 * dt);
+  camera.rotation.set(player.pitch + player.recoil + rand(-1, 1) * sh * 0.02, player.yaw, player.roll + player.rollKick + Math.sin(player.bob * 0.5) * 0.008 * bobAmt);
+  const fov = (game && game.dual ? lerp(75, 66, gs.aim) : lerp(75, 56, gs.aim)) + (gs.fovKick || 0);
   if (Math.abs(fov - lastFov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); lastFov = fov; updateScale(); }
 }
 function updateGun(dt) {
@@ -11209,6 +11242,7 @@ function updateZombies(dt, canAttack) {
       if (z.gait) applyGait(z, sw, moving, dt, z.state !== 'enter' && !(z.windup > 0) && !(z.swing > 0) && !(z.scream > 0) && !z.eating && !(z.stagger > 0) && !(z.spitAnim > 0) && !(z.charge > 0));
       if (z.saw) sawPose(z, dt, sw);
     }
+    applyHitReact(z, dt);
     z.groanT -= dt;
     if (z.groanT <= 0) { z.groanT = rand(3, 9); if (dist < 30 && z.type !== 'bandit') { if (z.type === 'dog') Sfx.bark(panOf(pos), volOf(pos, 0.7)); else Sfx.groan(panOf(pos), volOf(pos, 0.45), z.def.big ? 0.6 : z.type === 'runner' ? 1.3 : z.type === 'screamer' ? 1.5 : 1); } }
   }
@@ -11532,7 +11566,8 @@ function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx -
 function updatePlay(dt) {
   if (game.deOn) { game.de -= dt * 22 / (1 + 0.35 * lv('cold')) / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
-  game.ts = damp(game.ts, state === 'dying' ? 0.3 : (game.deOn || game.slowT > 0) ? 0.28 : 1, 10, dt);
+  if (game.killcamT > 0) game.killcamT -= dt;
+  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
   if (state === 'play' || state === 'pause') {
     game.time += dt;
@@ -12264,7 +12299,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 10';
+const GAME_BUILD = '13-oct-2026 · 11';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -12503,7 +12538,7 @@ function netEvent(p, e) {
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
   if (t === 'hurt') { if (e[1] === Net.id) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
-  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') afterClear(); else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
+  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') afterClear(); else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
   else if (t === 'route') { if (!Net.host && game) { game.route = e[3]; game.zmod = { z: e[2], k: e[1] }; routeGift(e[1]); banner(ROUTE_MODS[e[1]].name, ROUTE_MODS[e[1]].desc, 3200, ROUTE_MODS[e[1]].ic); } }
   else if (t === 'over') gameOver();
@@ -12630,6 +12665,7 @@ function clientDamage(z, amount, info) {
   if (info.bullet && info.point) { bloodBurst(info.point, info.dir || _up, head ? 16 : 9, head); Sfx.hit(head, pan); }
   z.hp -= a;
   if (info.part !== 'helmet' && info.part !== 'vest') goreHit(z, info, a, true);
+  if (z.hp > 0) hitReact(z, info, a);
   if (z.hp <= 0) { proxyDie(z, info); if (info.bullet) hitmarker('kill'); return true; }
   if (info.bullet) hitmarker(head ? 'head' : '');
   return false;
@@ -12662,6 +12698,7 @@ function proxyStep(z, dt) {
     if (z.gait) applyGait(z, sw, moving, dt, !(z.windup > 0));
     if (z.saw) sawPose(z, dt, sw);
   }
+  applyHitReact(z, dt);
 }
 // Pose del zombi de la motosierra: la lleva al frente, la mueve de lado a lado y la levanta para golpear
 function sawPose(z, dt, sw) {
