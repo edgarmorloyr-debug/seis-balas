@@ -16964,7 +16964,8 @@ function drawMap() {
 let mapT = 0;
 function updateHud(dt) {
   const hpP = clamp(player.hp / player.maxHp, 0, 1);
-  setStyle(el.hpB, 'hpb', 'width', (hpP * 100).toFixed(1) + '%'); setStyle(el.hpS, 'hps', 'width', (hpP * 100).toFixed(0) + '%');
+  setStyle(el.hpB, 'hpb', 'width', (hpP * 100).toFixed(1) + '%');
+  { const hu = Math.round(hpHue(hpP)); setStyle(el.hpB, 'hpbg', 'background', `linear-gradient(180deg,hsl(${hu},78%,52%),hsl(${hu},82%,30%))`); } setStyle(el.hpS, 'hps', 'width', (hpP * 100).toFixed(0) + '%');
   setText(el.hpN, 'hpn', `${Math.ceil(player.hp)} / ${player.maxHp}`);
   setStyle(el.stB, 'st', 'width', (player.st / player.maxSt * 100).toFixed(0) + '%');
   setStyle(el.deB, 'de', 'width', game.de.toFixed(0) + '%');
@@ -17149,18 +17150,20 @@ function ecgWave(p) {
   const g = (c, w, a) => a * Math.exp(-((p - c) * (p - c)) / (2 * w * w));
   return g(0.1, 0.03, 0.14) - g(0.2, 0.014, 0.14) + g(0.24, 0.018, 1) - g(0.28, 0.016, 0.3) + g(0.48, 0.05, 0.26);
 }
+// La vida pasa de verde (llena) a amarillo y a rojo (letal); el pulso lleva el mismo color
+const hpHue = r => 120 * Math.pow(clamp(r, 0, 1), 1.15);
 function updateEcg(dt) {
   if (!game || el.hud.hidden) return;
   const cv = $('#ecg'); if (!cv) return;
   const down = player.down || player.hp <= 0, r = clamp(player.hp / player.maxHp, 0, 1);
-  const bpm = down ? 0 : r > 0.6 ? 66 : r > 0.3 ? 98 : 138 + Math.sin(game.time * 3) * 18;
+  const bpm = down ? 0 : 62 + (1 - r) * 92 + (r < 0.3 ? Math.sin(game.time * 3) * 18 * (1 - r / 0.3) : 0);
   ecg.acc += dt * 110;
   while (ecg.acc >= 1) {
     ecg.acc -= 1; ecg.ph = (ecg.ph + bpm / 60 / 110) % 1;
-    let v = down ? 0 : ecgWave(ecg.ph) * (r > 0.3 ? 1 : 0.8 + Math.random() * 0.5) + (r < 0.3 && !down ? (Math.random() - 0.5) * 0.08 : 0);
+    let v = down ? 0 : ecgWave(ecg.ph) * (1 - (1 - r) * 0.25 + (Math.random() - 0.5) * (1 - r) * 0.6) + (Math.random() - 0.5) * 0.1 * Math.pow(1 - r, 2);
     ecg.buf.copyWithin(0, 1); ecg.buf[ecg.buf.length - 1] = v;
   }
-  const g = cv.getContext('2d'), W = cv.width, H = cv.height, col = down ? '#ffffff' : r > 0.6 ? '#8dffad' : r > 0.3 ? '#ffe680' : '#ffffff';
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, col = down ? '#ffffff' : `hsl(${Math.round(hpHue(r))},95%,74%)`;
   g.clearRect(0, 0, W, H); g.lineWidth = 3; g.lineJoin = 'round'; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 6; g.beginPath();
   const n = ecg.buf.length;
   for (let i = 0; i < n; i++) { const x = i / (n - 1) * W, y = H * 0.66 - ecg.buf[i] * H * 0.5; i ? g.lineTo(x, y) : g.moveTo(x, y); }
