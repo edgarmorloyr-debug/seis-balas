@@ -819,7 +819,7 @@ const fmt = n => Math.round(n).toLocaleString('es-ES');
 const Sfx = (() => {
   let ctx = null, out, lp, revIn, noise, hurtT = 0, windG = null, windLevel = 0.07;
   // Eco de cada lugar y oído 3D (lo que suena detrás se oye más apagado)
-  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null, echoIn, echoD, echoF, echoFb, echoOut, earF, earO, earG, ear = 0, takeN = {};
+  let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null, echoIn, echoD, echoF, echoFb, echoOut, earF, earO, earG, ear = 0, takeN = {}, ambT = 2;
   // Sonidos grabados (de uso libre, CC0: Kenney y OpenGameArt; ver snd/CREDITOS.txt). Si no cargan, suena lo sintetizado.
   const SND = ['shot_sheriff', 'shot_johnny', 'shot_velorio', 'shot_francois', 'shot_lilith', 'shot_sheriff_2', 'shot_johnny_2', 'shot_velorio_2', 'shot_francois_2', 'shot_lilith_2', 'clink0', 'clink1', 'clink2', 'tick0', 'tick1', 'tick2', 'rl_open', 'rl_close', 'rl_in0', 'rl_in1', 'rl_in2', 'rl_tink0', 'rl_tink1', 'rl_tink2', 'rl_rat0', 'rl_rat1', 'rl_rat2', 'card_place', 'card_slide', 'cards_shuffle', 'chips', 'clang0', 'clang1', 'clang2', 'coins', 'coins2', 'confirm', 'dice', 'door_close', 'door_open', 'error', 'fall0', 'fall1', 'fall2', 'jingle_boss', 'jingle_buy', 'jingle_item', 'metalClick', 'metalLatch', 'step_carpet0', 'step_carpet1', 'step_carpet2', 'step_concrete0', 'step_concrete1', 'step_concrete2', 'step_grass0', 'step_grass1', 'step_grass2', 'step_snow0', 'step_snow1', 'step_snow2', 'step_wood0', 'step_wood1', 'step_wood2', 'zom_enemy0', 'zom_enemy1', 'zom_enemy2', 'zom_enemy3', 'zom_enemy4', 'zom_ghoul0', 'zom_ghoul1', 'zom_ghoul2', 'zom_ghoul3', 'zom_ghoul4', 'zom_ghoul5'], SMP = {}; let smpLoaded = false;
   function loadSamples() {
@@ -921,6 +921,19 @@ const Sfx = (() => {
     setRoom(o) { room = Object.assign({ sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, o); applyRoom(); },
     setBehind(b) { behindNext = b; behindT = performance.now(); },
     deafen(a) { ear = Math.min(1.6, ear + a); },
+    // ambiente del lugar: grillos, sirenas lejanas, olas, goteo, zumbido de tubos de luz, viento
+    amb(kind, dt) {
+      if (!ctx || !kind) return; ambT -= dt; if (ambT > 0) return;
+      const pn = rand(-0.9, 0.9);
+      if (kind === 'grillos') { ambT = rand(0.35, 1.2); const f = rand(4200, 4900), n = 2 + Math.floor(rand(0, 3)); for (let i = 0; i < n; i++) tone({ type: 'sine', f0: f, dur: 0.035, vol: 0.022, pan: pn, delay: i * 0.06, wet: 0.25 }); }
+      else if (kind === 'sirena') { ambT = rand(7, 14); tone({ type: 'sine', f0: 620, f1: 900, dur: 1.6, vol: 0.02, pan: pn, wet: 0.9 }); tone({ type: 'sine', f0: 900, f1: 620, dur: 1.6, vol: 0.02, pan: pn, delay: 1.6, wet: 0.9 }); }
+      else if (kind === 'olas') { ambT = rand(3.5, 6); burst({ ftype: 'lowpass', f0: 500, f1: 1400, q: 0.5, dur: 2.6, vol: 0.09, pan: pn * 0.4, wet: 0.5, attack: 1.1 }); }
+      else if (kind === 'goteo') { ambT = rand(0.8, 2.6); tone({ type: 'sine', f0: rand(1300, 2200), f1: rand(700, 1000), dur: 0.09, vol: 0.05, pan: pn, wet: 1 }); }
+      else if (kind === 'zumbido') { ambT = rand(2, 4); tone({ type: 'sawtooth', f0: 120, dur: ambT + 0.3, vol: 0.006, wet: 0.05, attack: 0.4 }); if (Math.random() < 0.15) burst({ f0: 3000, q: 4, dur: 0.05, vol: 0.03, pan: pn }); }
+      else if (kind === 'viento') { ambT = rand(4, 8); burst({ ftype: 'bandpass', f0: rand(300, 600), f1: rand(700, 1200), q: 1.2, dur: 3.2, vol: 0.06, pan: pn * 0.5, wet: 0.4, attack: 1.3 }); }
+      else if (kind === 'fuego') { ambT = rand(0.08, 0.35); burst({ f0: rand(1500, 4000), q: 3, dur: 0.02, vol: 0.03, pan: rand(-0.3, 0.3), wet: 0.1 }); }
+      else if (kind === 'feria') { ambT = rand(5, 10); [0, 4, 7, 12].forEach((s2, i) => tone({ type: 'triangle', f0: 392 * Math.pow(2, s2 / 12), dur: 0.25, vol: 0.012, pan: pn, delay: i * 0.22, wet: 1 })); }
+    },
     // cámara lenta: el mundo se apaga un instante y suena un golpe grave
     killcam(t) { if (!ctx) return; const n = ctx.currentTime; lp.frequency.cancelScheduledValues(n); lp.frequency.setTargetAtTime(1300, n, 0.03); lp.frequency.setTargetAtTime(room.lp, n + t * 0.75, 0.18); tone({ f0: 70, f1: 34, dur: 0.6, vol: 0.55, wet: 0.5 }); },
     earStep(dt, on) {
@@ -1003,7 +1016,9 @@ const Sfx = (() => {
     shells() { if (SMP.rl_tink0) { for (let i = 0; i < 5; i++) smpOf('rl_tink', 3, { vol: 0.32, rate: rand(1.05, 1.35), pan: rand(-0.3, 0.3), delay: 0.04 + i * rand(0.025, 0.06), wet: 0.05 }); return; } for (let i = 0; i < 6; i++) { const d = 0.22 + i * rand(0.03, 0.08), pn = rand(-0.4, 0.4); tone({ type: 'triangle', f0: rand(2600, 3800), f1: rand(1800, 2400), dur: 0.1, vol: 0.06, delay: d, pan: pn, wet: 0.25 }); tone({ type: 'triangle', f0: rand(4200, 5200), dur: 0.05, vol: 0.025, delay: d + 0.08, pan: pn, wet: 0.3 }); } },
     hit(head, pan) {
       burst({ ftype: 'lowpass', f0: 900, f1: 200, q: 1, dur: 0.12, vol: 0.45, pan, wet: 0.1 });
-      if (head) { tone({ type: 'triangle', f0: 1300, f1: 900, dur: 0.12, vol: 0.18 }); burst({ f0: 2400, q: 1, dur: 0.07, vol: 0.25, pan }); }
+      if (head) { tone({ type: 'triangle', f0: 1300, f1: 900, dur: 0.12, vol: 0.18 }); burst({ f0: 2400, q: 1, dur: 0.07, vol: 0.25, pan });
+        // «ding» seco de acierto en la cabeza
+        tone({ type: 'sine', f0: 2093, dur: 0.22, vol: 0.13, wet: 0.08 }); tone({ type: 'sine', f0: 3136, dur: 0.14, vol: 0.06, wet: 0.08 }); tone({ type: 'triangle', f0: 4186, dur: 0.05, vol: 0.04, wet: 0 }); }
     },
     clang(pan) { if (smpOf('clang', 3, { vol: 0.5, pan, rate: rand(0.9, 1.1), wet: 0.3 })) return; tone({ type: 'square', f0: 1800, f1: 1400, dur: 0.12, vol: 0.12, pan, wet: 0.3 }); tone({ type: 'triangle', f0: 3100, f1: 2900, dur: 0.25, vol: 0.08, pan, wet: 0.3 }); },
     splat(pan, vol = 0.5) { burst({ ftype: 'lowpass', f0: 600, f1: 120, q: 2, dur: 0.25, vol, pan, wet: 0.2 }); },
@@ -1064,7 +1079,7 @@ const Sfx = (() => {
     cash() { smp('chips', { vol: 0.5, wet: 0.2 }); if (smp('coins2', { vol: 0.5, wet: 0.2, delay: 0.05 })) return; tone({ type: 'triangle', f0: 1568, dur: 0.12, vol: 0.2, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.4, vol: 0.2, delay: 0.1, wet: 0.5 }); burst({ f0: 5000, q: 2, dur: 0.15, vol: 0.2 }); },
     bell() { [196, 392, 588, 784, 1176].forEach((f, i) => tone({ f0: f, dur: 3.2 - i * 0.4, vol: 0.22 / (i + 1), wet: 0.8, attack: 0.004 })); },
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
-    combo(n) { tone({ type: 'triangle', f0: 500 + n * 120, dur: 0.15, vol: 0.12, wet: 0.3 }); },
+    combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
     deadeye(on) {
       if (!ctx) return; const t = ctx.currentTime;
       lp.frequency.cancelScheduledValues(t); lp.frequency.setTargetAtTime(on ? 800 : room.lp, t, on ? 0.08 : 0.25);
@@ -11660,6 +11675,17 @@ function renderTeam(dt) {
     return `<div class="tm${dn ? ' down' : hp <= 30 ? ' low' : hp <= 60 ? ' mid' : ''}" title="${dn ? 'Caído' : `${p.drum | 0} en el tambor + ${p.box | 0} en la caja`}"><img alt="" src="${charPic(p.char || 'sheriff')}"><span class="am">${dn ? '✕' : p.drum == null ? '–' : n}</span><div class="hb"><i style="width:${hp}%"></i></div></div>`; }).join('');
   if (html !== teamKey) { teamKey = html; box.innerHTML = html; } box.hidden = false;
 }
+const AMB = ['grillos', 'grillos', 'sirena', 'zumbido', 'feria', 'zumbido', 'olas', 'sirena', 'feria', 'viento', 'goteo', 'zumbido', 'zumbido', 'grillos', 'grillos', null, 'viento', 'fuego'];
+let moodT = 0;
+function moodStep(dt) {
+  if (!game || state === 'menu') return; Sfx.amb(state === 'play' ? AMB[world.idx] : null, dt);
+  moodT -= dt; if (moodT > 0) return; moodT = 0.25;
+  let near = 0, bossOn = false;
+  for (const z of zombies) { if (z.dead) continue; if (z.boss != null) bossOn = true; const d = Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z); if (d < 20) near += z.def.big ? 2.5 : d < 8 ? 1.5 : 1; }
+  const room = world.idx === ROOM_IDX || game.phase === 'room' || game.phase === 'exit';
+  const x = room ? 0 : bossOn ? 1 : clamp(near / 10 + (player.hp < player.maxHp * 0.3 ? 0.2 : 0), 0, 1);
+  Music.mood(x, bossOn && !room, room);
+}
 function sawAudio() {
   const now = performance.now(); if (now - sawT < 90) return; sawT = now;
   let best = null, bd = 36;
@@ -12880,11 +12906,31 @@ const Music = (() => {
       V.musicbox(t, mtof(n), 0.05); if (i % 3 === 0) V.musicbox(t, mtof([48, 53, 55, 48][Math.floor(i / 12) % 4] + 12), 0.04); } },
     { bpm: 56, spb: 1, step(i, t, sd) { const c = [[52, 59, 64, 67], [48, 55, 64, 67], [45, 52, 60, 64], [47, 54, 63, 66]][Math.floor(i / 4) % 4]; if (i % 4 === 0) c.forEach(n => V.pad(t, mtof(n), 4 * sd, 0.02, 1400)); if (i % 8 === 6) V.pad(t, mtof(c[3] + 12), 2 * sd, 0.016, 2400); } }
   ];
+  // capa de tensión: bombo, platillo y graves que suben con la amenaza; golpes graves si hay jefe
+  let tension = 0, tensT = 0, boss = false, calm = false, tens = null, beatT = 0, beatN = 0;
+  function drum(t, v) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(g); g.connect(tens); o.start(t); o.stop(t + 0.35); }
+  function hat(t, v) { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); s.connect(f); f.connect(g); g.connect(tens); s.start(t, Math.random()); s.stop(t + 0.07); }
+  function stab(t, v) { [43, 44].forEach((m, i) => { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = mtof(m - 12 * i); f.type = 'lowpass'; f.frequency.value = 500; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9); o.connect(f); f.connect(g); g.connect(tens); o.start(t); o.stop(t + 1); }); }
   function tick() {
     if (!cur || !ctx || ctx.state !== 'running') return;
     const sd = 60 / cur.bpm / cur.spb;
     if (nextT < ctx.currentTime) nextT = ctx.currentTime + 0.05;
     while (nextT < ctx.currentTime + 0.3) { cur.step(step, nextT, sd); nextT += sd; step++; }
+    if (!noiseBuf) { noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    if (!tens) { tens = ctx.createGain(); tens.gain.value = 0; tens.connect(bus); }
+    tens.gain.setTargetAtTime(calm ? 0 : Math.min(1, tension * 1.1), ctx.currentTime, 0.6);
+    if (out) out.gain.setTargetAtTime(calm ? 0.55 : 1, ctx.currentTime, 0.8);
+    // pulso a 120 por minuto: bombo con amenaza media, platillos con amenaza alta, golpe grave cada compás con jefe
+    const bd = 0.5;
+    if (beatT < ctx.currentTime) beatT = ctx.currentTime + 0.05;
+    while (beatT < ctx.currentTime + 0.3) {
+      if (!calm && tension > 0.12) {
+        if (beatN % 2 === 0 || tension > 0.6) drum(beatT, 0.16 + tension * 0.16);
+        if (tension > 0.45) { hat(beatT + bd / 2, 0.03 * tension); if (tension > 0.75) hat(beatT + bd / 4, 0.018); }
+        if (boss && beatN % 4 === 0) stab(beatT, 0.05);
+      }
+      beatT += bd; beatN++;
+    }
   }
   function play(k) {
     if (!ctx || k === key) return; key = k;
@@ -12898,6 +12944,8 @@ const Music = (() => {
       const on = game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state) && settings.music !== 'off';
       play(on ? (settings.music === 'map' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 3, 5, 1, 0, 6, 1][Math.max(0, world.idx)] : +settings.music) : null);
     },
+    // amenaza 0..1 (zombis cerca), si hay jefe vivo y si estamos en calma (Trastienda)
+    mood(x, b, c) { tension += (x - tension) * 0.25; boss = b; calm = c; },
     duck() { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(0.35, t, 0.03); bus.gain.setTargetAtTime(1, t + 1, 0.5); } },
     setVol(v) { if (ctx) master.gain.setTargetAtTime(v * 0.55, ctx.currentTime, 0.05); }
   };
@@ -13530,7 +13578,7 @@ function frame() {
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
-  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05));
+  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
   renderer.render(scene, camera);
 }
 buildMap(0);
