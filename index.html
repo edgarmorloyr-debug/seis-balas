@@ -83,9 +83,11 @@ body{font-family:var(--hud);font-size:16px}
 #hud-tr{top:calc(12px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .touch #hud-tr{right:calc(76px + env(safe-area-inset-right,0px))}
 #score{font-family:var(--display);font-size:clamp(22px,3.4vw,34px);font-variant-numeric:tabular-nums;color:var(--bone)}
+#hud-bl{z-index:4;left:calc(18px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.touch #hud-bl{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
 #goldrow{display:flex;align-items:center;gap:8px;position:relative}
 #gold{font-family:var(--display);font-size:clamp(20px,2.8vw,26px);color:var(--gold);font-variant-numeric:tabular-nums}
-#gold-pop{position:absolute;right:0;top:-6px;font-weight:700;font-size:18px;color:var(--gold);opacity:0;white-space:nowrap}
+#gold-pop{position:absolute;left:0;top:-26px;font-weight:700;font-size:18px;color:var(--gold);opacity:0;white-space:nowrap}
 #gold-pop.on{animation:gpop .9s ease-out}
 @keyframes gpop{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-22px)}}
 #mult{font-size:18px;font-weight:700;color:var(--brass);letter-spacing:.05em;min-height:22px}
@@ -522,9 +524,9 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     </div>
     <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="rescue" hidden></div><div id="fee"></div><div id="contract-w"><span id="ctr-ic"></span><span id="contract"></span></div></div>
     <div class="hud" id="hud-tr">
-      <div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div>
       <canvas id="map" width="260" height="260"></canvas>
     </div>
+    <div class="hud" id="hud-bl"><div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div></div>
     <div class="hud" id="hud-br">
       <div id="box-n">Balas en la caja: 48</div>
       <div id="wname">Pacificador</div>
@@ -9030,6 +9032,7 @@ function castBullet(o, d, ctx) {
       let part = hh.object.userData.part;
       if (hasB(t, 'cabeza') && (part === 'body' || part === 'limb')) part = 'head';
       let dd = dmg * (part === 'head' ? 2.4 * (1 + 0.6 * lv('head')) * (rl('ojo') ? 1.5 : 1) : part === 'limb' ? 0.7 : 1);
+      if (part === 'body' || part === 'limb' || part === 'vest') dd /= 1.75;   // cuerpo y extremidades aguantan un 75 % más: siguen caminando tras varios tiros
       if (m.near) dd *= hh.distance < 8 ? 1.2 : hh.distance < 16 ? 1 : 0.6;
       if (h.model === 'corto' && wlv('corto') >= 3 && hh.distance < 6) dd *= 1.6;
       dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
@@ -9136,6 +9139,95 @@ function dragonCone(h, cam) {
     z.burn = 4; z.burnDps = 25 * sc; damageZombie(z, 40 * sc, { part: 'body', dir: cam, point: torsoPos(z), bullet: true, weapon: h.model, fx: 'dragon' });
   }
 }
+// ---- Sangre y partes del cuerpo (estilo The House of the Dead) ----
+// Cada parte acumula el daño que recibe: al pasar su límite (fracción de la vida máxima) se cae.
+// Sin una pierna, el zombi se derrumba y sigue arrastrándose; el pecho suelta pedazos y deja ver las costillas.
+const GORE = { arm: 0.3, leg: 0.38, torso: 0.3 };
+const goreMats = { flesh: new THREE.MeshLambertMaterial({ color: 0x7a0e0a, emissive: 0x240202 }), meat: new THREE.MeshLambertMaterial({ color: 0xa8342a, emissive: 0x1e0404 }), bone: new THREE.MeshLambertMaterial({ color: 0xe6dac0, emissive: 0x262016 }), cloth: new THREE.MeshLambertMaterial({ color: 0x4a443a }), hole: new THREE.MeshBasicMaterial({ color: 0x2a0303 }) };
+const goreGeo = { chunk: new THREE.BoxGeometry(0.07, 0.05, 0.06), chip: new THREE.BoxGeometry(0.045, 0.02, 0.04), rib: new THREE.BoxGeometry(0.2, 0.026, 0.026), hole: new THREE.BoxGeometry(0.22, 0.26, 0.02), blob: new THREE.SphereGeometry(0.05, 8, 6), stump: new THREE.SphereGeometry(0.075, 8, 6) };
+const stumps = [], LIMB_BITS = [[64, 'armL'], [128, 'armR'], [256, 'legL'], [512, 'legR']];
+const goreOK = z => z.boss == null && !z.def.quad && !z.def.human && z.type !== 'knight' && z.type !== 'abom' && z.type !== 'boss';
+function goreChunk(p, dir, mat, geo, sp = 3) {
+  if (debris.length > 90) return;
+  const m = new THREE.Mesh(geo || goreGeo.chunk, mat); m.position.copy(p); m.scale.setScalar(rand(0.7, 1.4)); scene.add(m);
+  debris.push({ m, v: new THREE.Vector3((dir ? dir.x : 0) * sp + rand(-1.2, 1.2), rand(1.5, 3.5), (dir ? dir.z : 0) * sp + rand(-1.2, 1.2)), av: new THREE.Vector3(rand(-10, 10), rand(-10, 10), rand(-10, 10)), life: 2.5, t: 0 });
+}
+function addWound(z, mesh, pt, sc = 1) {
+  if (!mesh || !mesh.parent || (z.wounds | 0) >= 7) return; z.wounds = (z.wounds | 0) + 1;
+  const w = new THREE.Mesh(goreGeo.blob, goreMats.flesh); mesh.worldToLocal(w.position.copy(pt)); w.scale.set(sc, sc * 0.85, sc * 0.6); mesh.add(w);
+}
+function showRibs(z, pt) {
+  z.ribs = true; const t = z.torso, l = t.worldToLocal(pt.clone()), side = l.z >= 0 ? 1 : -1, x = clamp(l.x, -0.1, 0.1), y = clamp(l.y, -0.18, 0.16);
+  const h = new THREE.Mesh(goreGeo.hole, goreMats.hole); h.position.set(x, y, 0.152 * side); t.add(h);
+  for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(goreGeo.rib, goreMats.bone); r.position.set(x, y - 0.09 + i * 0.06, 0.165 * side); r.rotation.z = (i % 2 ? 0.06 : -0.06); t.add(r); }
+  const m = new THREE.Mesh(goreGeo.blob, goreMats.meat); m.position.set(x + 0.05, y - 0.02, 0.15 * side); m.scale.set(1.2, 1, 0.5); t.add(m);
+}
+function goreHit(z, info, amount, net) {
+  if (!info.bullet || !info.point || !goreOK(z)) return;
+  const dir = info.dir || _up, low = IS_TOUCH || FAST(), part = info.part, o = info.obj, mx = z.maxHp || 100;
+  const L = z.gore || (z.gore = { armL: 0, armR: 0, legL: 0, legR: 0, torso: 0 });
+  if (part === 'head') {
+    bloodBurst(info.point, dir, low ? 10 : 20, true);
+    for (let i = 0; i < (low ? 1 : 3); i++) goreChunk(info.point, dir, i % 2 ? goreMats.bone : goreMats.meat, goreGeo.chip, 2.5);
+    if (z.hp > 0) addWound(z, z.head, info.point, 1.2);
+  } else if (part === 'body') {
+    L.torso += amount;
+    bloodBurst(info.point, dir, low ? 4 : 8, false);
+    for (let i = 0; i < (low ? 1 : 2); i++) goreChunk(info.point, dir, Math.random() < 0.45 ? goreMats.cloth : goreMats.meat);
+    if (z.hp > 0) { if (!z.ribs && L.torso >= mx * GORE.torso) showRibs(z, info.point); else addWound(z, z.torso, info.point, 1); }
+  } else if (part === 'limb' && o) {
+    const k = limbKey(z, o); if (!k) return;
+    L[k] += amount;
+    bloodBurst(info.point, dir, low ? 4 : 9, false);
+    if (!low) goreChunk(info.point, dir, goreMats.meat, goreGeo.chip, 2);
+    if (!net && (L[k] >= mx * (k[0] === 'a' ? GORE.arm : GORE.leg) || (z.hp <= 0 && amount >= mx * 0.25))) loseLimb(z, k, dir);
+  }
+}
+function limbKey(z, o) { return o === z.armL ? 'armL' : o === z.armR ? 'armR' : o === z.legL ? 'legL' : o === z.legR ? 'legR' : null; }
+function loseLimb(z, k, dir) {
+  z.lost = z.lost || {}; if (z.lost[k]) return; z.lost[k] = 1;
+  const arm = k[0] === 'a', left = k.endsWith('L'), d = dir || new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize();
+  const vel = new THREE.Vector3(d.x * 3 + rand(-1, 1), rand(2, 4), d.z * 3 + rand(-1, 1)), p = z.root.position;
+  let at;
+  if (arm) {
+    const m = left ? z.armL : z.armR, g = left ? z.armLG : z.armRG; if (!m) return;
+    dropHit(z, m); at = g.position.clone();
+    if (left) { z.armL = null; z.armLG = new THREE.Group(); } else { z.armR = null; z.armRG = new THREE.Group(); }
+    detach(g, vel);
+    if (!left && z.saw) { z.saw = null; z.dmg *= 0.5; }
+    if (!left && z.type === 'axer') z.spitCd = 1e9;
+    z.dmg *= 0.85; stumps.push({ z, node: z.torsoG, off: at, t: 2.4 });
+    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.copy(at); z.torsoG.add(st);
+  } else {
+    const m = left ? z.legL : z.legR; if (!m || !m.parent) return;
+    dropHit(z, m); detach(m, vel);
+    if (left) z.legL = new THREE.Object3D(); else z.legR = new THREE.Object3D();
+    if (!z.dead && (z.net || z.hp > 0)) makeCrawl(z);
+    stumps.push({ z, node: z.torsoG, off: new THREE.Vector3(left ? -0.12 : 0.12, 0, 0), t: 2.4 });
+    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.set(left ? -0.12 : 0.12, 0, 0); z.torsoG.add(st);
+  }
+  _tmp.set(p.x, 1, p.z); bloodBurst(_tmp, d, IS_TOUCH ? 10 : 18, true); addSplat(p.x + d.x * 0.6, p.z + d.z * 0.6, rand(0.3, 0.5));
+  Sfx.splat(panOf(p), volOf(p, 0.9));
+}
+// sin una pierna: cae al suelo y sigue arrastrándose, más lento
+function makeCrawl(z) {
+  if (z.crawlMode || z.type === 'crawler') return;
+  z.crawlMode = true; z.gait = null; z.speed *= 0.42; z.stagger = Math.max(z.stagger, 0.8);
+  z.torsoG.position.y = 0.24; z.torsoG.rotation.set(1.3, 0, 0); z.neck.rotation.set(-1.15, 0, 0); z.body.position.set(0, 0, 0);
+  for (const lg of [z.legL, z.legR]) if (lg && lg.parent) { lg.position.y = 0.24; lg.rotation.set(1.5, 0, 0); lg.scale.y = 0.5; }
+}
+function updateStumps(dt) {
+  for (let i = stumps.length - 1; i >= 0; i--) {
+    const s = stumps[i]; s.t -= dt;
+    if (s.t <= 0 || !s.z.root.parent) { stumps.splice(i, 1); continue; }
+    if (Math.random() < (IS_TOUCH ? 0.35 : 0.8)) {
+      const p = s.node.localToWorld(_t2.copy(s.off)), k = s.t / 2.4;
+      P.add(p.x, p.y, p.z, rand(-0.8, 0.8), rand(0.6, 2.2) * k, rand(-0.8, 0.8), rand(0.5, 1.1), rand(0.03, 0.06), 0.42, 0.02, 0.02, 1, 9.8, 0.6, 0, 1);
+    }
+  }
+}
+function syncLost(z, f) { for (const [b, k] of LIMB_BITS) if ((f & b) && !(z.lost && z.lost[k])) loseLimb(z, k, null); }
+const lostBits = z => z.lost ? (z.lost.armL ? 64 : 0) | (z.lost.armR ? 128 : 0) | (z.lost.legL ? 256 : 0) | (z.lost.legR ? 512 : 0) : 0;
 function damageZombie(z, amount, info) {
   if (z.dead) return false;
   if (z.type === 'knight') {
@@ -9173,13 +9265,7 @@ function damageZombie(z, amount, info) {
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
     if (lv('fire') && !info.ally) { z.burn = 3; z.burnDps = 18 * lv('fire'); }
-    if (!info.ally && z.boss == null && info.part === 'limb' && (info.obj === z.armL || info.obj === z.armR) && amount >= 35 && Math.random() < 0.4 && z.hp > 0) {
-      const left = info.obj === z.armL, g = left ? z.armLG : z.armRG;
-      dropHit(z, info.obj);
-      if (left) { z.armL = null; z.armLG = new THREE.Group(); } else { z.armR = null; z.armRG = new THREE.Group(); }
-      detach(g, new THREE.Vector3(info.dir.x * 3 + rand(-1, 1), rand(2, 4), info.dir.z * 3 + rand(-1, 1)));
-      bloodBurst(info.point, info.dir, 10, true);
-    }
+    if (!armorHit) goreHit(z, info, amount, false);
   }
   if (z.hp <= 0) { killZombie(z, info); if (info.bullet && !info.ally) hitmarker('kill'); return true; }
   if (info.bullet && !info.ally) hitmarker(armorHit ? 'armor' : head ? 'head' : '');
@@ -11007,7 +11093,7 @@ function updateZombies(dt, canAttack) {
       z.body.position.y = Math.abs(Math.cos(z.phase)) * 0.06 + (z.lunge > 0 ? Math.sin((0.4 - z.lunge) / 0.4 * Math.PI) * 0.45 : 0);
       z.headG.rotation.x = z.eating ? 0.6 + Math.sin(z.t * 12) * 0.2 : z.windup > 0 ? -0.4 : Math.sin(z.t * 2 + z.seed) * 0.1;
       z.tail.rotation.y = Math.sin(z.t * 8) * 0.4;
-    } else if (z.type === 'crawler') {
+    } else if (z.type === 'crawler' || z.crawlMode) {
       z.armLG.rotation.x = -0.6 + sw * 0.7; z.armRG.rotation.x = -0.6 - sw * 0.7;
       z.body.position.y = Math.abs(sw) * 0.04; z.torsoG.rotation.z = sw * 0.08;
       z.legL.rotation.y = sw * 0.2; z.legR.rotation.y = -sw * 0.2;
@@ -11389,7 +11475,7 @@ function updatePlay(dt) {
   updateZombies(wdt, state === 'play' || state === 'pause');
   bossFx(wdt);
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
-  updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
+  updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateStumps(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
   P.update(wdt); PA.update(wdt);
   if (game) updateHud(dt);
 }
@@ -12348,7 +12434,8 @@ function netHostStep() {
 function applyRemoteDamage(from, e) {
   const z = zombies.find(q => q.id === e[1]); if (!z || z.dead) return;
   const dir = new THREE.Vector3(e[5], 0, e[6]); if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1); dir.normalize();
-  const killed = damageZombie(z, e[2], { part: e[3], dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true });
+  const [pt, lk] = String(e[3]).split(':'), lo = lk && /^(arm|leg)[LR]$/.test(lk) ? z[lk] : undefined;
+  const killed = damageZombie(z, e[2], { part: pt, obj: lo, dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true });
   const t = e[4], sc = effSc();
   if (t === 'fria' && !killed) freeze(z, 2);
   else if (t === 'mula' && !killed) { z.kbx = dir.x * 10; z.kbz = dir.z * 10; z.stagger = Math.max(z.stagger, 1.2); }
@@ -12363,7 +12450,7 @@ function applyRemoteDamage(from, e) {
 function snapshot() {
   return {
     w: game.wave, ph: game.phase, l: game.toSpawn + Math.max(0, game.alive), ct: r2(game.countT), mp: world.idx,
-    z: zombies.map(z => [z.id, ZTYPES.indexOf(z.type), r2(z.root.position.x), r2(z.root.position.z), r2(z.yaw), r2(z.root.position.y), (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0), Math.max(0, Math.round(z.hp / z.maxHp * 100)), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1]),
+    z: zombies.map(z => [z.id, ZTYPES.indexOf(z.type), r2(z.root.position.x), r2(z.root.position.z), r2(z.yaw), r2(z.root.position.y), (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | lostBits(z), Math.max(0, Math.round(z.hp / z.maxHp * 100)), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1]),
     c: cops.map(c => [c.id, c.npc ? 1 : 0, r2(c.root.position.x), r2(c.root.position.z), r2(c.yaw), c.dead ? 1 : 0, Math.max(0, Math.round(c.hp / c.maxHp * 100)), c.npc ? Math.ceil(c.rt) : 0, c.tgt ? 1 : 0, ALLY_KEYS.indexOf(c.kind || 'cop'), c.owner || Net.id, c.lv || 1]),
     pk: pickups.map(p => [p.id, p.type, r2(p.g.position.x), r2(p.g.position.z), p.amount || 0])
   };
@@ -12395,6 +12482,7 @@ function applySnapshot(s) {
     z.bst = a[9] | 0;
     { const tn = performance.now(), dts = z.nt ? Math.max(0.05, (tn - z.nt) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; } else { z.vx = z.vz = 0; } z.nt = tn; }
     z.nx = a[2]; z.nz = a[3]; z.nyaw = a[4]; z.ny = a[5];
+    if (a[6] & 960) syncLost(z, a[6]);
     z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0;
     if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0) z.hp = hp; }
     if ((a[6] & 1) && !z.dead) proxyDie(z, null);
@@ -12419,7 +12507,8 @@ function applySnapshot(s) {
 // ---- Copias locales de zombis, policías y supervivientes ----
 function clientDamage(z, amount, info) {
   const pan = panOf(z.root.position), head = info.part === 'head';
-  Net.ev(['d', z.id, Math.round(amount * 10) / 10, info.part || 'body', info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '']);
+  const lk = info.part === 'limb' && info.obj ? limbKey(z, info.obj) : null;
+  Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '']);
   let a = amount;
   if (info.part === 'helmet' && z.helmet) { a *= 0.12; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   else if (info.part === 'vest') a *= 0.5;
@@ -12427,6 +12516,7 @@ function clientDamage(z, amount, info) {
   z.flash = 0.1;
   if (info.bullet && info.point) { bloodBurst(info.point, info.dir || _up, head ? 16 : 9, head); Sfx.hit(head, pan); }
   z.hp -= a;
+  if (info.part !== 'helmet' && info.part !== 'vest') goreHit(z, info, a, true);
   if (z.hp <= 0) { proxyDie(z, info); if (info.bullet) hitmarker('kill'); return true; }
   if (info.bullet) hitmarker(head ? 'head' : '');
   return false;
@@ -12449,7 +12539,7 @@ function proxyStep(z, dt) {
   const spd = Math.hypot(pos.x - ox, pos.z - oz) / Math.max(dt, 1e-3), moving = spd > 0.25;
   z.phase += dt * (moving ? spd : 0.3) * 3 / z.s; const sw = Math.sin(z.phase);
   if (z.def.quad) { z.legs[0].rotation.x = z.legs[3].rotation.x = sw * 0.7; z.legs[1].rotation.x = z.legs[2].rotation.x = -sw * 0.7; z.tail.rotation.y = Math.sin(z.t * 8) * 0.4; }
-  else if (z.type === 'crawler') { z.armLG.rotation.x = -0.6 + sw * 0.7; z.armRG.rotation.x = -0.6 - sw * 0.7; }
+  else if (z.type === 'crawler' || z.crawlMode) { z.armLG.rotation.x = -0.6 + sw * 0.7; z.armRG.rotation.x = -0.6 - sw * 0.7; }
   else {
     z.legL.rotation.x = sw * 0.6 * (moving ? 1 : 0.2); z.legR.rotation.x = -z.legL.rotation.x;
     const ax = z.windup > 0 ? -2.5 : -1.35 + Math.sin(z.t * 2 + z.seed) * 0.12;
