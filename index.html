@@ -670,7 +670,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <p class="note" id="sk-desc"></p>
         <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
       </div>
-      <div class="row"><button class="btn2" id="btn-tuto">Tutorial</button><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
+      <div class="row"><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
       <p class="note" id="save-note" hidden>Tu partida se guarda sola al empezar cada oleada, en este navegador.</p>
       <dl class="keys only-desk">
         <dt>Ratón</dt><dd>Mirar · clic para disparar · clic derecho para apuntar</dd>
@@ -682,6 +682,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <dt><kbd>Esc</kbd> · <kbd>M</kbd></dt><dd>Pausa · silenciar</dd>
       </dl>
       <p class="note">Las balas no son infinitas. Si te quedas sin balas, mueres.</p>
+      <div class="row"><button class="btn2" id="btn-tuto">Tutorial</button></div>
     </div>
   </div>
 
@@ -1566,23 +1567,9 @@ function buildMap(i) {
 
 // ---- Lugar nuevo: El Cielo
 // ---- Lugar nuevo: La Isla de los Náufragos
-function buildIsland() {
-  world.arena = { t: 'c', r: 42.5 }; world.start = { x: 0, z: 2 };
-  env({ fog: 0x111822, dens: 0.03, top: 0x020309, hemiS: 0x7088ad, hemiG: 0x1d1710, hemiI: 0.62, moonC: 0xa9bde0, moonI: 0.75 });
-  addGround(140, noiseTex(256, '#3a3a3a', ['#444', '#333'], 600, 30));
-  ringFence(42.5, lam(0x3a3028));
-  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; world.spawns.push({ x: Math.cos(a) * 39, z: Math.sin(a) * 39, rise: true }); }
-}
 // ---- Lugar nuevo: La Tierra de los Duendes
 // ---- Lugar nuevo: El Mundo de Chocolate
 // ---- Lugar nuevo: El Planeta Océano
-function buildOcean() {
-  world.arena = { t: 'c', r: 42.5 }; world.start = { x: 0, z: 2 };
-  env({ fog: 0x111822, dens: 0.03, top: 0x020309, hemiS: 0x7088ad, hemiG: 0x1d1710, hemiI: 0.62, moonC: 0xa9bde0, moonI: 0.75 });
-  addGround(140, noiseTex(256, '#3a3a3a', ['#444', '#333'], 600, 30));
-  ringFence(42.5, lam(0x3a3028));
-  for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; world.spawns.push({ x: Math.cos(a) * 39, z: Math.sin(a) * 39, rise: true }); }
-}
 // ---- Lugar nuevo: La Estación de Policía
 // ---- Lugar nuevo: El Pueblo Sumergido
 // ---- Lugar nuevo: Tokio
@@ -12862,6 +12849,1017 @@ function buildPipes() {
   [[0, 5], [0, 11], [13, 1], [13, 6], [13, 12], [5, 0], [9, 0], [6, 13], [11, 13], [0, 0], [13, 13], [0, 13]].forEach(([i, j]) => world.spawns.push({ x: cx(i), z: cx(j), rise: false }));
 }
 
+// DESC: El barco encalló hace semanas. Los que no se salvaron vuelven caminando desde el mar.
+// ---- Lugar nuevo: La Isla de los Náufragos
+function islandGeo(parts) {
+  // une muchas piezas [geometría, color, x, y, z, rx, ry, rz, sx, sy, sz] en una sola malla con colores por vértice
+  let n = 0; for (const a of parts) { const g = a[0]; n += g.index ? g.index.count : g.attributes.position.count; }
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), C = new Float32Array(n * 3);
+  const m = new THREE.Matrix4(), nm = new THREE.Matrix3(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
+  let o = 0;
+  for (const a of parts) {
+    const g = a[0]; e.set(a[5] || 0, a[6] || 0, a[7] || 0, 'YXZ'); q.setFromEuler(e); p.set(a[2], a[3], a[4]); s.set(a[8] || 1, a[9] || 1, a[10] || 1);
+    m.compose(p, q, s); nm.getNormalMatrix(m); const me = m.elements, ne = nm.elements;
+    const pa = g.attributes.position.array, na = g.attributes.normal.array, ua = g.attributes.uv ? g.attributes.uv.array : null, ix = g.index ? g.index.array : null, cnt = ix ? ix.length : pa.length / 3;
+    c.setHex(a[1]);
+    for (let k = 0; k < cnt; k++, o++) {
+      const i = ix ? ix[k] : k, x = pa[i * 3], y = pa[i * 3 + 1], z = pa[i * 3 + 2], nx = na[i * 3], ny = na[i * 3 + 1], nz = na[i * 3 + 2];
+      P[o * 3] = me[0] * x + me[4] * y + me[8] * z + me[12]; P[o * 3 + 1] = me[1] * x + me[5] * y + me[9] * z + me[13]; P[o * 3 + 2] = me[2] * x + me[6] * y + me[10] * z + me[14];
+      const tx = ne[0] * nx + ne[3] * ny + ne[6] * nz, ty = ne[1] * nx + ne[4] * ny + ne[7] * nz, tz = ne[2] * nx + ne[5] * ny + ne[8] * nz, l = Math.hypot(tx, ty, tz) || 1;
+      N[o * 3] = tx / l; N[o * 3 + 1] = ty / l; N[o * 3 + 2] = tz / l;
+      if (ua) { U[o * 2] = ua[i * 2]; U[o * 2 + 1] = ua[i * 2 + 1]; }
+      C[o * 3] = c.r; C[o * 3 + 1] = c.g; C[o * 3 + 2] = c.b;
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(P, 3)); out.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(U, 2)); out.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  return out;
+}
+function islandWob(a) { return Math.sin(a * 3 + 1) * 0.5 + Math.sin(a * 7 + 2) * 0.3 + Math.sin(a * 13 + 0.5) * 0.2; }
+function islandDisc(r0, r1, segs, rings, pw, tile, uvBand, wob = 0) {
+  // anillo plano con varios anillos de vértices (para el mar que ondula y las franjas de espuma)
+  const pos = [], uv = [], idx = [];
+  for (let k = 0; k <= rings; k++) {
+    const r = r0 + (r1 - r0) * Math.pow(k / rings, pw);
+    for (let i = 0; i <= segs; i++) { const a = i / segs * TAU, rr = r + wob * islandWob(a) * (uvBand ? 1 : 1 - k / rings), x = Math.cos(a) * rr, z = Math.sin(a) * rr; pos.push(x, 0, z); if (uvBand) uv.push(i / segs * uvBand, 1 - k / rings); else uv.push(x / tile, z / tile); }
+  }
+  const W = segs + 1;
+  for (let k = 0; k < rings; k++) for (let i = 0; i < segs; i++) { const a = k * W + i, b = a + 1, c = a + W, d = c + 1; idx.push(a, b, c, c, b, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function islandHull(L, B, H, bow, brk, nu = 26, nv = 14) {
+  // casco de madera: x a lo largo del barco (+x = proa), sección redondeada; "brk" = extremo partido ('start' o 'end')
+  const pos = [], uv = [], idx = [];
+  for (let i = 0; i <= nu; i++) {
+    const u = i / nu;
+    let w = B / 2;
+    if (bow) { if (u > 0.4) w *= Math.sqrt(Math.max(0.001, 1 - Math.pow((u - 0.4) / 0.6, 2))); }
+    else w *= 0.78 + 0.22 * Math.sin(Math.min(1, u / 0.5) * Math.PI / 2);
+    let hh = H * (bow ? 1 + 0.3 * u * u * u : 1 + 0.2 * (1 - u) * (1 - u));
+    const keel = bow ? H * 0.75 * Math.pow(Math.max(0, (u - 0.72) / 0.28), 2) : 0;
+    const broken = (brk === 'start' && i <= 1) || (brk === 'end' && i >= nu - 1);
+    for (let j = 0; j <= nv; j++) {
+      const th = (j / nv - 0.5) * Math.PI, c = Math.cos(th);
+      let x = (u - 0.5) * L, top = hh;
+      if (broken) { x += sr(-0.9, 0.9) * (brk === 'start' ? 1 : -1) + (brk === 'start' ? 0.4 : -0.4); top = hh * sr(0.55, 1); }
+      const y = keel + (top - keel) * (1 - Math.pow(c, 0.45));
+      pos.push(x, y, w * Math.sin(th)); uv.push(u * L / 3.2, j / nv * 2.2);
+    }
+  }
+  const W = nv + 1;
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const a = i * W + j, b = a + 1, c = a + W, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function buildIsland() {
+  const _gc = new Map();
+  const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
+  const cyl = (rt, rb, h, s = 10) => { const k = 'c' + rt + ',' + rb + ',' + h + ',' + s; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.CylinderGeometry(rt, rb, h, s)); return g; };
+  const sph = (r, a = 8, b = 6) => { const k = 's' + r + ',' + a; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.SphereGeometry(r, a, b)); return g; };
+  const R = 42.5;
+  world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 4 };
+  world.shirts = [0xe8e4d8, 0x1c2a48, 0xb8342a, 0x6a5a40, 0x2a6a8a, 0xd8c8a0, 0x3a3a34];
+  world.hat = 'straw'; world.hatP = 0.22;
+  world.mix = { crawler: 1.4, bloater: 1.4, runner: 1.1 };
+  env({ fog: 0x0f1c2a, dens: 0.013, top: 0x02060f, hemiS: 0x7a98c8, hemiG: 0x3a3022, hemiI: 0.6, moonC: 0xcfdcf5, moonI: 0.85, wind: 0.2 });
+  addGround(170, noiseTex(256, '#a8946c', ['#b8a47a', '#988458', '#c6b28a', '#857250', '#d4c096', '#7a6a4c'], 2600, 30)).material.color.setHex(0xe6cc9c);
+  const vc = lam(0xffffff, { vertexColors: true }), vcD = lam(0xffffff, { vertexColors: true, side: THREE.DoubleSide });
+  const glowSprite = (x, y, z, c, s, o, par) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); (par || world.group).add(sp); return sp; };
+  const mt = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+  const inst = (geo, mat, list, cast = true) => { // list: [x,y,z, rx,ry,rz, sx,sy,sz, color]
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((a, i) => { _e.set(a[3] || 0, a[4] || 0, a[5] || 0); _q.setFromEuler(_e); _v.set(a[0], a[1], a[2]); _s.set(a[6] || 1, a[7] || a[6] || 1, a[8] || a[6] || 1); mt.compose(_v, _q, _s); im.setMatrixAt(i, mt); if (a[9] !== undefined) im.setColorAt(i, new THREE.Color(a[9])); });
+    im.castShadow = cast; im.receiveShadow = true; world.group.add(im); return im;
+  };
+
+  // ---- Puntos de aparición (primero, para no tapar nada encima): salen del mar caminando y algunos de la arena
+  const spawnA = [0, 32, 64, 96, 128, 160, 192, 270, 302, 332];
+  spawnA.forEach(d => { const a = d * Math.PI / 180; world.spawns.push({ x: Math.cos(a) * 40, z: Math.sin(a) * 40, rise: false }); });
+  [[-33, -15], [28, 14], [6, -27]].forEach(([x, z]) => world.spawns.push({ x, z, rise: true }));
+
+  // ---- Arena: orilla mojada, conchas, algas, huellas que salen del mar, hierba de la selva
+  overlayPlane(100, (g, w) => {
+    const k = w / 100, X = x => (x + 50) * k, c = w / 2;
+    let gr;
+    // arena mojada con una orilla irregular (sigue la forma del agua)
+    g.filter = 'blur(7px)';
+    for (const [r0, col] of [[35.5, 'rgba(46,38,26,.35)'], [38.2, 'rgba(40,33,23,.5)'], [40.6, 'rgba(30,26,20,.55)']]) { g.fillStyle = col; g.beginPath(); for (let i = 0; i <= 120; i++) { const a = i / 120 * TAU, r = r0 + 1.4 * islandWob(a) + Math.sin(a * 5 + r0) * 0.8; g.lineTo(X(Math.cos(a) * r), X(Math.sin(a) * r)); } g.closePath(); g.rect(w, 0, -w, w); g.fill('evenodd'); }
+    g.filter = 'none';
+    // selva (este) y matorral
+    for (let i = 0; i < 260; i++) { const a = rand(-0.9, 0.9), r = rand(22, 38), x = Math.cos(a) * r, z = Math.sin(a) * r; g.fillStyle = pick(['rgba(40,60,26,.35)', 'rgba(30,48,20,.4)', 'rgba(56,70,30,.3)']); g.beginPath(); g.ellipse(X(x), X(z), rand(4, 12), rand(3, 8), rand(0, 3), 0, TAU); g.fill(); }
+    // algas y conchas en la línea de la marea
+    g.lineWidth = 2; for (let i = 0; i < 160; i++) { const a = rand(0, TAU), r = rand(37, 41.5); g.strokeStyle = pick(['rgba(20,40,20,.6)', 'rgba(36,50,24,.55)', 'rgba(14,26,14,.6)']); const x = X(Math.cos(a) * r), y = X(Math.sin(a) * r); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + rand(-6, 6), y + rand(-6, 6), x + rand(-10, 10), y + rand(-10, 10)); g.stroke(); }
+    for (let i = 0; i < 300; i++) { g.fillStyle = pick(['rgba(250,240,225,.7)', 'rgba(230,200,190,.6)', 'rgba(255,255,255,.5)']); g.fillRect(rand(0, w), rand(0, w), 2, 2); }
+    // huellas que salen del agua hacia el campamento y hacia el inicio
+    g.fillStyle = 'rgba(30,24,16,.5)';
+    for (const [x0, z0, x1, z1] of [[-40, 10, -26, 6], [38, -12, 20, -6], [-6, 41, 0, 14], [30, 30, 12, 12]]) { const n = Math.hypot(x1 - x0, z1 - z0) / 0.7; for (let i = 0; i < n; i++) { const t = i / n, s = i % 2 ? 0.3 : -0.3, dx = (x1 - x0) / n, dz = (z1 - z0) / n, l = Math.hypot(dx, dz); g.beginPath(); g.ellipse(X(x0 + (x1 - x0) * t - dz / l * s), X(z0 + (z1 - z0) * t + dx / l * s), 1.4, 2.4, Math.atan2(dz, dx) + Math.PI / 2, 0, TAU); g.fill(); } }
+    // marca de arrastre (alguien fue arrastrado al mar)
+    g.strokeStyle = 'rgba(40,20,14,.45)'; g.lineWidth = 7; g.beginPath(); g.moveTo(X(14), X(30)); g.bezierCurveTo(X(18), X(34), X(22), X(36), X(26), X(40)); g.stroke();
+    g.fillStyle = 'rgba(90,10,8,.5)'; for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(X(14 + i * 0.9 + rand(-0.5, 0.5)), X(30 + i * 0.7 + rand(-0.5, 0.5)), rand(2, 5), 0, TAU); g.fill(); }
+    // ceniza de las hogueras
+    for (const [x, z, r] of [[-24, 6, 3.2], [16, 26, 2.6], [22, -14, 3.6]]) { gr = g.createRadialGradient(X(x), X(z), 0, X(x), X(z), r * k); gr.addColorStop(0, 'rgba(10,8,6,.8)'); gr.addColorStop(1, 'rgba(10,8,6,0)'); g.fillStyle = gr; g.fillRect(X(x - r), X(z - r), r * 2 * k, r * 2 * k); }
+  }, 512);
+
+  // ---- El mar: olas grandes que llegan, espuma que rompe y agua poco profunda que sube y baja
+  const waterT = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#071a28'; g.fillRect(0, 0, w, h); for (let i = 0; i < 520; i++) { g.strokeStyle = `rgba(${rand(90, 170) | 0},${rand(140, 205) | 0},${rand(190, 235) | 0},${rand(0.12, 0.3)})`; g.lineWidth = rand(1, 2); const x = rand(0, w), y = rand(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(8, 26), y + rand(-2, 2)); g.stroke(); } }, 0);
+  waterT.wrapS = waterT.wrapT = THREE.RepeatWrapping;
+  const seaG = islandDisc(44.2, 380, 96, 26, 2.2, 9, 0, 1.2);
+  const sea = M(seaG, new THREE.MeshLambertMaterial({ map: waterT, color: 0x8aa8c8, emissive: 0x040c16 }), 0, 0, 0, { cast: false });
+  const sp = seaG.attributes.position, sBase = Float32Array.from(sp.array);
+  const surfG = islandDisc(39, 47, 96, 3, 1, 6, 0, 1.4);
+  const surf = M(surfG, new THREE.MeshLambertMaterial({ map: waterT, color: 0xa0d0e8, emissive: 0x0a1a28, transparent: true, opacity: 0.5, depthWrite: false }), 0, 0.06, 0, { cast: false });
+  const foamT = canvasTex(256, 64, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(230,242,255,.85)'); gr.addColorStop(0.68, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 200; i++) { g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(2, 7), 0, TAU); g.fill(); } }, 0);
+  foamT.wrapS = THREE.RepeatWrapping;
+  const waves = [];
+  for (let i = 0; i < 3; i++) { const fm = new THREE.MeshBasicMaterial({ map: foamT, color: 0xc8d4e4, transparent: true, opacity: 0, depthWrite: false }); const wv = M(islandDisc(51.2, 53, 120, 1, 1, 0, 26, 2.8), fm, 0, 0.12, 0, { cast: false }); waves.push({ m: wv, ph: i / 3, ry: i * 2.1 }); wv.rotation.y = i * 2.1; }
+  // crestas de las olas: una pared de espuma que avanza, se levanta y rompe contra la orilla
+  const crestT = canvasTex(256, 64, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.35, 'rgba(200,225,240,.7)'); gr.addColorStop(1, 'rgba(40,80,110,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 160; i++) { g.beginPath(); g.arc(rand(0, w), rand(0, h * 0.7), rand(2, 6), 0, TAU); g.fill(); } }, 0);
+  crestT.wrapS = THREE.RepeatWrapping; crestT.repeat.set(30, 1);
+  const crests = [];
+  for (let i = 0; i < 2; i++) { const cg = new THREE.CylinderGeometry(52, 52, 1, 120, 1, true); cg.translate(0, 0.5, 0); const cp = cg.attributes.position; for (let k = 0; k < cp.count; k++) { const a = Math.atan2(cp.getZ(k), cp.getX(k)), f = 1 + 2.8 * islandWob(a + i * 2.1) / 52; cp.setX(k, cp.getX(k) * f); cp.setZ(k, cp.getZ(k) * f); }
+    const cm = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ map: crestT, color: 0xb8c8da, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })); cm.rotation.y = i * 2.1; world.group.add(cm); crests.push({ m: cm, ph: i * 0.5 }); }
+  world.anims.push((dt, t) => {
+    waterT.offset.set(Math.sin(t * 0.12) * 0.05, t * 0.02);
+    for (let i = 0; i < sp.count; i++) { const x = sBase[i * 3], z = sBase[i * 3 + 2], r = Math.hypot(x, z), rp = Math.min(1, (r - 43.6) / 14); sp.array[i * 3 + 1] = 0.05 + rp * (0.35 + Math.sin(r * 0.35 - t * 1.4) * 0.22 + Math.sin(x * 0.11 + z * 0.07 + t * 0.8) * 0.18); }
+    sp.needsUpdate = true;
+    const tide = Math.sin(t * 0.5); surf.scale.setScalar(1 + tide * 0.022); surf.material.opacity = 0.42 + tide * 0.08;
+    for (const w of waves) { const u = (t * 0.085 + w.ph) % 1, s = 1 - u * 0.2; w.m.scale.set(s, 1, s); w.m.position.y = 0.1 + (1 - u) * 0.5; w.m.material.opacity = Math.sin(u * Math.PI) * 0.7; }
+    for (const c of crests) { const u = (t * 0.07 + c.ph) % 1, s = 1.06 - u * 0.24; c.m.scale.set(s, 0.15 + Math.sin(Math.min(1, u * 1.3) * Math.PI) * 0.75, s); c.m.position.y = 0.05 + (1 - u) * 0.35; c.m.material.opacity = Math.min(1, u * 4) * (u > 0.8 ? (1 - u) * 5 : 1) * 0.75; c.m.material.map.offset.x = t * 0.01; }
+    // espuma y plancton que brilla en la rompiente
+    if (Math.random() < dt * (FAST() ? 4 : 12)) { const a = rand(0, TAU), r = rand(41.5, 47); P.add(Math.cos(a) * r, 0.3, Math.sin(a) * r, rand(-0.3, 0.3), rand(0.8, 1.8), rand(-0.3, 0.3), 1.1, 0.25, 0.85, 0.9, 0.95, 0.35, 1.2, 1, 0.6, 0); }
+    if (Math.random() < dt * (FAST() ? 6 : 16)) { const a = rand(0, TAU), r = rand(40.5, 45); PA.add(Math.cos(a) * r, 0.12, Math.sin(a) * r, 0, 0.05, 0, rand(0.6, 1.4), rand(0.05, 0.1), 0.2, 0.75, 1, 0.9, 0, 0.5, 0, 0); }
+  });
+  // reflejo de la luna en el agua
+  { const md = new THREE.Vector3(-0.45, 0, -0.7).normalize(), rf = new THREE.Mesh(new THREE.PlaneGeometry(14, 240), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x7088b8, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+    rf.rotation.x = -Math.PI / 2; rf.rotation.z = Math.atan2(md.x, -md.z); rf.position.set(md.x * 170, 0.6, md.z * 170); world.group.add(rf);
+    world.anims.push((dt, t) => { rf.material.opacity = 0.3 + Math.sin(t * 2.1) * 0.06 + Math.sin(t * 5.3) * 0.04; }); }
+  // arrecife: rocas oscuras alrededor (el límite de la isla), algunas con espuma
+  { const L = [];
+    for (let c = 0; c < 15; c++) { const ca = c / 15 * TAU + sr(-0.12, 0.12), cr = sr(45, 50), n = 4 + Math.floor(srand() * 5); for (let i = 0; i < n; i++) { const a = ca + sr(-0.07, 0.07), r = cr + sr(-1.6, 1.6), sc = sr(0.6, 2.0) * (i === 0 ? 1.5 : 1); L.push([Math.cos(a) * r, sc * sr(-0.1, 0.25), Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.5, 0.9), sc, pick([0x3a3834, 0x2e2c2a, 0x46423c, 0x524a40])]); } }
+    for (let i = 0; i < 9; i++) { const a = sr(0, TAU), r = sr(58, 95), sc = sr(2.5, 5); L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.9, 1.6), sc, pick([0x2a2826, 0x34302c])]); }
+    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(42.9, 44); if (Math.abs((a * 180 / Math.PI) % 32) < 7) continue; const sc = sr(0.4, 0.8); L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * 0.7, sc, pick([0x4a463e, 0x5a544a])]); }
+    const rocks = inst(new THREE.DodecahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), L); solids.push(rocks);
+    // salpicaduras en las rocas grandes
+    const big = L.filter(a => a[6] > 1.6).slice(0, 24);
+    world.anims.push((dt, t) => { if (Math.random() < dt * (FAST() ? 2 : 5)) { const b = pick(big); for (let i = 0; i < 5; i++) P.add(b[0] + rand(-0.6, 0.6), 0.8, b[2] + rand(-0.6, 0.6), rand(-1, 1), rand(2, 3.5), rand(-1, 1), 0.9, 0.2, 0.9, 0.94, 1, 0.45, 6, 0.5, 0.4, 0); } }); }
+
+  // ---- Texturas compartidas
+  const atlas = canvasTex(512, 512, (g) => {
+    const rows = [['PÓLVORA', '#2a120a', '#ff5a2a'], ['CAÑÓN DEL BARCO', '#1a1612', '#ffcf6a'], ['ESPERANZA', '#2a1c12', '#e8dcc0'], ['AYUDA', '#6a5032', '#f4ece0'], ['', '#5a4630', '#f0e6d0'], ['HOGUERA DE SEÑALES', '#3a2414', '#ffb050'], ['SALVAVIDAS', '#d8d4cc', '#c83222'], ['NO BEBER EL AGUA', '#5a4630', '#f0e6d0']];
+    rows.forEach(([t, bg, fg], r) => {
+      const y = r * 64; g.fillStyle = bg; g.fillRect(0, y, 512, 64); g.fillStyle = 'rgba(0,0,0,.25)'; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * 512, y + Math.random() * 64, Math.random() * 40, 1);
+      g.fillStyle = fg; g.font = 'bold 40px serif'; g.textAlign = 'center'; g.fillText(t, 256, y + 46);
+      if (r === 4) { g.strokeStyle = fg; g.lineWidth = 4; for (let k = 0; k < 8; k++) { const x0 = 30 + k * 50; for (let l = 0; l < 4; l++) { g.beginPath(); g.moveTo(x0 + l * 8, y + 14); g.lineTo(x0 + l * 8 + 2, y + 50); g.stroke(); } g.beginPath(); g.moveTo(x0 - 4, y + 44); g.lineTo(x0 + 32, y + 18); g.stroke(); } g.font = 'bold 28px serif'; g.fillText('DÍA 41', 456, y + 44); }
+    });
+  });
+  const atlasM = lam(0xffffff, { map: atlas }), atlasB = bsc(0xffffff, { map: atlas });
+  const sign = (r, w, h, x, y, z, ry = 0, par, mat = atlasM, rx = 0) => { const g = new THREE.BoxGeometry(w, h, 0.06), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (r + 1) / 8 + uv.getY(i) / 8); return M(g, mat, x, y, z, { ry, rx, p: par, cast: false }); };
+  const plankT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#4a3624'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 21) { g.fillStyle = pick(['#3e2c1c', '#4e3a26', '#443220', '#56402a']); g.fillRect(0, y, w, 20); g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, y + 20, w, 1.5); for (let x = rand(0, 60); x < w; x += rand(50, 110)) g.fillRect(x, y, 1.5, 20); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '20,14,8' : '120,100,70'},${rand(0.05, 0.2)})`; g.fillRect(rand(0, w), rand(0, h), rand(4, 30), 1); }
+    // algas y percebes cerca de la quilla (centro de la textura)
+    for (let i = 0; i < 260; i++) { const y = h / 2 + (Math.random() - 0.5) * h * 0.35; g.fillStyle = pick(['rgba(40,70,40,.6)', 'rgba(70,90,50,.5)', 'rgba(200,200,180,.45)']); g.beginPath(); g.arc(rand(0, w), y, rand(1, 4), 0, TAU); g.fill(); }
+  }, 0);
+  plankT.wrapS = plankT.wrapT = THREE.RepeatWrapping;
+  const hullM = lam(0xc0a888, { map: plankT, side: THREE.DoubleSide }), deckM = lam(0x9a8466, { map: plankT });
+  const sailT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#d8cfb8'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(120,100,70,.35)'; g.lineWidth = 2; for (let x = 0; x < w; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${rand(60, 110) | 0},${rand(50, 80) | 0},40,${rand(0.08, 0.25)})`; g.beginPath(); g.ellipse(rand(0, w), rand(0, h), rand(8, 40), rand(6, 26), rand(0, 3), 0, TAU); g.fill(); }
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 7; i++) { const x = rand(20, w - 20), y = rand(40, h); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 9; k++) g.lineTo(x + rand(-40, 40), y + rand(-50, 30)); g.closePath(); g.fill(); }
+    g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 16) g.lineTo(x, h - rand(10, 60)); g.lineTo(w, h); g.fill();
+  }, 0);
+  const sailM = lam(0xffffff, { map: sailT, side: THREE.DoubleSide, alphaTest: 0.5 });
+
+  // ---- El barco encallado, partido en dos: la proa en la arena y la popa en el agua
+  const SHIP = { x: -19, z: -29, ry: -1.1 };
+  const bowG = Grp(SHIP.x, SHIP.z, SHIP.ry), bow = new THREE.Group(); bow.position.y = -0.9; bow.rotation.x = 0.2; bow.rotation.z = 0.06; bowG.add(bow);
+  M(islandHull(17, 7, 4.6, true, 'start'), hullM, 0, 0, 0, { p: bow, solid: true });
+  { const L = [];
+    // cubierta con tablones que faltan
+    for (let x = -6.6; x < 6.4; x += 0.55) { const u = (x + 8.5) / 17, w = 3.5 * (u > 0.4 ? Math.sqrt(Math.max(0.01, 1 - Math.pow((u - 0.4) / 0.6, 2))) : 1) * 0.92; if (x > -4.5 && x < -1.2 && Math.abs(Math.sin(x * 7)) < 0.75) continue; L.push([bx(0.5, 0.12, w * 2), (x * 10 | 0) % 2 ? 0x6a5236 : 0x5e4830, x, 4.25 + 0.3 * Math.pow(u, 3) * 4.6 - 0.25, 0]); }
+    // costillas al descubierto en la rotura
+    for (let k = 0; k < 4; k++) { const tg = new THREE.TorusGeometry(3.2, 0.16, 5, 14, Math.PI); L.push([tg, 0x4a3420, -8.2 + k * 0.9, 3.3, 0, 0, Math.PI / 2, Math.PI, 1, 1.05 - k * 0.05, 1]); }
+    for (let k = 0; k < 9; k++) L.push([bx(sr(1.2, 2.6), 0.1, 0.32), 0x5a4028, -8.6 - sr(0, 0.8), sr(0.6, 4.2), sr(-3, 3), sr(-0.6, 0.6), sr(-0.6, 0.6), sr(-0.9, 0.9)]);
+    // baranda, bauprés y mascarón
+    for (let x = -6; x < 7; x += 1.1) { const u = (x + 8.5) / 17, w = 3.5 * (u > 0.4 ? Math.sqrt(Math.max(0.01, 1 - Math.pow((u - 0.4) / 0.6, 2))) : 1); for (const s of [-1, 1]) if (srand() < 0.8) L.push([bx(0.1, 0.8, 0.1), 0x4a3622, x, 4.6 + 0.3 * Math.pow(u, 3) * 4.6 + 0.4, s * w * 0.96]); }
+    L.push([cyl(0.12, 0.22, 7, 7), 0x4e3a24, 10.6, 7.2, 0, 0, 0, -1.15], [new THREE.ConeGeometry(0.5, 1.6, 6), 0x8a7a5a, 8.7, 4.6, 0, 0, 0, -1.6]);
+    L.push([cyl(0.04, 0.04, 9, 4), 0x2a2218, 6.5, 8.5, 1.3, 0, 0, 0.9], [cyl(0.04, 0.04, 9, 4), 0x2a2218, 6.5, 8.5, -1.3, 0, 0, 0.9]);
+    // anclas y cadena colgando
+    L.push([cyl(0.08, 0.08, 1.8, 6), 0x2a2a2c, 6.2, 2.4, 2.6], [new THREE.TorusGeometry(0.5, 0.08, 5, 10, Math.PI), 0x2a2a2c, 6.2, 1.5, 2.6, Math.PI, 0, 0]);
+    // tocón del mástil
+    L.push([cyl(0.38, 0.42, 1.6, 9), 0x4e3a24, -1, 5, 0], [cyl(0.42, 0.42, 0.4, 9), 0x2a2218, -1, 4.4, 0]);
+    M(islandGeo(L), vc, 0, 0, 0, { p: bow });
+    sign(2, 3.2, 0.5, 4.8, 3.4, 2.62, -0.12, bow, atlasM); sign(2, 3.2, 0.5, 4.8, 3.4, -2.62, Math.PI + 0.12, bow, atlasM);
+    { const p1 = lw(bowG, -2, 0), p2 = lw(bowG, 5.8, 0); addBox(p1.x, p1.z, 6.4, 3.5, SHIP.ry); addBox(p2.x, p2.z, 2.4, 2.2, SHIP.ry); }
+    // farol que sigue encendido en la proa
+    const lg = new THREE.Group(); lg.position.set(7.4, 6.9, 0); bow.add(lg);
+    M(bx(0.36, 0.5, 0.36), bsc(0xffc070), 0, -0.6, 0, { p: lg, cast: false }); M(cyl(0.02, 0.02, 0.7, 4), lam(0x1a1a1a), 0, -0.15, 0, { p: lg, cast: false });
+    lampLight(0, -0.6, 0, 0xffb060, 1.3, 16, lg, 1.6);
+    world.anims.push((dt, t) => { lg.rotation.x = Math.sin(t * 1.3) * 0.18; lg.rotation.z = Math.sin(t * 0.9) * 0.12; }); }
+  // la popa: medio hundida fuera de la isla, con el camarote y el palo de mesana todavía en pie
+  const stG = Grp(-30, -50, SHIP.ry + 0.45), st = new THREE.Group(); st.position.y = -1.5; st.rotation.x = -0.32; st.rotation.z = -0.16; stG.add(st);
+  M(islandHull(15, 7.4, 5.2, false, 'end'), hullM, 0, 0, 0, { p: st, cast: false });
+  const sails = [];
+  { const L = [];
+    for (let x = -7; x < 6.6; x += 0.55) if (srand() < 0.86) L.push([bx(0.5, 0.12, 7.4 * 0.9 * (0.78 + 0.22 * Math.sin(Math.min(1, ((x + 7.5) / 15) / 0.5) * Math.PI / 2))), 0x5e4830, x, 5.0, 0]);
+    L.push([bx(4.4, 2.4, 6), 0x3a2a1c, -4.6, 6.3, 0], [bx(4.8, 0.3, 6.4), 0x2a1e14, -4.6, 7.6, 0]);
+    for (let k = 0; k < 3; k++) L.push([bx(0.06, 0.7, 0.8), 0x0c0a08, -6.85, 6.4, -1.8 + k * 1.8]);
+    L.push([cyl(0.3, 0.36, 15, 8), 0x4e3a24, 0.5, 12, 0], [cyl(0.12, 0.12, 9, 6), 0x4e3a24, 0.5, 16.5, 0, Math.PI / 2, 0, 0], [cyl(0.1, 0.1, 6, 6), 0x4e3a24, 0.5, 11, 0, 0.5, 0, Math.PI / 2 + 0.3], [cyl(0.8, 0.6, 0.6, 10), 0x3a2a1c, 0.5, 18.3, 0]);
+    for (let k = 0; k < 6; k++) L.push([cyl(0.03, 0.03, 11, 3), 0x1a1612, 0.5 + (k < 3 ? -2.5 : 2.5), 11.5, -3 + (k % 3) * 3, (k % 3 - 1) * 0.25, 0, k < 3 ? -0.22 : 0.22]);
+    M(islandGeo(L), vc, 0, 0, 0, { p: st, cast: false });
+    M(bx(0.06, 0.6, 0.7), bsc(0xffb050), -6.9, 6.4, 0, { p: st, cast: false });
+    glowSprite(-7.2, 6.4, 0, 0xffa040, 2.2, 0.6, st);
+    // velas rotas que se mecen con el viento
+    for (const [y, w, h, ph] of [[16.3, 8, 4.6, 0], [10.6, 5.4, 3.4, 2]]) {
+      const geo = new THREE.PlaneGeometry(w, h, 8, 5); geo.translate(0, -h / 2, 0);
+      const m = M(geo, sailM, 0.5, y, 0.2, { p: st, ry: Math.PI / 2 }); sails.push({ m, b: Float32Array.from(geo.attributes.position.array), ph, h });
+    } }
+  // el palo mayor caído sobre la arena, con su verga y la vela rasgada encima
+  { const a = { x: -16, y: 3.6, z: -27 }, b = { x: -1.6, y: 0.45, z: -33.5 }, dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, len = Math.hypot(dx, dy, dz);
+    const mg = new THREE.Group(); mg.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); world.group.add(mg);
+    mg.rotation.y = Math.atan2(-dz, dx); mg.rotation.z = Math.atan2(dy, Math.hypot(dx, dz));
+    const L = [[cyl(0.32, 0.42, len, 9), 0x523c26, 0, 0, 0, 0, 0, Math.PI / 2], [cyl(0.12, 0.14, 8, 6), 0x4e3a24, len / 2 - 2.5, 0.2, 0, Math.PI / 2 - 0.2, 0, 0], [cyl(0.9, 0.7, 0.5, 10), 0x3a2a1c, len / 2 - 1.2, 0, 0, 0, 0, Math.PI / 2]];
+    for (let k = 0; k < 5; k++) L.push([cyl(0.03, 0.03, sr(3, 6), 3), 0x1a1612, sr(-len / 2, len / 2), sr(0.3, 1.2), sr(-1.5, 1.5), sr(0, 1), 0, sr(0.5, 1.3)]);
+    M(islandGeo(L), vc, 0, 0, 0, { p: mg, solid: true });
+    // colisión de la parte que toca el suelo
+    for (let t = 0.25; t <= 1.0; t += 0.15) { const x = a.x + dx * t, z = a.z + dz * t; addCircle(x, z, 0.55); }
+    const geo = new THREE.PlaneGeometry(6, 4, 8, 5); geo.translate(0, -2, 0);
+    const m = M(geo, sailM, len / 2 - 2.5, 0.2, 0, { p: mg, rx: -1.25, ry: 0.1 }); sails.push({ m, b: Float32Array.from(geo.attributes.position.array), ph: 4, h: 4, low: true }); }
+  world.anims.push((dt, t) => {
+    for (const s of sails) { const p = s.m.geometry.attributes.position, b = s.b; for (let i = 0; i < p.count; i++) { const x = b[i * 3], y = b[i * 3 + 1], k = -y / s.h; p.array[i * 3 + 2] = (Math.sin(x * 0.9 + t * 3.2 + s.ph) * 0.35 + Math.sin(y * 1.3 - t * 4.1 + s.ph) * 0.18) * k * (s.low ? 0.6 : 1.4) + (s.low ? 0 : k * k * 1.2); } p.needsUpdate = true; }
+  });
+  // restos del naufragio flotando a la deriva
+  { const L = []; for (let i = 0; i < 9; i++) { const k = i % 3; L.push(k === 0 ? [cyl(0.4, 0.4, 1.1, 8), 0x5a4028, 0, 0, 0, Math.PI / 2] : k === 1 ? [bx(2.4, 0.14, 0.4), 0x4e3a24, 0, 0, 0] : [bx(0.9, 0.9, 0.9), 0x6a5236, 0, 0, 0]); }
+    const flo = L.map((p, i) => { const g = new THREE.Group(), a = sr(-2.6, -0.4), r = sr(52, 80); g.position.set(Math.cos(a) * r, 0.4, Math.sin(a) * r); world.group.add(g); M(p[0], lam(p[1]), 0, 0, 0, { p: g, rx: p[5] || 0, cast: false }); return { g, a, r, ph: sr(0, 6) }; });
+    world.anims.push((dt, t) => { for (const f of flo) { f.a += dt * 0.004; f.g.position.set(Math.cos(f.a) * f.r, 0.35 + Math.sin(t * 1.4 + f.ph) * 0.25, Math.sin(f.a) * f.r); f.g.rotation.set(Math.sin(t * 1.1 + f.ph) * 0.2, f.ph + t * 0.05, Math.sin(t * 0.9 + f.ph) * 0.15); } }); }
+
+  // ---- Cajas, barriles y cofres del naufragio repartidos por la playa
+  { const L = [];
+    const crateAt = (x, z, s, ry, col = 0x7a6040) => { L.push([bx(s, s, s), col, x, s / 2, z, 0, ry], [bx(s * 1.02, s * 0.12, s * 1.02), 0x4a3824, x, s * 0.2, z, 0, ry], [bx(s * 1.02, s * 0.12, s * 1.02), 0x4a3824, x, s * 0.8, z, 0, ry]); addBox(x, z, s * 0.55, s * 0.55, ry); };
+    const barrelAt = (x, z, lying, ry = 0) => { if (lying) { L.push([cyl(0.42, 0.42, 1.15, 10), 0x6a4a2a, x, 0.42, z, 0, ry, Math.PI / 2]); for (const o of [-0.4, 0.4]) L.push([cyl(0.44, 0.44, 0.08, 10), 0x2a2420, x + Math.cos(ry) * o, 0.42, z - Math.sin(ry) * o, 0, ry, Math.PI / 2]); addBox(x, z, 0.6, 0.45, ry); } else { L.push([cyl(0.42, 0.38, 1.15, 10), 0x6a4a2a, x, 0.58, z]); for (const y of [0.2, 0.95]) L.push([cyl(0.44, 0.44, 0.08, 10), 0x2a2420, x, y, z]); addCircle(x, z, 0.48); } };
+    [[-10, -24, 1.1, 0.3], [-8.8, -25.4, 0.8, 0.9], [-9.6, -24.3, 0.7, 0.2, 1.1], [-26, -18, 1.2, 0.5], [-24.8, -16.6, 0.9, 1.2], [8, -33, 1.0, 0.2], [24, -24, 1.1, 0.7], [25.2, -22.6, 0.8, 0.1], [-34, 18, 1.0, 0.4], [12, 36, 0.9, 1.0], [-14, 30, 1.0, 0.6], [32, -4, 0.9, 0.3], [-4, -38, 1.1, 0.8]].forEach(([x, z, s, ry, y]) => { if (y) { L.push([bx(s, s, s), 0x8a6a46, x, 1.1 + s / 2, z, 0, ry]); } else crateAt(x, z, s, ry); });
+    [[-12, -21.5, false], [-27.5, -20, true, 0.4], [-22, -14.5, false], [6, -35, true, 1.1], [26.6, -25, false], [-32, 20.4, false], [14, 34, true, 2], [34, -2, false], [-16, 31, true, 0.5], [2, -40, true, 0.3]].forEach(([x, z, ly, ry]) => barrelAt(x, z, ly, ry));
+    // cofre abierto con monedas (algunas brillan)
+    L.push([bx(1.2, 0.6, 0.8), 0x5a3a1e, 20, 0.3, -31, 0, 0.4], [bx(1.24, 0.1, 0.84), 0xb8902a, 20, 0.55, -31, 0, 0.4], [bx(1.2, 0.5, 0.1), 0x5a3a1e, 20.15, 0.9, -31.4, -0.9, 0.4], [cyl(0.5, 0.55, 0.12, 10), 0xd8a830, 20, 0.62, -31, 0, 0, 0, 1, 1, 0.6]);
+    for (let i = 0; i < 14; i++) L.push([cyl(0.08, 0.08, 0.02, 8), 0xe0b030, 20 + sr(-1.6, 1.6), 0.02, -31 + sr(-1.2, 1.2), sr(-0.3, 0.3)]);
+    addBox(20, -31, 0.65, 0.45, 0.4);
+    M(islandGeo(L), vc, 0, 0, 0, { solid: true });
+    world.anims.push((dt) => { if (Math.random() < dt * 3) PA.add(20 + rand(-0.5, 0.5), 0.7, -31 + rand(-0.3, 0.3), 0, 0.3, 0, 0.35, 0.06, 1, 0.85, 0.4, 1, 0, 0, 0, 0); }); }
+
+  // ---- Botes salvavidas: uno varado en la orilla y otro volcado
+  { const boat = (x, z, ry, flip, tilt) => { const g = Grp(x, z, ry); g.rotation.z = tilt || 0;
+      const hull = new THREE.CylinderGeometry(1.0, 1.0, 4.6, 14, 1, false, flip ? 0 : Math.PI, Math.PI); hull.rotateZ(Math.PI / 2); hull.scale(1, 0.72, 1.05);
+      const L = [[hull, 0xe8e2d4, 0, flip ? 0.05 : 0.76, 0], [new THREE.ConeGeometry(0.98, 1.0, 14, 1, false, 0, Math.PI), 0xe8e2d4, 2.8, flip ? 0.05 : 0.76, 0, 0, Math.PI / 2, -Math.PI / 2, 1, 1, 0.72], [bx(5.2, 0.16, 0.1), 0xd0601e, 0.2, flip ? 0.25 : 0.5, 1.02], [bx(5.2, 0.16, 0.1), 0xd0601e, 0.2, flip ? 0.25 : 0.5, -1.02]];
+      if (!flip) L.push([bx(0.1, 0.12, 1.9), 0x7a5a36, 0.6, 0.62, 0], [bx(0.1, 0.12, 1.9), 0x7a5a36, -0.8, 0.62, 0], [cyl(0.04, 0.04, 2.8, 5), 0x8a6a40, 0.2, 0.8, 0.5, 0, 0.3, 1.45], [new THREE.TorusGeometry(0.34, 0.09, 6, 12), 0xe85020, -1.6, 0.85, 0, Math.PI / 2]);
+      M(islandGeo(L), vcD, 0, 0, 0, { p: g, solid: true }); sign(6, 2.2, 0.32, 0.2, flip ? 0.42 : 0.72, 1.08, 0, g); addBox(x, z, 2.9, 1.1, ry); };
+    boat(14, -37, 0.35, false, -0.18); boat(31, 24, -0.9, true, 0); }
+
+  // ---- Palmeras que se mecen con el viento (tronco curvo + copa que se mueve)
+  { const PALMS = [[-6, -14], [12, -18], [-30, -12], [-36, 6], [-20, 22], [-8, 34], [6, 28], [26, 32], [36, 10], [30, -10], [34, -2], [24, 4], [27, -18], [-2, -30], [16, 14], [-14, 10], [-28, 30], [38, -16], [37.5, 33.5], [-45.5, -19]];
+    const trunks = [], heads = [];
+    PALMS.forEach(([x, z]) => { const h = sr(5.5, 8.2), lean = sr(0.1, 0.26), ry = Math.atan2(z, x) + sr(-0.6, 0.6);
+      for (let s = 0; s < 9; s++) { const u = s / 9; trunks.push([cyl(0.17, 0.24, 1, 7), s % 2 ? 0x5a4632 : 0x4a3a28, x + Math.cos(ry) * Math.sin(lean) * u * u * h * 1.5, h / 18 + u * h, z + Math.sin(ry) * Math.sin(lean) * u * u * h * 1.5, 0, -ry, -lean * u * 2, 1 - u * 0.28, h / 9 + 0.06, 1 - u * 0.28]); }
+      trunks.push([cyl(0.5, 0.3, 0.3, 7), 0x3a3022, x, 0.1, z]);
+      addCircle(x, z, 0.38);
+      heads.push({ x: x + Math.cos(ry) * Math.sin(lean) * h * 1.5, y: h, z: z + Math.sin(ry) * Math.sin(lean) * h * 1.5, ph: sr(0, 6) });
+      // cocos caídos
+      for (let k = 0; k < 2; k++) trunks.push([sph(0.17, 6, 5), 0x4a3a1a, x + sr(-1.5, 1.5), 0.13, z + sr(-1.5, 1.5)]); });
+    M(islandGeo(trunks), vc, 0, 0, 0);
+    const F = []; for (let f = 0; f < 9; f++) { const a = f / 9 * TAU; const g = new THREE.PlaneGeometry(1.0, 3.6, 1, 5); g.translate(0, 1.8, 0); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); p.setZ(i, -yy * yy * 0.09); p.setX(i, p.getX(i) * (1 - yy / 4)); } F.push([g, f % 3 === 0 ? 0x5a5a28 : f % 2 ? 0x24502a : 0x2c5e2e, 0, 0, 0, -1.05 + (f % 2) * 0.25, a]); }
+    F.push([sph(0.22, 6, 5), 0x4a3a1a, 0.2, -0.2, 0.1], [sph(0.22, 6, 5), 0x4a3a1a, -0.15, -0.25, 0.15], [sph(0.22, 6, 5), 0x3e3016, 0.05, -0.28, -0.2]);
+    const fg = islandGeo(F), fm = lam(0xffffff, { vertexColors: true, side: THREE.DoubleSide });
+    const hm = heads.map(hd => { const g = new THREE.Group(); g.position.set(hd.x, hd.y, hd.z); world.group.add(g); const m = new THREE.Mesh(fg, fm); m.castShadow = true; g.add(m); g.rotation.y = hd.ph; return g; });
+    world.anims.push((dt, t) => { const gust = 0.6 + 0.4 * Math.sin(t * 0.37); hm.forEach((g, i) => { const ph = heads[i].ph; g.rotation.x = (Math.sin(t * 1.3 + ph) * 0.09 + 0.05) * gust; g.rotation.z = Math.sin(t * 0.95 + ph * 1.7) * 0.08 * gust; }); }); }
+  // matorral y helechos de la selva (este)
+  { const L = []; for (let i = 0; i < 46; i++) { const a = sr(-0.95, 0.95), r = sr(24, 39), x = Math.cos(a) * r, z = Math.sin(a) * r; if (!freeSpot(x, z, 0.8, 8)) continue; const s = sr(0.6, 1.3); L.push([x, s * 0.45, z, 0, sr(0, 3), 0, s, s * 0.7, s, pick([0x1e3a1c, 0x264a22, 0x30542a, 0x1a3018])]); }
+    inst(new THREE.IcosahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), L);
+    // luciérnagas en la selva
+    world.anims.push((dt, t) => { if (Math.random() < dt * (FAST() ? 3 : 8)) { const a = rand(-0.9, 0.9), r = rand(22, 38); PA.add(Math.cos(a) * r, rand(0.5, 2.5), Math.sin(a) * r, rand(-0.3, 0.3), rand(-0.1, 0.2), rand(-0.3, 0.3), rand(1.5, 3), 0.06, 0.7, 1, 0.3, 0.9, 0, 0.2, 0, 0); } }); }
+
+  // ---- Campamento de los náufragos: chozas, hoguera, antorchas y un recuento de días
+  const thatch = 0x6a5a34;
+  const hut = (x, z, ry, kind) => {
+    const g = Grp(x, z, ry), L = [];
+    if (kind === 0) { // choza en A de hojas de palma
+      L.push([roofGeo(3.6, 2.8, 4.2), thatch, 0, 0, 0], [roofGeo(3.9, 0.3, 4.4), 0x4a4024, 0, 2.6, 0]);
+      for (const sx of [-1.7, 1.7]) for (const sz of [-2, 2]) L.push([cyl(0.07, 0.08, 1.2, 5), 0x8a7a50, sx, 0.6, sz]);
+      L.push([bx(2.2, 0.06, 2.6), 0x5a4a30, 0, 0.05, 2.6], [cyl(0.05, 0.05, 3.6, 5), 0x8a7a50, 0, 1.7, 2.4, 0.3]);
+      M(islandGeo(L), vcD, 0, 0, 0, { p: g, solid: true }); addBox(x, z, 1.9, 2.2, ry);
+    } else if (kind === 1) { // refugio con una vela del barco y remos
+      for (const sx of [-1.8, 1.8]) L.push([cyl(0.06, 0.07, 2.6, 5), 0x8a6a40, sx, 1.3, -1.2], [cyl(0.05, 0.05, 1, 5), 0x8a6a40, sx, 0.5, 1.4]);
+      L.push([bx(4, 0.08, 0.08), 0x6a5032, 0, 2.55, -1.2], [bx(1.6, 0.1, 2.2), 0x4a5a2a, 0, 0.05, -0.2], [cyl(0.25, 0.22, 0.4, 8), 0x8a6a40, 1.2, 0.2, 0.4]);
+      M(islandGeo(L), vc, 0, 0, 0, { p: g, solid: true });
+      const geo = new THREE.PlaneGeometry(4, 3.2, 6, 4); const m = M(geo, sailM, 0, 1.5, 0.1, { p: g, rx: -0.95 }); sails.push({ m, b: Float32Array.from(geo.attributes.position.array), ph: 1, h: 3.2, low: true });
+      addBox(x, z, 2, 1.5, ry);
+    } else { // cabaña hecha con tablones del barco
+      L.push([bx(4, 2.4, 0.15), 0x5a4228, 0, 1.2, -1.8], [bx(0.15, 2.4, 3.6), 0x5a4228, -2, 1.2, 0], [bx(0.15, 2.4, 3.6), 0x52401f, 2, 1.2, 0], [bx(1.3, 2.4, 0.15), 0x5a4228, -1.35, 1.2, 1.8], [bx(1.3, 2.4, 0.15), 0x5a4228, 1.35, 1.2, 1.8], [bx(4.6, 0.2, 4.4), thatch, 0, 2.55, 0, 0.12], [bx(4.8, 0.3, 4.6), 0x5a4a28, 0, 2.75, -0.1, 0.12]);
+      L.push([bx(2, 0.4, 1), 0x6a5236, 0, 0.2, -1.1]);
+      M(islandGeo(L), vc, 0, 0, 0, { p: g, solid: true }); addBox(x, z, 2.1, 1.95, ry);
+      sign(3, 1.6, 0.42, 0, 1.95, 1.9, 0, g); sign(4, 1.7, 0.28, 2.1, 1.4, 0, Math.PI / 2, g);
+      M(bx(0.5, 0.4, 0.06), bsc(0xffb050), 0, 1.2, -1.7, { p: g, cast: false }); glowSprite(0, 1.2, -1.5, 0xff9a40, 1.4, 0.5, g);
+    }
+    return g;
+  };
+  hut(-31, 1, Math.PI / 2 - 0.2, 0); hut(-25, 15, 2.4, 1); hut(-29, -8, 0.9 + Math.PI / 2, 2); hut(18, 31, -2.6, 0);
+  // hoguera del campamento con troncos para sentarse y un pescado al fuego
+  const campfire = (fx, fz, light) => { const L = [];
+    for (let i = 0; i < 6; i++) L.push([cyl(0.11, 0.11, 1.3, 6), 0x3a2a1a, fx + Math.cos(i) * 0.3, 0.15, fz + Math.sin(i) * 0.3, 0, i * 1.1, Math.PI / 2 - 0.3]);
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; L.push([new THREE.DodecahedronGeometry(0.22, 0), 0x5a5650, fx + Math.cos(a) * 0.85, 0.1, fz + Math.sin(a) * 0.85]); }
+    for (const [a, r] of [[0.6, 2.8], [2.6, 2.9], [4.4, 2.7]]) { L.push([cyl(0.28, 0.28, 2.2, 8), 0x5a4030, fx + Math.cos(a) * r, 0.28, fz + Math.sin(a) * r, 0, -a + Math.PI / 2, Math.PI / 2]); addBox(fx + Math.cos(a) * r, fz + Math.sin(a) * r, 0.32, 1.1, -a); }
+    L.push([cyl(0.03, 0.03, 2.2, 4), 0x6a5032, fx, 1.0, fz, 0, 0, Math.PI / 2], [cyl(0.04, 0.04, 1.2, 4), 0x6a5032, fx - 1, 0.55, fz], [cyl(0.04, 0.04, 1.2, 4), 0x6a5032, fx + 1, 0.55, fz], [sph(0.2, 8, 6), 0x8a8a90, fx, 1.0, fz, 0, 0, 0, 2.2, 0.8, 0.6]);
+    M(islandGeo(L), vc, 0, 0, 0); addCircle(fx, fz, 1.0);
+    fireAt(fx, fz, 0.35, light, 1.0);
+    world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 2 : 6)) PA.add(fx + rand(-0.3, 0.3), 1.2, fz + rand(-0.3, 0.3), rand(-0.6, 0.6), rand(2, 4), rand(-0.6, 0.6), rand(1, 2), 0.04, 1, 0.6, 0.2, 1, -0.4, 0.3, 0, 0); }); };
+  campfire(-24, 6, true); campfire(16, 26, true);
+  // antorchas de bambú
+  { const L = [], flames = [];
+    [[-20, 1], [-21, 11], [-33, 10], [12, 30], [21, 24], [-34, -4]].forEach(([x, z]) => { L.push([cyl(0.05, 0.06, 2.2, 5), 0x8a7a50, x, 1.1, z], [cyl(0.12, 0.08, 0.3, 6), 0x3a2a18, x, 2.3, z]); addCircle(x, z, 0.15); flames.push([x, 2.55, z, glowSprite(x, 2.55, z, 0xff8a30, 1.6, 0.7)]); });
+    M(islandGeo(L), vc, 0, 0, 0);
+    world.anims.push((dt, t) => { for (let i = 0; i < flames.length; i++) { const f = flames[i]; f[3].material.opacity = 0.55 + Math.sin(t * 13 + i * 3) * 0.1 + Math.random() * 0.1; if (Math.random() < dt * (FAST() ? 5 : 12)) PA.add(f[0] + rand(-0.06, 0.06), f[1], f[2] + rand(-0.06, 0.06), rand(-0.1, 0.1), rand(0.6, 1.2), rand(-0.1, 0.1), rand(0.3, 0.5), rand(0.1, 0.16), 1, rand(0.4, 0.6), 0.1, 1, -1, 0.5, -0.2, 0); } }); }
+  // el náufrago que no lo logró: esqueleto apoyado en una palmera con una botella
+  { const L = [[sph(0.15, 8, 6), 0xd8d0b8, -13.4, 0.75, 10.6], [bx(0.32, 0.4, 0.14), 0xcfc4a8, -13.5, 0.4, 10.5], [cyl(0.03, 0.03, 0.7, 4), 0xcfc4a8, -13.1, 0.1, 11, Math.PI / 2, 0.3], [cyl(0.03, 0.03, 0.7, 4), 0xcfc4a8, -13.4, 0.1, 11.1, Math.PI / 2, -0.2], [cyl(0.025, 0.025, 0.5, 4), 0xcfc4a8, -13.2, 0.35, 10.2, 0.5, 0, 0.9], [cyl(0.06, 0.06, 0.28, 8), 0x2a5a3a, -12.8, 0.08, 10.2, 0, 0, Math.PI / 2], [bx(0.5, 0.04, 0.3), 0xe8dcc0, -12.6, 0.02, 10.8, 0, 0.4]];
+    M(islandGeo(L), vc, 0, 0, 0, { cast: false }); sign(7, 2.2, 0.35, -15.2, 1.4, 10.4, 1.2); M(cyl(0.05, 0.05, 1.6, 4), lam(0x5a4030), -15.4, 0.8, 10.6); }
+
+  // ---- «SOS» escrito con piedras blancas en la arena (se lee desde el cielo)
+  { const pts = [], strokes = [];
+    const S = [[1.4, -2], [-1.4, -2], [-1.4, 0], [1.4, 0], [1.4, 2], [-1.4, 2]], O = [[-1.4, -2], [1.4, -2], [1.4, 2], [-1.4, 2], [-1.4, -2]];
+    [[S, 0], [O, 4.4], [S, 8.8]].forEach(([poly, ox]) => strokes.push(poly.map(([x, z]) => [x + ox, z])));
+    for (const poly of strokes) for (let i = 0; i < poly.length - 1; i++) { const [x0, z0] = poly[i], [x1, z1] = poly[i + 1], n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.5); for (let k = 0; k < n; k++) pts.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
+    const L = pts.map(([x, z], i) => { const kicked = i % 23 === 7; return [x + 1.6 + (kicked ? sr(-1.4, 1.4) : sr(-0.08, 0.08)), 0.06, z + 18 + (kicked ? sr(-1.4, 1.4) : sr(-0.1, 0.1)), sr(0, 3), sr(0, 3), 0, sr(0.21, 0.28), sr(0.12, 0.17), sr(0.21, 0.28), pick([0xd8d4cc, 0xc8c4bc, 0xe0dcd4, 0xb0aca4])]; });
+    inst(new THREE.DodecahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), L, false); }
+
+  // ---- Cangrejos que corren de lado y murciélagos de la fruta sobre las palmeras
+  { const N = 12, cm = new THREE.InstancedMesh(islandGeo([[bx(0.34, 0.12, 0.26), 0xc83a1c, 0, 0.08, 0], [bx(0.12, 0.07, 0.1), 0xe05030, 0.24, 0.1, 0.14], [bx(0.12, 0.07, 0.1), 0xe05030, 0.24, 0.1, -0.14], [bx(0.42, 0.02, 0.32), 0x7a2a10, 0, 0.03, 0], [sph(0.025, 4, 3), 0x111111, 0.15, 0.17, 0.05], [sph(0.025, 4, 3), 0x111111, 0.15, 0.17, -0.05]]), lam(0xffffff, { vertexColors: true }), N);
+    const cr = []; for (let i = 0; i < N; i++) cr.push({ a: sr(0, TAU), r: sr(30, 41.5), v: sr(0.04, 0.08) * (srand() < 0.5 ? -1 : 1), ph: sr(0, 6) });
+    const up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1); world.group.add(cm);
+    world.anims.push((dt, t) => { cr.forEach((c, i) => { const go = Math.sin(t * 0.7 + c.ph) > -0.1; if (go) c.a += c.v * dt; const r = c.r + Math.sin(t * 0.4 + c.ph) * 1.2; _v.set(Math.cos(c.a) * r, Math.abs(Math.sin(t * 22 + i)) * 0.02, Math.sin(c.a) * r); _q.setFromAxisAngle(up, -c.a + Math.sin(t * 3 + i) * 0.15); mt.compose(_v, _q, one); cm.setMatrixAt(i, mt); }); cm.instanceMatrix.needsUpdate = true; }); }
+  { const N = 12, gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.2, -1.1, 0.2, -0.2, -0.4, 0, -0.3, 0, 0, 0.2, 1.1, 0.2, -0.2, 0.4, 0, -0.3], 3)); gg.computeVertexNormals();
+    const bm = new THREE.InstancedMesh(gg, bsc(0x0c0a10, { side: THREE.DoubleSide }), N); world.group.add(bm);
+    const bats = []; for (let i = 0; i < N; i++) bats.push({ cx: sr(-30, 30), cz: sr(-30, 30), r: sr(5, 14), h: sr(10, 20), sp: sr(0.4, 0.8) * (i % 2 ? 1 : -1), ph: sr(0, 6) });
+    world.anims.push((dt, t) => { bats.forEach((b, i) => { const a = t * b.sp + b.ph; _v.set(b.cx + Math.cos(a) * b.r, b.h + Math.sin(t * 1.3 + b.ph) * 1.5, b.cz + Math.sin(a) * b.r); _e.set(0, -a + (b.sp > 0 ? 0 : Math.PI), Math.sin(a) * 0.3); _q.setFromEuler(_e); const f = Math.sin(t * 14 + b.ph * 3); _s.set(0.8, 1 + f * 1.6, 0.8); mt.compose(_v, _q, _s); bm.setMatrixAt(i, mt); }); bm.instanceMatrix.needsUpdate = true; }); }
+  // nubes que pasan delante de la luna
+  { const cl = []; for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, color: 0x404a5e, transparent: true, opacity: 0.55, depthWrite: false, fog: false })); const sc = sr(120, 220); s.scale.set(sc, sc * 0.35, 1); world.group.add(s); cl.push({ s, a: sr(-3, 0.5), e: sr(0.25, 0.6), sp: sr(0.004, 0.009) }); }
+    world.anims.push((dt, t) => { for (const c of cl) { c.a += c.sp * dt; c.s.position.set(camera.position.x + Math.cos(c.a) * Math.cos(c.e) * 330, Math.sin(c.e) * 330, camera.position.z + Math.sin(c.a) * Math.cos(c.e) * 330); } }); }
+
+  // ---- Dunas bajas con hierba, troncos que trajo el mar y rocas volcánicas para cubrirse
+  { const L = [];
+    const D = [];
+    for (const [a, r, len, wd] of [[0.72, 50, 9, 3.2], [3.55, 49, 8, 3], [5.2, 50, 7, 2.6]]) D.push([sph(1, 18, 8), 0xa08c64, Math.cos(a) * r, -0.3, Math.sin(a) * r, 0, -a, 0, len, 0.55, wd]);
+    for (const [x, z, sx, sz] of [[-8, -8, 7, 4], [18, 8, 6, 3.5], [-20, 30, 7, 3.5], [8, 38, 6, 3], [-36, -20, 5, 3]]) { D.push([sph(1, 18, 8), 0x9a8460, x, -0.66, z, 0, sr(0, 3), 0, sx, 0.78, sz]); for (let k = 0; k < 16; k++) { const a = sr(0, TAU), r = sr(0.2, 0.85); L.push([new THREE.ConeGeometry(0.05, sr(0.4, 0.8), 3), pick([0x6a7a3a, 0x8a8a4a, 0x5a6a30]), x + Math.cos(a) * sx * r, 0.2, z + Math.sin(a) * sz * r, sr(-0.3, 0.3), 0, sr(-0.3, 0.3)]); } }
+    for (const [x, z, ry, len] of [[-2, 12, 0.4, 3.4], [22, -2, 1.9, 4], [-18, -24, 0.9, 3], [6, -12, 2.4, 2.6], [-35, 24, 1.2, 3.2], [30, 18, 0.3, 3.6]]) { L.push([cyl(0.24, 0.3, len, 7), 0x6a5a48, x, 0.24, z, 0, ry, Math.PI / 2], [cyl(0.08, 0.1, 1.2, 5), 0x6a5a48, x + Math.cos(ry) * len * 0.3, 0.45, z - Math.sin(ry) * len * 0.3, 0.6, ry + 0.8, 0.4]); addBox(x, z, len / 2, 0.32, ry); }
+    for (const [cx, cz] of [[11, -5], [-15, 22]]) { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + sr(-0.3, 0.3), r = i ? sr(1.2, 2.2) : 0, sc = i ? sr(0.7, 1.2) : 1.6; L.push([new THREE.DodecahedronGeometry(1, 0), pick([0x3a3632, 0x44403a, 0x2e2c28]), cx + Math.cos(a) * r, sc * 0.45, cz + Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.7, 1.1), sc]); } addCircle(cx, cz, 2.5); }
+    M(islandGeo(L), lam(0xffffff, { vertexColors: true, flatShading: true }), 0, 0, 0); M(islandGeo(D), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false }); }
+  // medusas varadas que brillan en la orilla (laten despacio)
+  { const L = []; for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(38.5, 41.8), s = sr(0.25, 0.5); L.push([Math.cos(a) * r, 0.02, Math.sin(a) * r, 0, sr(0, 3), 0, s, s * 0.35, s]); }
+    const jm = bsc(0x40a8e0, { transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }); inst(new THREE.SphereGeometry(1, 10, 5, 0, TAU, 0, Math.PI / 2), jm, L, false);
+    world.anims.push((dt, t) => { const k = 0.55 + Math.sin(t * 1.6) * 0.25 + Math.sin(t * 4.3) * 0.08; jm.color.setRGB(0.18 * k, 0.6 * k, 0.95 * k); }); }
+  // islotes lejanos y la luz de un barco que nunca viene
+  { const im = new THREE.MeshBasicMaterial({ color: 0x08101a, fog: false }), L = [];
+    for (const [a, d, w, h] of [[-2.2, 260, 70, 16], [-1.3, 300, 40, 9], [0.9, 280, 90, 22], [2.6, 320, 60, 12], [-0.3, 340, 30, 6]]) { L.push([sph(1, 16, 8), 0, Math.cos(a) * d, -2, Math.sin(a) * d, 0, -a, 0, w / 2, h, w / 6]); for (let k = 0; k < 3; k++) L.push([new THREE.ConeGeometry(4, 10, 5), 0, Math.cos(a + sr(-0.04, 0.04)) * d, h * 0.7 + sr(0, 4), Math.sin(a + sr(-0.04, 0.04)) * d]); }
+    const isl = M(islandGeo(L), im, 0, 0, 0, { cast: false, recv: false }); isl.renderOrder = -1;
+    const shipL = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffe0a0, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); shipL.scale.set(6, 6, 1); shipL.position.set(Math.cos(0.3) * 330, 3, Math.sin(0.3) * 330); world.group.add(shipL);
+    world.anims.push((dt, t) => { shipL.material.opacity = (t % 4) < 0.25 ? 1 : 0.18; shipL.position.set(Math.cos(0.3 + t * 0.002) * 330, 3, Math.sin(0.3 + t * 0.002) * 330); }); }
+
+  // ===================== OBJETOS PARA INTERACTUAR =====================
+  // ---- Barriles de pólvora del barco: explotan al dispararles (un solo uso cada uno)
+  const scorchM = new THREE.MeshBasicMaterial({ map: glowTex, color: 0x000000, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.MultiplyBlending });
+  const powder = (x, z) => {
+    const g = Grp(x, z, sr(0, TAU));
+    const L = [[cyl(0.5, 0.45, 1.3, 12), 0x8a1e14, 0, 0.65, 0], [cyl(0.52, 0.52, 0.1, 12), 0x1a1612, 0, 0.18, 0], [cyl(0.52, 0.52, 0.1, 12), 0x1a1612, 0, 1.1, 0], [cyl(0.46, 0.46, 0.04, 12), 0x5a3a20, 0, 1.31, 0], [cyl(0.03, 0.03, 0.35, 4), 0x2a2018, 0.15, 1.45, 0, 0, 0, 0.4]];
+    const b = M(islandGeo(L), vc, 0, 0, 0, { p: g });
+    const lbl = sign(0, 0.9, 0.24, 0, 0.75, 0.5, 0, g, atlasB); const lbl2 = sign(0, 0.9, 0.24, 0, 0.75, -0.5, Math.PI, g, atlasB);
+    const halo = glowSprite(x, 1.5, z, 0xff4020, 1.6, 0.35);
+    const broken = M(islandGeo([[bx(0.12, 0.7, 0.05), 0x2a1410, 0.4, 0.2, 0.1, 1.2, 0, 0.3], [bx(0.12, 0.6, 0.05), 0x2a1410, -0.5, 0.15, 0.3, 1.4, 1, 0], [bx(0.12, 0.5, 0.05), 0x2a1410, 0.1, 0.12, -0.5, 1.3, 2, 0], [cyl(0.52, 0.52, 0.08, 12), 0x1a1612, 0.7, 0.05, -0.3, 0.3]]), vc, 0, 0, 0, { p: g, cast: false });
+    broken.visible = false;
+    const scorch = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), scorchM); scorch.rotation.x = -Math.PI / 2; scorch.position.set(x, 0.03, z); scorch.visible = false; world.group.add(scorch);
+    addCircle(x, z, 0.55);
+    let done = false, burnT = 0;
+    shootable(b, () => { if (done) return; done = true; b.visible = lbl.visible = lbl2.visible = halo.visible = false; broken.visible = scorch.visible = true; Sfx.boom(); explode(new THREE.Vector3(x, 0.9, z), 6.5, 360, 25); burnT = 5; feed('¡Barril de pólvora!', 'gold'); });
+    world.anims.push((dt, t) => { if (!done) { halo.material.opacity = 0.25 + Math.sin(t * 4) * 0.1; return; } if (burnT > 0) { burnT -= dt; for (let i = 0; i < 2; i++) PA.add(x + rand(-0.8, 0.8), 0.3, z + rand(-0.8, 0.8), rand(-0.3, 0.3), rand(1, 2.2), rand(-0.3, 0.3), rand(0.3, 0.6), rand(0.15, 0.3), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.2, 0); if (Math.random() < 0.3) P.add(x, 1.2, z, rand(-0.3, 0.3), rand(1, 1.8), rand(-0.3, 0.3), 2.5, 0.5, 0.1, 0.1, 0.1, 0.4, -0.1, 0.4, 0.6); } });
+  };
+  powder(-12.8, -19.6); powder(-26.5, -2.5); powder(23, -21.5);
+
+  // ---- El cañón del barco: dispara una bala explosiva hacia los zombis más cercanos
+  { const cx = -5, cz = -21;
+    const base = Grp(cx, cz, 0), yaw = new THREE.Group(); yaw.position.y = 0; base.add(yaw);
+    M(islandGeo([[bx(1.3, 0.45, 2.0), 0x5a3a1e, 0, 0.45, 0], [bx(1.1, 0.3, 0.9), 0x4a301a, 0, 0.8, -0.4]]), vc, 0, 0, 0, { p: yaw, solid: true });
+    for (const sx of [-0.7, 0.7]) for (const sz of [-0.7, 0.7]) M(cyl(0.26, 0.26, 0.12, 10), lam(0x3a2a18), sx, 0.26, sz, { p: yaw, rz: Math.PI / 2 });
+    const barrel = new THREE.Group(); barrel.position.set(0, 1.05, 0.1); yaw.add(barrel);
+    const bm = lam(0x1c1c20, { emissive: 0x050505 });
+    M(cyl(0.2, 0.3, 2.6, 12), bm, 0, 0, 0.9, { p: barrel, rx: Math.PI / 2 }); M(cyl(0.3, 0.3, 0.2, 12), bm, 0, 0, 2.15, { p: barrel, rx: Math.PI / 2 }); M(sph(0.32, 10, 8), bm, 0, 0, -0.4, { p: barrel });
+    addCircle(cx, cz, 1.1);
+    // balas de cañón apiladas y un farol que señala el cañón
+    M(islandGeo([[sph(0.17, 8, 6), 0x1a1a1c, 1.6, 0.17, 0.2], [sph(0.17, 8, 6), 0x1a1a1c, 1.95, 0.17, 0.2], [sph(0.17, 8, 6), 0x1a1a1c, 1.78, 0.17, 0.5], [sph(0.17, 8, 6), 0x1a1a1c, 1.78, 0.45, 0.3]]), vc, cx, 0, cz, { cast: false });
+    sign(1, 2.6, 0.38, cx, 1.9, cz - 1.35, 0, null, atlasB); M(cyl(0.05, 0.05, 1.7, 4), lam(0x5a4030), cx - 1.2, 0.85, cz - 1.35); M(cyl(0.05, 0.05, 1.7, 4), lam(0x5a4030), cx + 1.2, 0.85, cz - 1.35);
+    const fuse = glowSprite(cx, 1.4, cz - 0.5, 0xffa040, 1.2, 0.6);
+    const ball = M(sph(0.28, 10, 8), lam(0x111111, { emissive: 0x200800 }), 0, -50, 0, { cast: false }); ball.visible = false;
+    const shot = { on: false, t: 0, dur: 1, a: new THREE.Vector3(), b: new THREE.Vector3(), h: 4 }; let aimY = 0, aimTo = 0, recoil = 0;
+    world.anims.push((dt, t) => {
+      fuse.material.opacity = 0.45 + Math.sin(t * 9) * 0.15 + Math.random() * 0.1;
+      aimY += (aimTo - aimY) * Math.min(1, dt * 8); yaw.rotation.y = aimY; recoil = Math.max(0, recoil - dt * 2); barrel.position.z = 0.1 - recoil * 0.5;
+      if (!shot.on) return;
+      shot.t += dt; const u = Math.min(1, shot.t / shot.dur);
+      ball.position.lerpVectors(shot.a, shot.b, u); ball.position.y += Math.sin(u * Math.PI) * shot.h;
+      if (Math.random() < 0.8) P.add(ball.position.x, ball.position.y, ball.position.z, 0, 0.2, 0, 0.8, 0.25, 0.35, 0.35, 0.35, 0.35, -0.1, 0.5, 0.4, 0);
+      if (u >= 1) { shot.on = false; ball.visible = false; Sfx.boom(); explode(shot.b.clone().setY(0.6), 6, 320, 18); }
+    });
+    mapUse({ x: cx, z: cz + 0.2, r: 2.8, t: 'Cañón del barco', d: 'Dispara una bala explosiva a los zombis más cercanos.', b: 'Disparar', price: 10, cd: 35, use(o) {
+      const tg = nearestZombies(new THREE.Vector3(cx, 0, cz), 1, 66, new Set())[0];
+      if (!tg) { hint('No hay zombis a tiro', 1600); game.gold += o.price; o.readyT = 0; return; }
+      const p = tg.root.position; aimTo = Math.atan2(p.x - cx, p.z - cz); yaw.rotation.y = aimY = aimTo; recoil = 1;
+      const mz = lw(base, Math.sin(aimTo) * 2.3, Math.cos(aimTo) * 2.3);
+      shot.a.set(mz.x, 1.1, mz.z); shot.b.set(p.x, 0.3, p.z); const d = shot.a.distanceTo(shot.b); shot.dur = 0.5 + d * 0.028; shot.h = 1.5 + d * 0.18; shot.t = 0; shot.on = true; ball.visible = true; ball.position.copy(shot.a);
+      Sfx.boom(); player.shake = Math.min(1, player.shake + 0.25);
+      for (let i = 0; i < 18; i++) P.add(mz.x, 1.1, mz.z, Math.sin(aimTo) * rand(1, 4) + rand(-0.6, 0.6), rand(0.2, 1.4), Math.cos(aimTo) * rand(1, 4) + rand(-0.6, 0.6), rand(0.8, 1.6), 0.5, 0.75, 0.72, 0.68, 0.45, -0.2, 1.2, 0.8, 0);
+      for (let i = 0; i < 14; i++) PA.add(mz.x, 1.1, mz.z, Math.sin(aimTo) * rand(2, 6) + rand(-1, 1), rand(0, 2), Math.cos(aimTo) * rand(2, 6) + rand(-1, 1), 0.25, 0.2, 1, 0.6, 0.2, 1, 0, 1, 0, 0);
+      feed('¡Fuego!', 'gold');
+    } }); }
+
+  // ---- Hoguera de señales: al encenderla pasa una avioneta y deja caer una caja de balas
+  { const bx0 = 24, bz0 = -11, L = [];
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; L.push([cyl(0.1, 0.15, 5, 5), i % 2 ? 0x4a3a24 : 0x5a4630, bx0 + Math.cos(a) * 1.0, 2.2, bz0 + Math.sin(a) * 1.0, Math.sin(a) * 0.36, 0, -Math.cos(a) * 0.36]); }
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + 0.2; L.push([new THREE.PlaneGeometry(1.0, 3.2), i % 2 ? 0x7a6a3a : 0x5a6a30, bx0 + Math.cos(a) * 1.25, 1.4, bz0 + Math.sin(a) * 1.25, Math.sin(a) * 0.4, -a + Math.PI / 2, 0]); }
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; L.push([cyl(0.2, 0.2, 1.6, 6), 0x3a2e20, bx0 + Math.cos(a) * 0.5, 0.25, bz0 + Math.sin(a) * 0.5, 0, a, Math.PI / 2]); }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; L.push([new THREE.DodecahedronGeometry(0.26, 0), 0x6a665e, bx0 + Math.cos(a) * 1.6, 0.12, bz0 + Math.sin(a) * 1.6]); }
+    L.push([cyl(0.05, 0.05, 4.6, 5), 0x6a5032, bx0 + 2.2, 2.3, bz0 - 0.6]);
+    const pyre = M(islandGeo(L), lam(0xffffff, { vertexColors: true, side: THREE.DoubleSide }), 0, 0, 0); addCircle(bx0, bz0, 1.6);
+    sign(5, 3.4, 0.42, bx0, 1.9, bz0 + 2.3, 0, null, atlasB); M(cyl(0.05, 0.05, 1.8, 4), lam(0x5a4030), bx0 - 1.6, 0.9, bz0 + 2.3); M(cyl(0.05, 0.05, 1.8, 4), lam(0x5a4030), bx0 + 1.6, 0.9, bz0 + 2.3);
+    // trapo rojo que ondea en lo alto del palo
+    const fgeo = new THREE.PlaneGeometry(1.2, 0.7, 6, 1); fgeo.translate(0.6, -0.35, 0); const flag = M(fgeo, lam(0xc82a1e, { side: THREE.DoubleSide }), bx0 + 2.2, 4.55, bz0 - 0.6, { cast: false });
+    const fp = fgeo.attributes.position, fb = Float32Array.from(fp.array);
+    const ready = glowSprite(bx0, 1.2, bz0, 0xffb050, 2.4, 0.25);
+    const fl = FAST() ? null : new THREE.PointLight(0xff7a20, 0, 26, 1.6); if (fl) { fl.position.set(bx0, 3, bz0); world.group.add(fl); }
+    // la caja con paracaídas y la avioneta
+    const crateG = new THREE.Group(); crateG.visible = false; world.group.add(crateG);
+    M(islandGeo([[bx(1.1, 0.8, 0.9), 0x4a5a32, 0, 0, 0], [bx(1.14, 0.12, 0.94), 0x2a2a20, 0, 0.2, 0], [bx(0.5, 0.3, 0.02), 0xe8e0c8, 0, 0, 0.46]]), vc, 0, 0, 0, { p: crateG });
+    const chute = M(new THREE.SphereGeometry(2.2, 12, 6, 0, TAU, 0, Math.PI / 2), lam(0xe8e0d0, { side: THREE.DoubleSide, emissive: 0x1a1a1a }), 0, 4.2, 0, { p: crateG, cast: false });
+    for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + 0.78; M(cyl(0.015, 0.015, 4.4, 3), lam(0x222222), Math.cos(a) * 1.05, 2.1, Math.sin(a) * 1.05, { p: crateG, cast: false, rz: Math.cos(a) * 0.45, rx: -Math.sin(a) * 0.45 }); }
+    const flare = glowSprite(0, 0.3, 0, 0xff3020, 2.2, 0.9, crateG);
+    const plane = new THREE.Group(); plane.visible = false; world.group.add(plane);
+    M(islandGeo([[bx(6, 0.9, 0.9), 0x8a8a84, 0, 0, 0], [bx(1.4, 0.15, 11), 0x9a9a94, 0.4, 0.35, 0], [bx(1, 0.1, 3.6), 0x9a9a94, -2.8, 0.2, 0], [bx(0.9, 1.4, 0.1), 0x9a9a94, -2.8, 0.8, 0], [cyl(0.4, 0.45, 0.5, 8), 0x555555, 3.1, 0, 0, 0, 0, Math.PI / 2]]), vc, 0, 0, 0, { p: plane, cast: false });
+    const pl1 = glowSprite(0.4, 0.4, 5.5, 0x40ff60, 2.5, 1, plane), pl2 = glowSprite(0.4, 0.4, -5.5, 0xff3030, 2.5, 1, plane);
+    let lit = 0, dropT = -1, planeT = -1; const land = { x: bx0 - 3.5, z: bz0 + 5 };
+    world.anims.push((dt, t) => {
+      for (let i = 0; i < fp.count; i++) { const x = fb[i * 3]; fp.array[i * 3 + 2] = Math.sin(x * 4 - t * 8) * 0.12 * x; } fp.needsUpdate = true;
+      ready.material.opacity = lit > 0 ? 0 : 0.2 + Math.sin(t * 3) * 0.08;
+      if (lit > 0) {
+        lit -= dt; const k = Math.min(1, lit / 4);
+        if (fl) fl.intensity = (2.4 + Math.random() * 0.8) * k;
+        for (let i = 0; i < (FAST() ? 2 : 4); i++) PA.add(bx0 + rand(-0.7, 0.7), rand(0.5, 2.5), bz0 + rand(-0.7, 0.7), rand(-0.3, 0.3), rand(2, 4), rand(-0.3, 0.3), rand(0.4, 0.9), rand(0.3, 0.55) * (0.4 + k * 0.6), 1, rand(0.3, 0.6), 0.1, 1, -1.5, 0.5, -0.2, 0);
+        if (Math.random() < (FAST() ? 0.4 : 0.8)) P.add(bx0 + rand(-0.5, 0.5), 3.5, bz0 + rand(-0.5, 0.5), rand(-0.2, 0.4), rand(2.5, 4), rand(-0.2, 0.2), 5, 0.9, 0.16, 0.15, 0.15, 0.5 * k, -0.25, 0.25, 0.9, 0);
+        if (lit <= 0) { if (fl) fl.intensity = 0; pyre.material.color.setHex(0x444444); }
+      }
+      if (planeT >= 0) { planeT += dt; const u = planeT / 9; plane.position.set(-180 + u * 360, 55, bz0 - 30 + u * 20); plane.rotation.y = -0.06; pl1.material.opacity = pl2.material.opacity = Math.sin(t * 8) > 0 ? 1 : 0.15; if (u > 1) { planeT = -1; plane.visible = false; } }
+      if (dropT >= 0) {
+        dropT += dt; const u = Math.min(1, dropT / 7);
+        crateG.position.set(land.x + Math.sin(t * 0.8) * (1 - u) * 3, 0.4 + (1 - u) * 46, land.z + Math.cos(t * 0.6) * (1 - u) * 3); crateG.rotation.z = Math.sin(t * 1.4) * 0.15 * (1 - u);
+        if (Math.random() < 0.7) P.add(crateG.position.x, crateG.position.y, crateG.position.z, rand(-0.2, 0.2), rand(0.2, 0.6), rand(-0.2, 0.2), 2.5, 0.4, 0.8, 0.15, 0.1, 0.45, -0.1, 0.3, 0.7, 0);
+        if (u >= 1) { dropT = -1; chute.visible = false; flare.visible = false; Sfx.clang(0); dirtBurst(land.x, 0.1, land.z, 16, 2);
+          makePickup('ammo', land.x - 0.8, land.z + 0.6, 12); makePickup('ammo', land.x + 0.8, land.z + 0.6, 12); feed('¡Suministros! Recoge las balas', 'gold');
+          setTimeout(() => { crateG.visible = false; }, 25000); }
+      }
+    });
+    mapUse({ x: bx0, z: bz0 + 1.8, r: 3, t: 'Hoguera de señales', d: 'Enciéndela: una avioneta lanzará una caja de balas.', b: 'Encender', price: 6, cd: 75, use() {
+      lit = 26; pyre.material.color.setHex(0xffffff); Sfx.whoosh(0); planeT = 0; plane.visible = true;
+      setTimeout(() => { crateG.visible = true; chute.visible = true; flare.visible = true; dropT = 0; hint('¡Te han visto! Cae una caja de suministros', 2600); }, 4800);
+      feed('¡Hoguera encendida!', 'gold');
+    } }); }
+
+  mistField(8, 0x8aa0bc, 40);
+}
+
+// DESC: Una plataforma perdida en un mar sin fondo. Algo gigante da vueltas debajo, y no está solo.
+// ---- Lugar nuevo: El Planeta Océano
+function oceanGeo(parts) {
+  // une muchas piezas [geometría, color, x, y, z, rx, ry, rz, sx, sy, sz] en una sola malla con colores por vértice
+  let n = 0; for (const a of parts) { const g = a[0]; n += g.index ? g.index.count : g.attributes.position.count; }
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), C = new Float32Array(n * 3);
+  const m = new THREE.Matrix4(), nm = new THREE.Matrix3(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), c = new THREE.Color();
+  let o = 0;
+  for (const a of parts) {
+    const g = a[0]; e.set(a[5] || 0, a[6] || 0, a[7] || 0, 'YXZ'); q.setFromEuler(e); p.set(a[2], a[3], a[4]); s.set(a[8] || 1, a[9] || 1, a[10] || 1);
+    m.compose(p, q, s); nm.getNormalMatrix(m); const me = m.elements, ne = nm.elements;
+    const pa = g.attributes.position.array, na = g.attributes.normal.array, ua = g.attributes.uv ? g.attributes.uv.array : null, ix = g.index ? g.index.array : null, cnt = ix ? ix.length : pa.length / 3;
+    c.setHex(a[1]);
+    for (let k = 0; k < cnt; k++, o++) {
+      const i = ix ? ix[k] : k, x = pa[i * 3], y = pa[i * 3 + 1], z = pa[i * 3 + 2], nx = na[i * 3], ny = na[i * 3 + 1], nz = na[i * 3 + 2];
+      P[o * 3] = me[0] * x + me[4] * y + me[8] * z + me[12]; P[o * 3 + 1] = me[1] * x + me[5] * y + me[9] * z + me[13]; P[o * 3 + 2] = me[2] * x + me[6] * y + me[10] * z + me[14];
+      const tx = ne[0] * nx + ne[3] * ny + ne[6] * nz, ty = ne[1] * nx + ne[4] * ny + ne[7] * nz, tz = ne[2] * nx + ne[5] * ny + ne[8] * nz, l = Math.hypot(tx, ty, tz) || 1;
+      N[o * 3] = tx / l; N[o * 3 + 1] = ty / l; N[o * 3 + 2] = tz / l;
+      if (ua) { U[o * 2] = ua[i * 2]; U[o * 2 + 1] = ua[i * 2 + 1]; }
+      C[o * 3] = c.r; C[o * 3 + 1] = c.g; C[o * 3 + 2] = c.b;
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(P, 3)); out.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(U, 2)); out.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  return out;
+}
+function oceanDisc(r1, segs, rings, pw, tile) {
+  // disco de agua con anillos más juntos en el centro (para las olas lentas)
+  const pos = [0, 0, 0], uv = [0, 0], idx = [];
+  for (let k = 1; k <= rings; k++) { const r = r1 * Math.pow(k / rings, pw); for (let i = 0; i < segs; i++) { const a = i / segs * TAU, x = Math.cos(a) * r, z = Math.sin(a) * r; pos.push(x, 0, z); uv.push(x / tile, z / tile); } }
+  for (let i = 0; i < segs; i++) idx.push(0, 1 + (i + 1) % segs, 1 + i);
+  for (let k = 0; k < rings - 1; k++) for (let i = 0; i < segs; i++) { const a = 1 + k * segs + i, b = 1 + k * segs + (i + 1) % segs, c = a + segs, d = b + segs; idx.push(a, b, c, c, b, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function oceanSky(planetDir) {
+  // cielo alienígena: degradado verde enfermizo en el horizonte, violeta negro arriba, bandas como auroras, estrellas
+  const sky = new THREE.Group(); world.group.add(sky);
+  world.anims.push(() => { sky.position.set(camera.position.x, 0, camera.position.z); });
+  const geo = new THREE.SphereGeometry(390, 48, 24), p = geo.attributes.position, col = new Float32Array(p.count * 3), d = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    d.set(p.getX(i), p.getY(i), p.getZ(i)).normalize();
+    const h = Math.max(0, d.y), hz = Math.exp(-h * 9), pd = Math.max(0, d.dot(planetDir));
+    const band = Math.max(0, Math.sin(Math.atan2(d.z, d.x) * 3 + d.y * 9)) * Math.exp(-Math.pow((h - 0.35) / 0.12, 2)) * 0.5;
+    let r = 0.02 + hz * 0.1 + pd * pd * 0.06, g = 0.015 + hz * 0.19 + pd * pd * 0.1 + band * 0.08, b = 0.04 + hz * 0.18 + pd * pd * 0.1 + band * 0.04;
+    r += (1 - hz) * 0.03 * h; b += (1 - hz) * 0.05 * h;
+    if (d.y < 0) { r = 0.03; g = 0.06; b = 0.07; }
+    col[i * 3] = r; col[i * 3 + 1] = g; col[i * 3 + 2] = b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const ball = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, depthWrite: false, fog: false })); ball.renderOrder = -9; sky.add(ball);
+  const N = FAST() ? 700 : 1400, sp = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { d.set(sr(-1, 1), sr(0.08, 1), sr(-1, 1)).normalize().multiplyScalar(370); sp[i * 3] = d.x; sp[i * 3 + 1] = d.y; sp[i * 3 + 2] = d.z; }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  const st = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xbfe8e0, size: 1.4, sizeAttenuation: false, transparent: true, opacity: 0.55, depthWrite: false, fog: false })); st.renderOrder = -8; sky.add(st);
+  return sky;
+}
+function buildOcean() {
+  const _gc = new Map();
+  const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
+  const cyl = (rt, rb, h, s = 10) => { const k = 'c' + rt + ',' + rb + ',' + h + ',' + s; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.CylinderGeometry(rt, rb, h, s)); return g; };
+  const sph = (r, a = 8, b = 6) => { const k = 's' + r + ',' + a; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.SphereGeometry(r, a, b)); return g; };
+  const H = 41, WY = -4.2;
+  world.arena = { t: 'r', hx: H, hz: H }; world.start = { x: 0, z: 10 };
+  world.shirts = [0xd8a020, 0x16181c, 0xc85a1a, 0xe4e4e0, 0x24405a, 0x1c2a2a];
+  world.hat = 'helmet'; world.hatP = 0.28;
+  world.mix = { crawler: 1.35, runner: 1.2, spitter: 1.2 };
+  world.noMoon = true;
+  const planetDir = new THREE.Vector3(0.08, 0.3, -1).normalize();
+  env({ fog: 0x081114, dens: 0.017, top: 0x02030a, sky: false, hemiS: 0x3a6670, hemiG: 0x0c0e0c, hemiI: 0.62, moonC: 0x9ad8cc, moonI: 0.7, moonDir: new THREE.Vector3(0.15, 0.6, -0.8), lantern: 1.15, wind: 0.28 });
+  const vc = lam(0xffffff, { vertexColors: true }), vcD = lam(0xffffff, { vertexColors: true, side: THREE.DoubleSide });
+  const mt = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+  const glowSprite = (x, y, z, c, s, o, par, ord = 0) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); sp.renderOrder = ord; (par || world.group).add(sp); return sp; };
+
+  // ---- Cielo: el planeta gigante con anillos, dos lunas y un horizonte enfermizo
+  const sky = oceanSky(planetDir);
+  { const pT = canvasTex(512, 256, (g, w, h) => {
+      const cols = ['#2a6a6a', '#3a8a7a', '#c8b07a', '#8a6a4a', '#5a9a8a', '#e0d0a0', '#3a5a6a', '#6a8a6a', '#b89a6a', '#2a4a5a'];
+      let y = 0; while (y < h) { const bh = 6 + Math.random() * 22; g.fillStyle = pick(cols); g.fillRect(0, y, w, bh + 1); y += bh; }
+      for (let i = 0; i < 700; i++) { const yy = Math.random() * h; g.fillStyle = `rgba(${Math.random() < 0.5 ? '240,230,200' : '20,40,50'},${Math.random() * 0.12})`; g.beginPath(); g.ellipse(Math.random() * w, yy, 6 + Math.random() * 40, 1 + Math.random() * 3, 0, 0, TAU); g.fill(); }
+      const sx = w * 0.62, sy = h * 0.62; for (let r = 30; r > 2; r -= 2) { g.fillStyle = `rgba(${150 + r * 2},${60 + r},${40},0.18)`; g.beginPath(); g.ellipse(sx, sy, r * 1.7, r * 0.8, 0, 0, TAU); g.fill(); }
+    });
+    const lightDir = new THREE.Vector3(0.75, 0.45, 0.4).normalize();
+    const pm = new THREE.ShaderMaterial({ fog: false, depthWrite: true, uniforms: { uT: { value: pT }, uL: { value: lightDir }, uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vU; varying vec3 vN; varying vec3 vW; void main(){ vU=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+      fragmentShader: 'uniform sampler2D uT; uniform vec3 uL; uniform float uTime; varying vec2 vU; varying vec3 vN; varying vec3 vW; void main(){ vec3 n=normalize(vN); vec3 V=normalize(cameraPosition-vW); float d=dot(n,uL); float li=smoothstep(-0.25,0.6,d); vec3 c=texture2D(uT,vec2(vU.x+uTime*0.002,vU.y)).rgb; vec3 col=c*(0.05+0.95*li); float fr=pow(1.-max(dot(n,V),0.),3.); col+=vec3(0.35,0.75,0.7)*fr*(0.25+0.9*max(d+0.3,0.)); gl_FragColor=vec4(col,1.); }' });
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(118, 48, 32), pm); planet.position.copy(planetDir).multiplyScalar(330); planet.rotation.z = 0.35; planet.renderOrder = -7; sky.add(planet);
+    const rT = canvasTex(256, 16, (g, w, h) => { for (let x = 0; x < w; x++) { const a = (Math.sin(x * 0.3) * 0.5 + 0.5) * (Math.sin(x * 0.07 + 1) * 0.5 + 0.5) * (x > 30 && x < 240 ? 1 : 0) * (x > 120 && x < 132 ? 0.1 : 1); g.fillStyle = `rgba(${200 + Math.random() * 40 | 0},${200 + Math.random() * 30 | 0},${170},${a * 0.8})`; g.fillRect(x, 0, 1, h); } });
+    const rg = new THREE.RingGeometry(150, 245, 96, 1), rp = rg.attributes.position, ru = rg.attributes.uv; for (let i = 0; i < rp.count; i++) { const r = Math.hypot(rp.getX(i), rp.getY(i)); ru.setXY(i, (r - 150) / 95, 0.5); }
+    const ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ map: rT, transparent: true, side: THREE.DoubleSide, depthWrite: false, fog: false, color: 0xa8c0b0 })); ring.position.copy(planet.position); ring.rotation.set(1.28, 0.1, 0.32); ring.renderOrder = -6; sky.add(ring);
+    const atm = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x4ab0a0, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); atm.scale.set(330, 330, 1); atm.position.copy(planet.position); atm.renderOrder = -8; sky.add(atm);
+    world.anims.push((dt, t) => { pm.uniforms.uTime.value = t; });
+    // dos lunas: una rojiza y otra pálida
+    for (const [az, el, r, c, gc] of [[0.9, 0.55, 11, 0x9a4a3a, 0xff7050], [2.55, 0.32, 6.5, 0xb8d8c8, 0xa0ffe0]]) {
+      const mp = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).multiplyScalar(345);
+      const m = new THREE.Mesh(sph(r, 20, 14), new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.35, fog: false })); m.position.copy(mp); m.renderOrder = -7; sky.add(m);
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: gc, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); gl.scale.set(r * 7, r * 7, 1); gl.position.copy(mp); gl.renderOrder = -8; sky.add(gl);
+    } }
+
+  // ---- El océano negro: olas lentas y enormes, el abismo que brilla muy al fondo y sombras que nadan
+  const waterT = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#081416'; g.fillRect(0, 0, w, h); for (let i = 0; i < 420; i++) { g.strokeStyle = `rgba(${rand(80, 140) | 0},${rand(150, 210) | 0},${rand(170, 220) | 0},${rand(0.08, 0.22)})`; g.lineWidth = rand(1, 2); const x = rand(0, w), y = rand(0, h); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 10, y + rand(-3, 3), x + rand(14, 30), y); g.stroke(); } }, 0);
+  waterT.wrapS = waterT.wrapT = THREE.RepeatWrapping;
+  const seaG = oceanDisc(380, 72, 30, 1.9, 14);
+  const waterM = new THREE.MeshLambertMaterial({ map: waterT, color: 0x6a9a9a, emissive: 0x010406, transparent: true, opacity: 0.72, depthWrite: false });
+  const sea = M(seaG, waterM, 0, WY, 0, { cast: false }); sea.renderOrder = -1;
+  const sp = seaG.attributes.position, sBase = Float32Array.from(sp.array);
+  const swell = (x, z, t) => Math.sin(x * 0.045 + t * 0.55) * 0.55 + Math.sin(z * 0.06 - t * 0.42 + 1) * 0.45 + Math.sin((x + z) * 0.11 + t * 1.1) * 0.15;
+  let waterBase = 0.72;
+  world.anims.push((dt, t) => {
+    waterT.offset.set(t * 0.004, t * 0.007);
+    for (let i = 0; i < sp.count; i++) sp.array[i * 3 + 1] = swell(sBase[i * 3], sBase[i * 3 + 2], t);
+    sp.needsUpdate = true; waterM.opacity += (waterBase - waterM.opacity) * Math.min(1, dt * 3);
+  });
+  // reflejo del planeta sobre el agua negra
+  { const rf = new THREE.Mesh(new THREE.PlaneGeometry(30, 300), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x3a8a80, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+    rf.rotation.x = -Math.PI / 2; rf.rotation.z = Math.atan2(planetDir.x, -planetDir.z); const pd = new THREE.Vector3(planetDir.x, 0, planetDir.z).normalize(); rf.position.set(pd.x * 190, WY + 0.6, pd.z * 190); world.group.add(rf);
+    world.anims.push((dt, t) => { rf.material.opacity = 0.32 + Math.sin(t * 1.7) * 0.06 + Math.sin(t * 4.1) * 0.04; }); }
+  // el resplandor del abismo, muy abajo (sobre él se recortan las sombras)
+  const abyss = new THREE.Mesh(new THREE.CircleGeometry(260, 40), new THREE.MeshBasicMaterial({ map: glowTex, color: 0x2a8a88, transparent: true, opacity: 0.9, depthWrite: false, fog: false }));
+  abyss.rotation.x = -Math.PI / 2; abyss.position.y = -70; abyss.renderOrder = -4; world.group.add(abyss);
+  world.anims.push((dt, t) => { abyss.material.opacity = 0.75 + Math.sin(t * 0.3) * 0.15; });
+
+  // siluetas de criaturas colosales bajo el agua (vistas desde arriba)
+  const silT = canvasTex(256, 256, (g0, w0) => {
+    const tc = document.createElement('canvas'); tc.width = tc.height = 256; const g = tc.getContext('2d');
+    g.scale(0.5, 0.5); g.fillStyle = '#fff';
+    // ballena (celda 0,0)
+    g.beginPath(); g.ellipse(120, 128, 92, 30, 0, 0, TAU); g.fill(); g.beginPath(); g.moveTo(30, 128); g.lineTo(6, 92); g.lineTo(18, 128); g.lineTo(6, 164); g.closePath(); g.fill();
+    g.beginPath(); g.ellipse(150, 90, 34, 10, 0.7, 0, TAU); g.fill(); g.beginPath(); g.ellipse(150, 166, 34, 10, -0.7, 0, TAU); g.fill();
+    // calamar gigante (celda 1,0)
+    g.beginPath(); g.ellipse(430, 128, 58, 30, 0, 0, TAU); g.fill(); g.beginPath(); g.moveTo(488, 128); g.lineTo(510, 108); g.lineTo(510, 148); g.closePath(); g.fill();
+    g.lineCap = 'round'; for (let k = 0; k < 9; k++) { g.lineWidth = k < 2 ? 4 : 9; g.beginPath(); g.moveTo(380, 128 + (k - 4) * 4); let x = 380, y = 128 + (k - 4) * 4; for (let s = 0; s < 8; s++) { x -= k < 2 ? 15 : 13; y += Math.sin(s * 0.9 + k) * 6 + (k - 4) * 1.6; g.lineTo(x, y); } g.stroke(); }
+    // serpiente leviatán (franja 0..512 x 256..384)
+    for (let s = 0; s < 120; s++) { const u = s / 120, x = 10 + u * 490, y = 320 + Math.sin(u * 9) * 26, r = 6 + 22 * Math.sin(Math.min(1, u * 1.15) * Math.PI) * (u > 0.85 ? 1.3 : 1); g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+    g.beginPath(); g.ellipse(495, 320 + Math.sin(9) * 26, 26, 18, 0, 0, TAU); g.fill();
+    // manta colosal (franja 384..512)
+    g.beginPath(); g.moveTo(40, 448); g.quadraticCurveTo(250, 360, 460, 448); g.quadraticCurveTo(250, 536, 40, 448); g.fill(); g.lineWidth = 5; g.beginPath(); g.moveTo(40, 448); g.lineTo(2, 448); g.stroke();
+    g0.filter = 'blur(2.5px)'; g0.drawImage(tc, 0, 0); g0.filter = 'none';
+  });
+  const silM = new THREE.MeshBasicMaterial({ map: silT, color: 0x000000, transparent: true, opacity: 0.92, depthWrite: false, fog: false });
+  const silPlane = (w, h, u0, v0, u1, v1) => { const g = new THREE.PlaneGeometry(w, h); g.rotateX(-Math.PI / 2); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0)); const m = new THREE.Mesh(g, silM); m.renderOrder = -3; world.group.add(m); return m; };
+  const sils = [
+    { m: silPlane(80, 80, 0, 0.5, 0.5, 1), r: 62, y: -8, sp: 0.022, a: 0.5, dir: 1 },
+    { m: silPlane(66, 66, 0.5, 0.5, 1, 1), r: 52, y: -12, sp: 0.018, a: 3.4, dir: -1 },
+    { m: silPlane(120, 30, 0, 0, 1, 0.25), r: 105, y: -11, sp: 0.012, a: 2, dir: 1 }
+  ];
+  const lev = { m: silPlane(170, 42, 0, 0.25, 1, 0.5), t: 0 };
+  const bio = []; // luces que lleva la criatura en el costado
+  for (const s of sils.slice(0, 2)) for (let k = 0; k < 6; k++) bio.push({ s, sp: glowSprite(0, 0, 0, k % 2 ? 0x40ffd0 : 0x50a0ff, 3.5, 0.5, null, -2), lx: -18 + k * 6, lz: (k % 2 ? 6 : -6), ph: k });
+  world.anims.push((dt, t) => {
+    for (const s of sils) { s.a += s.sp * s.dir * dt; const x = Math.cos(s.a) * s.r, z = Math.sin(s.a) * s.r; s.m.position.set(x, WY + s.y, z); s.m.rotation.y = -s.a - s.dir * Math.PI / 2; s.m.scale.set(1 + Math.sin(t * 0.8 + s.a) * 0.03, 1, 1 + Math.sin(t * 1.1 + s.a) * 0.06); }
+    for (const b of bio) { const m = b.s.m, c = Math.cos(m.rotation.y), sn = Math.sin(m.rotation.y); b.sp.position.set(m.position.x + b.lx * c + b.lz * sn, m.position.y + 1, m.position.z - b.lx * sn + b.lz * c); b.sp.material.opacity = 0.25 + Math.max(0, Math.sin(t * 1.5 + b.ph)) * 0.45; }
+    // el leviatán pasa por debajo de toda la plataforma cada minuto y medio
+    lev.t = (t * 0.011) % 1; const lx = -230 + lev.t * 460; lev.m.position.set(lx, WY - 24, -40 + lev.t * 70); lev.m.rotation.y = -0.15;
+  });
+
+  // ---- La plataforma: cubierta de acero oxidado con huecos al mar
+  const holes = [[-4.5, 4.5, -10, -2], [-31, -22, -22, -11], [-31, -22, -7, 5], [21, 30, 4, 13], [21, 30, 17, 29], [29, 41.6, -41.6, -30]];
+  const deckT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#4a4a46'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(30,30,28,.5)'; g.lineWidth = 2; g.beginPath(); for (let y = 0; y < h; y += 12) for (let x = (y / 12 % 2) * 6; x < w; x += 12) { g.moveTo(x - 3.3, y - 2.2); g.lineTo(x + 3.3, y + 2.2); } g.stroke();
+    for (let i = 0; i < 60; i++) { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); const x = rand(0, w), y = rand(0, h), r = rand(8, 40); g.fillStyle = `rgba(${rand(90, 130) | 0},${rand(45, 65) | 0},${rand(20, 35) | 0},${rand(0.15, 0.4)})`; g.beginPath(); g.ellipse(x, y, r, r * rand(0.4, 1), rand(0, 3), 0, TAU); g.fill(); }
+    g.strokeStyle = 'rgba(16,16,14,.45)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2); g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.stroke();
+    g.fillStyle = 'rgba(160,160,150,.5)'; for (const x of [6, w / 2 - 6, w / 2 + 6, w - 6]) for (let y = 8; y < h; y += 30) { g.beginPath(); g.arc(x, y, 2, 0, TAU); g.fill(); }
+  }, 0);
+  deckT.wrapS = deckT.wrapT = THREE.RepeatWrapping; deckT.repeat.set(0.2, 0.2);
+  addGround(10, deckT).material.color.setHex(0xb0aca4);
+  { const sh = new THREE.Shape(); const E = 41.6; sh.moveTo(-E, -E); sh.lineTo(E, -E); sh.lineTo(E, E); sh.lineTo(-E, E); sh.closePath();
+    for (const [x0, x1, z0, z1] of holes) { const hp = new THREE.Path(); hp.moveTo(x0, -z1); hp.lineTo(x0, -z0); hp.lineTo(x1, -z0); hp.lineTo(x1, -z1); hp.closePath(); sh.holes.push(hp); }
+    world.ground.geometry.dispose(); world.ground.geometry = new THREE.ShapeGeometry(sh); }
+  // pintura sobre la cubierta: franjas de peligro, pasarelas de rejilla, helipuerto, letras y manchas
+  overlayPlane(84, (g, w) => {
+    const k = w / 84, X = x => (x + 42) * k;
+    const pc = document.createElement('canvas'); pc.width = pc.height = 10; const pg = pc.getContext('2d'); pg.fillStyle = 'rgba(20,20,18,.75)'; pg.fillRect(0, 0, 10, 10); pg.strokeStyle = 'rgba(200,160,30,.8)'; pg.lineWidth = 2.6; for (const o of [-10, 0, 10]) { pg.beginPath(); pg.moveTo(o, 10); pg.lineTo(o + 10, 0); pg.stroke(); }
+    const pat = g.createPattern(pc, 'repeat');
+    const stripes = (x0, x1, z0, z1, wd) => { g.fillStyle = pat; g.beginPath(); g.rect(X(x0 - wd), X(z0 - wd), (x1 - x0 + wd * 2) * k, (z1 - z0 + wd * 2) * k); g.rect(X(x0), X(z0), (x1 - x0) * k, (z1 - z0) * k); g.fill('evenodd'); };
+    for (const [x0, x1, z0, z1] of holes) stripes(x0, x1, z0, z1, 0.9);
+    // pasarelas de rejilla entre los huecos
+    g.strokeStyle = 'rgba(15,15,14,.7)'; g.lineWidth = 1.5; for (const [x0, x1, z0, z1] of [[-31, -22, -11, -7], [21, 30, 13, 17]]) { g.fillStyle = 'rgba(40,40,36,.6)'; g.fillRect(X(x0), X(z0), (x1 - x0) * k, (z1 - z0) * k); for (let x = X(x0); x < X(x1); x += 3) { g.beginPath(); g.moveTo(x, X(z0)); g.lineTo(x, X(z1)); g.stroke(); } }
+    // helipuerto
+    g.strokeStyle = 'rgba(220,210,190,.7)'; g.lineWidth = 0.6 * k; g.beginPath(); g.arc(X(-26), X(26), 8 * k, 0, TAU); g.stroke(); g.lineWidth = 0.25 * k; g.beginPath(); g.arc(X(-26), X(26), 9 * k, 0, TAU); g.stroke();
+    g.fillStyle = 'rgba(220,210,190,.7)'; g.fillRect(X(-28.4), X(23), 0.9 * k, 6 * k); g.fillRect(X(-24.5), X(23), 0.9 * k, 6 * k); g.fillRect(X(-28.4), X(25.6), 4.8 * k, 0.8 * k);
+    // letras grandes de la estación
+    g.save(); g.translate(X(6), X(-20)); g.fillStyle = 'rgba(210,200,170,.35)'; g.font = `bold ${3.6 * k}px sans-serif`; g.textAlign = 'center'; g.fillText('TALASA-7', 0, 0); g.restore();
+    // óxido y charcos
+    for (let i = 0; i < 70; i++) { g.fillStyle = pick(['rgba(110,50,20,.25)', 'rgba(20,30,30,.35)', 'rgba(90,40,16,.2)']); g.beginPath(); g.ellipse(rand(0, w), rand(0, w), rand(4, 22), rand(3, 12), rand(0, 3), 0, TAU); g.fill(); }
+    // rastro de sangre arrastrado hasta la barandilla rota (algo se llevó a alguien)
+    g.strokeStyle = 'rgba(80,6,6,.55)'; g.lineWidth = 1.2 * k; g.beginPath(); g.moveTo(X(-6), X(-30)); g.bezierCurveTo(X(-4), X(-34), X(0), X(-37), X(2), X(-41)); g.stroke();
+    g.fillStyle = 'rgba(90,8,8,.55)'; for (let i = 0; i < 24; i++) { g.beginPath(); g.arc(X(-6 + rand(-2, 9)), X(-30 - rand(0, 11)), rand(1, 4), 0, TAU); g.fill(); }
+    // babas que brillan junto al tentáculo cortado
+    const gr = g.createRadialGradient(X(-14), X(-16), 0, X(-14), X(-16), 7 * k); gr.addColorStop(0, 'rgba(60,160,120,.5)'); gr.addColorStop(1, 'rgba(60,160,120,0)'); g.fillStyle = gr; g.fillRect(X(-22), X(-24), 16 * k, 16 * k);
+  }, 512);
+
+  // canto de la cubierta, paredes del pozo central y vigas que se ven por los huecos
+  { const L = [], skirt = 0x2e2a26, beam = 0x3a3430;
+    for (const [x, z, w, d] of [[0, -41.6, 83.2, 0.4], [0, 41.6, 83.2, 0.4], [-41.6, 0, 0.4, 83.2], [41.6, 0, 0.4, 83.2]]) L.push([bx(w, 1.8, d), skirt, x, -0.9, z]);
+    for (const [x0, x1, z0, z1] of holes) { const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0, deep = x0 === -4.5 ? 3.8 : 1.6;
+      L.push([bx(w, deep, 0.3), skirt, cx, -deep / 2, z0 + 0.15], [bx(w, deep, 0.3), skirt, cx, -deep / 2, z1 - 0.15], [bx(0.3, deep, d), skirt, x0 + 0.15, -deep / 2, cz], [bx(0.3, deep, d), skirt, x1 - 0.15, -deep / 2, cz]);
+      if (x0 !== -4.5) for (let z = z0 + 2; z < z1 - 1; z += 3.2) L.push([bx(w, 0.5, 0.35), beam, cx, -2.2, z], [bx(w, 0.15, 0.7), beam, cx, -1.95, z]);
+      if (x0 !== -4.5) L.push([bx(0.4, 0.5, d), beam, cx, -2.6, cz]); }
+    // patas de la plataforma que bajan al agua
+    for (const [x, z] of [[-41.6, -20], [-41.6, 20], [41.6, -20], [41.6, 20], [-20, 41.6], [20, 41.6], [-20, -41.6], [0, -41.6], [41.6, 0], [-41.6, 0]]) { L.push([cyl(1.6, 1.8, 40, 12), 0x3a322c, x, -20.5, z], [cyl(1.9, 1.9, 0.6, 12), 0x5a4a38, x, WY + 0.3, z]); }
+    M(oceanGeo(L), vc, 0, 0, 0, { cast: false });
+    for (const [x0, x1, z0, z1] of holes) addBox((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2 + 0.2, (z1 - z0) / 2 + 0.2); }
+  // las cuatro patas de celosía que se alzan en las esquinas, con luces rojas de aviso
+  const redLights = [];
+  { const L = [], col = 0x6a3a26;
+    for (const [cx, cz] of [[-45, -45], [45, -45], [-45, 45], [45, 45]]) {
+      const pts = [0, 1, 2].map(i => [cx + Math.cos(i / 3 * TAU) * 2.6, cz + Math.sin(i / 3 * TAU) * 2.6]);
+      for (const [x, z] of pts) L.push([cyl(0.35, 0.35, 70, 6), col, x, -5, z]);
+      for (let y = -38; y < 30; y += 5) for (let i = 0; i < 3; i++) { const [ax, az] = pts[i], [bx_, bz] = pts[(i + 1) % 3], dx = bx_ - ax, dz = bz - az, len = Math.hypot(dx, dz); L.push([cyl(0.1, 0.1, len, 4), col, (ax + bx_) / 2, y, (az + bz) / 2, 0, -Math.atan2(dz, dx), Math.PI / 2]); L.push([cyl(0.08, 0.08, Math.hypot(len, 5), 4), 0x5a3220, (ax + bx_) / 2, y + 2.5, (az + bz) / 2, 0, -Math.atan2(dz, dx), Math.PI / 2 - Math.atan2(5, len) * (i % 2 ? 1 : -1)]); }
+      L.push([bx(6, 0.6, 6), 0x3a3430, cx, 30.3, cz]);
+      redLights.push(glowSprite(cx, 31.2, cz, 0xff2020, 4, 0.9));
+    }
+    M(oceanGeo(L), lam(0xffffff, { vertexColors: true, fog: true }), 0, 0, 0, { cast: false }); }
+
+  // barandillas amarillas (borde de la plataforma y alrededor de los huecos), con tramos rotos
+  { const L = [], col = 0xa8862a, col2 = 0x7a6a3a;
+    const rail = (x1, z1, x2, z2, skip) => { const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz), ry = -Math.atan2(dz, dx), n = Math.max(1, Math.round(len / 1.6));
+      for (let i = 0; i <= n; i++) { const t = i / n; if (skip && skip(t)) continue; L.push([bx(0.1, 1.15, 0.1), col, x1 + dx * t, 0.575, z1 + dz * t]); }
+      const segs = skip ? 12 : 1; for (let s = 0; s < segs; s++) { const t0 = s / segs, t1 = (s + 1) / segs; if (skip && (skip(t0) || skip(t1))) continue; const cx = x1 + dx * (t0 + t1) / 2, cz = z1 + dz * (t0 + t1) / 2, l = len / segs; L.push([bx(l, 0.08, 0.08), col, cx, 1.12, cz, 0, ry], [bx(l, 0.06, 0.06), col2, cx, 0.6, cz, 0, ry]); } };
+    const E = 41.3;
+    rail(-E, -E, -2, -E); rail(-2, -E, 29, -E, t => t < 0.2); rail(-E, E, E, E); rail(-E, -E, -E, E); rail(E, -30, E, E);
+    for (const [x0, x1, z0, z1] of holes) { if (x1 > 41) { rail(x0 - 0.2, z1 + 0.2, x1 - 0.4, z1 + 0.2, t => t > 0.55 && t < 0.8); rail(x0 - 0.2, z0, x0 - 0.2, z1 + 0.2, t => t < 0.3); continue; } rail(x0 - 0.2, z0 - 0.2, x1 + 0.2, z0 - 0.2); rail(x0 - 0.2, z1 + 0.2, x1 + 0.2, z1 + 0.2); rail(x0 - 0.2, z0 - 0.2, x0 - 0.2, z1 + 0.2); rail(x1 + 0.2, z0 - 0.2, x1 + 0.2, z1 + 0.2); }
+    // barandilla doblada hacia el mar donde se llevaron a alguien
+    L.push([bx(3.2, 0.08, 0.08), col, 1.2, 0.9, -41.9, 0.4, 0.3, -0.5], [bx(0.1, 1.15, 0.1), col, 0.2, 0.4, -42, 0.9, 0, 0.3], [bx(2.6, 0.06, 0.06), col2, 2.4, 0.2, -42.3, 0.8, -0.2, 0.2]);
+    // planchas arrancadas y vigas retorcidas en la esquina hundida
+    for (let i = 0; i < 8; i++) L.push([bx(sr(1.5, 3.5), 0.12, sr(1, 2.5)), 0x4a4440, sr(29, 40), sr(-2, -0.2), sr(-40, -31), sr(-0.9, 0.9), sr(0, 3), sr(-0.9, 0.9)]);
+    for (let i = 0; i < 4; i++) L.push([bx(0.4, 0.5, sr(5, 9)), 0x3a3430, sr(30, 40), sr(-3, -0.5), sr(-38, -32), sr(-0.6, 0.6), sr(-0.5, 0.5), sr(-0.4, 0.4)]);
+    // salvavidas colgados de la barandilla
+    for (const [x, z, ry] of [[-30, 41.25, 0], [10, 41.25, 0], [-41.25, -10, Math.PI / 2], [41.25, 8, Math.PI / 2], [-15, -41.25, 0]]) L.push([new THREE.TorusGeometry(0.38, 0.1, 6, 14), 0xd8501e, x, 0.75, z, 0, ry]);
+    M(oceanGeo(L), vc, 0, 0, 0); }
+
+  // ---- Atlas de carteles
+  const atlas = canvasTex(512, 512, (g) => {
+    const rows = [['TALASA-7 · ESTACIÓN ABISAL', '#1c2a2e', '#7ae0d0'], ['OXÍGENO', '#1e6a3a', '#ffffff'], ['FOCO SUBMARINO', '#2a2a1a', '#ffe070'], ['ALARMA', '#8a1010', '#ffffff'], ['PROFUNDIDAD: SIN FONDO', '#1a1e22', '#d8d8d0'], ['NO MIRE AL AGUA', '#c8a020', '#141414'], ['HELIPUERTO', '#22282c', '#e8e0c8'], ['PELIGRO', '#c8a020', '#141414']];
+    rows.forEach(([t, bg, fg], r) => { const y = r * 64; g.fillStyle = bg; g.fillRect(0, y, 512, 64); g.fillStyle = 'rgba(120,50,20,.35)'; for (let i = 0; i < 30; i++) g.fillRect(Math.random() * 512, y + Math.random() * 64, Math.random() * 8 + 2, Math.random() * 14 + 2); g.fillStyle = fg; g.font = `bold ${t.length > 16 ? 32 : 40}px sans-serif`; g.textAlign = 'center'; g.fillText(t, 256, y + 45); });
+  });
+  const atlasM = lam(0xffffff, { map: atlas }), atlasB = bsc(0xffffff, { map: atlas });
+  const sign = (r, w, h, x, y, z, ry = 0, par, mat = atlasM) => { const g = new THREE.BoxGeometry(w, h, 0.06), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (r + 1) / 8 + uv.getY(i) / 8); return M(g, mat, x, y, z, { ry, p: par, cast: false }); };
+  sign(4, 3.6, 0.45, -2, 1.5, -10.6, 0, null, atlasB); sign(5, 3.0, 0.42, 2.6, 1.5, -1.4, Math.PI, null); sign(5, 3.0, 0.42, -26.5, 1.5, -22.6, 0, null); sign(7, 2.2, 0.42, 34, 1.5, -29.4, Math.PI, null);
+  sign(4, 3.6, 0.45, 25.5, 1.5, 3.4, 0, null);
+
+  // ---- Módulos del laboratorio (contenedores apilados) con ventanas que parpadean
+  { const L = [], wl = [];
+    const cont = (x, y, z, ry, c) => { L.push([bx(13, 3, 3.4), c, x, y + 1.5, z, 0, ry]); for (let k = -5; k <= 5; k++) L.push([bx(0.08, 2.8, 3.5), 0x000000 + c * 0 + 0x2a2a28, x + k * 1.2 * Math.cos(ry), y + 1.5, z - k * 1.2 * Math.sin(ry), 0, ry]); };
+    cont(-14, 0, -35, 0, 0x6a7a7a); cont(-14, 0, -31.4, 0, 0xc8c4b8); cont(-13, 3, -33.2, 0.05, 0x5a6a62);
+    L.push([bx(1.2, 2.2, 0.1), 0x1a1c1c, -10, 1.1, -29.65], [bx(3, 0.15, 1.2), 0x3a3430, -10, 2.35, -29.2]);
+    // escalera de mano y bidones
+    for (let y = 0.4; y < 6; y += 0.45) L.push([bx(0.7, 0.05, 0.05), 0x8a8a80, -20.9, y, -29.6]);
+    L.push([bx(0.05, 6, 0.05), 0x8a8a80, -21.25, 3, -29.6], [bx(0.05, 6, 0.05), 0x8a8a80, -20.55, 3, -29.6]);
+    // traje de buzo colgado
+    L.push([sph(0.32, 10, 8), 0xb8a040, -17, 2.1, -29.4], [bx(0.6, 0.9, 0.35), 0xb8a040, -17, 1.35, -29.4], [bx(0.18, 0.8, 0.2), 0xb8a040, -17.2, 0.5, -29.4], [bx(0.18, 0.8, 0.2), 0xb8a040, -16.8, 0.5, -29.4], [cyl(0.15, 0.15, 0.06, 10), 0x1a2a30, -17, 2.15, -29.08, Math.PI / 2]);
+    M(oceanGeo(L), vc, 0, 0, 0, { solid: true }); addBox(-14, -33.2, 6.7, 3.6);
+    const winM = bsc(0x9ad8d0), winOff = bsc(0x0a1214);
+    for (const [x, y, z, on] of [[-18, 1.8, -29.68, 1], [-14, 1.8, -29.68, 0], [-6.5, 1.6, -31.4, 1], [-12, 4.8, -31.48, 1], [-16, 4.8, -31.48, 1]]) { const m = M(bx(2, 0.7, 0.06), on ? winM : winOff, x, y, z, { cast: false }); if (x === -6.5) m.rotation.y = Math.PI / 2, m.position.x = -7.48; wl.push(m); }
+    world.anims.push(() => { winM.color.setHex(Math.random() < 0.04 ? 0x18201f : 0x9ad8d0); });
+    lampLight(-10, 2.6, -28.9, 0x9ad8d0, 1.3, 14, null, 4); }
+
+  // ---- Edificio de control con antena y radar que gira
+  { const L = [];
+    L.push([bx(16, 3.4, 8), 0xb8b0a0, -2, 1.7, 30], [bx(14, 3, 7), 0x8a8478, -3, 4.9, 30.5], [bx(16.4, 0.3, 8.4), 0x3a3430, -2, 3.45, 30], [bx(14.4, 0.3, 7.4), 0x3a3430, -3, 6.5, 30.5]);
+    L.push([bx(1.4, 2.4, 0.1), 0x1a1c1c, -2, 1.2, 25.95], [bx(3, 0.15, 1.2), 0x3a3430, -2, 2.6, 25.5]);
+    L.push([cyl(0.12, 0.18, 10, 6), 0x8a8a84, 3, 11.5, 31], [bx(2, 0.1, 0.1), 0x8a8a84, 3, 14, 31], [bx(1.4, 0.1, 0.1), 0x8a8a84, 3, 15.5, 31]);
+    M(oceanGeo(L), vc, 0, 0, 0, { solid: true }); addBox(-2, 30, 8.1, 4.1);
+    const winM = bsc(0xd8e8c0); for (let i = 0; i < 6; i++) { const lit = i % 3 !== 1; M(bx(1.6, 0.9, 0.06), lit ? winM : bsc(0x0a1012), -8 + i * 2.6, 2.1, 25.97, { cast: false }); M(bx(1.6, 0.9, 0.06), i % 2 ? winM : bsc(0x0a1012), -8.5 + i * 2.3, 5.1, 26.97, { cast: false }); }
+    sign(0, 7.5, 0.9, -2, 3.0, 25.92, 0, null, atlasB);
+    const dish = new THREE.Group(); dish.position.set(-7, 6.6, 31); world.group.add(dish);
+    M(cyl(0.15, 0.15, 1.2, 6), lam(0x8a8a84), 0, 0.6, 0, { p: dish }); M(new THREE.SphereGeometry(1.5, 12, 6, 0, TAU, 0, 1.1), lam(0xc8c8c0, { side: THREE.DoubleSide }), 0, 1.6, 0.6, { p: dish, rx: -1.2 });
+    const tipL = glowSprite(3, 16.6, 31, 0xff3030, 2.5, 0.9); redLights.push(tipL);
+    world.anims.push((dt, t) => { dish.rotation.y = t * 0.4; winM.color.setHex(Math.random() < 0.03 ? 0x202820 : 0xd8e8c0); });
+    lampLight(-2, 2.9, 25.3, 0xe0f0d0, 1.2, 14, null, 3); }
+
+  // ---- La grúa: torre de celosía, pluma sobre el mar y un cable que se hunde en el agua
+  const crane = new THREE.Group(); crane.position.set(16, 0, -24); world.group.add(crane);
+  { const L = [], col = 0xc89a2a;
+    L.push([bx(3.6, 1.2, 3.6), 0x3a3430, 0, 0.6, 0]);
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) L.push([bx(0.22, 11, 0.22), col, x, 6.7, z]);
+    for (let y = 1.6; y < 12; y += 1.8) { L.push([bx(2.2, 0.1, 0.1), col, 0, y, -1], [bx(2.2, 0.1, 0.1), col, 0, y, 1], [bx(0.1, 0.1, 2.2), col, -1, y, 0], [bx(0.1, 0.1, 2.2), col, 1, y, 0], [bx(0.08, 2.5, 0.08), col, 0, y + 0.9, -1, 0, 0, 0.78], [bx(0.08, 2.5, 0.08), col, 0, y + 0.9, 1, 0, 0, -0.78]); }
+    M(oceanGeo(L), vc, 0, 0, 0, { p: crane, solid: true });
+    const top = new THREE.Group(); top.position.y = 12.2; crane.add(top);
+    const B = [[bx(3, 2.4, 3), 0x8a7a5a, 0, 1.2, 0], [bx(2.2, 1.2, 0.06), 0x10181a, 0, 1.6, -1.53]];
+    for (let s = 0; s < 14; s++) { const z = -2 - s * 2.2; B.push([bx(1.4, 0.1, 2.2), col, 0, 0.3, z], [bx(1.4, 0.1, 2.2), col, 0, 1.5 - s * 0.05, z], [bx(0.1, 1.3, 0.1), col, -0.7, 0.9, z], [bx(0.1, 1.3, 0.1), col, 0.7, 0.9, z]); }
+    B.push([bx(1.2, 0.8, 4), 0x3a3430, 0, 0.6, 3.5]);
+    M(oceanGeo(B), vc, 0, 0, 0, { p: top });
+    const cable = new THREE.Group(); cable.position.set(0, 0.2, -32); top.add(cable);
+    M(cyl(0.04, 0.04, 28, 4), lam(0x111111), 0, -14, 0, { p: cable, cast: false }); M(new THREE.TorusGeometry(0.5, 0.12, 6, 10, Math.PI * 1.4), lam(0x3a3a3a), 0, -28.2, 0, { p: cable, cast: false });
+    redLights.push(glowSprite(0, 1.2, -32, 0xff2020, 2.6, 0.9, top));
+    world.anims.push((dt, t) => { top.rotation.y = Math.sin(t * 0.07) * 0.35; cable.rotation.x = Math.sin(t * 0.6) * 0.05; cable.rotation.z = Math.sin(t * 0.43) * 0.06; if (Math.random() < dt * 2) { const p = cable.localToWorld(_v.set(0, -24, 0)); P.add(p.x, WY + 0.3, p.z, rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.25, 0.7, 0.8, 0.8, 0.4, 2, 0.5, 0.3, 0); } });
+    addBox(16, -24, 1.9, 1.9); }
+
+  // ---- Tanques de combustible, tuberías y barriles
+  { const L = [];
+    for (const [x, z] of [[34, -9], [34, -3.5]]) { L.push([cyl(2.3, 2.3, 6.4, 16), 0x8a8478, x, 3.2, z], [new THREE.SphereGeometry(2.3, 16, 6, 0, TAU, 0, Math.PI / 2), 0x8a8478, x, 6.4, z], [cyl(2.35, 2.35, 0.25, 16), 0x6a3a26, x, 1.6, z], [cyl(2.35, 2.35, 0.25, 16), 0x6a3a26, x, 4.8, z]); addCircle(x, z, 2.4); }
+    for (let i = 0; i < 6; i++) L.push([cyl(0.22, 0.22, 14, 8), i % 2 ? 0x6a5a4a : 0x5a6a6a, 24 + i * 0.6, 0.25, -14 + i * 0.1, Math.PI / 2, 0, 0]);
+    L.push([cyl(0.25, 0.25, 22, 8), 0x6a5a4a, 16, 0.3, 0.5, 0, 0, Math.PI / 2], [cyl(0.4, 0.4, 0.3, 12), 0xc82a1a, 9, 1.0, 0.5, 0, 0, Math.PI / 2], [cyl(0.05, 0.05, 0.6, 4), 0x3a3a3a, 9, 0.65, 0.5]);
+    for (const [x, z] of [[-34, -14], [-35, -12.6], [-33.6, -12.2], [-34, 8], [8, 15], [34, 12], [35.2, 13], [24, -36], [-36, 34]]) { L.push([cyl(0.45, 0.45, 1.2, 12), pick([0x2a5a7a, 0x8a2a1a, 0x5a5a20, 0x3a3a3a]), x, 0.6, z], [cyl(0.47, 0.47, 0.06, 12), 0x1a1a1a, x, 0.35, z], [cyl(0.47, 0.47, 0.06, 12), 0x1a1a1a, x, 0.9, z]); addCircle(x, z, 0.5); }
+    for (const [x, z, s] of [[-36.5, -16, 1.4], [-32, 9.5, 1.2], [9.5, 13.6, 1.0], [25.6, -37, 1.3], [-37.5, 33, 1.2], [36, 15.5, 1.1]]) { L.push([bx(s, s, s), 0x4a5a4a, x, s / 2, z], [bx(s * 1.02, 0.1, s * 1.02), 0x2a2a2a, x, s * 0.75, z]); addBox(x, z, s / 2 + 0.05, s / 2 + 0.05); }
+    // carrete de cable y bitas de amarre
+    L.push([cyl(1.1, 1.1, 0.2, 14), 0x5a3a20, 30, 1.1, 24 - 6, Math.PI / 2], [cyl(1.1, 1.1, 0.2, 14), 0x5a3a20, 30, 1.1, 25.6 - 6, Math.PI / 2], [cyl(0.8, 0.8, 1.5, 14), 0x1a1a1a, 30, 1.1, 24.8 - 6, Math.PI / 2]);
+    addBox(30, 18.8, 1.2, 1.0);
+    M(oceanGeo(L), vc, 0, 0, 0, { solid: true }); }
+
+  // ---- Helipuerto con el helicóptero de rescate estrellado
+  { const g = Grp(-30.5, 31.5, 0.6), L = [];
+    L.push([sph(1, 12, 8), 0xc8c0b0, 0, 1.2, 0, 0, 0, 0, 2.8, 1.3, 1.4], [bx(6, 0.6, 0.6), 0xc8c0b0, -4.5, 1.6, 0, 0, 0, 0.12], [bx(0.4, 1.8, 0.2), 0xc82a1a, -7.4, 2.4, 0], [bx(1.6, 0.9, 0.06), 0x10181a, 1.8, 1.5, 0.95, 0, 0.4], [bx(4, 0.1, 0.1), 0x3a3a3a, 0, 0.15, 1.1], [bx(4, 0.1, 0.1), 0x3a3a3a, 0, 0.15, -1.1]);
+    L.push([bx(9, 0.08, 0.35), 0x2a2a2a, 0.5, 2.7, 0, 0.2, 0.5, 0.15], [bx(4, 0.08, 0.35), 0x2a2a2a, 1.5, 0.7, 2.4, 0.2, -1.2, 1.1], [bx(0.4, 0.5, 0.06), 0xd8b020, -1.6, 1.4, 1.3]);
+    M(oceanGeo(L), vc, 0, 0, 0, { p: g, solid: true }); addBox(-30.5 - 1.8, 31.5 + 1.2, 4.6, 1.5, 0.6);
+    sign(6, 3, 0.42, -26, 1.4, 17.2, 0, null);
+    world.anims.push((dt, t) => { if (Math.random() < dt * 3) { const p = lw(g, -1, 0); P.add(p.x + rand(-0.4, 0.4), 1.8, p.z + rand(-0.4, 0.4), rand(-0.2, 0.2), rand(0.6, 1.2), rand(-0.2, 0.2), 3, 0.35, 0.14, 0.14, 0.15, 0.35, -0.1, 0.4, 0.6, 0); } if (Math.random() < dt * 0.6) sparks({ x: -31, y: 1.5, z: 32 }, 6, null); }); }
+
+  // ---- Submarino pequeño en su cuna, el tentáculo cortado y la consola del sonar
+  { const g = Grp(12, 34, 0.1), L = [[sph(1, 14, 10), 0xd8b020, 0, 1.5, 0, 0, 0, 0, 2.8, 1.2, 1.2], [sph(0.8, 12, 8), 0x2a4a5a, 2.2, 1.6, 0, 0, 0, 0, 0.8, 0.8, 0.9], [bx(0.3, 1.2, 0.1), 0xd8b020, -2.8, 1.8, 0], [cyl(0.25, 0.25, 0.4, 8), 0x3a3a3a, -3, 1.5, 0, 0, 0, Math.PI / 2], [bx(5, 0.3, 0.3), 0x3a3430, 0, 0.15, 0.9], [bx(5, 0.3, 0.3), 0x3a3430, 0, 0.15, -0.9], [bx(0.3, 0.9, 2), 0x3a3430, -1.5, 0.45, 0], [bx(0.3, 0.9, 2), 0x3a3430, 1.5, 0.45, 0]];
+    M(oceanGeo(L), vc, 0, 0, 0, { p: g, solid: true }); addBox(12, 34, 3, 1.4, 0.1);
+    glowSprite(12 + 3.1, 1.6, 34.3, 0xffe080, 1.6, 0.6); }
+  { // tentáculo gigante arrancado sobre la cubierta, con ventosas
+    const L = []; for (let i = 0; i < 16; i++) { const u = i / 15, x = -19 + u * 11, z = -16 + Math.sin(u * 4) * 1.6, r = 0.95 - u * 0.75; L.push([sph(1, 10, 8), 0x3a1a2a, x, r * 0.75, z, 0, 0, 0, r * 1.3, r, r]); if (i % 2 === 0) L.push([cyl(r * 0.35, r * 0.35, 0.1, 10), 0xc8a0a0, x, r * 0.75 + 0.1, z + r * 0.85, Math.PI / 2 - 0.3]); if (i % 3 === 0) addCircle(x, z, r * 1.1); }
+    L.push([sph(1.2, 10, 8), 0x6a2a2a, -19.6, 0.6, -16, 0, 0, 0, 0.5, 0.9, 1.1]);
+    M(oceanGeo(L), lam(0xffffff, { vertexColors: true, emissive: 0x0a0408 }), 0, 0, 0, { solid: true });
+    world.anims.push((dt, t) => { if (Math.random() < dt * 4) PA.add(-14 + rand(-5, 5), 0.1, -16 + rand(-2, 2), 0, rand(0.1, 0.4), 0, rand(1, 2), 0.08, 0.3, 1, 0.6, 0.7, 0, 0.3, 0, 0); }); }
+  // consola del sonar: un barrido que gira y una mancha enorme justo debajo
+  { const g = Grp(-9, -1, 0.35), L = [[bx(2.6, 1.0, 1.1), 0x3a3e40, 0, 0.5, 0], [bx(2.4, 1.4, 0.2), 0x2a2e30, 0, 1.6, -0.35, -0.3]];
+    M(oceanGeo(L), vc, 0, 0, 0, { p: g, solid: true }); addBox(-9, -1, 1.4, 0.7, 0.35);
+    const scr = M(new THREE.CircleGeometry(0.6, 24), bsc(0x062a1e), 0, 1.62, -0.23, { p: g, rx: -0.3, cast: false });
+    const sweep = M(new THREE.CircleGeometry(0.58, 12, 0, 0.6), bsc(0x30ff90, { transparent: true, opacity: 0.6 }), 0, 0, 0.01, { p: scr, cast: false });
+    const blob = M(new THREE.CircleGeometry(0.22, 12), bsc(0x60ffb0, { transparent: true, opacity: 0.8 }), 0.08, 0.05, 0.012, { p: scr, cast: false }); blob.scale.set(1.6, 0.8, 1);
+    const pings = []; for (let i = 0; i < 4; i++) { const m = M(new THREE.CircleGeometry(0.04, 6), bsc(0x60ffb0, { transparent: true, opacity: 0.8 }), 0, 0, 0.013, { p: scr, cast: false }); pings.push(m); }
+    glowSprite(0, 1.7, 0, 0x30ff90, 1.6, 0.35, g);
+    world.anims.push((dt, t) => { sweep.rotation.z = -t * 2.2; blob.material.opacity = 0.35 + Math.max(0, Math.cos(t * 2.2 + 0.3)) * 0.6; blob.position.x = Math.sin(t * 0.1) * 0.08; pings.forEach((m, i) => { const a = sils[i % 3].a * (i < 2 ? 1 : -1); m.position.set(Math.cos(a + i) * 0.45, Math.sin(a + i) * 0.45, 0.013); m.material.opacity = 0.2 + Math.max(0, Math.cos(t * 2.2 + a + i)) * 0.8; }); }); }
+
+  // ---- Farolas que parpadean y focos que barren el agua
+  { const L = [];
+    for (const [x, z] of [[24, -14], [-20, 4], [16, 10], [-30, -36], [36, 30]]) { L.push([cyl(0.08, 0.1, 4, 6), 0x3a3a38, x, 2, z], [bx(0.6, 0.15, 0.3), 0x2a2a28, x + 0.25, 4, z]); addCircle(x, z, 0.2); }
+    M(oceanGeo(L), vc, 0, 0, 0);
+    lampLight(24.4, 3.8, -14, 0xd8f0e0, 1.1, 14, null, 5); lampLight(-19.6, 3.8, 4, 0xd8f0e0, 1.1, 14, null, 3); lampLight(16.4, 3.8, 10, 0xd8f0e0, 1.0, 14, null, 6);
+    const dead = [glowSprite(-29.6, 3.8, -36, 0xd8f0e0, 2.2, 0.4), glowSprite(36.4, 3.8, 30, 0xd8f0e0, 2.2, 0.4)];
+    world.anims.push((dt, t) => { dead[0].material.opacity = Math.random() < 0.08 ? 0.6 : 0.03; dead[1].material.opacity = Math.sin(t * 17) > 0.6 ? 0.5 : 0.05; if (Math.random() < dt * 0.8) sparks({ x: -29.6, y: 3.9, z: -36 }, 5, null); }); }
+  const beams = [];
+  { const bt = new THREE.ConeGeometry(6, 70, 20, 1, true); bt.translate(0, -35, 0); bt.rotateX(-Math.PI / 2); const bp = bt.attributes.position, bc = []; for (let i = 0; i < bp.count; i++) { const k = Math.pow(1 - bp.getZ(i) / 70, 1.6); bc.push(k, k, k); } bt.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3));
+    const bm = new THREE.MeshBasicMaterial({ color: 0xc8f0ff, vertexColors: true, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    const spotM = new THREE.MeshBasicMaterial({ map: glowTex, color: 0x9ad8ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
+    const L = [];
+    for (const [x, z, a0] of [[-41, -22, Math.PI], [8, -41, -Math.PI / 2], [41, 26, 0], [-18, 41, Math.PI / 2]]) {
+      L.push([cyl(0.15, 0.2, 3.4, 8), 0x3a3a38, x, 1.7, z], [bx(0.8, 0.8, 0.8), 0x2a2a28, x, 3.6, z]); addCircle(x, z, 0.3);
+      const head = new THREE.Group(); head.position.set(x, 3.7, z); world.group.add(head);
+      const beam = new THREE.Mesh(bt, bm); head.add(beam); M(cyl(0.45, 0.45, 0.3, 12), bsc(0xeaf8ff), 0, 0, 0.45, { p: head, rx: Math.PI / 2, cast: false });
+      const spot = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), spotM); spot.rotation.x = -Math.PI / 2; world.group.add(spot);
+      beams.push({ head, spot, x, z, a0, ph: sr(0, 6), sp: sr(0.15, 0.25) });
+    }
+    M(oceanGeo(L), vc, 0, 0, 0);
+    world.anims.push((dt, t) => { for (const b of beams) { const a = b.a0 + Math.sin(t * b.sp + b.ph) * 0.75, d = 26 + Math.sin(t * 0.3 + b.ph) * 6, tx = b.x + Math.cos(a) * d, tz = b.z + Math.sin(a) * d; b.head.lookAt(tx, WY, tz); b.spot.position.set(tx, WY + swell(tx, tz, t) + 0.15, tz); } }); }
+
+  // ===================== CRIATURAS GIGANTES =====================
+  const DOD = new THREE.DodecahedronGeometry(1, 0), CONE5 = new THREE.ConeGeometry(1, 1, 5);
+  const fleshM = lam(0xffffff, { vertexColors: true, flatShading: true, emissive: 0x0e0508 });
+  // ---- Aletas dorsales que cortan el agua dando vueltas a la plataforma
+  const fins = [];
+  { const fs = new THREE.Shape(); fs.moveTo(0, 0); fs.quadraticCurveTo(1.2, 2.8, -1.6, 6); fs.quadraticCurveTo(-1.8, 3, -4.2, 0); fs.closePath();
+    const fg = new THREE.ExtrudeGeometry(fs, { depth: 0.35, bevelEnabled: false }); fg.translate(1.6, 0, -0.17);
+    for (const [r, sp, sc, ph] of [[52, 0.05, 1, 0], [66, -0.034, 1.5, 2.5], [88, 0.026, 2.1, 4.4]]) { const m = M(fg, lam(0x161c1e), 0, 0, 0, { cast: false }); m.scale.setScalar(sc); fins.push({ m, r, sp, sc, ph, a: ph }); } }
+  // ---- El lomo de algo enorme que asoma y vuelve a hundirse
+  const hump = new THREE.Group(); world.group.add(hump);
+  { const L = [[sph(1, 24, 12), 0x1e2624, 0, 0, 0, 0, 0, 0, 30, 7, 10]];
+    for (let i = 0; i < 70; i++) { const a = sr(-1.4, 1.4), u = sr(-0.9, 0.9), x = u * 30, h = Math.sqrt(Math.max(0, 1 - u * u)), y = Math.cos(a) * 7 * h, z = Math.sin(a) * 10 * h; { const r = sr(0.3, 0.8); L.push([DOD, pick([0x8a8a78, 0x5a5a4a, 0x6a6a5a]), x, y, z, 0, 0, 0, r, r, r]); } }
+    for (let i = 0; i < 11; i++) { const u = -0.75 + i * 0.15, x = u * 30, y = 7 * Math.sqrt(1 - u * u); L.push([CONE5, 0x141a18, x, y + 1, 0, 0, 0, -0.35, 0.9, 3.5 - Math.abs(u) * 2, 0.9]); }
+    M(oceanGeo(L), fleshM, 0, 0, 0, { p: hump, cast: false }); }
+  hump.visible = false;
+  const humpS = { t: 6, a: 1, on: 0 };
+  // ---- Tentáculos colosales que salen del agua, se retuercen y se hunden
+  const tents = [];
+  { const SEG = 13, SL = 2.3;
+    for (let k = 0; k < 3; k++) { const base = new THREE.Group(); world.group.add(base); const segs = []; let par = base;
+      for (let i = 0; i < SEG; i++) { const r0 = 1.7 * (1 - i / SEG) + 0.12, r1 = 1.7 * (1 - (i + 1) / SEG) + 0.08;
+        const L = [[cyl(r1, r0, SL + 0.2, 9), k === 1 ? 0x4a2236 : 0x442032, 0, (SL + 0.2) / 2, 0]];
+        for (let s = 0; s < 2; s++) L.push([cyl(r0 * 0.38, r0 * 0.38, 0.12, 9), 0xb08a8a, 0, SL * (0.3 + s * 0.45), (r0 + r1) / 2 * 0.92, Math.PI / 2]);
+        const g = new THREE.Group(); g.position.y = i ? SL : 0; par.add(g); M(oceanGeo(L), fleshM, 0, 0, 0, { p: g, cast: false }); segs.push(g); par = g; }
+      base.visible = false;
+      tents.push({ base, segs, st: 0, t: 4 + k * 7, ph: k * 2.1, a: 0, r: 0 }); } }
+  // ---- El ojo gigante que mira desde debajo de la superficie
+  const eyeT = canvasTex(256, 256, (g, w) => {
+    const c = w / 2; let gr = g.createRadialGradient(c, c, 0, c, c, c); gr.addColorStop(0, '#fff0a0'); gr.addColorStop(0.25, '#ffb020'); gr.addColorStop(0.55, '#c86010'); gr.addColorStop(0.75, '#5a2a10'); gr.addColorStop(0.78, '#e8d8c0'); gr.addColorStop(1, '#a89880'); g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    g.strokeStyle = 'rgba(80,30,0,.5)'; for (let i = 0; i < 90; i++) { const a = Math.random() * TAU; g.beginPath(); g.moveTo(c + Math.cos(a) * 20, c + Math.sin(a) * 20); g.lineTo(c + Math.cos(a) * 95, c + Math.sin(a) * 95); g.stroke(); }
+    g.strokeStyle = 'rgba(160,20,10,.5)'; for (let i = 0; i < 20; i++) { const a = Math.random() * TAU; g.beginPath(); g.moveTo(c + Math.cos(a) * 128, c + Math.sin(a) * 128); g.lineTo(c + Math.cos(a + 0.1) * 105, c + Math.sin(a + 0.1) * 105); g.stroke(); }
+    g.fillStyle = '#050200'; g.beginPath(); g.ellipse(c, c, 9, 62, 0, 0, TAU); g.fill();
+  });
+  const eyeM = new THREE.MeshBasicMaterial({ map: eyeT, fog: false });
+  const mkEye = (R) => { const g = new THREE.Group(); world.group.add(g); const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 16), eyeM); ball.rotation.y = -Math.PI / 2; g.add(ball);
+    const lidM = lam(0x1a1414); const up = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 20, 10, 0, TAU, 0, Math.PI / 2), lidM), dn = new THREE.Mesh(new THREE.SphereGeometry(R * 1.08, 20, 10, 0, TAU, 0, Math.PI / 2), lidM);
+    dn.rotation.x = Math.PI; const lu = new THREE.Group(), ld = new THREE.Group(); lu.add(up); ld.add(dn); g.add(lu); g.add(ld);
+    const glow = glowSprite(0, 0, 0, 0xffa020, R * 5, 0, g, 1); return { g, ball, lu, ld, glow }; };
+  const eyeLids = (e, open) => { const c = (1 - open) * (Math.PI / 2 + 0.55); e.lu.rotation.x = -0.55 + c; e.ld.rotation.x = 0.55 - c; };
+  const eye = mkEye(3.4); eye.g.visible = false;
+  const eyeS = { t: 3, st: 0, spot: 0 };
+  // ---- El leviatán: a lo lejos, un cuerpo colosal que ondula delante del planeta
+  const levG = new THREE.Group(); world.group.add(levG);
+  const levM = new THREE.MeshBasicMaterial({ color: 0x03080a, fog: false });
+  const levHumps = [];
+  { const hg = new THREE.TorusGeometry(11, 4, 8, 16, Math.PI);
+    for (let i = 0; i < 9; i++) { const m = new THREE.Mesh(hg, levM); m.renderOrder = -5; const sc = 0.6 + Math.sin(i / 8 * Math.PI) * 0.6; m.scale.set(sc * sr(0.85, 1.15), sc, sc); m.rotation.z = sr(-0.12, 0.12); levG.add(m); levHumps.push(m); const fin = new THREE.Mesh(CONE5, levM); fin.scale.set(1.6 * sc, 6 * sc, 1.6 * sc); fin.position.y = 14; fin.rotation.z = -0.4; fin.renderOrder = -5; m.add(fin); }
+    const head = new THREE.Group(); levG.add(head); const hm = new THREE.Mesh(oceanGeo([[sph(1, 12, 8), 0, 0, 0, 0, 0, 0, 0, 14, 6, 6], [new THREE.ConeGeometry(5, 18, 6), 0, 0, 6, 0, 0, 0, 0.3], [new THREE.ConeGeometry(3, 12, 5), 0, -6, 8, 0, 0, 0, 0.6], [bx(18, 2, 5), 0, 8, -3, 0, 0, 0, -0.3]]), levM); hm.renderOrder = -5; head.add(hm); levHumps.head = head; }
+
+  // ===================== OBJETOS PARA INTERACTUAR =====================
+  // ---- Foco submarino: ilumina el pozo central y deja ver lo que vive debajo (y asusta a los zombis)
+  const beast = new THREE.Group(); beast.visible = false; world.group.add(beast);
+  const beastM = lam(0xffffff, { vertexColors: true, flatShading: true, emissive: 0x0a1414 });
+  { const L = [[sph(1, 28, 14), 0x26302e, 0, 0, 0, 0, 0, 0, 17, 5.2, 13], [sph(1, 14, 8), 0x020202, -1.6, 4.3, 0, 0, 0, 0, 3.4, 1.4, 2.8]];
+    for (const [rx, rz, n, h, tilt] of [[3.9, 3.2, 26, 2.6, 0.45], [2.8, 2.2, 16, 1.6, 0.6]]) for (let i = 0; i < n; i++) { const a = i / n * TAU, x = -1.6 + Math.cos(a) * rx, z = Math.sin(a) * rz; L.push([CONE5, pick([0xe8e0c8, 0xd8ccb0, 0xc8b898]), x, 5.3 + h * 0.4, z, Math.sin(a) * tilt, 0, -Math.cos(a) * tilt, 0.32, h * sr(0.8, 1.2), 0.32]); }
+    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(0.55, 0.95); { const q = sr(0.4, 1.1); L.push([DOD, pick([0x7a7a6a, 0x5a5a4a, 0x8a8470]), Math.cos(a) * 15 * r, 5.2 * Math.sqrt(1 - r * r) + 0.3, Math.sin(a) * 12 * r, 0, 0, 0, q, q, q]); } }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; L.push([CONE5, 0x141a18, Math.cos(a) * 10, 3.2, Math.sin(a) * 8, Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5, 0.9, 4.5, 0.9]); }
+    M(oceanGeo(L), beastM, 0, 0, 0, { p: beast, cast: false }); }
+  const beastEye = mkEye(1.5); beast.add(beastEye.g); beastEye.g.position.set(3.4, 5.1, 0.4);
+  const fl = { intensity: 0 };
+  const flBeam = new THREE.Mesh((() => { const g = new THREE.ConeGeometry(3.2, 26, 18, 1, true); g.translate(0, -13, 0); const p = g.attributes.position, c = []; for (let i = 0; i < p.count; i++) { const k = Math.pow(1 + p.getY(i) / 26, 1.5); c.push(k, k, k); } g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); return g; })(), new THREE.MeshBasicMaterial({ color: 0xc8f8ff, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  flBeam.position.set(2.2, 4.2, -6); flBeam.renderOrder = -2; world.group.add(flBeam);
+  { const L = [[cyl(0.35, 0.45, 1.2, 10), 0x3a3a38, 5.8, 0.6, -6], [cyl(0.14, 0.14, 4, 8), 0xc8a020, 5.8, 3.2, -6], [bx(4.2, 0.25, 0.25), 0xc8a020, 3.9, 5.1, -6], [cyl(0.55, 0.4, 0.9, 12), 0x2a2a28, 2.2, 4.6, -6], [bx(0.9, 1.1, 0.6), 0x3a3e40, 6.6, 0.55, -7.3]];
+    M(oceanGeo(L), vc, 0, 0, 0, { solid: true }); addCircle(5.8, -6, 0.6); addBox(6.6, -7.3, 0.5, 0.35);
+    M(new THREE.CircleGeometry(0.5, 16), bsc(0xeaf8ff), 2.2, 4.13, -6, { rx: Math.PI / 2, cast: false });
+    sign(2, 3.2, 0.42, 7.2, 1.6, -4.9, Math.PI / 2 + 0.3, null, atlasB); }
+  const flReady = glowSprite(2.2, 4.0, -6, 0xffe070, 2.4, 0.4);
+  let revealT = 0;
+  mapUse({ x: 6.4, z: -5.4, r: 2.6, t: 'Foco submarino', d: 'Ilumina el agua bajo el pozo y asusta a los zombis cercanos.', b: 'Encender', price: 8, cd: 40, use() {
+    revealT = 7; beast.visible = true; beast.position.set(0, WY - 30, -6); waterBase = 0.3; Sfx.clang(0);
+    setTimeout(() => { if (revealT <= 0) return; Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.6);
+      const c = new THREE.Vector3(0, 0, -6);
+      for (const z of zombies) { if (z.dead || z.net) continue; const dx = z.root.position.x - c.x, dz = z.root.position.z - c.z, d = Math.hypot(dx, dz) || 1; if (d < 20) { z.kbx = dx / d * 13; z.kbz = dz / d * 13; z.stagger = Math.max(z.stagger || 0, 2.4); } }
+      for (let i = 0; i < 22; i++) P.add(rand(-4, 4), WY + 0.5, -6 + rand(-3.5, 3.5), rand(-1, 1), rand(3, 7), rand(-1, 1), 1.4, 0.16, 0.75, 0.85, 0.85, 0.5, 6, 0.5, 0.5, 0);
+      banner('ALGO TE MIRA', 'Desde el fondo del pozo', 1800); feed('¡Los zombis retroceden asustados!', 'gold'); }, 1300);
+  } });
+
+  // ---- Bombonas de oxígeno: explotan al dispararles (un solo uso cada rack)
+  const o2 = (x, z, ry) => {
+    const g = Grp(x, z, ry), L = [];
+    for (let i = 0; i < 4; i++) L.push([cyl(0.28, 0.28, 1.7, 12), 0x2a8a4a, -0.9 + i * 0.6, 0.95, 0], [sph(0.28, 12, 6), 0xe8e8e0, -0.9 + i * 0.6, 1.8, 0], [cyl(0.06, 0.06, 0.25, 6), 0x8a8a8a, -0.9 + i * 0.6, 2.1, 0]);
+    L.push([bx(2.8, 0.1, 0.7), 0x5a5a58, 0, 0.05, 0], [bx(2.8, 0.08, 0.08), 0x5a5a58, 0, 1.2, 0.35], [bx(0.08, 1.4, 0.08), 0x5a5a58, -1.4, 0.7, 0.35], [bx(0.08, 1.4, 0.08), 0x5a5a58, 1.4, 0.7, 0.35]);
+    const b = M(oceanGeo(L), vc, 0, 0, 0, { p: g });
+    const lbl = sign(1, 1.6, 0.3, 0, 1.5, 0.42, 0, g, atlasB);
+    const halo = glowSprite(x, 1.3, z, 0x40ff90, 2.2, 0.3);
+    const broken = M(oceanGeo([[bx(2.8, 0.1, 0.7), 0x2a2a28, 0, 0.05, 0], [cyl(0.28, 0.28, 0.9, 12), 0x1a3a22, 0.3, 0.3, 0.4, Math.PI / 2, 0.7], [cyl(0.28, 0.28, 0.6, 12), 0x1a3a22, -0.8, 0.28, -0.3, Math.PI / 2, -0.4], [bx(0.08, 0.9, 0.08), 0x2a2a28, -1.4, 0.45, 0.35, 0.5]]), vc, 0, 0, 0, { p: g, cast: false }); broken.visible = false;
+    addBox(x, z, 1.5, 0.45, ry);
+    let done = false, gasT = 0;
+    shootable(b, () => { if (done) return; done = true; b.visible = lbl.visible = halo.visible = false; broken.visible = true; Sfx.boom(); explode(new THREE.Vector3(x, 1, z), 6.5, 340, 25); gasT = 4; feed('¡Bombonas de oxígeno!', 'gold'); for (let i = 0; i < 30; i++) P.add(x, 1, z, rand(-6, 6), rand(1, 5), rand(-6, 6), rand(0.8, 1.6), rand(0.3, 0.6), 0.9, 0.95, 0.95, 0.45, 0.5, 1.6, 0.6, 0); });
+    world.anims.push((dt, t) => { if (!done) { halo.material.opacity = 0.2 + Math.sin(t * 3 + x) * 0.1; return; } if (gasT > 0) { gasT -= dt; for (let i = 0; i < 2; i++) P.add(x + rand(-0.5, 0.5), 0.4, z + rand(-0.4, 0.4), rand(-1.5, 1.5), rand(1.5, 3), rand(-1.5, 1.5), 1, 0.25, 0.9, 0.95, 0.95, 0.35 * gasT / 4, 0.2, 1.2, 0.5, 0); } });
+  };
+  o2(-13, 13, 0.2); o2(10.5, -16, -0.4);
+
+  // ---- Sirena de alarma: atrae a los zombis hacia la torre durante unos segundos
+  const TX = 31, TZ = 35;
+  const lure = { root: { position: new THREE.Vector3(TX, 0, TZ) }, eatT: 0, dead: true };
+  let alarmT = 0, beep = 0;
+  const sirenHead = new THREE.Group(); sirenHead.position.set(TX, 9.4, TZ); world.group.add(sirenHead);
+  const sirenM = bsc(0x400808);
+  { const L = [[bx(1.6, 0.6, 1.6), 0x3a3430, TX, 0.3, TZ], [cyl(0.16, 0.22, 9, 8), 0x8a8a84, TX, 4.6, TZ], [bx(1.2, 0.15, 1.2), 0x3a3430, TX, 9, TZ]];
+    for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) L.push([cyl(0.18, 0.55, 1.2, 10), 0x5a5a58, TX + Math.cos(a) * 0.7, 8.2, TZ + Math.sin(a) * 0.7, 0, -a, Math.PI / 2]);
+    // panel de mando con el botón rojo y el cable que va a la torre
+    L.push([bx(1.2, 1.3, 0.7), 0x3a3e40, 15, 0.65, 24], [cyl(0.05, 0.05, 1.8, 4), 0x1a1a1a, 15, 0.03, 24 + 0.9, Math.PI / 2], [cyl(0.05, 0.05, 16.5, 4), 0x1a1a1a, 23.2, 0.04, 25.8, 0, 0.2, Math.PI / 2], [cyl(0.05, 0.05, 9.5, 4), 0x1a1a1a, 31.3, 0.04, 30.4, Math.PI / 2, 0, 0]);
+    M(oceanGeo(L), vc, 0, 0, 0, { solid: true }); addBox(TX, TZ, 0.9, 0.9); addBox(15, 24, 0.7, 0.45);
+    M(sph(0.42, 12, 8), sirenM, 0, 0.1, 0, { p: sirenHead, cast: false });
+    M(cyl(0.22, 0.22, 0.2, 12), bsc(0xff2020), 15, 1.38, 24, { cast: false });
+    sign(3, 1.4, 0.36, 15, 1.75, 24.38, 0, null, atlasB); }
+  const rotB = new THREE.Group(); sirenHead.add(rotB);
+  { const g = new THREE.ConeGeometry(2.4, 18, 14, 1, true); g.translate(0, -9, 0); g.rotateZ(Math.PI / 2); const bm = new THREE.MeshBasicMaterial({ color: 0xff2010, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    rotB.add(new THREE.Mesh(g, bm)); const g2 = g.clone(); g2.rotateY(Math.PI); rotB.add(new THREE.Mesh(g2, bm)); rotB.userData.bm = bm; }
+  const sirenGlow = glowSprite(TX, 9.5, TZ, 0xff2020, 5, 0);
+  const btnGlow = glowSprite(15, 1.45, 24, 0xff3030, 1.2, 0.5);
+  mapUse({ x: 15, z: 23.2, r: 2.4, t: 'Sirena de alarma', d: 'Atrae a los zombis hacia la torre durante unos segundos.', b: 'Activar', price: 6, cd: 40, use() { alarmT = 9; lure.eatT = 9; beep = 0; feed('¡Alarma! Los zombis van hacia la torre', 'gold'); } });
+
+  // ---- Animación de las criaturas, la sirena y el foco
+  world.anims.push((dt, t) => {
+    // aletas
+    for (const f of fins) { f.a += f.sp * dt; const x = Math.cos(f.a) * f.r, z = Math.sin(f.a) * f.r, up = Math.min(1, Math.max(0, Math.sin(t * 0.11 + f.ph) * 2.2 + 0.4)); f.m.position.set(x, WY + swell(x, z, t) - 0.3 - (1 - up) * 7 * f.sc, z); f.m.rotation.y = -f.a + (f.sp > 0 ? Math.PI : 0) + Math.PI / 2; f.m.rotation.z = Math.sin(t * 1.3 + f.ph) * 0.05;
+      if (up > 0.3 && Math.random() < dt * (FAST() ? 6 : 14)) P.add(x + rand(-0.6, 0.6), WY + 0.2, z + rand(-0.6, 0.6), rand(-1, 1), rand(0.6, 1.6), rand(-1, 1), 1.4, 0.3 * f.sc, 0.75, 0.85, 0.85, 0.4, 2, 0.6, 0.4, 0); }
+    // lomo
+    humpS.t -= dt;
+    if (humpS.on === 0 && humpS.t <= 0) { humpS.on = 1; humpS.k = 0; humpS.a = rand(0, TAU); humpS.r = rand(56, 72); humpS.t = 16; }
+    if (humpS.on) { humpS.k += dt / 16; const e = Math.sin(Math.min(1, humpS.k) * Math.PI), a = humpS.a + humpS.k * 0.25, x = Math.cos(a) * humpS.r, z = Math.sin(a) * humpS.r;
+      hump.visible = true; hump.position.set(x, WY - 11 + e * 9.5, z); hump.rotation.y = -a - Math.PI / 2; hump.rotation.z = Math.sin(t * 0.3) * 0.04;
+      if (e > 0.4 && Math.random() < dt * (FAST() ? 10 : 25)) P.add(x + rand(-20, 20), WY + 1 + rand(0, 3), z + rand(-4, 4), rand(-1, 1), rand(-0.5, 1), rand(-1, 1), 1.8, 0.4, 0.75, 0.85, 0.85, 0.45, 5, 0.3, 0.3, 0);
+      if (humpS.k >= 1) { humpS.on = 0; humpS.t = rand(10, 22); hump.visible = false; } }
+    // tentáculos
+    for (const tn of tents) {
+      tn.t -= dt;
+      if (tn.st === 0 && tn.t <= 0) { tn.st = 1; tn.k = 0; tn.a = rand(0, TAU); tn.r = rand(52, 74); tn.base.position.set(Math.cos(tn.a) * tn.r, 0, Math.sin(tn.a) * tn.r); tn.base.rotation.set(0, -tn.a, 0); tn.base.visible = true; }
+      if (tn.st) { tn.k += dt / 18; const e = Math.min(1, Math.sin(Math.min(1, tn.k) * Math.PI) * 1.6);
+        tn.base.position.y = WY - 30 + e * 28; tn.base.rotation.z = 0.3 * e;
+        for (let i = 0; i < tn.segs.length; i++) { const s = tn.segs[i]; s.rotation.z = Math.sin(t * 1.1 + i * 0.5 + tn.ph) * (0.1 + i * 0.022) + i * 0.025 * e; s.rotation.x = Math.cos(t * 0.8 + i * 0.4 + tn.ph) * 0.07; }
+        if (e > 0.1 && Math.random() < dt * (FAST() ? 8 : 18)) P.add(tn.base.position.x + rand(-2, 2), WY + 0.3, tn.base.position.z + rand(-2, 2), rand(-1.5, 1.5), rand(1, 3), rand(-1.5, 1.5), 1.5, 0.45, 0.75, 0.85, 0.85, 0.45, 4, 0.4, 0.4, 0);
+        if (tn.k >= 1) { tn.st = 0; tn.t = rand(3, 9); tn.base.visible = false; } }
+    }
+    // el ojo bajo la superficie
+    eyeS.t -= dt;
+    if (eyeS.st === 0 && eyeS.t <= 0) { eyeS.st = 1; eyeS.k = 0; const a = rand(0, TAU), r = rand(47, 54); eye.g.position.set(Math.cos(a) * r, WY - 4.7, Math.sin(a) * r); eye.g.visible = true; }
+    if (eyeS.st) { eyeS.k += dt / 10; const open = Math.min(1, Math.sin(Math.min(1, eyeS.k) * Math.PI) * 2.5) * (Math.sin(t * 2.7) > 0.97 ? 0.1 : 1);
+      eye.g.lookAt(camera.position.x, camera.position.y, camera.position.z); eyeLids(eye, open); eye.glow.material.opacity = open * 0.45;
+      if (eyeS.k >= 1) { eyeS.st = 0; eyeS.t = rand(8, 16); eye.g.visible = false; } }
+    // el leviatán que cruza a lo lejos, por delante del planeta
+    { const a = -1.9 + Math.sin(t * 0.008) * 0.6, d = 215; levG.position.set(Math.cos(a) * d, WY, Math.sin(a) * d); levG.rotation.y = -a + Math.PI / 2;
+      for (let i = 0; i < levHumps.length; i++) { const m = levHumps[i], ph = t * 0.35 - i * 0.75, up = Math.sin(ph); m.position.set(-80 + i * 20, -9 + Math.max(-1, up) * 9, 0); m.visible = up > -0.6; }
+      const hh = levHumps.head, hu = Math.sin(t * 0.09); hh.position.set(110, -18 + Math.max(0, hu) * 34, 0); hh.rotation.z = 0.5 + Math.sin(t * 0.5) * 0.1; hh.visible = hu > 0.1; }
+    // luces rojas de aviso que parpadean
+    for (let i = 0; i < redLights.length; i++) redLights[i].material.opacity = (t * 0.8 + i * 0.37) % 1 < 0.18 ? 1 : 0.12;
+    // la sirena: luz roja que gira y zombis que acuden
+    if (alarmT > 0) { alarmT -= dt; lure.eatT = alarmT; rotB.rotation.y += dt * 7; rotB.userData.bm.opacity = 0.35; sirenM.color.setHex(Math.sin(t * 20) > 0 ? 0xff2020 : 0x801010); sirenGlow.material.opacity = 0.6 + Math.sin(t * 14) * 0.3; btnGlow.material.opacity = Math.sin(t * 10) > 0 ? 1 : 0.2;
+      beep -= dt; if (beep <= 0) { beep = 0.9; Sfx.bell(); }
+      for (const z of zombies) { if (z.dead || z.net || z.boss != null || z.state === 'rise') continue; if (Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 4.5) continue; z.tk = 'e'; z.tobj = lure; z.tgtT = 0.5; }
+      if (alarmT <= 0) { lure.eatT = 0; rotB.userData.bm.opacity = 0; sirenM.color.setHex(0x400808); sirenGlow.material.opacity = 0; btnGlow.material.opacity = 0.5; for (const z of zombies) if (z.tobj === lure) z.tgtT = 0; } }
+    // el foco submarino y la bestia que se asoma bajo el pozo
+    flReady.material.opacity = revealT > 0 ? 0.9 : 0.25 + Math.sin(t * 3) * 0.1;
+    if (revealT > 0) { revealT -= dt; const e = Math.min(1, (7 - revealT) / 1.5) * Math.min(1, revealT / 1.2);
+      fl.intensity = 5 * Math.min(1, (7 - revealT) * 3) * (revealT > 0.3 ? 1 : 0); flBeam.material.opacity = 0.35 * Math.min(1, (7 - revealT) * 3) * Math.min(1, revealT * 2);
+      beast.position.set(0, WY - 30 + e * 21.2, -6); beast.rotation.y = Math.sin(t * 0.4) * 0.05;
+      const open = Math.min(1, Math.max(0, (7 - revealT - 1.6) * 2)) * Math.min(1, revealT / 1.5); eyeLids(beastEye, open); beastEye.g.lookAt(camera.position); beastEye.glow.material.opacity = open * 0.6;
+      beastM.emissive.setRGB(0.04 + 0.4 * fl.intensity / 5, 0.06 + 0.5 * fl.intensity / 5, 0.06 + 0.5 * fl.intensity / 5);
+      if (revealT <= 0) { beast.visible = false; fl.intensity = 0; flBeam.material.opacity = 0; waterBase = 0.72; } }
+    // lluvia fina y espuma contra las patas
+    if (!FAST() && Math.random() < dt * 40) P.add(camera.position.x + rand(-12, 12), rand(4, 9), camera.position.z + rand(-12, 12), 0.6, -9, 0.2, 0.9, 0.025, 0.7, 0.8, 0.85, 0.5, 0, 0, 0, 0);
+    if (Math.random() < dt * 4) { const s = pick([[-41.6, -20], [-41.6, 20], [41.6, -20], [41.6, 20], [-20, 41.6], [20, 41.6], [-20, -41.6], [0, -41.6]]); P.add(s[0] + rand(-2, 2), WY + 0.6, s[1] + rand(-2, 2), rand(-1, 1), rand(1, 2.5), rand(-1, 1), 1.2, 0.35, 0.75, 0.85, 0.85, 0.4, 4, 0.5, 0.3, 0); }
+  });
+  mistField(14, 0x7aa0a0, 41);
+  { const ms = []; for (let i = 0; i < 12; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, color: 0x6a9090, transparent: true, opacity: 0.22, depthWrite: false })); const sc = sr(30, 55); sp.scale.set(sc, sc * 0.3, 1); world.group.add(sp); ms.push({ sp, a: sr(0, TAU), r: sr(48, 95), v: sr(0.004, 0.01) }); }
+    world.anims.push((dt, t) => { for (const m of ms) { m.a += m.v * dt; m.sp.position.set(Math.cos(m.a) * m.r, WY + 2.5 + Math.sin(t * 0.2 + m.r) * 0.8, Math.sin(m.a) * m.r); } }); }
+
+  // ---- Puntos de aparición: trepan por los bordes desde el mar y dos salen de los huecos
+  for (const [x, z] of [[-30, -40], [-8, -40], [14, -40], [40, -20], [40, 2], [40, 37], [18, 40], [-6, 40], [-27, 40], [-40, 22], [-40, -4], [-40, -28]]) world.spawns.push({ x, z, rise: false });
+  world.spawns.push({ x: 0, z: -12.2, rise: true }, { x: -26.5, z: -9, rise: true });
+}
+
 /* ===================== NAVEGACIÓN: los zombis rodean los obstáculos ===================== */
 const nav = { cs: 1, nx: 0, nz: 0, ox: 0, oz: 0, blk: null, dist: null, hN: null, hK: null, hs: 0, tx: 1e9, tz: 1e9 };
 // ---- Fuego reutilizable (barriles, fogatas, escombros)
@@ -15752,7 +16750,7 @@ function routeGift(k) {
   if (k === 'purple') { const pool = Object.keys(RELICS).filter(r => !rl(r)); if (pool.length) { const r = pick(pool), R = RELICS[r]; game.relics = game.relics || {}; game.relics[r] = 1; if (R.take) R.take(); feed(`Reliquia: ${R.name}`, 'gold'); } }
   renderChips();
 }
-const MAP_WIP = new Set([19, 22]);   // lugares todavía en obra: no salen en el camino
+const MAP_WIP = new Set([]);   // lugares todavía en obra: no salen en el camino
 function routeOptions() {
   const z = zoneOf(game.wave), last = !game.endless && z + 1 === MAP_COUNT - 1;
   const used = new Set(game.route || []), fresh = [];
@@ -18566,7 +19564,7 @@ const Music = (() => {
 })();
 
 /* ===================== PANTALLAS ===================== */
-function show(id) { if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'tuto-end'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'tuto-end', 'ach-s'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
