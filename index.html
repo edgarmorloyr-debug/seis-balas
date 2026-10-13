@@ -287,6 +287,15 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .dv-n{font-style:normal;color:#ffd060;font-size:15px;min-height:1em}
 #run-setup{margin:10px 0 4px}
 .meta-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+#top-box{margin-top:10px;border:1px solid rgba(214,165,75,.35);border-radius:8px;background:rgba(0,0,0,.4);padding:4px 12px 8px;text-align:left}
+#top-box summary{cursor:pointer;min-height:40px;display:flex;align-items:center;font:700 14px var(--hud);letter-spacing:.1em;text-transform:uppercase;color:var(--brass)}
+#top-list{margin:2px 0 8px;padding-left:24px;font-size:14px;line-height:1.45;color:var(--bone);font-variant-numeric:tabular-nums}
+#top-list li.me b{color:var(--gold)}
+#top-list small{color:var(--bone-dim);font-size:14px}
+#top-list .note{list-style:none;margin-left:-24px}
+.top-me{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--bone-dim)}
+#top-nick{flex:1;min-width:0;min-height:44px;padding:0 10px;font:600 16px var(--hud);background:rgba(0,0,0,.4);color:var(--bone);border:1px solid rgba(236,226,203,.4)}
+@media (min-width:1180px){#top-box{position:fixed;top:16px;right:16px;width:270px;margin:0;z-index:6}}
 #fichas,#altar-f{font-size:17px;color:#e8dcc0}
 #char-list{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 #char-list img{-webkit-user-drag:none;pointer-events:none}
@@ -568,6 +577,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <div id="char-list"></div>
         <div class="skull-row"><span>Nivel Calavera</span><button class="btn2 sq" id="sk-minus" aria-label="Bajar nivel">−</button><b id="sk-n">0</b><button class="btn2 sq" id="sk-plus" aria-label="Subir nivel">+</button></div>
         <p class="note" id="sk-desc"></p>
+        <details id="top-box"><summary>Top mundial</summary><ol id="top-list"></ol><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
       </div>
       <div class="row"><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
       <p class="note" id="save-note" hidden>Tu partida se guarda sola al empezar cada oleada, en este navegador.</p>
@@ -8698,7 +8708,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed'];
+const SAVE_FIELDS = ['sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge'];
 function saveGame() {
   if (!game || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -8830,7 +8840,7 @@ function gameOver() {
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock();
   store.set(SAVE_KEY, null);
   if (Net.on) setTimeout(netLeave, 600);
-  awardFichas(false);
+  awardFichas(false); submitRun();
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
   show('over'); el.hud.hidden = true; $('#touch').hidden = true;
@@ -8916,7 +8926,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = MODELS[id].name + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return itemDmg() * m.dmg * (h.model === sigGun() ? 1 + 0.25 * sigLv('dmg') : 1) * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return itemDmg() * m.dmg * (h.model === sigGun() ? 1 + 0.25 * sigLv('dmg') : 1) * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0) + 0.1 * (game.forge | 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -9879,7 +9889,7 @@ function maybeElite(z) {
 function makeElite(z, k, net) {
   z.elite = k;
   if (!net) {
-    z.maxHp *= 2.5; z.hp = z.maxHp;
+    z.maxHp *= 2.5 * (sk(2) ? 1.25 : 1); z.hp = z.maxHp;
     if (k === 'fast') z.speed *= 1.8;
     if (k === 'giant') { z.maxHp *= 2; z.hp = z.maxHp; z.dmg *= 1.4; }
     feed(`¡Zombi élite: ${ELITE[k].name}!`, 'red');
@@ -10159,7 +10169,7 @@ function revive() { player.down = false; player.hp = Math.round(player.maxHp * 0
 function victory() {
   META.st.wins++; checkUnlocks();
   state = 'win'; game.phase = 'win'; if (document.pointerLockElement) document.exitPointerLock();
-  awardFichas(true); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
+  awardFichas(true); submitRun(); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
   setTimeout(() => $('#btn-endless').focus(), 50);
 }
 let perkChoices = [];
@@ -11823,7 +11833,9 @@ function prepRoom() {
   for (let i = 0; i < 3; i++) { const id = randItem(2, ex); if (!id) break; ex.push(id); game.roomItems.push({ id, sold: false }); }
   const d = Object.keys(ROOM_DOORS).filter(k => Math.random() < (k === 'shop' ? 0.7 : 0.5));
   game.roomDoors = d; game.roomUsed = {}; game.rerollP = 5;
-  game.lastDoor = null; game.roomSlot = Math.random() < 0.15; game.roomWheel = Math.random() < 0.10; game.roomRadio = Math.random() < 0.06;
+  const cas = unl('t:maquinas') ? 2 : 1;
+  game.lastDoor = null; game.roomSlot = Math.random() < 0.15 * cas; game.roomWheel = Math.random() < 0.10 * cas; game.roomRadio = Math.random() < 0.06 * (unl('t:radio') ? 2 : 1);
+  game.roomForge = unl('t:herrero') && Math.random() < 0.45;
   game.roomRoute = null;
 }
 function enterRoom() {
@@ -11837,6 +11849,18 @@ function enterRoom() {
 }
 // ---- Tragamonedas y ruleta de la Trastienda: cuestan 10 $ y dan poco (es para divertirse) ----
 const GAMBLE_P = 10;
+// El Herrero (desbloqueo): yunque con fragua; afila el revólver una vez por visita
+const forgePrice = () => shopP(40 + 20 * (game.forge | 0));
+function buildForge(x, z, used) {
+  const P = Grp(x, z, Math.PI / 2), q = { p: P }, iron = lam(0x2a2a2e, { emissive: 0x060606 }), brick = lam(0x6a3a2a), coal = new THREE.MeshBasicMaterial({ color: used ? 0x401008 : 0xff6a20 });
+  M(bx(0.5, 0.5, 0.35), lam(0x5a3a20), 0, 0.25, 0.4, q); M(bx(0.7, 0.18, 0.3), iron, 0, 0.6, 0.4, q); M(bx(0.25, 0.1, 0.22), iron, 0.4, 0.62, 0.4, q);
+  M(bx(0.9, 0.7, 0.6), brick, 0, 0.35, -0.35, q); M(bx(0.7, 0.06, 0.45), coal, 0, 0.72, -0.35, q);
+  addBox(x, z, 0.55, 0.5);
+  const l = lampLight(0, 1.0, -0.3, 0xff7a30, used ? 0.2 : 0.9, 4, P);
+  const o = { kind: 'forge', x: x + 1.1, z, r: 1.1, used, coal, light: l };
+  o.sparks = () => { const w = P.localToWorld(new THREE.Vector3(0, 0.75, 0.4)); for (let i = 0; i < 30; i++) PA.add(w.x, w.y, w.z, rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.3, 0.7), 0.03, 1, 0.7, 0.3, 1, 9.8, 1, 0, 0); };
+  return o;
+}
 // Radio de rescate (a veces): pides un ayudante, de todos los del juego, solo para la próxima oleada
 function buildRadio(x, z, used) {
   const P = Grp(x, z, Math.PI / 2), q = { p: P }, wood = lam(0x5a3a20), dk = lam(0x2a2a24), olive = lam(0x4a5a32, { emissive: 0x0a0e04 });
@@ -12017,6 +12041,7 @@ function buildShopRoom() {
   R.objs.push({ kind: 'reroll', x: -6, z: -2.4, r: 1.1 });
   // Juegos de azar (a veces): tragamonedas y ruleta, solo para entretener
   if (game && game.roomRadio) R.objs.push(buildRadio(-HX + 0.6, 6.2, !!(game.roomUsed || {}).radio));
+  if (game && game.roomForge) R.objs.push(buildForge(-HX + 0.9, -5.8, !!(game.roomUsed || {}).forge));
   // van en la pared de la derecha al entrar, mirando al centro
   { const spots = [[HX - 0.55, -5.8], [HX - 0.55, 6.2]]; if (game && game.roomSlot) R.objs.push(buildSlot(...spots.shift())); if (game && game.roomWheel) { const w = buildWheel(...spots.shift()); w.used = !!(game.roomUsed || {}).wheel; R.objs.push(w); } }
   // Puertas del fondo: aparecen al azar (todas, algunas o ninguna)
@@ -12045,6 +12070,7 @@ function useLabel(o) {
   if (o.kind === 'item') { const I = ITEMS[o.it.id], p = itemPrice(o.it.id); return { key: 'i' + o.it.id + game.gold, t: I.name, r: `<span class="rar-${I.rar + 1}">${IRAR[I.rar].name}</span>`, d: I.desc, b: game.gold >= p ? `Comprar · ${p} $` : `Faltan ${p - game.gold} $`, ok: game.gold >= p }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
+  if (o.kind === 'forge') { const pr = forgePrice(), ok = game.gold >= pr; return { key: 'fg' + game.gold, t: 'El Herrero', r: '', d: `Afila tu revólver: +10 % de daño para toda la partida (llevas +${(game.forge | 0) * 10} %). Una vez por visita.`, b: ok ? `Afilar · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'radio') return { key: 'ra', t: 'Radio de rescate', r: '', d: 'Pide refuerzos: elige un ayudante que pelea a tu lado solo durante la próxima oleada.', b: 'Llamar', ok: true };
   if (o.kind === 'slot') { const ok = !o.busy && game.gold >= GAMBLE_P; return { key: 'sl' + game.gold + !!o.busy, t: 'Tragamonedas', r: '', d: 'Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse.', b: o.busy ? 'Girando…' : game.gold >= GAMBLE_P ? `Jugar · ${GAMBLE_P} $` : `Faltan ${GAMBLE_P - game.gold} $`, ok }; }
   if (o.kind === 'wheel') { const ok = !o.busy && game.gold >= GAMBLE_P; return { key: 'wh' + game.gold + !!o.busy, t: 'Ruleta', r: '', d: 'Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada.', b: o.busy ? 'Girando…' : game.gold >= GAMBLE_P ? `Girar · ${GAMBLE_P} $` : `Faltan ${GAMBLE_P - game.gold} $`, ok }; }
@@ -12084,6 +12110,11 @@ function useObj(o) {
     const ex = game.roomItems.map(x => x.id);
     for (const ob of world.room.objs) if (ob.kind === 'item' && !ob.it.sold) { const id = randItem(2, ex); if (!id) continue; ex.push(id); ob.it.id = id; ob.sp.material.map = itemTex(ITEMS[id].ic, ITEMS[id].rar); ob.sp.material.needsUpdate = true; ob.lab.material.map = itemLabel(id); ob.lab.material.needsUpdate = true; ob.glow.material.color.setHex([0xfff0d0, 0x7ac0ff, 0xffc040][ITEMS[id].rar]); }
     useCur = null;
+  } else if (o.kind === 'forge') {
+    const pr = forgePrice(); if (game.gold < pr) { hint(`Te faltan ${pr - game.gold} $`, 1400); Sfx.err(); return; }
+    game.gold -= pr; game.forge = (game.forge | 0) + 1; game.roomUsed.forge = 1; o.used = true; useCur = null; showUse(null); if (o.coal) o.coal.color.setHex(0x401008);
+    Sfx.clang(0); setTimeout(() => Sfx.clang(0), 180); setTimeout(() => Sfx.clang(0), 360); if (o.sparks) o.sparks();
+    banner('¡Revólver afilado!', `+${game.forge * 10} % de daño en total`, 2400, 'gun'); renderChips();
   } else if (o.kind === 'radio') {
     useCur = null; showUse(null); openRadio(o);
   } else if (o.kind === 'slot' || o.kind === 'wheel') {
@@ -12809,14 +12840,18 @@ const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : 
 const UNLOCKS = [
   { k: 'b:acme', name: 'Bala ACME', what: 'Bala legendaria', cost: 3 }, { k: 'b:ruleta', name: 'Bala ruleta rusa', what: 'Bala legendaria', cost: 3 },
   { k: 'b:eco', name: 'Bala eco', what: 'Bala legendaria', cost: 4 }, { k: 'b:agujero', name: 'Bala agujero negro', what: 'Bala ultra rara', cost: 6 },
-  { k: 'a:franco', name: 'La Francotiradora', what: 'Ayudante', cost: 4 }, { k: 'a:dinamitero', name: 'El Dinamitero', what: 'Ayudante', cost: 4 }, { k: 'a:carnicero', name: 'El Carnicero', what: 'Ayudante', cost: 5 }
+  { k: 't:maquinas', name: 'Casino de la Trastienda', what: 'La tragamonedas y la ruleta salen el doble de seguido', cost: 3 },
+  { k: 't:radio', name: 'Radio con buena señal', what: 'La radio de rescate sale el doble de seguido', cost: 3 },
+  { k: 't:herrero', name: 'El Herrero', what: 'A veces aparece en la Trastienda y afila tu revólver: +10 % de daño para toda la partida', cost: 5 }
 ];
+const unl = k => !!META.un[k];
 const isOpen = k => { const u = UNLOCKS.find(x => x.k === k); return !u || !!META.un[k]; };
-const SKULLS = ['Los jefes tienen +25 % de vida', 'El rescate cuesta un 25 % más', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
+const SKULLS = ['Los jefes tienen +25 % de vida', 'Los zombis élite tienen un 25 % más de vida', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
 const sk = n => game && (game.skull | 0) >= n;
 // Precios de la tienda: +10 % por zona (y +15 % en Calavera 6)
 const shopP = n => Math.round(n * ST.shopX * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (zmodOn('shop') || 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
 function renderMeta() {
+  { const tn = $('#top-nick'); if (tn && document.activeElement !== tn) tn.value = myNick(); if (matchMedia('(min-width:1180px)').matches) $('#top-box').open = true; loadTop(); }
   $('#fichas').innerHTML = `${ico('skull')} ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
   renderCarousel(0);
   META.skull = clamp(META.skull | 0, 0, META.skullMax | 0);
@@ -12857,6 +12892,26 @@ function carMove(d) {
   cl.addEventListener('dragstart', e => e.preventDefault());
   window.addEventListener('keydown', e => { if (state !== 'menu' || $('#menu').hidden || e.target.tagName === 'INPUT') return; if (e.key === 'ArrowLeft') carMove(-1); else if (e.key === 'ArrowRight') carMove(1); });
 })();
+// ---- Top mundial (Supabase): la mejor partida de cada jugador
+const TOP_H = () => ({ apikey: SUPA.key, Authorization: 'Bearer ' + SUPA.key, 'Content-Type': 'application/json' });
+const escH = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function myNick() { let n = store.get('sb_nick', ''); if (!n) { n = 'Vaquero ' + Math.floor(rand(10, 99)); store.set('sb_nick', n); } return String(n).slice(0, 12); }
+let topT = -1e9;
+async function loadTop(force) {
+  const ol = $('#top-list'); if (!ol || !SUPA.url) return;
+  if (!force && performance.now() - topT < 30000) return; topT = performance.now();
+  if (!ol.children.length) ol.innerHTML = '<li class="note">Cargando…</li>';
+  try {
+    const r = await fetch(SUPA.url + '/rest/v1/sb_top?select=name,personaje,wave,kills,secs&order=wave.desc,kills.desc,secs.asc&limit=10', { headers: TOP_H() });
+    if (!r.ok) throw new Error(r.status); const rows = await r.json(), me = myNick().toLowerCase();
+    ol.innerHTML = rows.length ? rows.map(x => `<li class="${String(x.name).toLowerCase() === me ? 'me' : ''}"><b>${escH(x.name)}</b> · oleada ${x.wave | 0} <small>· ${x.kills | 0} zombis · ${CHARS[x.personaje] ? CHARS[x.personaje].name : ''}</small></li>`).join('') : '<li class="note">Todavía no hay nadie. ¡Sé el primero!</li>';
+  } catch (e) { ol.innerHTML = '<li class="note">El top no está disponible ahora.</li>'; }
+}
+function submitRun() {
+  if (!game || game.sentTop || (game.wave | 0) < 2 || !SUPA.url) return; game.sentTop = true;
+  const wave = Math.min(300, game.wave | 0), body = { name: myNick(), personaje: CHARS[game.char] ? game.char : 'sheriff', wave, kills: Math.min(wave * 250, game.kills | 0), gold: Math.max(0, game.goldTotal | 0), secs: Math.max(wave * 8, Math.round(game.time || 0)), skull: game.skull | 0, grupo: !!Net.on, ver: GAME_VER };
+  fetch(SUPA.url + '/rest/v1/sb_ranking', { method: 'POST', headers: Object.assign(TOP_H(), { Prefer: 'return=minimal' }), body: JSON.stringify(body) }).then(() => { topT = -1e9; }).catch(() => {});
+}
 function renderAltar() {
   $('#altar-f').innerHTML = `${ico('skull')} ${META.fichas} fichas de calavera`;
   if (!renderAltar.said) { renderAltar.said = 1; $('#altar-npc').textContent = npcLine('catrina', META.fichas ? null : 'none'); }
@@ -13196,6 +13251,8 @@ function toMenu() {
 $('#btn-start').addEventListener('click', () => startGame());
 $('#sk-minus').addEventListener('click', () => { META.skull = Math.max(0, META.skull - 1); saveMeta(); renderMeta(); });
 $('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
+$('#top-nick').addEventListener('change', e => { const v = e.target.value.trim().slice(0, 12); if (v) store.set('sb_nick', v); e.target.value = myNick(); loadTop(true); });
+$('#top-box').addEventListener('toggle', e => { if (e.target.open) loadTop(); });
 $('#btn-altar').addEventListener('click', () => { renderAltar.said = 0; renderAltar(); show('altar'); });
 $('#btn-altar-back').addEventListener('click', () => { renderMeta(); show('menu'); });
 renderMeta();
