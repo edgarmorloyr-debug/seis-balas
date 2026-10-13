@@ -195,6 +195,12 @@ a.link{color:#ffd060}
 #combo.pop b{animation:cbpop .22s ease-out}
 @keyframes cbpop{0%{transform:scale(1.5)}100%{transform:scale(1)}}
 .touch #combo{top:32%}
+#me{display:flex;align-items:center;gap:8px;min-width:0}
+#me-pic{width:52px;height:52px;border-radius:50%;border:2px solid var(--brass);background:#1a120a;object-fit:cover;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+#me div{display:flex;flex-direction:column;min-width:0}
+#me b{font:700 16px/1.15 var(--hud);color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#me span{font:600 14px/1.2 var(--hud);color:var(--brass);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.touch #me-pic{width:44px;height:44px}
 #b-pause{top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));width:52px;height:52px;border-radius:10px;font-size:18px}
 
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:radial-gradient(ellipse at center,rgba(7,9,12,.35) 0%,rgba(7,9,12,.9) 75%);overflow:auto;touch-action:pan-y}
@@ -478,6 +484,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <div id="bossbar" hidden><div id="boss-n"></div><div class="bbar"><b id="boss-b"></b><i id="boss-a"></i></div></div>
     <div id="click-hint" hidden>Haz clic para apuntar con el ratón</div>
     <div class="hud" id="hud-tl">
+      <div id="me"><img id="me-pic" alt=""><div><b id="me-name"></b><span id="me-char"></span></div></div>
       <div class="lbl"><span>Vida</span><span id="hp-n">100</span></div>
       <div class="bar" id="hp"><s></s><b></b></div>
       <div class="bar" id="stam"><b></b></div>
@@ -11778,7 +11785,7 @@ const Net = {
   flush() {
     if (!this.tr) return;
     const m = { id: this.id, n: this.name, h: this.host ? 1 : 0, st: this.started ? 1 : 0 };
-    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0];
+    if (game && state !== 'menu') m.p = [r2(player.pos.x), r2(player.pos.y), r2(player.pos.z), r2(player.yaw), r2(player.pitch), MODEL_ORDER.indexOf(game.equip), game.dual ? 1 : 0, Math.max(0, Math.round(player.hp / player.maxHp * 100)), player.down ? 1 : 0, CHAR_KEYS.indexOf(game.char)];
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
     if (Voice.on) m.v = 1;
@@ -11792,7 +11799,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; }
+    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -12172,15 +12179,47 @@ function updateCopProxies(dt) {
 // ---- Los demás vaqueros ----
 const PONCHO = [0x8a3a2a, 0x2a5a7a, 0x6a7a2a, 0x7a4a8a];
 const hatMat = new THREE.MeshLambertMaterial({ color: 0x5a3a20 });
+// Cómo se ve cada personaje en el juego en grupo (igual que su foto de la pantalla de elección)
+const CHAR_KEYS = ['sheriff', 'johnny', 'armando', 'lilith', 'francois'];
+const CHAR_LOOK = {
+  sheriff: { skin: 0xc88a62, shirt: 0xbfa06a, pants: 0x4a3a2a, hat: 0x7a5a36, dress(a) {
+    addL(a.torso, LG.box(0.1, 0.1, 0.02), LM(0xf0c040, { emissive: 0x3a2a04 }), 0.12, 0.16, 0.156);
+    addL(a.torso, LG.box(0.05, 0.28, 0.015), LM(0x2a2018), 0, 0.06, 0.155);
+    for (const x of [-0.24, 0.24]) addL(a.torso, LG.box(0.12, 0.03, 0.16), LM(0x8a6a40), x, 0.33, 0);
+    addL(a.torso, LG.box(0.5, 0.07, 0.31), LM(0x2a1a10), 0, -0.3, 0); addL(a.torso, LG.box(0.08, 0.06, 0.02), LM(0xd8b040), 0, -0.3, 0.158);
+    addL(a.head, LG.box(0.14, 0.035, 0.025), LM(0x3a2414), 0, -0.045, 0.152); } },
+  johnny: { skin: 0xdba882, shirt: 0xc49a48, pants: 0x7a6440, dress(a) {
+    addL(a.torso, LG.box(0.22, 0.09, 0.22), LM(0xe8dcc0), 0, 0.34, 0);
+    for (const x of [-0.08, 0.08]) addL(a.torso, LG.box(0.06, 0.4, 0.015), LM(0xa8823a), x, 0.08, 0.155);
+    addL(a.head, LG.box(0.32, 0.13, 0.33), LM(0x5a3a20), 0, 0.17, -0.01); addL(a.head, LG.box(0.33, 0.16, 0.08), LM(0x5a3a20), 0, 0.06, -0.14);
+    for (const x of [-0.155, 0.155]) addL(a.head, LG.box(0.03, 0.16, 0.24), LM(0x5a3a20), x, 0.07, -0.02);
+    addL(a.head, LG.box(0.27, 0.06, 0.03), LM(0x0a0a0c, { emissive: 0x050505 }), 0, 0.04, 0.152); } },
+  armando: { skin: 0xb88660, shirt: 0xeeeeea, pants: 0x3a3a3e, dress(a) {
+    for (const x of [-0.12, 0.12]) addL(a.torso, LG.box(0.05, 0.66, 0.02), LM(0x141414), x, 0.02, 0.152);
+    addL(a.head, LG.box(0.31, 0.08, 0.32), LM(0xb8b8b4), 0, 0.17, -0.02); for (const x of [-0.155, 0.155]) addL(a.head, LG.box(0.03, 0.12, 0.22), LM(0xb8b8b4), x, 0.06, -0.03);
+    addL(a.head, LG.box(0.16, 0.04, 0.03), LM(0xd0d0cc), 0, -0.045, 0.152); } },
+  lilith: { skin: 0xf2e2e2, shirt: 0x151518, pants: 0x1a1a22, dress(a) {
+    addL(a.torso, LG.box(0.2, 0.04, 0.2), LM(0x6a2a8a, { emissive: 0x1a0824 }), 0, 0.33, 0);
+    addL(a.head, LG.box(0.32, 0.12, 0.33), LM(0x1e1428), 0, 0.17, -0.01); addL(a.head, LG.box(0.32, 0.42, 0.07), LM(0x1e1428), 0, -0.04, -0.15);
+    for (const x of [-0.16, 0.16]) addL(a.head, LG.box(0.03, 0.34, 0.2), LM(0x3a1a50), x, 0, -0.02); } },
+  francois: { skin: 0xf0caae, shirt: 0x22252c, pants: 0x22252c, dress(a) {
+    addL(a.torso, LG.box(0.14, 0.3, 0.015), LM(0xf4f4f4), 0, 0.08, 0.155); addL(a.torso, LG.box(0.045, 0.28, 0.02), LM(0x0a0a0c), 0, 0.07, 0.158);
+    addL(a.head, LG.box(0.32, 0.12, 0.33), LM(0xe8cc7a), 0, 0.17, -0.01); addL(a.head, LG.box(0.32, 0.36, 0.07), LM(0xe8cc7a), 0, -0.02, -0.15);
+    for (const x of [-0.16, 0.16]) addL(a.head, LG.box(0.03, 0.3, 0.2), LM(0xe8cc7a), x, 0, -0.02); } }
+};
 function makeAvatar(p) {
   const root = new THREE.Group(), fall = new THREE.Group(), body = new THREE.Group(); root.add(fall); fall.add(body);
-  const col = PONCHO[p.idx % PONCHO.length];
-  const skin = new THREE.MeshLambertMaterial({ color: 0xc89a78 }), shirt = new THREE.MeshLambertMaterial({ color: col }), pants = new THREE.MeshLambertMaterial({ color: 0x2a2723 });
-  const av = { root, fall, body, mats: [skin, shirt, pants], phase: 0 };
+  const col = PONCHO[p.idx % PONCHO.length], L = CHAR_LOOK[p.char] || null;
+  const skin = new THREE.MeshLambertMaterial({ color: L ? L.skin : 0xc89a78 }), shirt = new THREE.MeshLambertMaterial({ color: L ? L.shirt : col }), pants = new THREE.MeshLambertMaterial({ color: L ? L.pants : 0x2a2723 });
+  const av = { root, fall, body, mats: [skin, shirt, pants], phase: 0, charKey: p.char || '' };
   const mk = (geo, mat, part, parent, x = 0, y = 0, zz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, zz); m.castShadow = true; parent.add(m); return m; };
   humanoid(av, { skin, shirt, pants, eye: npcEyeMat }, mk);
-  const brim = new THREE.Mesh(ZG.brim, hatMat); brim.position.y = 0.17; brim.scale.set(1.15, 1, 1.15); av.head.add(brim);
-  const crown = new THREE.Mesh(ZG.capCrown, hatMat); crown.position.y = 0.25; crown.scale.set(0.85, 1.7, 0.85); av.head.add(crown);
+  if (!L || L.hat) {
+    const hm = L ? LM(L.hat) : hatMat;
+    const brim = new THREE.Mesh(ZG.brim, hm); brim.position.y = 0.17; brim.scale.set(1.15, 1, 1.15); av.head.add(brim);
+    const crown = new THREE.Mesh(ZG.capCrown, hm); crown.position.y = 0.25; crown.scale.set(0.85, 1.7, 0.85); av.head.add(crown);
+  }
+  if (L) L.dress(av);
   av.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: avLabelTex(p), transparent: true, depthWrite: false })); av.label.scale.set(1.8, 0.675, 1); av.label.position.y = 2.45; root.add(av.label); av.labelName = p.name;
   av.guns = []; setAvGun(av, p);
   if (p.pos) root.position.set(p.pos.x, p.y || 0, p.pos.z);
@@ -12217,6 +12256,7 @@ function updateRemotes(dt) {
   if (!Net.on) return;
   for (const p of Net.peers.values()) {
     if (!game || state === 'menu' || !p.pos) { if (p.av) removeRemote(p); continue; }
+    if (p.av && p.av.charKey !== (p.char || '')) removeRemote(p);
     if (!p.av) p.av = makeAvatar(p);
     const av = p.av, r = av.root.position, k = Math.min(1, dt * 10), ox = r.x, oz = r.z;
     r.x += (p.pos.x - r.x) * k; r.z += (p.pos.z - r.z) * k; r.y += ((p.y || 0) - r.y) * k;
@@ -12703,6 +12743,7 @@ function startGame(sv) {
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${MODELS[CHARS[game.char].gun].name}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada abre Apocalipsis Delivery.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
+  { const C = CHARS[game.char], nick = (Net.on && Net.name) || store.get('sb_nick', ''); $('#me-pic').src = charPic(game.char); $('#me-name').textContent = nick || C.name; $('#me-char').textContent = nick ? C.name : MODELS[C.gun].name; }
   renderChips(); requestLock(); canvas.focus();
 }
 function pause() {
