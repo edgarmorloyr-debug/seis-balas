@@ -195,12 +195,17 @@ a.link{color:#ffd060}
 #combo.pop b{animation:cbpop .22s ease-out}
 @keyframes cbpop{0%{transform:scale(1.5)}100%{transform:scale(1)}}
 .touch #combo{top:32%}
-#me{display:flex;align-items:center;gap:8px;min-width:0}
-#me-pic{width:52px;height:52px;border-radius:50%;border:2px solid var(--brass);background:#1a120a;object-fit:cover;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.6)}
-#me div{display:flex;flex-direction:column;min-width:0}
-#me b{font:700 16px/1.15 var(--hud);color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#me span{font:600 14px/1.2 var(--hud);color:var(--brass);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.touch #me-pic{width:44px;height:44px}
+#hud-tl{flex-direction:row!important;align-items:flex-start;gap:8px!important;width:auto!important}
+#stats{display:flex;flex-direction:column;gap:6px;width:clamp(130px,24vw,230px);min-width:0}
+#me-box{position:relative;flex:none;width:64px;height:64px;border:2px solid var(--brass);border-radius:6px;overflow:hidden;background:#1a120a;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+#me-pic{display:block;width:100%;height:100%;object-fit:cover}
+#me-box.low{border-color:#ff4a3a;animation:melow .9s ease-in-out infinite}
+#me-box.down #me-pic{filter:grayscale(1) brightness(.55)}
+@keyframes melow{50%{box-shadow:0 0 14px rgba(255,60,40,.9)}}
+#ecg{position:absolute;left:0;right:0;bottom:0;width:100%;height:22px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.72) 40%)}
+#me-name{font:700 15px/1.1 var(--hud);color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.touch #me-box{width:52px;height:52px}
+@media (prefers-reduced-motion: reduce){#me-box.low{animation:none}}
 #b-pause{top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));width:52px;height:52px;border-radius:10px;font-size:18px}
 
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:radial-gradient(ellipse at center,rgba(7,9,12,.35) 0%,rgba(7,9,12,.9) 75%);overflow:auto;touch-action:pan-y}
@@ -484,7 +489,9 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <div id="bossbar" hidden><div id="boss-n"></div><div class="bbar"><b id="boss-b"></b><i id="boss-a"></i></div></div>
     <div id="click-hint" hidden>Haz clic para apuntar con el ratón</div>
     <div class="hud" id="hud-tl">
-      <div id="me"><img id="me-pic" alt=""><div><b id="me-name"></b><span id="me-char"></span></div></div>
+      <div id="me-box"><img id="me-pic" alt=""><canvas id="ecg" width="128" height="44" aria-hidden="true"></canvas></div>
+      <div id="stats">
+        <b id="me-name"></b>
       <div class="lbl"><span>Vida</span><span id="hp-n">100</span></div>
       <div class="bar" id="hp"><s></s><b></b></div>
       <div class="bar" id="stam"><b></b></div>
@@ -492,6 +499,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="bar" id="de"><b></b><em></em></div>
       <div id="chips"></div>
       <div id="istrip"><button id="b-inv" class="ibtn" aria-label="Abrir el inventario"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></button><div id="iicons"></div></div>
+      </div>
     </div>
     <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="rescue" hidden></div><div id="fee"></div><div id="contract-w"><span id="ctr-ic"></span><span id="contract"></span></div></div>
     <div class="hud" id="hud-tr">
@@ -11335,6 +11343,31 @@ function updateDnums(dt) {
     d.el.style.transform = `translate(${(_dv.x * 0.5 + 0.5) * W}px,${(-_dv.y * 0.5 + 0.5) * H}px) translate(-50%,-50%) scale(${sc.toFixed(2)})`;
   }
 }
+// Signos vitales en vivo sobre la foto: verde y tranquilo, amarillo y rápido herido, rojo y desbocado muriendo, plano si caes
+const ecg = { buf: new Float32Array(150), ph: 0, acc: 0, cls: '' };
+function ecgWave(p) {
+  const g = (c, w, a) => a * Math.exp(-((p - c) * (p - c)) / (2 * w * w));
+  return g(0.1, 0.03, 0.14) - g(0.2, 0.014, 0.14) + g(0.24, 0.018, 1) - g(0.28, 0.016, 0.3) + g(0.48, 0.05, 0.26);
+}
+function updateEcg(dt) {
+  if (!game || el.hud.hidden) return;
+  const cv = $('#ecg'); if (!cv) return;
+  const down = player.down || player.hp <= 0, r = clamp(player.hp / player.maxHp, 0, 1);
+  const bpm = down ? 0 : r > 0.6 ? 66 : r > 0.3 ? 98 : 138 + Math.sin(game.time * 3) * 18;
+  ecg.acc += dt * 110;
+  while (ecg.acc >= 1) {
+    ecg.acc -= 1; ecg.ph = (ecg.ph + bpm / 60 / 110) % 1;
+    let v = down ? 0 : ecgWave(ecg.ph) * (r > 0.3 ? 1 : 0.8 + Math.random() * 0.5) + (r < 0.3 && !down ? (Math.random() - 0.5) * 0.08 : 0);
+    ecg.buf.copyWithin(0, 1); ecg.buf[ecg.buf.length - 1] = v;
+  }
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, col = down ? '#ff3a30' : r > 0.6 ? '#5cff8a' : r > 0.3 ? '#ffd040' : '#ff4a3a';
+  g.clearRect(0, 0, W, H); g.lineWidth = 2.6; g.lineJoin = 'round'; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 6; g.beginPath();
+  const n = ecg.buf.length;
+  for (let i = 0; i < n; i++) { const x = i / (n - 1) * W, y = H * 0.68 - ecg.buf[i] * H * 0.55; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  const cls = down ? 'down' : r <= 0.3 ? 'low' : '';
+  if (cls !== ecg.cls) { ecg.cls = cls; const b = $('#me-box'); b.classList.toggle('low', cls === 'low'); b.classList.toggle('down', cls === 'down'); }
+}
 // Combo: muertes seguidas con muy poco tiempo entre una y otra. Llegar a ×10 tiene que costar.
 const COMBO_T = 1.1;
 const COMBO_PRIZE = { 5: 2, 10: 5, 15: 8, 20: 12, 30: 20 };
@@ -12743,7 +12776,7 @@ function startGame(sv) {
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${MODELS[CHARS[game.char].gun].name}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada abre Apocalipsis Delivery.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
-  { const C = CHARS[game.char], nick = (Net.on && Net.name) || store.get('sb_nick', ''); $('#me-pic').src = charPic(game.char); $('#me-name').textContent = nick || C.name; $('#me-char').textContent = nick ? C.name : MODELS[C.gun].name; }
+  { const nick = (Net.on && Net.name) || store.get('sb_nick', '') || 'Jugador'; $('#me-pic').src = charPic(game.char); $('#me-name').textContent = nick; }
   renderChips(); requestLock(); canvas.focus();
 }
 function pause() {
@@ -12932,7 +12965,7 @@ function frame() {
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
-  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05));
+  updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05));
   renderer.render(scene, camera);
 }
 buildMap(0);
