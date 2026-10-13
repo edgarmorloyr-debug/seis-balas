@@ -532,7 +532,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <dt><kbd>Esc</kbd> · <kbd>M</kbd></dt><dd>Pausa · silenciar</dd>
       </dl>
       <p class="note only-touch">Pulgar izquierdo para moverte (empújalo al fondo para correr). Con el derecho, arrastra para mirar y da un toque rápido para disparar. El botón con forma de mira hace que cada disparo salga con la mirilla. Mientras mantienes Fuego también puedes girar.</p>
-      <p class="note">Las balas no son infinitas: cada disparo se gasta y, si te quedas sin ninguna, se acaba la partida. Algunos zombis sueltan balas. Después de cada oleada entras a la trastienda: compras objetos que mejoran tu revólver, y a veces se abren las puertas de Madame Zafira, el Diablo o Apocalipsis Delivery (la única tienda de balas). Con <kbd>I</kbd> abres tu inventario y fusionas balas.</p>
+      <p class="note">Las balas no son infinitas: cada disparo se gasta y, si te quedas sin ninguna, se acaba la partida. Al empezar cada oleada recibes una ración de balas y algunos zombis sueltan más. Cada lugar tiene 3 oleadas: chica, grande y el jefe; los zombis se vuelven mucho más duros de lugar en lugar, así que arma bien tu revólver. Después de cada oleada entras a la trastienda: compras objetos que mejoran tu revólver, y a veces se abren las puertas de Madame Zafira, el Diablo o Apocalipsis Delivery (la única tienda de balas). Con <kbd>I</kbd> abres tu inventario y fusionas balas.</p>
     </div>
   </div>
 
@@ -2855,7 +2855,7 @@ function spawnPoint(far) {
 }
 function spawnZombie(type, x, zz, wave, rise = true) {
   const z = buildZombie(type), d = z.def, w = wave || 1;
-  z.maxHp = z.hp = d.hp * (1 + (w - 1) * (d.big ? 0.13 : 0.1));
+  z.maxHp = z.hp = d.hp * (game && state !== 'menu' ? waveHp(game.wave) : 1);
   z.speed = rand(d.speed[0], d.speed[1]) * (1 + Math.min(0.35, (w - 1) * 0.02));
   z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || 1);
   z.dmg = d.dmg * (1 + (w - 1) * 0.04);
@@ -3127,7 +3127,7 @@ function updateTraps(dt) {
       if (z.dead || z.state === 'rise') continue;
       if (Math.hypot(z.root.position.x - tr.x, z.root.position.z - tr.z) < 0.9) {
         tr.armed = false; tr.t = Math.min(tr.t, 4.5); z.trapped = 4; tr.jawA.rotation.x = 0; tr.jawB.rotation.x = 0;
-        damageZombie(z, 60 * (1 + 0.05 * (game.wave - 1)), { part: 'limb', dir: null }); Sfx.clang(panOf(tr)); Sfx.thud(panOf(tr)); break;
+        damageZombie(z, 60 * effSc(), { part: 'limb', dir: null }); Sfx.clang(panOf(tr)); Sfx.thud(panOf(tr)); break;
       }
     }
     if (tr.t <= 0) { scene.remove(tr.g); traps.splice(i, 1); }
@@ -3141,7 +3141,7 @@ function updateStrikes(dt) {
     addTracer(top, bot, 0xeef6ff, 14); addTracer(top.clone().add(new THREE.Vector3(1.5, 0, -1)), bot, 0xa0c8ff, 6);
     for (let k = 0; k < 40; k++) PA.add(s_.x, 0.3, s_.z, rand(-6, 6), rand(1, 7), rand(-6, 6), rand(0.3, 0.8), rand(0.1, 0.25), 0.8, 0.9, 1, 1, 6, 1, 0, 0);
     Sfx.thunder(panOf(s_)); fx.flash = 0.7; player.shake = Math.min(1, player.shake + 0.4);
-    const sc = 1 + 0.05 * (game.wave - 1);
+    const sc = effSc();
     if (!Net.client) for (const z of zombies) { if (z.dead) continue; const d = Math.hypot(z.root.position.x - s_.x, z.root.position.z - s_.z); if (d < 4.5) { z.stagger = 1; damageZombie(z, 160 * sc * (1 - d / 9), { part: 'body', dir: null }); } }
     strikes.splice(i, 1);
   }
@@ -3385,17 +3385,25 @@ function mapForWave(w, route) {
   return w <= LAST_WAVE ? z : z % MAP_COUNT;
 }
 const isMapEnd = w => w % WAVES_PER_MAP === 0;
-// Dificultad: cada mapa dura 3 oleadas, pero los zombis crecen como si fueran 7.
-const diffW = n => Math.round(n * 7 / WAVES_PER_MAP);
+// Dificultad al estilo Balatro: cada lugar es una apuesta con oleada chica, oleada grande y jefe.
+// La vida de los zombis crece multiplicando de lugar en lugar; tus objetos tienen que seguirle el ritmo.
+const ZONE_HP = [1, 1.25, 1.55, 1.95, 2.45, 3.1, 3.95, 5, 6.4, 8.2];
+const zoneHp = z => z < ZONE_HP.length ? ZONE_HP[z] : ZONE_HP[ZONE_HP.length - 1] * Math.pow(1.3, z - ZONE_HP.length + 1);
+const wavePos = n => (Math.max(1, n) - 1) % WAVES_PER_MAP;   // 0 = chica, 1 = grande, 2 = jefe
+const waveHp = n => zoneHp(zoneOf(n)) * (wavePos(n) === 1 ? 1.1 : 1);
+const effSc = () => game ? 0.6 + 0.4 * zoneHp(zoneOf(game.wave)) : 1;   // fuerza de los efectos (fuego, explosiones…)
+// Nivel de la oleada: decide qué tipos de zombi salen, su velocidad y su golpe
+const diffW = n => 1 + 2 * zoneOf(n) + wavePos(n);
 const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
 const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => false;
-function waveCount(n) { const m = Math.min(n, 30), k = Math.min(n, 50); return Math.floor(6 + k * 2.7 + m * m * 0.13); }
+function waveCount(n) { const z = zoneOf(n), p = wavePos(n); return p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; }
 function startWave(n) {
-  game.wave = n; game.toSpawn = Math.round(waveCount(diffW(n)) * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
+  game.wave = n; game.toSpawn = Math.round(waveCount(n) * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
   let sub;
   if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
+  { const r = 12 + 2 * zoneOf(n); for (let k = 0; k < r; k++) game.box.push('normal'); feed(`Ración de la oleada: +${r} balas`, 'gold'); }
   if (S('waveAmmo') && n > 1) { for (let k = 0; k < S('waveAmmo'); k++) game.box.push('normal'); feed(`Saco de balas: +${S('waveAmmo')}`, 'gold'); }
   game.waveMod = game.nextMod || null; game.nextMod = null;
   if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
@@ -3406,9 +3414,10 @@ function startWave(n) {
     if (n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
     else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
-  else if (n % WAVES_PER_MAP === WAVES_PER_MAP - 1 && n >= 5) { const b = Math.min(4, Math.max(1, Math.floor(n / 4))); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
+  else if (n % WAVES_PER_MAP === WAVES_PER_MAP - 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
   game.toSpawn += game.bossQ.length;
+  if (!isMapEnd(n)) sub = `${wavePos(n) === 0 ? 'Oleada chica' : 'Oleada grande'} · ${sub}`;
   if (game.waveMod) sub = game.waveMod.name ? `¡${game.waveMod.name}! ${game.waveMod.sub}` : game.waveMod.gold ? `¡Oleada maldita! Oro x${game.waveMod.gold}` : '¡Algo despertó en las tumbas!';
   if (needsRescue(n + 1)) setTimeout(() => { if (game && game.wave === n && state === 'play') { banner('Aviso del rescate', `Tras el jefe de la próxima oleada, el helicóptero cobra ${rescueFee(n + 1)} $. Tú tienes ${game.gold} $.`, 4200, 'heli'); Sfx.bell(); } }, 3400);
   banner(`Oleada ${n}`, sub, game.bossQ.length ? 3000 : 2400, game.waveMod && game.waveMod.ic ? game.waveMod.ic : isMapEnd(n) ? 'skull' : null);
@@ -3724,7 +3733,7 @@ function rocketBoom(p, r, dmg) {
 function onHitZombie(z, pt, d, ctx, killed) { const ty = ctx.type; if (typeof ty === 'string' && ty.indexOf('+') > 0) { for (const p of ty.split('+')) { ctx.type = p; onHitZombie1(z, pt, d, ctx, killed); } ctx.type = ty; return; } onHitZombie1(z, pt, d, ctx, killed); }
 function onHitZombie1(z, pt, d, ctx, killed) {
   if (Net.client && ['fria', 'mula', 'sangre', 'trebol', 'serpiente', 'hipno'].includes(ctx.type)) return;
-  const t = ctx.type, sc = 1 + 0.05 * (game.wave - 1);
+  const t = ctx.type, sc = effSc();
   if (t === 'dorada') addGold(4, true);
   else if (t === 'vampira') player.hp = Math.min(player.maxHp, player.hp + 8);
   else if (t === 'fria') { if (!killed) freeze(z, 2); }
@@ -3748,7 +3757,7 @@ function onHitZombie1(z, pt, d, ctx, killed) {
 }
 function impactFx(p, d, ctx) { const ty = ctx.type; if (typeof ty === 'string' && ty.indexOf('+') > 0) { for (const q of ty.split('+')) { ctx.type = q; impactFx1(p, d, ctx); } ctx.type = ty; return; } impactFx1(p, d, ctx); }
 function impactFx1(p, d, ctx) {
-  const t = ctx.type, sc = 1 + 0.05 * (game.wave - 1);
+  const t = ctx.type, sc = effSc();
   if (t === 'frita') { Sfx.boom(); explode(p, 3.4, 90 * sc, 0, false); }
   else if (t === 'racimo') {
     const sub = Object.assign({}, ctx, { type: 'normal', dmgMul: 0.45, kills: 0, hitZ: false }), back = p.clone().addScaledVector(d, -0.3);
@@ -3762,7 +3771,7 @@ function impactFx1(p, d, ctx) {
   else if (t === 'tormenta') netFx('s', p);
 }
 function dragonCone(h, cam) {
-  const sc = 1 + 0.05 * (game.wave - 1), fx_ = cam.x, fz = cam.z, fl = Math.hypot(fx_, fz) || 1;
+  const sc = effSc(), fx_ = cam.x, fz = cam.z, fl = Math.hypot(fx_, fz) || 1;
   h.muzzle.getWorldPosition(_mp);
   for (let i = 0; i < 70; i++) { const a = rand(-0.45, 0.45), v = rand(6, 14), dx = (fx_ * Math.cos(a) - fz * Math.sin(a)) / fl, dz = (fx_ * Math.sin(a) + fz * Math.cos(a)) / fl; PA.add(_mp.x, _mp.y, _mp.z, dx * v, cam.y * v + rand(-0.5, 1.5), dz * v, rand(0.4, 0.8), rand(0.15, 0.35), 1, rand(0.3, 0.6), 0.08, 1, -1, 1.5, 0.6, 0); }
   Sfx.flame();
@@ -3836,7 +3845,7 @@ function killZombie(z, info) {
   if (z.def.big) { Sfx.thud(panOf(p)); player.shake = Math.min(1, player.shake + 0.35); } else Sfx.splat(panOf(p), volOf(p, 0.6));
   if (z.type === 'bloater') { z.torso.getWorldPosition(_tmp); const c = _tmp.clone(); z.body.visible = false; Sfx.gas(panOf(p)); explode(c, 4.2, 140, inGame ? 26 : 0, true); makePuddle(c.x, c.z, 2.2, 4); }
   if (!inGame) return;
-  if (info && info.bullet && !info.remote && !info.ally && S('boomC') && Math.random() < S('boomC') / 100) { const c = p.clone().setY(1); Sfx.boom(); explode(c, 3, 70 * (1 + 0.05 * game.wave), 0, false); }
+  if (info && info.bullet && !info.remote && !info.ally && S('boomC') && Math.random() < S('boomC') / 100) { const c = p.clone().setY(1); Sfx.boom(); explode(c, 3, 70 * effSc(), 0, false); }
   if (z.frozen > 0) for (const o of nearestZombies(p, 2, 6, new Set([z]))) freeze(o, 2);
   if (z.poison > 0) for (const o of nearestZombies(p, 3, 5, new Set([z]))) { o.poison = 5; o.poisonDps = z.poisonDps; }
   if (head && info.bullet && (!info.ally || info.remote)) {
@@ -3860,7 +3869,7 @@ function killZombie(z, info) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
     makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, 3);
   }
-  if (Math.random() < 0.3 * Math.max(0.1, 1 + S('ammoC') / 100) * (1 + S('luck') / 200) * (game.char === 'johnny' ? 1.15 : 1)) makePickup('ammo', p.x + rand(-0.7, 0.7), p.z + rand(-0.7, 0.7), (2 + Math.floor(Math.random() * 3)) * (z.def.big ? 2 : 1) + (S('ammoN') | 0));
+  if (Math.random() < 0.4 * Math.max(0.1, 1 + S('ammoC') / 100) * (1 + S('luck') / 200) * (game.char === 'johnny' ? 1.15 : 1)) makePickup('ammo', p.x + rand(-0.7, 0.7), p.z + rand(-0.7, 0.7), (2 + Math.floor(Math.random() * 2) + Math.floor(zoneOf(game.wave) / 3)) * (z.def.big ? 2 : 1) + (S('ammoN') | 0));
 }
 function creditKill(def, head, ally, weapon) {
   const hb = head && !ally ? (def.big ? 3 : 1) + lv('bounty') : 0;
@@ -4184,7 +4193,7 @@ function pickBoss() {
   let pool = all.filter(i => !game.bossSeen.includes(i)); if (!pool.length) { game.bossSeen = []; pool = all; }
   const i = pick(pool); game.bossSeen.push(i); return i;
 }
-function bossHpFor(B) { return B.hp * (sk(1) ? 1.25 : 1) * (1 + 0.2 * zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
+function bossHpFor(B) { return B.hp * 0.2 * (sk(1) ? 1.25 : 1) * zoneHp(zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
 function applyBoss(z, idx, opt = {}) {
   const B = BOSSES[idx]; if (!B) return;
   z.boss = idx; z.B = B; z.bt = 0; z.bst = z.bst | 0; z.gait = null; z.look = null;
@@ -4624,11 +4633,12 @@ function waveSummary() {
   if (game.w.hurt) game.mapHurt = true;
   if (isMapEnd(game.wave) && game.mapStart === game.wave - WAVES_PER_MAP + 1 && !game.mapHurt) META.st.clean = 1;
   checkUnlocks();
-  const wv = game.wave, base = 3 + Math.floor(wv / 2), clean = game.w.hurt ? 0 : 5 + Math.floor(wv / 2);
+  const wv = game.wave, zz = zoneOf(wv), base = [3, 4, 6][wavePos(wv)] + zz, clean = game.w.hurt ? 0 : 3 + zz;
   const eff = game.w.shots ? game.w.kills / game.w.shots : 0;
-  const aim = eff >= 0.5 ? Math.round(clamp((eff - 0.4) / 0.6, 0, 1.2) * (5 + wv * 0.6)) : 0;
-  game.sum = [['Oleada superada', base], ['Sin un rasguño', clean], [`Pocas balas · ${game.w.kills} bajas con ${game.w.shots} disparos`, aim]];
-  let g = base + clean + aim;
+  const aim = eff >= 0.5 ? Math.round(clamp((eff - 0.4) / 0.6, 0, 1.2) * (4 + zz * 1.5)) : 0;
+  const left = Math.min(5, Math.floor(game.box.length / 10));
+  game.sum = [[['Oleada chica', 'Oleada grande', 'Jefe vencido'][wavePos(wv)], base], ['Sin un rasguño', clean], [`Pocas balas · ${game.w.kills} bajas con ${game.w.shots} disparos`, aim], ['Balas sobrantes (1 $ por cada 10)', left]];
+  let g = base + clean + aim + left;
   const mine = myAllies();
   const CT = ALLY.contador, conts = mine.filter(c => c.kind === 'contador');
   if (conts.length) { const acc = conts.reduce((t, c) => t + CT.gold * (c.lv || 1), 0) + Math.min(CT.intMax, Math.floor(game.gold * CT.interest)); game.sum.push(['El Contador', acc]); g += acc; }
@@ -5705,7 +5715,7 @@ function updateCops(dt) {
 }
 const DECK_FX = ['frita', 'gravedad', 'trampa', 'acida', 'tormenta'];
 function copShoot(c, z) {
-  const D = c.D || ALLY.cop, sc = 1 + 0.05 * (game.wave - 1);
+  const D = c.D || ALLY.cop, sc = effSc();
   c.cd = rand(D.cd[0], D.cd[1]) * (cops.some(o => !o.dead && !o.npc && o.kind === 'recargador') ? 1 - ALLY.recargador.rof : 1) * (1 - 0.1 * (c.glv | 0));
   const zp = z.root.position, dz_ = Math.hypot(zp.x - c.root.position.x, zp.z - c.root.position.z);
   if (!D.gun) return;
@@ -5728,7 +5738,7 @@ function copShoot(c, z) {
   if (D.burst) { c.burst = D.burst - 1; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; }
 }
 function allyFire(c, z, D, muz) {
-  const sc = (1 + 0.05 * (game.wave - 1)) * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c);
+  const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c);
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
   const d = _mp.distanceTo(_tmp), dir = _tmp.clone().sub(_mp).normalize();
   const type = D.deck && game.box.length ? pick(game.box) : 'normal', B = BULLETS[type] || BULLETS.normal;
@@ -5817,7 +5827,7 @@ function updateAcid(dt) {
     const s = Math.min(p.r, 0.2 + p.t * 4); p.m.scale.setScalar(s);
     p.m.material.opacity = 0.6 * clamp((p.life - p.t) / 1.2, 0, 1);
     if (Math.random() < 0.3) PA.add(p.m.position.x + rand(-0.8, 0.8) * s, 0.05, p.m.position.z + rand(-0.8, 0.8) * s, 0, rand(0.3, 0.8), 0, 0.6, 0.06, 0.45, 1, 0.2, 0.7, 0, 0, 0, 0);
-    if (p.good) { if (!Net.client) for (const o of zombies) if (!o.dead && Math.hypot(o.root.position.x - p.m.position.x, o.root.position.z - p.m.position.z) < s) damageZombie(o, 30 * (1 + 0.05 * (game.wave - 1)) * dt, { part: 'body', dir: null, ally: true }); }
+    if (p.good) { if (!Net.client) for (const o of zombies) if (!o.dead && Math.hypot(o.root.position.x - p.m.position.x, o.root.position.z - p.m.position.z) < s) damageZombie(o, 30 * effSc() * dt, { part: 'body', dir: null, ally: true }); }
     else if (state === 'play' && player.onGround && Math.hypot(p.m.position.x - player.pos.x, p.m.position.z - player.pos.z) < s * 0.9) hurtPlayer(9 * dt, null, { acid: true, tick: true });
     if (p.t > p.life) { scene.remove(p.m); p.m.material.dispose(); puddles.splice(i, 1); }
   }
@@ -5977,7 +5987,7 @@ function updateMenu(dt) {
 
 /* ===================== SEIS BALAS B: OBJETOS, LA TRASTIENDA, INVENTARIO Y FUSIÓN ===================== */
 // Balas contadas: empiezas con una caja y cada disparo se gasta. Si te quedas sin ninguna, se acaba la partida.
-const B_START_AMMO = 48;
+const B_START_AMMO = 60;
 const IRAR = [{ name: 'Común', price: 25, w: 60 }, { name: 'Rara', price: 45, w: 30 }, { name: 'Legendaria', price: 75, w: 10 }];
 const ITEMS = {};
 // Las mejoras y reliquias de antes ahora son objetos que se compran (se pueden repetir)
@@ -6088,7 +6098,7 @@ function itemDmg() {
   return m;
 }
 function itemOnHit(z, pt, d, dd) {
-  const sc = 1 + 0.05 * (game.wave - 1);
+  const sc = effSc();
   if (S('burnC') && Math.random() < S('burnC') / 100) { z.burn = 3; z.burnDps = 20 * sc; }
   if (S('freezeC') && Math.random() < S('freezeC') / 100) freeze(z, 1.5);
   if (S('poisonC') && Math.random() < S('poisonC') / 100) { z.poison = 5; z.poisonDps = 18 * sc; }
@@ -6294,7 +6304,7 @@ function useObj(o) {
     game.gold -= p; o.it.sold = true; o.used = true; o.sp.visible = o.glow.visible = o.lab.visible = false; Sfx.cash(); gainItem(o.it.id); useCur = null; showUse(null);
   } else if (o.kind === 'reroll') {
     if (game.gold < game.rerollP) { hint(`Te faltan ${game.rerollP - game.gold} $`, 1400); Sfx.dry(); return; }
-    game.gold -= game.rerollP; game.rerollP += 3; Sfx.bell();
+    game.gold -= game.rerollP; game.rerollP += 2; Sfx.bell();
     const ex = game.roomItems.map(x => x.id);
     for (const ob of world.room.objs) if (ob.kind === 'item' && !ob.it.sold) { const id = randItem(2, ex); if (!id) continue; ex.push(id); ob.it.id = id; ob.sp.material.map = itemTex(ITEMS[id].ic, ITEMS[id].rar); ob.sp.material.needsUpdate = true; ob.lab.material.map = itemLabel(id); ob.lab.material.needsUpdate = true; ob.glow.material.color.setHex([0xfff0d0, 0x7ac0ff, 0xffc040][ITEMS[id].rar]); }
     useCur = null;
@@ -6652,7 +6662,7 @@ function applyRemoteDamage(from, e) {
   const z = zombies.find(q => q.id === e[1]); if (!z || z.dead) return;
   const dir = new THREE.Vector3(e[5], 0, e[6]); if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1); dir.normalize();
   const killed = damageZombie(z, e[2], { part: e[3], dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true });
-  const t = e[4], sc = 1 + 0.05 * (game.wave - 1);
+  const t = e[4], sc = effSc();
   if (t === 'fria' && !killed) freeze(z, 2);
   else if (t === 'mula' && !killed) { z.kbx = dir.x * 10; z.kbz = dir.z * 10; z.stagger = Math.max(z.stagger, 1.2); }
   else if (t === 'sangre') z.mark = 6;
