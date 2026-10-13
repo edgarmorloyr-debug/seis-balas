@@ -451,6 +451,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .vmic.mute{border-color:#e05050;color:#ff9a9a}.vmic.mute .sl{display:block}
 .vmic.wait{border-style:dashed}
 .tm .vmic{left:-5px;bottom:5px;width:22px;height:22px}
+.vmic.lmic{position:relative;display:inline-flex;vertical-align:middle;width:24px;height:24px;margin-right:8px}
 #me-mic{right:-10px;bottom:-10px;width:30px;height:30px;padding:0;pointer-events:auto;cursor:pointer;touch-action:none;z-index:2}
 #me-box{overflow:visible}#me-box img{border-radius:4px}
 .set select{width:100%;min-height:48px;padding:0 10px;font:600 16px var(--hud);color:var(--bone);background:rgba(20,15,10,.85);border:1px solid var(--brass);border-radius:8px}
@@ -751,6 +752,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <p class="tag">Sala <span id="room-show" class="code"></span></p>
         <ul id="room-list" class="plist"></ul>
         <div class="set"><label for="voice-lobby">Chat de voz</label><select id="voice-lobby" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select></div>
+        <div class="row"><button class="btn2" id="btn-vlobby" type="button">Unirse al chat de voz</button></div>
         <div class="row"><button class="btn" id="btn-go" hidden>Empezar partida</button></div>
       </div>
       <p class="note" id="lobby-msg" aria-live="polite"></p>
@@ -19676,7 +19678,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '13-oct-2026 · 24';
+const GAME_BUILD = '13-oct-2026 · 25';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 const r2 = v => Math.round(v * 100) / 100;
 const ZTYPES = Object.keys(ZDEF);
@@ -19845,7 +19847,8 @@ function i16FromB64(b) { const s = atob(b), u = new Uint8Array(s.length); for (l
 const Voice = {
   on: false, joining: false, stream: null, ctx: null, pcs: new Map(), sigq: new Map(), rx: new Map(), talking: false, muted: false, ice: ICE,
   relay: { on: false, src: null, proc: null, out: null, acc: null, n: 0, pos: 0, seq: 0, sent: 0 }, joinT: 0, lastRx: 0, noRtc: false, retryAt: 0, lvBuf: new Float32Array(256),
-  eligible() { return !!(Net.on && Net.started && game && Net.peers.size > 0 && !['over', 'win', 'menu'].includes(state) && !(typeof tuto !== 'undefined' && tuto)); },
+  // en la sala de espera (antes de empezar) o durante la partida en grupo
+  eligible() { if (!Net.on || Net.peers.size === 0 || (typeof tuto !== 'undefined' && tuto)) return false; return Net.started ? !!game && !['over', 'win', 'menu'].includes(state) : !$('#lobby').hidden && !$('#lobby-room').hidden; },
   peers() { return [...Net.peers.values()].filter(p => p.voice); },
   // Unirse: micrófono, sonido propio de la voz (aparte de la música), TURN y avisar al resto
   async enable() {
@@ -20006,6 +20009,7 @@ const Voice = {
 window.getVoiceDebugState = () => Voice.debug();
 function syncVoiceSel() { for (const id of ['#voice-lobby', '#voice-pause']) { const e = $(id); if (e) e.value = settings.voice; } }
 for (const id of ['#voice-lobby', '#voice-pause']) $(id).addEventListener('change', e => { settings.voice = ['off', 'open', 'ptt'].includes(e.target.value) ? e.target.value : 'off'; store.set('sb_voice', settings.voice); syncVoiceSel(); Voice.muted = false; Voice.talking = false; voiceT = 0; if (settings.voice === 'off') Voice.disable(); else Voice.apply(); });
+$('#btn-vlobby').addEventListener('click', () => { const on = settings.voice !== 'off' && (Voice.on || Voice.joining); settings.voice = on ? 'off' : 'open'; store.set('sb_voice', settings.voice); syncVoiceSel(); Voice.muted = false; voiceT = 0; if (on) Voice.disable(); else { Voice.retryAt = 0; Voice.enable(); } });
 $('#vvol').value = settings.vvol; $('#vvol').addEventListener('input', e => Voice.setVol(+e.target.value));
 { const mic = $('#me-mic'); const stop = e => { e.preventDefault(); e.stopPropagation(); };
   mic.addEventListener('pointerdown', e => { stop(e); if (Voice.on) Voice.key(true); });
@@ -20021,6 +20025,7 @@ function voiceStep(dt) {
   if (el && settings.voice !== 'off' && !Voice.on && !Voice.joining && performance.now() > Voice.retryAt) Voice.enable();
   if (Voice.on && settings.voice === 'off') Voice.disable();
   Voice.ui();
+  if (!$('#lobby').hidden) { const b = $('#btn-vlobby'); if (b) { const t = Voice.joining ? 'Conectando la voz…' : Voice.on ? `Voz: ${Voice.status()} · Salir` : 'Unirse al chat de voz'; if (b.textContent !== t) b.textContent = t; b.hidden = !Net.on || $('#lobby-room').hidden; } renderLobby(); }
 }
 window.addEventListener('pointerdown', () => { if (Voice.ctx && Voice.ctx.state !== 'running') Voice.ctx.resume().catch(() => {}); }, true);
 syncVoiceSel();
@@ -20061,9 +20066,10 @@ async function lobbyJoin() {
 }
 function renderLobby() {
   if ($('#lobby').hidden) return;
-  const rows = [`<li><span>${escapeHtml(Net.name)} (tú)</span><span>${Net.host ? 'Anfitrión' : ''}</span></li>`];
-  for (const p of Net.peers.values()) rows.push(`<li><span>${escapeHtml(p.name)}</span><span>${p.id === Net.hostId ? 'Anfitrión' : ''}</span></li>`);
-  $('#room-list').innerHTML = rows.join('');
+  const myMic = Voice.on ? `<i class="vmic lmic ${settings.voice !== 'ptt' && Voice.muted ? 'mute' : settings.voice === 'ptt' && Voice.talking ? 'talk' : Voice.status() === 'Conectado' ? 'ok' : 'wait'}">${VMIC}</i>` : '';
+  const rows = [`<li><span>${myMic}${escapeHtml(Net.name)} (tú)</span><span>${Net.host ? 'Anfitrión' : ''}</span></li>`];
+  for (const p of Net.peers.values()) rows.push(`<li><span>${p.voice ? `<i class="vmic lmic ${Voice.peerState(p)}">${VMIC}</i>` : ''}${escapeHtml(p.name)}</span><span>${p.id === Net.hostId ? 'Anfitrión' : ''}</span></li>`);
+  const html = rows.join(''); if ($('#room-list').innerHTML !== html) $('#room-list').innerHTML = html;
   if (Net.client && Net.hostId) $('#lobby-msg').textContent = 'Estás dentro. Espera a que el anfitrión empiece.';
   if (Net.host) $('#btn-go').textContent = Net.peers.size ? `Empezar partida · ${Net.peers.size + 1} jugadores` : 'Empezar partida';
 }
