@@ -17117,6 +17117,11 @@ const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
 const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => false;
 function waveCount(n) { const z = zoneOf(n), p = wavePos(n); return p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; }
+// Lo que cada jugador hace por su cuenta al empezar una oleada (también los invitados)
+function waveStartLocal(n) {
+  if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
+  if (rl('mapa') && n > 1) { addGold(15, true); feed('Mapa del tesoro: +15 $', 'gold'); }
+}
 function startWave(n) {
   if (tuto) { game.wave = n; game.phase = 'tuto'; game.toSpawn = 0; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0; return; }
   game.wave = n; game.toSpawn = Math.round(waveCount(n) * DF().n * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
@@ -17125,8 +17130,7 @@ function startWave(n) {
   clearWaveMod(); game.shieldW = 0;
   waveSupplies(n);
   game.waveMod = game.nextMod || null; game.nextMod = null;
-  if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
-  if (rl('mapa') && n > 1) { addGold(15, true); feed('Mapa del tesoro: +15 $', 'gold'); }
+  waveStartLocal(n);
   if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
@@ -21873,7 +21877,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 46';
+const GAME_BUILD = '14-oct-2026 · 47';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21887,6 +21891,7 @@ const Net = {
   tick(dt) {
     if (!this.on || !this.tr) return;
     this.acc += dt; if (this.acc < (this.host ? 0.14 : this.evq.length ? 0.09 : 0.2)) return; this.acc = 0;
+    if (this.client && game && game.phase === 'wait' && this.started && performance.now() - (this.rdyT || 0) > 2000) { this.rdyT = performance.now(); this.evq.push(['ready', game.wave]); }
     this.flush();
     const now = performance.now();
     for (const [id, p] of this.peers) if (now - p.seen > 20000) { removeRemote(p); Voice.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
@@ -22295,7 +22300,7 @@ function renderLobby() {
 }
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function netStartAsClient() {
-  Net.started = true; startGame();
+  Net.started = true; startGame(); game.fightWave = 1;
   game.toSpawn = 0; game.alive = 0; game.phase = 'wait';
   const p = [...Net.peers.values()].find(x => x.id === Net.hostId);
   player.pos.x += 1.6 * (1 + (Net.id.charCodeAt(0) % 3)); resolve(player.pos, 0.4);
@@ -22346,7 +22351,7 @@ function netEvent(p, e) {
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
   if (t === 'hurt') { if (e[1] === Net.id) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
-  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') afterClear(); else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
+  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
   else if (t === 'evb') { const B = { saq: ['¡Saqueadores armados!', 'No son zombis: vienen a robarte y disparan', 'gun'], refuerzos: ['¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean con el grupo esta oleada', 'badge'], ejercito: ['¡Llegó el ejército!', '6 soldados como Bill pelean con el grupo esta oleada', 'medal'] }[e[1]]; if (B) setTimeout(() => { banner(B[0], B[1], 2800, B[2]); Sfx.bell(); }, 1700); }
   else if (t === 'route') { if (!Net.host && game) { game.route = e[3]; game.zmod = { z: e[2], k: e[1] }; routeGift(e[1]); banner(ROUTE_MODS[e[1]].name, ROUTE_MODS[e[1]].desc, 3200, ROUTE_MODS[e[1]].ic); } }
@@ -22383,7 +22388,7 @@ function netFlows(dt) {
   }
   nav.dist = nav.mainDist; nav.tx = tx; nav.tz = tz;
 }
-function allPeersReady() { for (const p of Net.peers.values()) if (p.ready !== game.wave) return false; return true; }
+function allPeersReady() { for (const p of Net.peers.values()) if (p.ready !== game.wave && !p.wait) return false; return true; }   // «wait» llega en cada envío: sirve aunque se perdiera el aviso de «listo»
 function netHostStep() {
   if (Net.waiting && game && game.phase !== 'wait') Net.waiting = false;   // solo espera quien ya salió por la puerta
   if (Net.waiting && allPeersReady()) hostProceed();
@@ -22416,9 +22421,11 @@ function snapshot() {
 function applySnapshot(s) {
   if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic' || state === 'doors' || state === 'route' || state === 'cards' || state === 'items' || state === 'inv') return;
   game.toSpawn = s.l; game.alive = 0; game.countT = s.ct;
+  // si se perdió el aviso de «oleada terminada», lo recupera con el siguiente envío del anfitrión
+  if (game.phase === 'fight' && game.fightWave === s.w && (s.mp === ROOM_IDX || ['cleared', 'room', 'wait', 'exit'].includes(s.ph))) { netEvent({ id: Net.hostId, name: '' }, ['clear', s.w]); return; }
   if (s.w !== game.wave && s.ph === 'count') { game.wave = s.w; }
   if (s.ph === 'fight' && game.fightWave !== s.w) {
-    game.fightWave = s.w; game.wave = s.w; game.w = { hurt: false, shots: 0, kills: 0 }; waveSupplies(s.w);
+    game.fightWave = s.w; game.wave = s.w; game.w = { hurt: false, shots: 0, kills: 0 }; waveSupplies(s.w); waveStartLocal(s.w);
     if (player.down) revive();
     if (s.w > 1 || game.phase === 'wait') { banner(`Oleada ${s.w}`, 'Con tu grupo', 2200); Sfx.bell(); }
   }
