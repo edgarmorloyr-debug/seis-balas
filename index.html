@@ -1373,7 +1373,7 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 let srand = mulberry32(1);
 const sr = (a, b) => a + srand() * (b - a);
 const colliders = [], solids = [];
-const world = { idx: -1, group: null, arena: { t: 'c', r: 42 }, spawns: [], anims: [], ground: null, start: { x: 0, z: 2 }, shirts: [], hat: null, hatP: 0, mix: {}, indoor: false, mists: [], uses: [] };
+const world = { shoots: [], idx: -1, group: null, arena: { t: 'c', r: 42 }, spawns: [], anims: [], ground: null, start: { x: 0, z: 2 }, shirts: [], hat: null, hatP: 0, mix: {}, indoor: false, mists: [], uses: [] };
 const SHIRTS = [0x3b2f2a, 0x4a3b2c, 0x2f3a44, 0x5a2a26, 0x3d3d3d, 0x6b5a3e, 0x2c3b2e, 0x553f53];
 const PANTS = [0x2a2723, 0x22303a, 0x3a3027, 0x1f2421];
 const MAPS = [
@@ -1430,8 +1430,28 @@ function freeSpot(x, z, r, clear = 7) {
 }
 // Objetos de los mapas con los que se interactúa:
 // shootable(malla, (punto, instancia, ctx) => {...}) reacciona al disparo; mapUse({ x, z, r, t, d, b, price, cd, use(o) }) se activa con E o el botón
-function shootable(mesh, fn) { mesh.userData.onShot = fn; if (!solids.includes(mesh)) solids.push(mesh); return mesh; }
-function mapUse(o) { o.kind = 'map'; o.r = o.r || 2; o.readyT = 0; world.uses.push(o); return o; }
+// En grupo, los objetos del mapa se comparten: el que dispara o usa uno avisa a los demás y todos ven el mismo efecto.
+// El daño a los zombis solo lo cuenta el anfitrión (en el invitado el efecto es solo visual: mapFx).
+// Los premios personales (vida, balas, oro, objetos) no se comparten: son solo de quien los usó.
+const PERSONAL_RX = /player\.hp|makePickup|addGold|game\.box|gainItem|heal|ammo|mapAct\(/;
+const fxShared = fn => { try { return !PERSONAL_RX.test(String(fn)); } catch (e) { return false; } };
+let mapFx = 0;
+const _mfx = new THREE.Vector3();
+function fxRun(shared, fn, args, remote) { const vis = Net.client && shared, g0 = game ? game.gold : 0; if (vis) mapFx++; try { return fn(...args); } finally { if (vis) mapFx--; if (remote && game) game.gold = g0; } }   // lo que hace un compañero nunca toca tu oro
+function shootable(mesh, fn) {
+  const shared = fxShared(fn);
+  mesh.userData.fxRun = (...a) => fxRun(shared, fn, a);
+  mesh.userData.fxRemote = (...a) => fxRun(shared, fn, a, true); mesh.userData.fxShared = shared; mesh.userData.fxSrc = String(fn).slice(0, 400);
+  mesh.userData.onShot = (...a) => { const r = mesh.userData.fxRun(...a); if (Net.on && shared && game) { mesh.getWorldPosition(_mfx); Net.ev(['mfx', 's', world.idx, r2(_mfx.x), r2(_mfx.y), r2(_mfx.z)]); } return r; };
+  world.shoots.push(mesh); if (!solids.includes(mesh)) solids.push(mesh); return mesh;
+}
+function mapUse(o) { o.kind = 'map'; o.r = o.r || 2; o.readyT = 0; o.shared = fxShared(o.use); world.uses.push(o); return o; }
+// llega el aviso de un compañero: se repite aquí el mismo efecto
+function mapFxIn(e) {
+  if (!game || state === 'menu' || e[2] !== world.idx) return;
+  if (e[1] === 's') { let best = null, bd = 0.6; for (const m of world.shoots) { if (!m.parent) continue; m.getWorldPosition(_mfx); const d = Math.hypot(_mfx.x - e[3], _mfx.y - e[4], _mfx.z - e[5]); if (d < bd) { bd = d; best = m; } } if (best) best.userData.fxRemote(new THREE.Vector3(e[3], e[4], e[5]), undefined, {}); }
+  else if (e[1] === 'u') { const o = world.uses.find(o => Math.abs(o.x - e[3]) < 0.3 && Math.abs(o.z - e[4]) < 0.3); if (o && !o.off) { o.readyT = game.time + (o.cd || 30); fxRun(o.shared, o.use, [o], true); renderChips(); } }
+}
 function mapUseStep() {
   if (state !== 'play' || player.down) { if (useCur && useCur.kind === 'map') showUse(null); return; }
   let near = null, nd = 1e9;
@@ -1441,7 +1461,8 @@ function mapUseStep() {
 function mapUseDo(o) {
   if (o.readyT > game.time || o.off) return;
   if (o.price) { if (game.gold < o.price) { hint(`Te faltan ${o.price - game.gold} $`, 1400); Sfx.err(); return; } game.gold -= o.price; Sfx.coin(); }
-  o.readyT = game.time + (o.cd || 30); useCur = null; showUse(null); o.use(o); renderChips();
+  o.readyT = game.time + (o.cd || 30); useCur = null; showUse(null); fxRun(o.shared, o.use, [o]); renderChips();
+  if (Net.on && o.shared) Net.ev(['mfx', 'u', world.idx, r2(o.x), r2(o.z)]);
 }
 function insideArena(x, z, r) { const a = world.arena; return a.t === 'c' ? Math.hypot(x, z) <= a.r - r : Math.abs(x) <= a.hx - r && Math.abs(z) <= a.hz - r; }
 function clampArena(p, r) {
@@ -1665,7 +1686,7 @@ function buildMap(i) {
   world.group = new THREE.Group(); scene.add(world.group);
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
-  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = [];
+  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = [];
   world.idx = i; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   [buildCemetery, buildFarm, buildStreets, buildMarket, buildCircus, buildCinema, buildBeach, buildChaos, buildPark, buildRooftop, buildCore, buildISS, buildBackrooms, buildUniversity, buildZoo, buildMoon, buildArctic, buildShopRoom, buildHeaven, buildIsland, buildFairy, buildChoco, buildOcean, buildPolice, buildSunken, buildTokyo, buildVegas, buildArcade, buildPipes][i]();
@@ -21898,7 +21919,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 50';
+const GAME_BUILD = '14-oct-2026 · 51';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22332,6 +22353,7 @@ function netEvent(p, e) {
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
   if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
+  if (t === 'mfx') { mapFxIn(e); return; }
   if (t === 'zp') { if (!Net.host && game && state !== 'menu') { const m = e[1] ? axeModel() : new THREE.Mesh(acidGeo, acidMat); m.position.set(e[2], e[3], e[4]); if (e[1]) { m.scale.setScalar(1.4); m.rotation.y = Math.atan2(e[5], e[7]); } scene.add(m); const a = { m, v: new THREE.Vector3(e[5], e[6], e[7]), life: 4, axe: !!e[1], rep: true }; acids.push(a); projHit(a, e[1] ? 0.5 : 0.42); } return; }
   if (t === 'grab') { if (e[1] === Net.id && game && state === 'play' && !player.grab && !player.down) { const z = zombies.find(q => q.id === e[2] && !q.dead); if (z) startGrab(z); else game.pendGrab = { id: e[2], t: 1.5 }; } return; }
   if (t === 'ungrab') { if (Net.host && game) { const z = zombies.find(q => q.id === e[1]); if (z) { z.grabbing = false; z.grabT = null; if (e[2] && !z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); } } } return; }
@@ -22498,6 +22520,7 @@ function applySnapshot(s) {
 }
 // ---- Copias locales de zombis, policías y supervivientes ----
 function clientDamage(z, amount, info) {
+  if (mapFx > 0) { z.flash = 0.1; return false; }
   const pan = panOf(z.root.position), head = info.part === 'head';
   const lk = info.part === 'limb' && info.obj ? limbKey(z, info.obj) : null;
   Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '']);
