@@ -83,6 +83,8 @@ body{font-family:var(--hud);font-size:16px}
 #hud-tc{top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);text-align:center}
 #mapname{font-size:14px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--brass);white-space:nowrap}
 #wave{font-family:var(--display);font-size:clamp(20px,3.2vw,30px);color:var(--bone);letter-spacing:.04em;white-space:nowrap}
+#llv{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:5px;font-size:14px;font-weight:600;color:var(--bone);text-shadow:0 1px 3px #000;white-space:nowrap}
+#llv i{display:inline-flex}#llv i .ico{width:22px;height:22px;stroke-width:2.2}#llv i.no{opacity:.32}#llv i.si{filter:drop-shadow(0 0 4px currentColor)}#llv span{margin-left:6px}
 #wave-sub{font-size:15px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--bone-dim);white-space:nowrap}
 
 #hud-tr{top:calc(12px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:2px}
@@ -684,7 +686,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div id="chips"></div>
       <div id="istrip"><button id="b-inv" class="ibtn" aria-label="Abrir el inventario" hidden><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></button><div id="iicons"></div></div>
     </div>
-    <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="rescue" hidden></div><div id="fee"></div><div id="contract-w"><span id="ctr-ic"></span><span id="contract"></span></div></div>
+    <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Oleada 1</div><div id="wave-sub">Quedan 0</div><div id="llv" hidden></div><div id="rescue" hidden></div><div id="fee"></div><div id="contract-w"><span id="ctr-ic"></span><span id="contract"></span></div></div>
     <div class="hud" id="hud-tr">
       <canvas id="map" width="260" height="260"></canvas>
     </div>
@@ -1621,7 +1623,7 @@ function env(o) {
   moon.color.setHex(o.moonC); moon.intensity = o.moonI;
   moonDir.copy(o.moonDir || MOON_DIR).normalize();
   moonMesh.position.copy(MOON_DIR).multiplyScalar(360); moonHalo.position.copy(moonMesh.position);
-  lantern.intensity = o.lantern ?? 1.05;
+  lantern.intensity = o.lantern ?? 1.05; lantern.distance = 16;
   Sfx.setWind(o.wind ?? 0.07);
 }
 function disposeObj(o) {
@@ -1702,7 +1704,7 @@ function buildMap(i) {
   world.group = new THREE.Group(); scene.add(world.group);
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
-  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = [];
+  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null;
   world.idx = i; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   [buildCemetery, buildFarm, buildStreets, buildMarket, buildCircus, buildCinema, buildBeach, buildChaos, buildPark, buildRooftop, buildCore, buildISS, buildBackrooms, buildUniversity, buildZoo, buildMoon, buildArctic, buildShopRoom, buildHeaven, buildIsland, buildFairy, buildChoco, buildOcean, buildPolice, buildSunken, buildTokyo, buildVegas, buildArcade, buildPipes][i]();
@@ -1710,6 +1712,7 @@ function buildMap(i) {
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
   buildNav();
+  llvHud();
 }
 
 // ---- Lugar nuevo: El Cielo
@@ -8589,48 +8592,61 @@ function cemBake(root, solidMats) {
     if (solidMats.includes(e.mat)) solids.push(im);
   }
 }
-// Verja de hierro forjado sobre un murete de piedra, con pilares y la puerta principal (cerrada) en el ángulo gateA
-function cemFence(R, gateA, gateHalf, curbM, ironM, signM) {
+// Verja de hierro forjado sobre un murete de piedra, con pilares y portones abiertos.
+// gateA: un ángulo (portón cerrado, al borde del mapa) o una lista de [ángulo, letrero] (portones abiertos por los que se pasa)
+function cemFence(R, gateA, gateHalf, curbM, ironM, signM, collide) {
   const n = 120, seg = TAU * R / n, gateArc = gateHalf / R;
+  const gates = Array.isArray(gateA) ? gateA : [[gateA, signM]], abiertos = Array.isArray(gateA);
   const curb = [], bars = [], tips = [], rails = [], pil = [], caps = [], balls = [];
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const put = (list, x, y, z, ry, sx, sy, sz) => { q.setFromAxisAngle(up, ry); p.set(x, y, z); s.set(sx, sy, sz); list.push(m.compose(p, q, s).clone()); };
   const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const enPorton = a => gates.some(([g]) => Math.abs(wrap(a - g)) < gateArc + 0.5 / n * TAU);
   for (let i = 0; i < n; i++) {
     const a = (i + 0.5) / n * TAU;
-    if (Math.abs(wrap(a - gateA)) < gateArc + 0.5 / n * TAU) continue;
+    if (enPorton(a)) continue;
     const cx = Math.cos(a) * R, cz = Math.sin(a) * R, tx = -Math.sin(a), tz = Math.cos(a), ry = -a - Math.PI / 2;
     put(curb, cx, 0.22, cz, ry, seg + 0.03, 0.45, 0.5);
     for (const y of [0.78, 2.15]) put(rails, cx, y, cz, ry, seg, 0.05, 0.05);
     for (let k = 0; k < 9; k++) { const o = (k / 9 - 0.5 + 0.055) * seg; put(bars, cx + tx * o, 1.4, cz + tz * o, ry, 1, 1, 1); put(tips, cx + tx * o, 2.42, cz + tz * o, ry, 1, 1, 1); }
     if (i % 8 === 0) { const b = i / n * TAU, px = Math.cos(b) * R, pz = Math.sin(b) * R; put(pil, px, 1.3, pz, -b, 0.6, 2.6, 0.6); put(caps, px, 2.66, pz, -b, 0.78, 0.14, 0.78); put(balls, px, 2.92, pz, 0, 1, 1, 1); }
+    if (collide) addBox(cx, cz, seg / 2 + 0.05, 0.3, ry);
   }
-  // puerta principal: dos pilares grandes, hojas de barrotes, arco y letrero
-  const gx = Math.cos(gateA) * R, gz = Math.sin(gateA) * R, tx = -Math.sin(gateA), tz = Math.cos(gateA), gry = -gateA - Math.PI / 2;
-  for (const sd of [-1, 1]) { const px = gx + tx * sd * (gateHalf + 0.45), pz = gz + tz * sd * (gateHalf + 0.45); put(pil, px, 1.7, pz, gry, 0.95, 3.4, 0.95); put(caps, px, 3.47, pz, gry, 1.15, 0.18, 1.15); put(balls, px, 3.75, pz, 0, 1.4, 1.4, 1.4); }
-  for (let k = 0; k < 16; k++) { const o = (k / 15 - 0.5) * gateHalf * 1.9, h = 2.6 + Math.cos((k / 15 - 0.5) * Math.PI) * 0.35; put(bars, gx + tx * o, h / 2, gz + tz * o, gry, 1.3, h / 1.9, 1.3); put(tips, gx + tx * o, h + 0.08, gz + tz * o, gry, 1.3, 1.3, 1.3); }
-  for (const y of [0.5, 1.6]) put(rails, gx, y, gz, gry, gateHalf * 2, 0.07, 0.07);
-  const mk = (geo, mat, list, cast, solid) => { const im = new THREE.InstancedMesh(geo, mat, list.length); list.forEach((mm, i) => im.setMatrixAt(i, mm)); im.castShadow = cast; im.receiveShadow = true; world.group.add(im); if (solid) solids.push(im); return im; };
   const box = new THREE.BoxGeometry(1, 1, 1);
+  for (const [ga, sm] of gates) {
+    const gx = Math.cos(ga) * R, gz = Math.sin(ga) * R, tx = -Math.sin(ga), tz = Math.cos(ga), gry = -ga - Math.PI / 2;
+    for (const sd of [-1, 1]) { const px = gx + tx * sd * (gateHalf + 0.45), pz = gz + tz * sd * (gateHalf + 0.45); put(pil, px, 1.7, pz, gry, 0.95, 3.4, 0.95); put(caps, px, 3.47, pz, gry, 1.15, 0.18, 1.15); put(balls, px, 3.75, pz, 0, 1.4, 1.4, 1.4); if (collide) addCircle(px, pz, 0.6); }
+    if (!abiertos) {
+      for (let k = 0; k < 16; k++) { const o = (k / 15 - 0.5) * gateHalf * 1.9, h = 2.6 + Math.cos((k / 15 - 0.5) * Math.PI) * 0.35; put(bars, gx + tx * o, h / 2, gz + tz * o, gry, 1.3, h / 1.9, 1.3); put(tips, gx + tx * o, h + 0.08, gz + tz * o, gry, 1.3, 1.3, 1.3); }
+      for (const y of [0.5, 1.6]) put(rails, gx, y, gz, gry, gateHalf * 2, 0.07, 0.07);
+    } else {
+      // las dos hojas abiertas hacia dentro, pegadas a la verja
+      const ix = -Math.cos(ga), iz = -Math.sin(ga), lry = Math.atan2(-iz, ix);
+      for (const sd of [-1, 1]) {
+        const hx = gx + tx * sd * gateHalf, hz = gz + tz * sd * gateHalf;
+        for (let k = 0; k < 8; k++) { const o = (k + 0.5) / 8 * gateHalf; put(bars, hx + ix * o, 1.4, hz + iz * o, lry, 1.3, 1.2, 1.3); put(tips, hx + ix * o, 2.75, hz + iz * o, lry, 1.3, 1.3, 1.3); }
+        for (const y of [0.5, 1.6]) put(rails, hx + ix * gateHalf / 2, y, hz + iz * gateHalf / 2, lry, gateHalf, 0.07, 0.07);
+      }
+    }
+    const g = new THREE.Group(); g.position.set(gx, 0, gz); g.rotation.y = Math.atan2(-Math.cos(ga), -Math.sin(ga)); world.group.add(g);
+    M(new THREE.TorusGeometry(gateHalf, 0.06, 4, 18, Math.PI), ironM, 0, 3.0, 0, { p: g, cast: false });
+    if (sm) { M(new THREE.PlaneGeometry(3.4, 0.62), sm, 0, 3.55, 0.06, { p: g, cast: false }); M(new THREE.PlaneGeometry(3.4, 0.62), sm, 0, 3.55, -0.06, { p: g, cast: false, ry: Math.PI }); }
+  }
+  const mk = (geo, mat, list, cast, solid) => { const im = new THREE.InstancedMesh(geo, mat, list.length); list.forEach((mm, i) => im.setMatrixAt(i, mm)); im.castShadow = cast; im.receiveShadow = true; world.group.add(im); if (solid) solids.push(im); return im; };
   mk(box, curbM, curb, true, true); mk(box, curbM, pil, true, true); mk(box, curbM, caps, true, false);
   mk(new THREE.SphereGeometry(0.17, 8, 6), curbM, balls, true, false);
   mk(new THREE.BoxGeometry(0.035, 1.9, 0.035), ironM, bars, true, false); mk(new THREE.ConeGeometry(0.05, 0.16, 4), ironM, tips, false, false); mk(box, ironM, rails, true, false);
-  // arco de hierro con el letrero, mirando hacia dentro
-  const g = new THREE.Group(); g.position.set(gx, 0, gz); g.rotation.y = Math.atan2(-Math.cos(gateA), -Math.sin(gateA)); world.group.add(g);
-  M(new THREE.TorusGeometry(gateHalf, 0.06, 4, 18, Math.PI), ironM, 0, 3.0, 0, { p: g, cast: false });
-  M(new THREE.PlaneGeometry(3.4, 0.62), signM, 0, 3.55, 0.06, { p: g, cast: false });
-  M(new THREE.PlaneGeometry(3.4, 0.62), signM, 0, 3.55, -0.06, { p: g, cast: false, ry: Math.PI });
 }
 function buildCemetery() {
-  world.arena = { t: 'c', r: 42.5 }; world.start = { x: 0, z: 2 };
+  world.arena = { t: 'c', r: 84.5 }; world.start = { x: 0, z: 2 };
   env({ fog: 0x111822, dens: 0.03, top: 0x020309, hemiS: 0x7088ad, hemiG: 0x1d1710, hemiI: 0.62, moonC: 0xa9bde0, moonI: 0.75 });
-  addGround(140, canvasTex(512, 512, (g, w, h) => {
+  addGround(260, canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = '#2b2b20'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 2600; i++) { g.fillStyle = pick(['#33331f', '#23251a', '#3a3324', '#2d3320', '#1e2016', '#3c3a2a']); g.globalAlpha = rand(0.3, 0.8); g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(2, 14), 0, TAU); g.fill(); }
     g.globalAlpha = 0.7;
     for (let i = 0; i < 3500; i++) { g.strokeStyle = pick(['#3e4a28', '#4a5530', '#2f3a20', '#55603a']); g.lineWidth = 1; const x = rand(0, w), y = rand(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-3, 3), y - rand(4, 10)); g.stroke(); }
     g.globalAlpha = 1;
-  }, 28));
+  }, 52));
   const stoneTex = noiseTex(128, '#8b8a84', ['#7a7973', '#9a9992', '#6d6c66', '#a5a49c', '#5f6a55'], 400, 0);
   const stoneMat = lam(0xa3a39c, { map: stoneTex }), darkStone = lam(0x6c6c68, { map: stoneTex }), soil = lam(0x2a2018), hole = bsc(0x050403), bark = lam(0x2a221b);
   const wood = lam(0x4a3626), iron = lam(0x1c1d22), bronze = lam(0x9a7430, { side: THREE.DoubleSide }), slate = lam(0x2c2e36);
@@ -8639,7 +8655,7 @@ function buildCemetery() {
   const U = new THREE.BoxGeometry(1, 1, 1), HC = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, Math.PI / 2, Math.PI);
   const UB = (mat, par, x, y, z, w, h, d, o = {}) => { const m = M(U, mat, x, y, z, Object.assign({ p: par }, o)); m.scale.set(w, h, d); return m; };
   // ---- Caminos de grava: del portón al centro, de la capilla a la cripta de la familia y a los dos mausoleos
-  const PATHS = [[[0, -26.6], [0, 20.8]], [[0, 0], [42.5, 0]], [[0, -1], [-18.7, -10.6]], [[0, -1], [18.3, -13.7]]];
+  const PATHS = [[[0, -26.6], [0, 20.8]], [[0, 0], [42.5, 0]], [[0, -1], [-18.7, -10.6]], [[0, -1], [18.3, -13.7]], [[0, 0], [-42.5, 0]], [[-2, 8], [-14.7, 40.4]], [[0, -26.6], [5.6, -27.6]], [[5.6, -27.6], [5.2, -42.6]]];
   const onPath = (x, z, m) => PATHS.some(([[x1, z1], [x2, z2]]) => { const dx = x2 - x1, dz = z2 - z1, t = clamp(((x - x1) * dx + (z - z1) * dz) / (dx * dx + dz * dz), 0, 1); return Math.hypot(x - x1 - dx * t, z - z1 - dz * t) < 1.3 + m; });
   overlayPlane(86, (g, w) => {
     const k = w / 86, X = v => (v + 43) * k;
@@ -8789,7 +8805,8 @@ function buildCemetery() {
   gasLamp(2.3, -14, 0, false); gasLamp(-2.3, 13, Math.PI, false); gasLamp(15, 2.3, Math.PI / 2, true); gasLamp(-8.3, -7.8, 2.6, true);
 
   // ---- Verja del cementerio (justo en el borde) con el portón al este
-  cemFence(42.95, 0, 2.1, darkStone, iron, bsc(0xffffff, { map: signTex('CEMENTERIO', 512, 96, 'bold 64px serif', '#141416', '#c8b890') }));
+  const cartel = t => bsc(0xffffff, { map: signTex(t, 512, 96, 'bold 64px serif', '#141416', '#c8b890') });
+  cemFence(42.95, [[0, cartel('CEMENTERIO')], [Math.PI, cartel('BOSQUE NEGRO')], [-1.449, cartel('CATACUMBAS')], [1.92, cartel('BOSQUE NEGRO')]], 2.1, darkStone, iron, null, true);
   for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.3; world.spawns.push({ x: Math.cos(a) * 39, z: Math.sin(a) * 39, rise: true }); }
 
   // ---- Tumbas abiertas (los zombis salen de ahí), lápidas, árboles secos y rocas
@@ -8833,7 +8850,7 @@ function buildCemetery() {
   for (let i = 0; i < 52; i++) { const p = spot(0.6, [6, 39]); if (p) tombstone(p[0], p[1]); }
   for (let i = 0; i < 12; i++) { const p = spot(0.8, [10, 40]); if (p) tree(p[0], p[1], sr(0.8, 1.3), true); }
   for (let i = 0; i < 10; i++) { const p = spot(1, [9, 40]); if (!p) continue; const rr = sr(0.5, 1.1), m = M(ROCK, darkStone, p[0], rr * 0.35, p[1], { p: tmp }); m.scale.set(rr, rr * sr(0.5, 0.8), rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); addCircle(p[0], p[1], rr * 0.9); }
-  for (let i = 0; i < 34; i++) { const a = sr(0, TAU), r = sr(48, 70); tree(Math.cos(a) * r, Math.sin(a) * r, sr(1.1, 1.9), false); }
+  cemGrande({ stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree });
   cemBake(tmp, [stoneMat, darkStone, bark]);
 
   // ---- El enterrador huyó: pala clavada, carretilla y su farol en el suelo
@@ -8879,7 +8896,626 @@ function buildCemetery() {
     glassMat.color.setRGB(0.38 + Math.random() * 0.04, 0.22, 0.52); candleWin.color.setRGB(0.95 + Math.random() * 0.05, 0.6 + Math.random() * 0.06, 0.28);
     if (graves.length && Math.random() < dt * (FAST() ? 2 : 5)) { const g = graves[(Math.random() * graves.length) | 0]; PA.add(g.position.x + rand(-0.6, 0.6), rand(0.3, 0.9), g.position.z + rand(-0.6, 0.6), rand(-0.25, 0.25), rand(0.05, 0.3), rand(-0.25, 0.25), rand(1.8, 3), rand(0.09, 0.15), 0.45, 1, 0.8, 0.85, -0.05, 0.3, 0, 0); }
   });
-  mistField(26, 0x9aa8bb, 44);
+  mistField(30, 0x9aa8bb, 80);
+  world.anims.push(llvStep); llvMalla();
+}
+/* ===== Cementerio grande: castillo al este, catacumbas bajo la colina al norte, bosque negro al oeste y al sur ===== */
+// Plano de las catacumbas: cada letra es un cuadro de 2 × 2 m. # = muro, O = osario, S = sala de los sarcófagos,
+// F = cripta inundada, H = hundimiento (sin techo), C = capilla de las velas, . = pasillo
+const CAT = { x0: -18, z0: -78, wh: 3.4, g: [
+  '##################',
+  '#OOOO#SSSSSS#FFFF#',
+  '#OOOO#SSSSSS#FFFF#',
+  '#OOOO.SSSSSS.FFFF#',
+  '##.###SSSSSS###.##',
+  '#....##.##.##....#',
+  '#.##....HHH....#.#',
+  '..##.#..HHH..#.#.#',
+  '#....#..HHH..#...#',
+  '###.####...####.##',
+  '#CCCC#.......#...#',
+  '#CCCC#.##.##.#.#.#',
+  '#CCCC.........#..#',
+  '########..########'
+] };
+const catAt = (c, r) => (CAT.g[r] || '')[c] || '#';
+const catX = c => CAT.x0 + c * 2 + 1, catZ = r => CAT.z0 + r * 2 + 1;
+const enCatacumbas = (x, z) => x > CAT.x0 && x < CAT.x0 + 36 && z > CAT.z0 && z < CAT.z0 + 28;
+const enCastillo = (x, z) => x > 47 && x < 81 && Math.abs(z) < 17;
+// el bosque ocupa el sur y el oeste, fuera de la verja
+const enBosque = (x, z) => { const r = Math.hypot(x, z), a = Math.atan2(z, x); return r > 46 && (a >= 1.25 || a <= -1.9) && !(x > CAT.x0 - 5 && z < CAT.z0 + 32); };
+function zonaDe(x, z) {
+  if (enCatacumbas(x, z)) return 'en las catacumbas';
+  if (enCastillo(x, z)) return 'en el castillo';
+  if (enBosque(x, z)) return 'en el bosque';
+  if (Math.hypot(x, z) < 43) return 'dentro del cementerio';
+  return z < 0 ? 'en las ruinas del norte' : 'en la colina de la horca';
+}
+// Junta en una sola malla por material todo lo quieto que se añadió al mapa desde el índice «desde»:
+// la tarjeta gráfica dibuja cientos de piezas de una vez (menos llamadas = más cuadros por segundo en el teléfono)
+function fundirEstatico(desde) {
+  const G = world.group; G.updateMatrixWorld(true);
+  const lotes = new Map(), quitar = [];
+  const visit = o => {
+    if (o.userData && o.userData.vivo) return;
+    if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && o.geometry && o.geometry.attributes.position && !Array.isArray(o.material)) {
+      const solid = solids.includes(o), k = o.material.uuid + (o.castShadow ? 'c' : '') + (solid ? 's' : '');
+      let L = lotes.get(k); if (!L) lotes.set(k, L = { mat: o.material, cast: o.castShadow, solid, list: [] });
+      L.list.push(o); quitar.push(o);
+    }
+    for (const c of o.children) visit(c);
+  };
+  for (let i = desde; i < G.children.length; i++) visit(G.children[i]);
+  for (const L of lotes.values()) {
+    if (L.list.length < 2) { quitar.splice(quitar.indexOf(L.list[0]), 1); continue; }
+    let n = 0; const parts = L.list.map(m => { const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g.applyMatrix4(m.matrixWorld); n += g.attributes.position.count; return g; });
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2); let o = 0;
+    for (const g of parts) { const c = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); if (g.attributes.normal) nor.set(g.attributes.normal.array, o * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); o += c; g.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.computeBoundingSphere();
+    const mm = new THREE.Mesh(geo, L.mat); mm.castShadow = L.cast; mm.receiveShadow = true; G.add(mm);
+    if (L.solid) solids.push(mm);
+  }
+  for (const m of quitar) { if (m.parent) m.parent.remove(m); solidOff(m); }
+}
+function cemGrande(K) {
+  const { stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree } = K;
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  const spotK = (x, z) => world.llvSpots.push({ x, z, zona: zonaDe(x, z) });
+  const torchFlame = (x, y, z, col = 0xffa040, sc = 1.2) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.set(sc, sc * 1.3, 1); s.position.set(x, y, z); world.group.add(s); return s; };
+  const flames = [];
+  const sconce = (x, z, nx, nz) => {
+    const y = 2.1; M(bx(0.12, 0.4, 0.12), iron, x, y - 0.2, z, { cast: false }); M(cyl(0.12, 0.06, 0.18, 6), iron, x + nx * 0.12, y + 0.02, z + nz * 0.12, { cast: false });
+    flames.push(torchFlame(x + nx * 0.14, y + 0.28, z + nz * 0.14, 0xff9a3a, 1.1));
+  };
+  const stoneTex2 = noiseTex(128, '#8a857c', ['#7a756c', '#948e84', '#6a655c', '#a09a8e', '#5f6a55'], 500, 0);
+  const catWall = lam(0xa8a090, { map: stoneTex2, emissive: 0x2a2014 }), catDark = lam(0x6a6258, { map: stoneTex2, emissive: 0x161008 }), bone = lam(0xe0d8c0, { emissive: 0x2a2418 }), boneDk = lam(0x9a9280, { emissive: 0x1a160e });
+  const earth = lam(0x2e3420, { flatShading: true }), earthDk = lam(0x262016, { flatShading: true });
+  const ROCK = new THREE.DodecahedronGeometry(1, 0), candleM = lam(0xe8e0c8), ropeM = lam(0xb89a6a), dummyM = lam(0xb89a60);
+  const g0 = world.group.children.length;   // desde aquí, lo que se añada se puede fundir
+
+  // ======================= CATACUMBAS (bajo la colina, al norte, detrás de la capilla) =======================
+  const G = CAT.g, R = G.length, C = G[0].length, WH = CAT.wh;
+  const hx = catX(9), hz = catZ(7);   // centro del hundimiento
+  {
+    // muros: tramos seguidos de # en cada fila se juntan en una sola caja
+    for (let r = 0; r < R; r++) {
+      let c = 0;
+      while (c < C) {
+        if (G[r][c] !== '#') { c++; continue; }
+        let e = c; while (e + 1 < C && G[r][e + 1] === '#') e++;
+        const w = (e - c + 1) * 2, cx = CAT.x0 + c * 2 + w / 2, cz = catZ(r);
+        M(bx(w, WH + 0.4, 2), catWall, cx, (WH + 0.4) / 2, cz, { solid: true });
+        addBox(cx, cz, w / 2, 1);
+        c = e + 1;
+      }
+    }
+    // techo: todo menos el hundimiento (por ahí entra la luna)
+    for (let r = 0; r < R; r++) {
+      let c = 0;
+      while (c < C) {
+        if (G[r][c] === 'H') { c++; continue; }
+        let e = c; while (e + 1 < C && G[r][e + 1] !== 'H') e++;
+        const w = (e - c + 1) * 2;
+        M(bx(w, 0.5, 2), catDark, CAT.x0 + c * 2 + w / 2, WH + 0.25, catZ(r), { solid: true });
+        c = e + 1;
+      }
+    }
+    // suelo de losas viejas
+    const floorTex = canvasTex(256, 256, (g, w) => {
+      g.fillStyle = '#3e3a34'; g.fillRect(0, 0, w, w);
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const o = y % 2 ? 16 : 0; g.fillStyle = pick(['#5d5850', '#56514a', '#635e55', '#4f4a43']); g.fillRect(x * 32 + o + 1, y * 32 + 1, 30, 30); }
+      for (let i = 0; i < 600; i++) { g.fillStyle = pick(['rgba(0,0,0,.25)', 'rgba(90,84,70,.2)', 'rgba(40,52,30,.2)']); g.fillRect(rand(0, w), rand(0, w), rand(1, 4), rand(1, 4)); }
+    }, 9);
+    M(new THREE.PlaneGeometry(36, 28), lam(0xffffff, { map: floorTex, emissive: 0x141008 }), 0, 0.02, CAT.z0 + 14, { rx: -Math.PI / 2, cast: false });
+
+    // nichos con huesos en las paredes de los pasillos; el osario, forrado de calaveras
+    const NICHE = new THREE.BoxGeometry(1.3, 0.55, 0.06), SKULL = new THREE.SphereGeometry(0.13, 6, 4), BONE = new THREE.CylinderGeometry(0.03, 0.03, 0.55, 5), holeM = bsc(0x080605);
+    const faces = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (let r = 1; r < R - 1; r++) for (let c = 1; c < C - 1; c++) {
+      const t = G[r][c]; if (t === '#') continue;
+      for (const [dc, dr] of faces) {
+        if (catAt(c + dc, r + dr) !== '#') continue;
+        const fx = catX(c) + dc * 0.97, fz = catZ(r) + dr * 0.97, ry = dc ? Math.PI / 2 : 0;
+        if (t === 'O') {
+          for (let k = 0; k < 4; k++) for (let y = 0; y < 5; y++) {
+            const o = (k - 1.5) * 0.44, sx = dc ? fx : fx + o, sz = dc ? fz + o : fz;
+            const s = M(SKULL, y % 2 ? bone : boneDk, sx, 0.4 + y * 0.5, sz, { p: tmp, cast: false }); s.scale.set(1.25, 1.1, 1.05);
+          }
+          continue;
+        }
+        if (srand() > 0.42) continue;
+        for (const y of [0.9, 1.95]) {
+          if (srand() < 0.3) continue;
+          M(NICHE, holeM, fx, y, fz, { p: tmp, ry, cast: false });
+          if (srand() < 0.7) { const s = M(SKULL, bone, fx - dc * 0.08 + (dc ? 0 : sr(-0.4, 0.4)), y - 0.12, fz - dr * 0.08 + (dc ? sr(-0.4, 0.4) : 0), { p: tmp, cast: false }); s.scale.set(1, 0.88, 0.9); }
+          if (srand() < 0.6) M(BONE, bone, fx - dc * 0.1, y - 0.22, fz - dr * 0.1, { p: tmp, cast: false, rz: dc ? 0 : Math.PI / 2, rx: dc ? Math.PI / 2 : 0 });
+        }
+      }
+    }
+    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), d = sr(0, 1.1), s = M(SKULL, i % 3 ? bone : boneDk, catX(2) + 1 + Math.cos(a) * d, 0.12 + (1.1 - d) * 0.45, catZ(2) + Math.sin(a) * d, { p: tmp, cast: false }); s.rotation.y = a; }
+    addCircle(catX(2) + 1, catZ(2), 1.1);
+    spotK(catX(1), catZ(1)); spotK(catX(4), catZ(3));
+
+    // sala de los sarcófagos
+    const sarc = (x, z, abierto) => {
+      M(bx(1.1, 0.9, 2.3), catWall, x, 0.45, z, { solid: true }); M(bx(1.25, 0.12, 2.45), catDark, x, 0.06, z);
+      M(bx(1.2, 0.16, 2.4), catDark, x + (abierto ? 0.55 : 0), 0.98, z + (abierto ? 0.3 : 0), { solid: true, rz: abierto ? 0.32 : 0, ry: abierto ? 0.25 : 0 });
+      if (abierto) { M(bx(0.9, 0.04, 2.0), holeM, x, 0.91, z, { cast: false }); for (let k = 0; k < 3; k++) M(BONE, bone, x + sr(-0.2, 0.2), 0.94, z + sr(-0.6, 0.6), { cast: false, rx: Math.PI / 2, rz: sr(-0.5, 0.5) }); }
+      addBox(x, z, 0.62, 1.2);
+    };
+    const sx0 = catX(6) - 1, sz0 = catZ(1) - 1;   // esquina noroeste de la sala (12 × 8 m)
+    // tres sarcófagos en la mitad norte; el pasillo de las puertas y las salidas del sur quedan libres
+    sarc(sx0 + 2.5, sz0 + 1.6, false); sarc(sx0 + 6, sz0 + 1.6, true); sarc(sx0 + 9.5, sz0 + 1.6, false);
+    for (const [x, z] of [[sx0 + 0.8, sz0 + 7.2], [sx0 + 11.2, sz0 + 7.2], [sx0 + 11.2, sz0 + 0.8]]) { M(cyl(0.32, 0.38, WH, 10), catWall, x, WH / 2, z, { solid: true }); addCircle(x, z, 0.4); }
+    {
+      const g = Grp(sx0 + 0.8, sz0 + 0.8, 0.6);
+      M(bx(1.0, 0.8, 0.8), catDark, 0, 0.4, 0, { p: g }); M(cyl(0.22, 0.4, 1.4, 8), catWall, 0, 1.5, 0, { p: g }); M(new THREE.SphereGeometry(0.2, 10, 8), catWall, 0, 2.38, 0, { p: g });
+      for (const s of [-1, 1]) M(bx(0.9, 1.2, 0.08), catWall, s * 0.55, 1.9, -0.12, { p: g, rz: -s * 0.5 });
+      addBox(sx0 + 0.8, sz0 + 0.8, 0.5, 0.5, 0.6);
+    }
+    lampLight(sx0 + 6, 2.4, sz0 + 5, 0xffb060, 1.0, 13, null, 1.2);
+    for (let i = 0; i < 7; i++) { const x = sx0 + sr(0.8, 11.2), z = sz0 + sr(0.5, 7.5); if (z < sz0 + 3.2 || Math.abs(z - sz0 - 5) < 1.1) continue; M(cyl(0.04, 0.05, 0.22, 6), candleM, x, 0.11, z, { cast: false }); flames.push(torchFlame(x, 0.3, z, 0xffb050, 0.35)); }
+    spotK(sx0 + 4.25, sz0 + 1.6); spotK(sx0 + 11, sz0 + 5);
+
+    // cripta inundada: agua negra hasta los tobillos y ataúdes flotando
+    const fx0 = catX(13) - 1, fz0 = catZ(1) - 1;
+    const aguaM = new THREE.MeshPhongMaterial({ color: 0x0a1a18, specular: 0x5a8a80, shininess: 90, transparent: true, opacity: 0.88 });
+    M(new THREE.PlaneGeometry(8, 6), aguaM, fx0 + 4, 0.14, fz0 + 3, { rx: -Math.PI / 2, cast: false });
+    const flot = [];
+    for (let i = 0; i < 3; i++) { const g = Grp(fx0 + 1.6 + i * 2.4, fz0 + 2 + (i % 2) * 2, sr(0, TAU)); M(bx(0.7, 0.3, 1.8), wood, 0, 0.2, 0, { p: g }); g.userData.vivo = 1; flot.push(g); }
+    world.anims.push((dt, t) => { aguaM.opacity = 0.84 + Math.sin(t * 0.8) * 0.04; flot.forEach((g, i) => { g.position.y = Math.sin(t * 1.2 + i * 2) * 0.04; g.rotation.y += dt * 0.03 * (i - 1); }); });
+    spotK(fx0 + 6.8, fz0 + 1.2);
+
+    // hundimiento: el techo se vino abajo y entra un haz de luna
+    const haz = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.0, 12, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x9ab8e8, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    haz.position.set(hx, 6, hz); world.group.add(haz);
+    for (let i = 0; i < 9; i++) { const rr = sr(0.3, 0.7), m = M(ROCK, catDark, hx + sr(-1.0, 1.0), rr * 0.3, hz + sr(-1.0, 1.0), { p: tmp }); m.scale.set(rr, rr * 0.6, rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); }
+    addCircle(hx, hz, 0.9);
+    for (let i = 0; i < 12; i++) { const a = sr(0, TAU), x = hx + Math.cos(a) * 3.1, z = hz + Math.sin(a) * 3.1, l = sr(0.8, 2.2); M(cyl(0.02, 0.05, l, 4), bark, x, WH - l / 2 + 0.3, z, { p: tmp, cast: false, rz: sr(-0.3, 0.3) }); }
+    spotK(hx - 2, hz + 2);
+
+    // capilla de las velas
+    const cx0 = catX(1) - 1, cz0 = catZ(10) - 1;
+    M(bx(2.4, 1.0, 1.0), catWall, cx0 + 4, 0.5, cz0 + 0.9, { solid: true }); M(bx(2.7, 0.12, 1.2), catDark, cx0 + 4, 1.06, cz0 + 0.9);
+    M(bx(0.14, 1.5, 0.14), iron, cx0 + 4, 1.85, cz0 + 0.7, { cast: false }); M(bx(0.7, 0.12, 0.12), iron, cx0 + 4, 2.25, cz0 + 0.7, { cast: false });
+    addBox(cx0 + 4, cz0 + 0.9, 1.3, 0.6);
+    for (let i = 0; i < 22; i++) { const x = cx0 + sr(0.5, 7.5), z = cz0 + sr(0.3, 1.6), h = sr(0.12, 0.4), y0 = i < 8 ? 1.12 : 0; M(cyl(0.04, 0.05, h, 6), candleM, x, y0 + h / 2, z, { cast: false }); if (i % 3 === 0) flames.push(torchFlame(x, y0 + h + 0.08, z, 0xffb050, 0.36)); }
+    spotK(cx0 + 1.2, cz0 + 5); spotK(catX(16), catZ(11)); spotK(catX(2), catZ(8));
+
+    // antorchas en los pasillos
+    for (const [c, r, dx, dz] of [[1, 5, 0, -1], [7, 10, 0, -1], [14, 6, 0, -1], [16, 8, 1, 0], [4, 7, 0, 1], [12, 12, 0, 1], [3, 5, 0, -1]]) sconce(catX(c) + dx * 0.92, catZ(r) + dz * 0.92, -dx, -dz);
+
+    // telarañas en las esquinas
+    const webTex = canvasTex(128, 128, (g, w) => { g.strokeStyle = 'rgba(220,220,220,.55)'; g.lineWidth = 1.2; for (let i = 0; i < 9; i++) { const a = i / 8 * Math.PI / 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * w, Math.sin(a) * w); g.stroke(); } for (let r = 14; r < w; r += 14) { g.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2, rr = r + Math.sin(i * 2.3) * 3; i ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.stroke(); } });
+    const webM = new THREE.MeshBasicMaterial({ map: webTex, transparent: true, depthWrite: false, side: THREE.DoubleSide }), WEB = new THREE.PlaneGeometry(1.4, 1.4);
+    for (let r = 1; r < R - 1; r++) for (let c = 1; c < C - 1; c++) {
+      if (G[r][c] === '#' || G[r][c] === 'H' || srand() > 0.3) continue;
+      if (catAt(c - 1, r) === '#' && catAt(c, r - 1) === '#') M(WEB, webM, catX(c) - 0.5, WH - 0.55, catZ(r) - 0.5, { cast: false, ry: Math.PI / 4, rx: 0.5 });
+    }
+    // portada de la entrada (sur), mirando a la capilla
+    {
+      const ex = 0, ez = CAT.z0 + 28;
+      for (const s of [-1, 1]) { M(bx(1.0, 4.6, 1.0), catWall, ex + s * 2.6, 2.3, ez + 0.3, { solid: true }); M(bx(1.3, 0.4, 1.3), catDark, ex + s * 2.6, 4.75, ez + 0.3); addBox(ex + s * 2.6, ez + 0.3, 0.5, 0.5); }
+      M(bx(6.8, 0.8, 1.4), catDark, ex, 5.2, ez + 0.3, { solid: true });
+      M(roofGeo(7.4, 1.5, 1.6), catWall, ex, 5.6, ez - 0.5, { solid: true });
+      M(new THREE.PlaneGeometry(3.6, 0.6), bsc(0xffffff, { map: signTex('CATACUMBAS', 512, 86, 'bold 56px serif', '#2a2622', '#c8b890') }), ex, 4.55, ez + 1.01, { cast: false });
+      for (const s of [-1, 1]) { const h = new THREE.Group(); h.position.set(ex + s * 2.05, 0, ez + 0.4); h.rotation.y = -s * 1.7; world.group.add(h); for (let k = 0; k < 6; k++) M(bx(0.05, 3.0, 0.05), iron, -s * (0.15 + k * 0.32), 1.5, 0, { p: h, cast: false }); for (const y of [0.4, 1.6, 2.8]) M(bx(1.9, 0.06, 0.06), iron, -s * 0.95, y, 0, { p: h, cast: false }); }
+      for (const s of [-1, 1]) { M(cyl(0.12, 0.2, 1.1, 8), iron, ex + s * 3.9, 0.55, ez + 1.6, { solid: true }); M(cyl(0.45, 0.25, 0.35, 10), iron, ex + s * 3.9, 1.25, ez + 1.6); flames.push(torchFlame(ex + s * 3.9, 1.75, ez + 1.6, 0xff8a30, 1.6)); addCircle(ex + s * 3.9, ez + 1.6, 0.45); }
+      for (let k = 0; k < 4; k++) M(bx(3.6, 0.06, 0.7), k % 2 ? catDark : catWall, ex, 0.03 + (3 - k) * 0.012, ez - 0.4 - k * 0.7, { cast: false });
+      world.spawns.push({ x: catX(9), z: catZ(10), rise: true }, { x: catX(1), z: catZ(6), rise: true }, { x: catX(15), z: catZ(5), rise: true }, { x: 0, z: catZ(3), rise: true });
+    }
+    // salida oeste derrumbada hacia el bosque
+    {
+      const wz = catZ(7);
+      for (let i = 0; i < 7; i++) { const rr = sr(0.4, 0.9), side = i % 2 ? 1 : -1, m = M(ROCK, catDark, CAT.x0 - 0.6 + sr(-1.4, 0.4), rr * 0.35, wz + side * sr(1.6, 2.6), { p: tmp }); m.scale.set(rr, rr * 0.7, rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); }
+      M(bx(0.5, 0.5, 4.4), catDark, CAT.x0 + 0.2, WH + 0.1, wz, { rz: 0.3 });
+    }
+    // la colina: lomas de tierra y pasto sobre el techo (sin tapar el hundimiento)
+    const HILL = new THREE.SphereGeometry(1, 12, 7, 0, TAU, 0, Math.PI / 2);
+    { const p = HILL.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > 0.02) { const k = 1 + Math.sin(p.getX(i) * 5.1 + p.getZ(i) * 3.7) * 0.08; p.setXYZ(i, p.getX(i) * k, y * (1 + Math.cos(p.getX(i) * 4.3) * 0.12), p.getZ(i) * k); } } HILL.computeVertexNormals(); }
+    for (const [x, z, rx, h, rz] of [[-10, -70, 7, 2.6, 6], [10, -71, 7, 2.8, 6], [-11, -56, 6, 2.0, 5], [12, -56, 5.5, 2.2, 5], [-1, -75, 5, 2.4, 2.5], [-15, -63, 3, 1.4, 4], [16, -63, 2.5, 1.6, 4]]) { const m = M(HILL, srand() < 0.5 ? earth : earthDk, x, WH + 0.45, z, {}); m.scale.set(rx, h, rz); m.rotation.y = sr(0, TAU); }
+    for (let i = 0; i < 7; i++) { const x = sr(-15, 15), z = sr(-76, -54); if (Math.abs(x - hx) < 4.5 && Math.abs(z - hz) < 4.5) continue; const g = Grp(x, z, sr(0, TAU), tmp); g.position.y = WH + 0.4; tree(0, 0, sr(0.7, 1.1), false); const last = tmp.children[tmp.children.length - 1]; g.add(last); last.position.set(0, 0, 0); }
+    M(bx(0.35, 4.2, 0.35), catDark, -1, WH + 2.5 + 2.1, -72, {}); M(bx(2.0, 0.35, 0.35), catDark, -1, WH + 2.5 + 3.2, -72, {});
+  }
+
+  // ======================= EL CASTILLO (al este, frente al portón principal) =======================
+  {
+    const X0 = 51, X1 = 77, Z0 = -13, Z1 = 13, WT = 1.4, CWH = 6;
+    const castT = noiseTex(128, '#6e6a62', ['#5e5a52', '#7a766c', '#56524a', '#827c70', '#4a5040'], 500, 0);
+    const cw = lam(0x9a958a, { map: castT }), cwd = lam(0x6a665e, { map: castT }), roofM = lam(0x2a2c36), red = lam(0x8a1a1a, { side: THREE.DoubleSide }), slit = bsc(0x060504);
+    const MERLON = new THREE.BoxGeometry(0.8, 0.9, WT + 0.1), CUBE = new THREE.BoxGeometry(1, 1, 1);
+    const wall = (x1, z1, x2, z2) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2, along = Math.abs(x2 - x1) > Math.abs(z2 - z1);
+      M(along ? bx(len, CWH, WT) : bx(WT, CWH, len), cw, cx, CWH / 2, cz, { solid: true });
+      addBox(cx, cz, along ? len / 2 : WT / 2, along ? WT / 2 : len / 2);
+      const n = Math.floor(len / 1.6);
+      for (let i = 0; i < n; i++) { const o = -len / 2 + (i + 0.5) * len / n; M(MERLON, cw, along ? cx + o : cx, CWH + 0.45, along ? cz : cz + o, { p: tmp, ry: along ? 0 : Math.PI / 2 }); }
+      for (let i = 1; i < n; i += 3) { const o = -len / 2 + i * len / n; for (const s of [-1, 1]) M(bx(along ? 0.18 : 0.04, 0.9, along ? 0.04 : 0.18), slit, along ? cx + o : cx + s * (WT / 2 + 0.01), 3.6, along ? cz + s * (WT / 2 + 0.01) : cz + o, { cast: false }); }
+    };
+    wall(X0, Z0, X0, -2.4); wall(X0, 2.4, X0, Z1);       // oeste, con el portón en medio
+    wall(X1, Z0, X1, Z1);                                // este
+    wall(X0, Z1, X1, Z1);                                // sur
+    wall(X0, Z0, 65.5, Z0); wall(70.5, Z0, X1, Z0);      // norte, con una brecha derrumbada
+    for (let i = 0; i < 11; i++) { const rr = sr(0.5, 1.2), m = M(ROCK, cwd, sr(65.5, 70.5), rr * 0.35, Z0 + sr(-2.2, 2.2), {}); m.scale.set(rr, rr * 0.6, rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); }
+    // torres de las esquinas
+    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) {
+      M(cyl(2.7, 3.0, 9, 14), cw, x, 4.5, z, { solid: true }); M(cyl(3.0, 3.0, 0.5, 14), cwd, x, 9.1, z);
+      M(new THREE.ConeGeometry(3.3, 4.2, 14), roofM, x, 11.4, z, { solid: true });
+      M(cyl(0.04, 0.04, 2.4, 4), iron, x, 14.6, z, { cast: false }); M(new THREE.PlaneGeometry(1.2, 0.7), red, x + 0.6, 15.3, z, { cast: false });
+      for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + 0.4; M(bx(0.16, 0.9, 0.04), slit, x + Math.cos(a) * 2.86, 5.5, z + Math.sin(a) * 2.86, { cast: false, ry: -a + Math.PI / 2 }); }
+      addCircle(x, z, 3.0);
+    }
+    // casa de la puerta: dos torreones, arco y rastrillo levantado
+    for (const s of [-1, 1]) { M(bx(3, 8, 3), cw, X0, 4, s * 3.9, { solid: true }); addBox(X0, s * 3.9, 1.5, 1.5); for (let k = 0; k < 3; k++) M(MERLON, cw, X0 - 1 + k, 8.45, s * 3.9, { p: tmp }); }
+    M(bx(3, 2.4, 4.8), cw, X0, 6.8, 0, { solid: true });
+    { const pc = new THREE.Group(); pc.position.set(X0 - 0.2, 4.6, 0); world.group.add(pc); for (let k = 0; k < 8; k++) M(bx(0.08, 1.6, 0.08), iron, 0, 0, -2.1 + k * 0.6, { p: pc, cast: false }); for (let k = 0; k < 3; k++) M(bx(0.08, 0.08, 4.4), iron, 0, -0.6 + k * 0.6, 0, { p: pc, cast: false }); for (let k = 0; k < 8; k++) M(new THREE.ConeGeometry(0.06, 0.2, 4), iron, 0, -0.9, -2.1 + k * 0.6, { p: pc, cast: false, rx: Math.PI }); }
+    // estandartes con la calavera
+    const banTex = canvasTex(128, 256, (g, w, h) => { g.fillStyle = '#7a1414'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8a040'; g.fillRect(0, 0, w, 10); g.fillRect(0, h - 40, w, 6); g.beginPath(); g.arc(64, 100, 30, 0, TAU); g.fill(); g.fillStyle = '#7a1414'; g.beginPath(); g.arc(52, 96, 8, 0, TAU); g.arc(76, 96, 8, 0, TAU); g.fill(); g.fillRect(56, 118, 16, 12); g.fillStyle = '#c8a040'; g.save(); g.translate(64, 170); for (const r of [0.7, -0.7]) { g.save(); g.rotate(r); g.fillRect(-4, -40, 8, 80); g.restore(); } g.restore(); });
+    const banM = bsc(0xffffff, { map: banTex, side: THREE.DoubleSide });
+    M(new THREE.PlaneGeometry(2.0, 4.0), banM, X0 - 1.55, 5.6, 0, { cast: false, ry: -Math.PI / 2 });
+    for (const z of [-7.5, 7.5]) M(new THREE.PlaneGeometry(1.6, 3.2), banM, X0 - 0.72, 3.8, z, { cast: false, ry: -Math.PI / 2 });
+    for (const s of [-1, 1]) sconce(X0 - 1.52, s * 2.0, -1, 0);
+    // la torre del homenaje: hueca, con el salón del trono dentro
+    {
+      const kx0 = 64, kx1 = 74, kz0 = -7, kz1 = 3, kh = 11, t = 1;
+      const kw = (x1, z1, x2, z2) => { const along = Math.abs(x2 - x1) > Math.abs(z2 - z1), len = Math.hypot(x2 - x1, z2 - z1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2; M(along ? bx(len, kh, t) : bx(t, kh, len), cw, cx, kh / 2, cz, { solid: true }); addBox(cx, cz, along ? len / 2 : t / 2, along ? t / 2 : len / 2); };
+      kw(kx0, kz0, kx0, -3.3); kw(kx0, -0.7, kx0, kz1);
+      kw(kx1, kz0, kx1, kz1); kw(kx0, kz0, kx1, kz0); kw(kx0, kz1, kx1, kz1);
+      M(bx(t, kh - 3.4, 2.6), cw, kx0, 3.4 + (kh - 3.4) / 2, -2, { solid: true });
+      M(bx(kx1 - kx0, 0.6, kz1 - kz0), cwd, (kx0 + kx1) / 2, 4.3, (kz0 + kz1) / 2, { solid: true });
+      for (let i = 0; i < 16; i++) { const o = i / 16 * 40, a = o < 10 ? [kx0 + o, kz0] : o < 20 ? [kx1, kz0 + o - 10] : o < 30 ? [kx1 - (o - 20), kz1] : [kx0, kz1 - (o - 30)]; M(CUBE, cw, a[0], kh + 0.5, a[1], { p: tmp }); }
+      M(new THREE.PlaneGeometry(1.4, 2.8), banM, kx0 - 0.51, 7, -5, { cast: false, ry: -Math.PI / 2 });
+      M(new THREE.PlaneGeometry(8, 8), lam(0x6a4a30, { emissive: 0x1a0e06 }), (kx0 + kx1) / 2, 0.025, (kz0 + kz1) / 2, { rx: -Math.PI / 2, cast: false });
+      const ty = { x: kx1 - 1.3, z: -2 };
+      M(bx(1.2, 0.5, 1.4), red, ty.x, 0.25, ty.z); M(bx(0.3, 2.4, 1.4), wood, ty.x + 0.5, 1.2, ty.z); M(bx(1.0, 0.15, 1.3), red, ty.x, 0.6, ty.z);
+      for (const s of [-1, 1]) M(bx(1.0, 0.7, 0.15), wood, ty.x, 0.75, ty.z + s * 0.65);
+      addBox(ty.x, ty.z, 0.65, 0.75);
+      M(bx(4.4, 0.12, 1.2), wood, 68.4, 0.85, -2, {}); for (const [dx, dz] of [[-2, -0.5], [2, -0.5], [-2, 0.5], [2, 0.5]]) M(bx(0.12, 0.85, 0.12), wood, 68.4 + dx, 0.42, -2 + dz);
+      addBox(68.4, -2, 2.2, 0.6);
+      for (let i = 0; i < 4; i++) { M(cyl(0.04, 0.05, 0.25, 6), candleM, 66.8 + i * 1.1, 1.03, -2, { cast: false }); flames.push(torchFlame(66.8 + i * 1.1, 1.24, -2, 0xffb050, 0.3)); }
+      M(bx(2.4, 2.2, 0.9), cwd, 69, 1.1, kz0 + 0.95, { solid: true }); M(bx(1.4, 1.2, 0.3), bsc(0x0a0604), 69, 0.7, kz0 + 1.42, { cast: false }); flames.push(torchFlame(69, 0.6, kz0 + 1.5, 0xff7a20, 1.3));
+      addBox(69, kz0 + 0.95, 1.2, 0.5);
+      lampLight(69, 3.2, -1.5, 0xffa050, 1.7, 14, null, 1.2);
+      spotK(kx1 - 1.5, kz1 - 1.5); spotK(kx0 + 1.5, kz0 + 1.6);
+    }
+    // patio: pozo, establo, fragua, muñecos de práctica y el cañón que apunta al portón
+    {
+      M(cyl(1.0, 1.1, 0.9, 14), cwd, 57, 0.45, 7, { solid: true }); M(cyl(0.85, 0.85, 0.05, 14), bsc(0x050608), 57, 0.91, 7, { cast: false });
+      for (const s of [-1, 1]) M(bx(0.15, 2.2, 0.15), wood, 57 + s * 0.85, 1.6, 7); M(bx(2.0, 0.12, 0.12), wood, 57, 2.6, 7); M(roofGeo(2.6, 0.8, 1.6), roofM, 57, 2.7, 6.2);
+      addCircle(57, 7, 1.15); spotK(58.8, 8.6);
+      for (const x of [55, 59, 63]) M(bx(0.2, 2.6, 0.2), wood, x, 1.3, 9.6);
+      M(bx(9.2, 0.15, 3.6), wood, 59, 2.7, 11.3, { rx: 0.25 });
+      const HAY = new THREE.BoxGeometry(1.2, 0.6, 0.8), hayM = lam(0xa88a40);
+      for (let i = 0; i < 6; i++) { const x = 55.6 + i * 1.3; M(HAY, hayM, x, 0.3, 11.6, { p: tmp }); if (i % 3 === 1) M(HAY, hayM, x, 0.9, 11.6, { p: tmp }); }
+      addBox(59, 11.6, 4.2, 0.5); spotK(61, 10.4);
+      M(bx(2.0, 1.1, 1.4), cwd, 55, 0.55, -10.5, { solid: true }); M(bx(1.2, 0.1, 0.8), bsc(0xff5a10), 55, 1.12, -10.5, { cast: false }); flames.push(torchFlame(55, 1.4, -10.5, 0xff6a20, 1.2));
+      M(bx(0.5, 0.5, 0.3), iron, 57.6, 0.7, -10.2); M(bx(0.9, 0.18, 0.35), iron, 57.6, 1.0, -10.2); M(cyl(0.2, 0.25, 0.45, 8), wood, 57.6, 0.22, -10.2);
+      addBox(56, -10.4, 2.3, 0.9); spotK(54, -8.2);
+      for (const [x, z] of [[60, 7.6], [62.5, 7.8]]) { M(cyl(0.06, 0.06, 1.8, 5), wood, x, 0.9, z); M(bx(0.9, 0.08, 0.08), wood, x, 1.4, z); M(cyl(0.22, 0.26, 0.7, 8), dummyM, x, 1.25, z); M(new THREE.SphereGeometry(0.18, 8, 6), dummyM, x, 1.8, z); addCircle(x, z, 0.3); }
+      // el cañón: un disparo barre el camino que viene del cementerio
+      const can = Grp(57.5, -2.5, -Math.PI / 2);
+      M(cyl(0.32, 0.42, 2.4, 12), iron, 0, 0.95, 0.2, { p: can, rx: Math.PI / 2 - 0.08 }); M(new THREE.TorusGeometry(0.42, 0.06, 6, 12), iron, 0, 0.93, -0.95, { p: can, cast: false });
+      for (const s of [-1, 1]) M(cyl(0.45, 0.45, 0.12, 12), wood, s * 0.55, 0.45, 0.4, { p: can, rz: Math.PI / 2 });
+      M(bx(0.9, 0.3, 1.6), wood, 0, 0.45, 0.6, { p: can });
+      for (let i = 0; i < 4; i++) M(new THREE.SphereGeometry(0.16, 8, 6), iron, 59.2 + (i % 2) * 0.32, 0.16 + (i > 1 ? 0.27 : 0), -4.2 + (i % 2 ? 0.16 : 0), { cast: false });
+      addCircle(57.5, -2.5, 1.0);
+      const boca = lw(can, 0, 1.4);
+      mapUse({ x: 59, z: -2.5, r: 2.2, t: 'Cañón del castillo', d: 'Dispara contra el portón: barre a los zombis que vienen por el camino del cementerio.', b: 'Disparar el cañón', price: 0, cd: 45, use() {
+        Sfx.boom(); player.shake = Math.min(1, (player.shake || 0) + 0.5);
+        for (let i = 0; i < 30; i++) PA.add(boca.x, 0.95, boca.z, rand(-3, -0.5), rand(0.2, 1.6), rand(-0.8, 0.8), rand(0.8, 1.6), rand(0.3, 0.6), 0.5, 0.5, 0.5, 0.5, -0.4, 1.2, 1.4, 0);
+        setTimeout(() => { if (game && world.idx === 0) explode(new THREE.Vector3(45.5, 0.6, 0), 7, 420, 0); }, 260);
+        setTimeout(() => { if (game && world.idx === 0) explode(new THREE.Vector3(40, 0.6, 0), 5.5, 260, 0); }, 520);
+        feed('¡Bum! El cañón barre el camino del portón', 'gold');
+      } });
+      for (const [x, z] of [[54, 4], [54, -4.5], [74.5, 9], [74.5, -10]]) { M(cyl(0.12, 0.2, 1.1, 8), iron, x, 0.55, z, { solid: true }); M(cyl(0.45, 0.25, 0.35, 10), iron, x, 1.25, z); flames.push(torchFlame(x, 1.7, z, 0xff8a30, 1.5)); addCircle(x, z, 0.45); }
+      const cart = Grp(46.5, -6.5, 0.6);
+      M(bx(1.6, 0.5, 2.6), wood, 0, 0.75, 0, { p: cart, rz: 0.2 }); M(cyl(0.55, 0.55, 0.1, 10), wood, 0.9, 0.55, 0.6, { p: cart, rz: Math.PI / 2 }); M(cyl(0.55, 0.55, 0.1, 10), wood, -1.2, 0.35, -0.5, { p: cart, rz: 1.2 });
+      addCircle(46.5, -6.5, 1.4); spotK(48, -9.5);
+      for (const [x, y] of [[73, 0.45], [74.2, 0.45], [73.6, 1.35]]) M(CUBE, wood, x, y, 11.2, { p: tmp }).scale.setScalar(0.9);
+      addBox(73.6, 11.2, 1.2, 0.5);
+    }
+    world.spawns.push({ x: 64, z: -17, rise: true }, { x: 81, z: -3, rise: true }, { x: 64, z: 17, rise: true }, { x: 60, z: -6, rise: true });
+  }
+
+  // ======================= EL BOSQUE NEGRO (oeste y sur) =======================
+  const RUTAS = [
+    [[-43, 0], [-55, 4], [-63, 11]],
+    [[-14.7, 40.4], [-22, 52], [-33, 61], [-37, 63]],
+    [[-63, 13], [-58, 38], [-46, 55], [-39, 63]],
+    [[-64, 9], [-63, -14], [-47, -40], [-27, -63], [-18, -63]],
+    [[5.2, -42.6], [3, -46], [0, -49.5]],
+    [[43, 0], [51, 0]],
+    [[40, 16], [44, 34], [40, 50]]
+  ];
+  const CLAROS = [[-66, 12, 9], [-38, 64, 8], [-62, -22, 6], [-74, -4, 5.5], [-50, 47, 4]];
+  const cercaRuta = (x, z, m) => RUTAS.some(path => { for (let i = 0; i < path.length - 1; i++) { const [x1, z1] = path[i], [x2, z2] = path[i + 1], dx = x2 - x1, dz = z2 - z1, t = clamp(((x - x1) * dx + (z - z1) * dz) / (dx * dx + dz * dz), 0, 1); if (Math.hypot(x - x1 - dx * t, z - z1 - dz * t) < m) return true; } return false; });
+  const enClaro = (x, z, m = 0) => CLAROS.some(([cx, cz, r]) => Math.hypot(x - cx, z - cz) < r + m);
+  overlayPlane(172, (g, w) => {
+    const k = w / 172, X = v => (v + 86) * k;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    RUTAS.forEach((path, i) => {
+      const stone = i === 5;
+      for (const [lw_, col] of stone ? [[4.6, 'rgba(20,18,15,.85)'], [3.8, 'rgba(78,74,64,.95)']] : [[3.0, 'rgba(18,14,10,.7)'], [2.2, 'rgba(48,38,26,.9)']]) { g.strokeStyle = col; g.lineWidth = lw_ * k; g.beginPath(); path.forEach(([x, z], j) => j ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))); g.stroke(); }
+    });
+    for (const [cx, cz, r] of CLAROS) { const gr = g.createRadialGradient(X(cx), X(cz), 0, X(cx), X(cz), r * k); gr.addColorStop(0, 'rgba(46,38,26,.75)'); gr.addColorStop(1, 'rgba(46,38,26,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X(cx), X(cz), r * k, 0, TAU); g.fill(); }
+    for (let i = 0; i < 1400; i++) { const x = rand(-84, 84), z = rand(-84, 84); if (!enBosque(x, z)) continue; g.fillStyle = pick(['rgba(14,16,10,.45)', 'rgba(40,30,18,.35)', 'rgba(24,30,16,.4)']); g.beginPath(); g.ellipse(X(x), X(z), rand(3, 12), rand(2, 8), rand(0, 3), 0, TAU); g.fill(); }
+    g.fillStyle = 'rgba(70,66,58,.85)'; g.fillRect(X(52), X(-12), 24 * k, 24 * k);
+    for (let i = 0; i < 2600; i++) { g.fillStyle = pick(['rgba(40,38,32,.5)', 'rgba(96,90,78,.5)']); g.fillRect(X(rand(52, 76)), X(rand(-12, 12)), 3, 3); }
+  }, 2048);
+
+  // árboles: pinos negros y árboles secos, muy juntos
+  const PTRUNK = new THREE.CylinderGeometry(0.12, 0.3, 3.4, 6), PCONE = [new THREE.ConeGeometry(2.0, 3.2, 7), new THREE.ConeGeometry(1.6, 2.8, 7), new THREE.ConeGeometry(1.1, 2.3, 7)];
+  const pineM = lam(0x121c16, { flatShading: true }), pineM2 = lam(0x18241a, { flatShading: true });
+  const pino = (x, z, s, coll) => {
+    const g = Grp(x, z, sr(0, TAU), tmp);
+    M(PTRUNK, bark, 0, 1.7 * s, 0, { p: g }).scale.setScalar(s);
+    PCONE.forEach((geo, i) => { const m = M(geo, i % 2 ? pineM : pineM2, 0, (2.6 + i * 1.5) * s, 0, { p: g }); m.scale.setScalar(s); });
+    if (coll) addCircle(x, z, 0.32 * s);
+  };
+  const arboles = [];
+  for (let n = 0; n < 1400 && arboles.length < 230; n++) {
+    const a = sr(0, TAU), r = sr(46.5, 84), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (!enBosque(x, z) || cercaRuta(x, z, 2.2) || enClaro(x, z, 1.5) || arboles.some(([ax, az]) => Math.hypot(ax - x, az - z) < 2.6)) continue;
+    arboles.push([x, z]);
+    if (srand() < 0.62) pino(x, z, sr(0.85, 1.5), true); else tree(x, z, sr(0.9, 1.5), true);
+  }
+  // muro de árboles fuera del borde, para que el mundo no se acabe de golpe
+  for (let i = 0; i < 90; i++) { const a = i / 90 * TAU + sr(-0.02, 0.02), r = sr(87, 97), x = Math.cos(a) * r, z = Math.sin(a) * r; if (srand() < 0.6) pino(x, z, sr(1.3, 2.0), false); else tree(x, z, sr(1.3, 2.0), false); }
+  // setas que brillan, búhos y luciérnagas
+  {
+    const n = 46, setaG = new THREE.SphereGeometry(0.16, 8, 5, 0, TAU, 0, Math.PI / 2), tallo = new THREE.CylinderGeometry(0.04, 0.05, 0.18, 6);
+    const ms = new THREE.InstancedMesh(setaG, new THREE.MeshBasicMaterial({ color: 0x5ae0c0 }), n), ts = new THREE.InstancedMesh(tallo, lam(0xd8d0b8), n), mt = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+    let k = 0;
+    for (let t = 0; t < 600 && k < n && arboles.length; t++) {
+      const [ax, az] = arboles[(srand() * arboles.length) | 0]; const x = ax + sr(-1.2, 1.2), z = az + sr(-1.2, 1.2);
+      const s = sr(0.6, 1.5); pv.set(x, 0.17 * s, z); sv.set(s, s, s); ms.setMatrixAt(k, mt.compose(pv, q, sv)); pv.y = 0.09 * s; ts.setMatrixAt(k, mt.compose(pv, q, sv)); k++;
+    }
+    ms.count = ts.count = k; world.group.add(ms); world.group.add(ts);
+    const glows = [], ojos = [];
+    for (let i = 0; i < 10 && arboles.length; i++) { const [ax, az] = arboles[(srand() * arboles.length) | 0]; glows.push(torchFlame(ax + 0.5, 0.4, az + 0.5, 0x3ad0b0, 1.4)); }
+    for (let i = 0; i < 8 && arboles.length; i++) {
+      const [ax, az] = arboles[(srand() * arboles.length) | 0]; const g = new THREE.Group(); g.position.set(ax, sr(3.5, 5.5), az); g.rotation.y = sr(0, TAU); world.group.add(g);
+      for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffc830 })); e.position.set(s * 0.09, 0, 0.3); g.add(e); }
+      ojos.push({ g, ph: sr(0, 9) });
+    }
+    world.anims.push((dt, t) => {
+      for (const s of glows) s.material.opacity = 0.25 + Math.sin(t * 1.3 + s.position.x) * 0.1;
+      for (const o of ojos) o.g.visible = Math.sin(t * 0.7 + o.ph) > -0.6 && (t * 3 + o.ph) % 7 > 0.25;
+      if (game && enBosque(player.pos.x, player.pos.z) && Math.random() < dt * (FAST() ? 3 : 7)) PA.add(player.pos.x + rand(-9, 9), rand(0.5, 2.5), player.pos.z + rand(-9, 9), rand(-0.3, 0.3), rand(-0.1, 0.2), rand(-0.3, 0.3), rand(2, 4), 0.07, 0.8, 1, 0.4, 1, -0.02, 0.4, 0, 0);
+    });
+  }
+  // la cabaña de la bruja, con su caldero (la puerta mira al camino)
+  {
+    const g = Grp(-68, 12, Math.PI / 2), hw = 2.6, hd = 2.1, hh = 2.5, logM = lam(0x3a2a1c), rf = lam(0x24201a);
+    for (const [x1, z1, x2, z2] of [[-hw, -hd, hw, -hd], [-hw, hd, -0.7, hd], [0.7, hd, hw, hd], [-hw, -hd, -hw, hd], [hw, -hd, hw, hd]]) {
+      const along = Math.abs(x2 - x1) > Math.abs(z2 - z1), len = Math.hypot(x2 - x1, z2 - z1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+      M(along ? bx(len, hh, 0.25) : bx(0.25, hh, len), logM, cx, hh / 2, cz, { p: g, solid: true });
+      const P = lw(g, cx, cz); addBox(P.x, P.z, along ? len / 2 : 0.13, along ? 0.13 : len / 2, g.rotation.y);
+    }
+    M(bx(1.4, 0.5, 0.25), logM, 0, 2.25, hd, { p: g });
+    M(roofGeo(2 * hw + 1, 1.8, 2 * hd + 0.8), rf, 0, hh, -hd - 0.4, { p: g, solid: true });
+    M(bx(0.6, 1.6, 0.6), lam(0x3a3632), hw - 0.6, hh + 1.0, -1, { p: g });
+    const cP = lw(g, -0.9, -0.7);
+    M(new THREE.SphereGeometry(0.55, 12, 8, 0, TAU, Math.PI / 2, Math.PI / 2), iron, cP.x, 0.6, cP.z, {});
+    const sopa = M(new THREE.CircleGeometry(0.5, 16), new THREE.MeshBasicMaterial({ color: 0x5aff6a }), cP.x, 0.58, cP.z, { rx: -Math.PI / 2, cast: false });
+    addCircle(cP.x, cP.z, 0.6);
+    for (let i = 0; i < 6; i++) { const p = lw(g, sr(-2.2, 2.2), -1.9); M(cyl(0.08, 0.1, 0.25, 6), new THREE.MeshBasicMaterial({ color: pick([0x5aff6a, 0xc040ff, 0xff4040, 0xffc840]) }), p.x, sr(1.2, 1.9), p.z, { cast: false }); }
+    world.anims.push((dt, t) => { sopa.material.color.setRGB(0.3, 0.85 + Math.sin(t * 3) * 0.15, 0.4); if (Math.random() < dt * 4) PA.add(cP.x + rand(-0.3, 0.3), 0.7, cP.z + rand(-0.3, 0.3), 0, rand(0.4, 0.9), 0, rand(0.8, 1.4), 0.12, 0.35, 1, 0.45, 0.8, -0.5, 0.3, 0.6, 0); });
+    const up = lw(g, 0.2, 0.9);
+    mapUse({ x: up.x, z: up.z, r: 1.8, t: 'Caldero de la bruja', d: 'Bebe del caldero verde: recuperas 40 de vida. Sabe horrible.', b: 'Beber del caldero', price: 15, cd: 40, use() { player.hp = Math.min(player.maxHp, player.hp + 40); Sfx.pickup(); feed('Puaj… pero te sientes mejor (+40 de vida)', 'red'); } });
+    const ip = lw(g, 1.4, -1.1); spotK(ip.x, ip.z);
+  }
+  // círculo de piedras con el altar
+  {
+    const cx = -38, cz = 64, runeM = new THREE.MeshBasicMaterial({ color: 0xb050ff });
+    for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.2, x = cx + Math.cos(a) * 5.2, z = cz + Math.sin(a) * 5.2, h = sr(2.4, 3.6); M(bx(0.9, h, 0.6), darkStone, x, h / 2, z, { solid: true, ry: -a, rz: sr(-0.08, 0.08) }); M(new THREE.PlaneGeometry(0.3, 0.5), runeM, x - Math.cos(a) * 0.31, h * 0.6, z - Math.sin(a) * 0.31, { cast: false, ry: -a - Math.PI / 2 }); addCircle(x, z, 0.55); }
+    M(bx(2.2, 0.8, 1.2), stoneMat, cx, 0.4, cz, { solid: true }); addBox(cx, cz, 1.1, 0.6);
+    for (let i = 0; i < 5; i++) { const x = cx - 0.8 + i * 0.4; M(cyl(0.04, 0.05, 0.2, 6), candleM, x, 0.9, cz + 0.3, { cast: false }); flames.push(torchFlame(x, 1.06, cz + 0.3, 0xffb050, 0.3)); }
+    const rg = torchFlame(cx, 1.2, cz, 0xb050ff, 4);
+    world.anims.push((dt, t) => { rg.material.opacity = 0.18 + Math.sin(t * 1.7) * 0.08; runeM.color.setRGB(0.55 + Math.sin(t * 2) * 0.15, 0.25, 1); });
+    spotK(cx, cz - 1.8);
+  }
+  // el árbol del ahorcado: una jaula colgando con un esqueleto
+  {
+    const x = -62, z = -22;
+    tree(x, z, 2.2, true);
+    const cage = new THREE.Group(); cage.position.set(x + 1.8, 3.6, z); cage.userData.vivo = 1; world.group.add(cage);
+    M(cyl(0.015, 0.015, 2.2, 4), ropeM, 0, 1.9, 0, { p: cage, cast: false });
+    for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; M(bx(0.04, 1.6, 0.04), iron, Math.cos(a) * 0.45, 0, Math.sin(a) * 0.45, { p: cage, cast: false }); }
+    for (const y of [-0.8, 0.8]) M(new THREE.TorusGeometry(0.45, 0.03, 4, 12), iron, 0, y, 0, { p: cage, cast: false, rx: Math.PI / 2 });
+    M(new THREE.SphereGeometry(0.15, 8, 6), bone, 0, 0.35, 0, { p: cage }); M(cyl(0.12, 0.08, 0.5, 6), bone, 0, -0.1, 0, { p: cage });
+    world.anims.push((dt, t) => { cage.rotation.z = Math.sin(t * 0.9) * 0.06; cage.rotation.y += dt * 0.1; });
+    spotK(x + 1.8, z + 1.6);
+  }
+  // campamento de cazadores abandonado
+  {
+    const x = -74, z = -4;
+    const tent = Grp(x - 2.4, z - 1.5, 0.4); M(roofGeo(2.6, 1.8, 2.6), lam(0x5a5038, { side: THREE.DoubleSide }), 0, 0, -1.3, { p: tent }); addBox(x - 2.4, z - 1.5, 1.3, 1.3, 0.4);
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; M(cyl(0.08, 0.1, 0.9, 6), bark, x + Math.cos(a) * 0.4, 0.12, z + Math.sin(a) * 0.4, { rz: Math.PI / 2, ry: a, cast: false }); }
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; M(new THREE.DodecahedronGeometry(0.18, 0), darkStone, x + Math.cos(a) * 0.75, 0.1, z + Math.sin(a) * 0.75, { cast: false }); }
+    const fg = torchFlame(x, 0.55, z, 0xff7a20, 1.8); lampLight(x, 1.0, z, 0xff8030, 1.1, 12, null, 2);
+    for (const [dx, dz, ry] of [[2, 0.5, 0], [-0.5, 2, Math.PI / 2]]) { M(cyl(0.25, 0.25, 1.8, 8), bark, x + dx, 0.25, z + dz, { rz: Math.PI / 2, ry }); addCircle(x + dx, z + dz, 0.5); }
+    world.anims.push((dt, t) => { fg.material.opacity = 0.6 + Math.random() * 0.25; if (Math.random() < dt * 9) PA.add(x + rand(-0.25, 0.25), 0.3, z + rand(-0.25, 0.25), rand(-0.1, 0.1), rand(1, 2), rand(-0.1, 0.1), rand(0.4, 0.8), rand(0.1, 0.2), 1, 0.5, 0.1, 1, -1, 0.5, -0.2, 0); });
+    addCircle(x, z, 0.8); spotK(x + 1.5, z + 2.5);
+  }
+  // carreta abandonada en el camino del bosque
+  {
+    const w = Grp(-50, 47, 1.1);
+    M(bx(1.8, 0.7, 3.0), wood, 0, 0.9, 0, { p: w, rz: -0.18 }); M(roofGeo(2.0, 1.0, 3.0), lam(0x8a8270, { side: THREE.DoubleSide }), 0, 1.25, -1.5, { p: w });
+    M(cyl(0.6, 0.6, 0.1, 12), wood, 1.0, 0.6, 0.9, { p: w, rz: Math.PI / 2 }); M(cyl(0.6, 0.6, 0.1, 12), wood, -1.3, 0.12, -0.6, { p: w, rx: Math.PI / 2 });
+    addBox(-50, 47, 1.0, 1.6, 1.1); const p = lw(w, -2.0, 1.4); spotK(p.x, p.z);
+  }
+  // arroyo con puente de tablas
+  {
+    const pts = [[-47, 22], [-58, 27], [-70, 26], [-83, 30]], aguaM = new THREE.MeshPhongMaterial({ color: 0x0c1a1c, specular: 0x4a7a80, shininess: 80, transparent: true, opacity: 0.9 });
+    for (let i = 0; i < pts.length - 1; i++) { const [x1, z1] = pts[i], [x2, z2] = pts[i + 1], len = Math.hypot(x2 - x1, z2 - z1); M(new THREE.PlaneGeometry(len + 1, 2.4), aguaM, (x1 + x2) / 2, 0.03, (z1 + z2) / 2, { rx: -Math.PI / 2, rz: -Math.atan2(z2 - z1, x2 - x1), cast: false }); }
+    const b = Grp(-61.7, 26.8, Math.atan2(8, 24));
+    for (let k = 0; k < 9; k++) M(bx(1.9, 0.08, 0.35), wood, 0, 0.16, -1.6 + k * 0.4, { p: b });
+    for (const s of [-1, 1]) { M(bx(0.08, 0.08, 3.6), wood, s * 0.95, 0.75, 0, { p: b, cast: false }); for (const z of [-1.6, 0, 1.6]) M(bx(0.1, 0.7, 0.1), wood, s * 0.95, 0.4, z, { p: b }); }
+    world.anims.push((dt, t) => { aguaM.opacity = 0.86 + Math.sin(t) * 0.04; });
+  }
+  // niebla espesa entre los árboles
+  for (let i = 0; i < 14; i++) {
+    let x = 0, z = 0; for (let k = 0; k < 20; k++) { const a = sr(0, TAU), r = sr(48, 82); x = Math.cos(a) * r; z = Math.sin(a) * r; if (enBosque(x, z)) break; }
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: mistTex, color: 0x6a7a70, transparent: true, opacity: sr(0.14, 0.24), depthWrite: false }));
+    const sc = sr(10, 18); s.scale.set(sc, sc * 0.45, 1); s.position.set(x, sr(0.6, 1.6), z); world.group.add(s);
+  }
+
+  // ======================= AFUERAS: la colina de la horca (sureste) y las ruinas del norte (noreste) =======================
+  {
+    const gx = 40, gz = 54;
+    M(bx(4, 1.1, 4), wood, gx, 0.55, gz, { solid: true }); addBox(gx, gz, 2, 2);
+    for (const s of [-1, 1]) M(bx(0.25, 4.4, 0.25), wood, gx + s * 1.4, 3.3, gz - 1.2);
+    M(bx(3.4, 0.25, 0.25), wood, gx, 5.4, gz - 1.2);
+    const soga = new THREE.Group(); soga.position.set(gx, 5.3, gz - 1.2); soga.userData.vivo = 1; world.group.add(soga);
+    M(cyl(0.02, 0.02, 1.4, 4), ropeM, 0, -0.7, 0, { p: soga, cast: false }); M(new THREE.TorusGeometry(0.16, 0.025, 4, 10), ropeM, 0, -1.5, 0, { p: soga, cast: false });
+    world.anims.push((dt, t) => { soga.rotation.z = Math.sin(t * 1.1) * 0.08; });
+    for (let k = 0; k < 5; k++) M(bx(1.2, 0.1, 0.4), wood, gx + 2.6, 0.1 + k * 0.2, gz - 0.8 + k * 0.4, { rx: -0.4 });
+    spotK(gx - 2.8, gz + 2.2);
+    const sp = Grp(52, 30, -0.6);
+    M(cyl(0.05, 0.05, 2.6, 5), wood, 0, 1.3, 0, { p: sp }); M(bx(1.6, 0.06, 0.06), wood, 0, 1.9, 0, { p: sp }); M(bx(0.6, 0.8, 0.3), lam(0x5a4a3a), 0, 1.6, 0, { p: sp });
+    M(new THREE.SphereGeometry(0.22, 8, 6), lam(0xb08a50), 0, 2.3, 0, { p: sp }); M(new THREE.ConeGeometry(0.4, 0.35, 8), lam(0x8a7040), 0, 2.55, 0, { p: sp });
+    addCircle(52, 30, 0.4); spotK(53.4, 31.6);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { const x = 56 + i * 4.5 + sr(-0.6, 0.6), z = 36 + j * 5 + sr(-0.6, 0.6); if (Math.hypot(x, z) < 82) tree(x, z, sr(0.6, 0.85), true); }
+    fenceLine(46, 24, 60, 22, wood, 1.1, 2.4, true); fenceLine(30, 64, 46, 68, wood, 1.1, 2.4, true);
+    world.spawns.push({ x: 48, z: 44, rise: true }, { x: 30, z: 58, rise: true }, { x: 66, z: 28, rise: true });
+  }
+  {
+    const tx = 42, tz = -54;
+    for (let k = 0; k < 10; k++) { if (k === 2 || k === 3) continue; const a = k / 10 * TAU, h = sr(2.2, 5.5); M(bx(1.6, h, 0.8), darkStone, tx + Math.cos(a) * 2.6, h / 2, tz + Math.sin(a) * 2.6, { solid: true, ry: -a + Math.PI / 2 }); addBox(tx + Math.cos(a) * 2.6, tz + Math.sin(a) * 2.6, 0.8, 0.4, -a + Math.PI / 2); }
+    for (let i = 0; i < 8; i++) { const rr = sr(0.4, 1), x = tx + sr(-6, 6), z = tz + sr(-6, 6); if (Math.hypot(x - tx, z - tz) < 3.6) continue; const m = M(ROCK, darkStone, x, rr * 0.35, z, { p: tmp }); m.scale.set(rr, rr * 0.6, rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); }
+    spotK(tx, tz);
+    for (let i = 0; i < 14; i++) { const a = sr(-1.75, 0.2), r = sr(48, 80), x = Math.cos(a) * r, z = Math.sin(a) * r; if (enCatacumbas(x, z) || enCastillo(x, z) || Math.hypot(x - tx, z - tz) < 6 || cercaRuta(x, z, 2.2) || x < CAT.x0 + 40 && z < -46) continue; tree(x, z, sr(0.9, 1.4), true); }
+    world.spawns.push({ x: 30, z: -60, rise: true }, { x: 56, z: -40, rise: true }, { x: 24, z: -46, rise: true });
+  }
+  for (const [x, z] of [[-55, 0], [-70, 30], [-45, 60], [-25, 70], [-60, -35], [-40, -55], [-80, 15], [-56, 20]]) world.spawns.push({ x, z, rise: true });
+
+  fundirEstatico(g0);
+  world.anims.push(() => { for (const f of flames) f.material.opacity = 0.55 + Math.random() * 0.3; });
+  // más niebla en el bosque y más oscuridad en las catacumbas, según dónde estés
+  const baseHemi = hemi.intensity, baseFog = scene.fog.density, baseLan = lantern.intensity, baseLanD = lantern.distance;
+  let kB = 0, kC = 0;
+  world.anims.push((dt) => {
+    if (!game) return; const p = player.pos;
+    const tb = enBosque(p.x, p.z) ? 1 : 0, tc = enCatacumbas(p.x, p.z) ? 1 : 0;
+    kB += (tb - kB) * Math.min(1, dt * 1.5); kC += (tc - kC) * Math.min(1, dt * 2);
+    scene.fog.density = baseFog * (1 + kB * 0.75 + kC * 0.3); hemi.intensity = baseHemi * (1 - kC * 0.25 - kB * 0.1);
+    // tu farol alumbra más en lo oscuro (sirve en todos los teléfonos, aunque tengan pocas luces)
+    lantern.intensity = baseLan * (1 + kC * 1.1 + kB * 0.4); lantern.distance = baseLanD * (1 + kC * 0.5 + kB * 0.25);
+  });
+}
+
+/* ===== Las tres llaves de colores (lugares grandes con world.llaves) =====
+   Al empezar el lugar se deciden las 3 puertas de color. En cada oleada aparece escondida UNA llave de esas puertas;
+   al agarrarla puede salir otra en la misma oleada. Al vencer al jefe solo se abren las puertas cuya llave tiene el grupo;
+   sin ninguna llave, se acaba la partida. El anfitrión decide dónde aparece cada llave y quién la agarró. */
+const LLV = { otra: 0.45, alcance: 1.7 };
+const LLV_NOM = { red: 'roja', blue: 'azul', green: 'verde', purple: 'morada' };
+const llvCol = k => hexCol(ROUTE_MODS[k].col);
+function llvJugadores() {
+  const ps = []; if (!player.down) ps.push(player.pos);
+  if (Net.host) for (const pr of Net.peers.values()) if (pr.pos && !pr.down) ps.push(pr.pos);
+  return ps.length ? ps : [player.pos];
+}
+function llvIni() {
+  game.llv = { opts: routeOptions(), got: {}, on: null, w: game.wave };
+  if (Net.host) Net.ev(['llv', 'ini', game.llv.opts]);
+  llvHud();
+}
+// el anfitrión (o el jugador solo) al empezar cada oleada
+function llvOleada(n) {
+  if (!world.llaves || !game) return;
+  if (!game.llv || n % WAVES_PER_MAP === 1 || zoneOf(n) !== zoneOf(game.llv.w || n)) llvIni();
+  game.llv.w = n;
+  if (!game.llv.on) llvSoltar();
+}
+function llvSoltar() {
+  const L = game.llv; if (!L || L.on || !world.llvSpots || !world.llvSpots.length) return;
+  const rest = L.opts.map(o => o.k).filter(k => !L.got[k]); if (!rest.length) return;
+  const ps = llvJugadores(), all = world.llvSpots.map((s, i) => ({ i, d: Math.min(...ps.map(p => Math.hypot(p.x - s.x, p.z - s.z))) }));
+  const lejos = all.filter(s => s.d > 32 && s.i !== L.ult);
+  llvPoner(pick(rest), pick(lejos.length ? lejos : all).i);
+}
+function llvPoner(k, i) {
+  const L = game.llv; L.on = { k, i }; L.ult = i;
+  if (Net.host) Net.ev(['llv', 'on', k, i]);
+  llvMalla();
+  const S = world.llvSpots[i];
+  Sfx.bell(); banner(`Llave ${LLV_NOM[k]}`, `Apareció ${S ? S.zona : 'en el mapa'}. ¡Búsquenla!`, 3200, 'key');
+  feed(`Hay una llave ${LLV_NOM[k]} ${S ? S.zona : ''}`, 'gold'); llvHud();
+}
+function llvTomar(k, quien) {
+  const L = game.llv; if (!L || !L.on || L.on.k !== k) return;
+  L.got[k] = 1; L.on = null; llvMalla();
+  if (Net.host) Net.ev(['llv', 'got', k, quien]);
+  llvAviso(k, quien);
+  if (game.phase === 'fight' && Math.random() < LLV.otra) setTimeout(() => { if (game && world.llaves && game.llv && !game.llv.on && game.phase === 'fight') llvSoltar(); }, rand(2500, 6000));
+}
+function llvAviso(k, quien) {
+  Sfx.cash(); const yo = !quien || quien === myNick();
+  banner(`¡Llave ${LLV_NOM[k]}!`, yo ? 'La puerta de ese color ya se abrirá' : `${quien} la encontró`, 2600, 'key');
+  feed(`${yo ? 'Tienes' : quien + ' encontró'} la llave ${LLV_NOM[k]}`, 'gold'); llvHud();
+}
+function llvRed(p, e) {
+  if (!game) return; const t = e[1];
+  if (t === 'tk') { if (Net.host && game.llv && game.llv.on && game.llv.on.k === e[2]) llvTomar(e[2], p.name || 'Un compañero'); return; }
+  if (Net.host) return;
+  if (t === 'ini') { game.llv = { opts: e[2], got: {}, on: null, w: game.wave }; llvHud(); }
+  else if (t === 'on') { if (!game.llv) return; game.llv.on = { k: e[2], i: e[3] }; llvMalla(); const S = world.llvSpots && world.llvSpots[e[3]]; Sfx.bell(); banner(`Llave ${LLV_NOM[e[2]]}`, `Apareció ${S ? S.zona : 'en el mapa'}. ¡Búsquenla!`, 3200, 'key'); llvHud(); }
+  else if (t === 'got') { if (!game.llv) return; game.llv.got[e[2]] = 1; game.llv.on = null; game.llv.pend = 0; llvMalla(); llvAviso(e[2], e[3]); }
+}
+// la llave del mapa: grande, de su color, flotando con un brillo y chispas
+function llvMalla() {
+  if (world.llvObj) { world.group && world.group.remove(world.llvObj); world.llvObj = null; }
+  if (!game || !world.llaves || !game.llv || !game.llv.on || !world.llvSpots) return;
+  const S = world.llvSpots[game.llv.on.i]; if (!S) return;
+  const c = llvCol(game.llv.on.k), mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.7 });
+  const g = new THREE.Group(), k = new THREE.Group(); g.position.set(S.x, 0, S.z); g.add(k);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.06, 8, 18), mat); ring.position.y = 0.32; k.add(ring);
+  const sh = new THREE.Mesh(bx(0.08, 0.62, 0.08), mat); sh.position.y = -0.14; k.add(sh);
+  for (const [y, w] of [[-0.4, 0.2], [-0.27, 0.14]]) { const t = new THREE.Mesh(bx(w, 0.07, 0.08), mat); t.position.set(w / 2, y, 0); k.add(t); }
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(2.2, 2.2, 1); k.add(halo);
+  const haz = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 5, 10, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); haz.position.y = 2.5; g.add(haz);
+  k.position.y = 1.0; world.group.add(g); world.llvObj = g; g.userData = { k, halo, haz, col: c };
+}
+// cada cuadro: animación, recoger la llave y el «frío / caliente» del marcador
+let llvHudT = 0;
+function llvStep(dt, t) {
+  if (!game || !world.llaves || !game.llv) return;
+  const L = game.llv; if (L.on && !world.llvObj) llvMalla(); const o = world.llvObj;
+  if (o && L.on) {
+    const u = o.userData; u.k.rotation.y += dt * 2.2; u.k.position.y = 1.0 + Math.sin(t * 2.6) * 0.12; u.halo.material.opacity = 0.6 + Math.sin(t * 5) * 0.2; u.haz.material.opacity = 0.09 + Math.sin(t * 3) * 0.04;
+    if (Math.random() < dt * (FAST() ? 4 : 9)) { const cc = new THREE.Color(u.col); PA.add(o.position.x + rand(-0.4, 0.4), rand(0.6, 1.6), o.position.z + rand(-0.4, 0.4), 0, rand(0.3, 0.8), 0, rand(0.6, 1.1), 0.08, cc.r, cc.g, cc.b, 1, -0.3, 0.4, 0, 0); }
+    if (state === 'play' && !player.down && Math.hypot(player.pos.x - o.position.x, player.pos.z - o.position.z) < LLV.alcance) {
+      if (Net.client) { if (!(L.pend > game.time)) { L.pend = game.time + 1.5; Net.ev(['llv', 'tk', L.on.k]); hint('¡La agarraste! Avisando al grupo…', 1200); } }
+      else llvTomar(L.on.k, Net.on ? myNick() : '');
+    }
+  }
+  if ((llvHudT -= dt) <= 0) { llvHudT = 0.35; llvHud(); }
+}
+function llvHud() {
+  const box = $('#llv'); if (!box) return;
+  const on = !!(game && world.llaves && game.llv && game.llv.opts);
+  box.hidden = !on; if (!on) return;
+  const L = game.llv;
+  let txt = '';
+  if (L.on && world.llvSpots && world.llvSpots[L.on.i]) {
+    const S = world.llvSpots[L.on.i], d = Math.hypot(player.pos.x - S.x, player.pos.z - S.z);
+    txt = `Llave ${LLV_NOM[L.on.k]} ${S.zona} · ${d < 10 ? '¡muy cerca!' : d < 25 ? 'cerca' : d < 50 ? 'lejos' : 'muy lejos'}`;
+  } else txt = L.opts.every(o => L.got[o.k]) ? 'Tienen las tres llaves' : 'Sin llave a la vista';
+  const keys = L.opts.map(o => `<i class="${L.got[o.k] ? 'si' : 'no'}" style="color:${ROUTE_MODS[o.k].col}">${ico('key')}</i>`).join('');
+  const html = `${keys}<span>${txt}</span>`;
+  if (box._h !== html) { box._h = html; box.innerHTML = html; }
+}
+// al vencer al jefe: las puertas que se abren son las de las llaves que tiene el grupo
+function llvSalidas() {
+  if (!game || !world.llaves || !game.llv || !game.llv.opts) return null;
+  return game.llv.opts.filter(o => game.llv.got[o.k]);
+}
+function llvSinLlaves() {
+  show(null); state = 'play'; game.phase = 'exit';
+  Sfx.err(); banner('Sin llaves no hay salida', 'Ninguna puerta se abre. La horda los rodea…', 3400, 'skull');
+  setTimeout(() => { if (game) { game.sinLlave = true; gameOver(); } }, 3000);
 }
 
 // DESC: Algo se mueve entre el maizal. El tractor sigue en marcha, pero el granjero ya no está.
@@ -15807,7 +16443,7 @@ function buildNav() {
     const x = nav.ox + (i + 0.5) * nav.cs, z = nav.oz + (j + 0.5) * nav.cs;
     nav.blk[j * nav.nx + i] = (!insideArena(x, z, 0.35) || pointBlocked(x, z, 0.42)) ? 1 : 0;
   }
-  nav.tx = 1e9;
+  nav.tx = 1e9; nav.maxD = world.big ? 95 : 1e9;
 }
 function hPush(n, k) { let i = nav.hs++; const N = nav.hN, K = nav.hK; while (i > 0) { const p = (i - 1) >> 1; if (K[p] <= k) break; N[i] = N[p]; K[i] = K[p]; i = p; } N[i] = n; K[i] = k; }
 let hPopK = 0;
@@ -15825,7 +16461,7 @@ function computeFlow(tx, tz) {
   if (blk[s]) { let best = -1, bd = 1e9; const si = s % nx, sj = (s / nx) | 0; for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) { const i = si + di, j = sj + dj; if (i < 0 || j < 0 || i >= nx || j >= nz) continue; const m = j * nx + i; if (!blk[m] && di * di + dj * dj < bd) { bd = di * di + dj * dj; best = m; } } if (best < 0) return; s = best; }
   dist[s] = 0; hPush(s, 0);
   while (nav.hs > 0) {
-    const n = hPop(), k = hPopK; if (k > dist[n]) continue;
+    const n = hPop(), k = hPopK; if (k > dist[n]) continue; if (k > nav.maxD) break;
     const i = n % nx, j = (n / nx) | 0;
     for (const [di, dj, c] of DIRS) {
       const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
@@ -16665,6 +17301,11 @@ function conjurar(z, dt) {
   Sfx.groan(panOf(p), volOf(p, 0.8), 0.5); feed('El Conjurador levanta a los muertos', 'red');
 }
 function spawnPoint(far) {
+  if (world.big && typeof llvJugadores === 'function') {
+    // mapa grande: lejos de todos, pero a no más de ~30 m de alguno, para que la horda llegue
+    const ps = llvJugadores(), near = world.spawns.filter(g => { let mn = 1e9; for (const p of ps) mn = Math.min(mn, Math.hypot(g.x - p.x, g.z - p.z)); return mn > far && mn < far + 30; });
+    if (near.length) { const g = pick(near); return { x: g.x + rand(-0.4, 0.4), z: g.z + rand(-0.4, 0.4), rise: g.rise }; }
+  }
   const opts = world.spawns.filter(g => Math.hypot(g.x - player.pos.x, g.z - player.pos.z) > far);
   const g = opts.length ? pick(opts) : pick(world.spawns);
   return { x: g.x + rand(-0.4, 0.4), z: g.z + rand(-0.4, 0.4), rise: g.rise };
@@ -17175,7 +17816,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
+const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -17242,6 +17883,7 @@ function waveStartLocal(n) {
 function startWave(n) {
   if (tuto) { game.wave = n; game.phase = 'tuto'; game.toSpawn = 0; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0; return; }
   game.wave = n; game.toSpawn = Math.round(waveCount(n) * DF().n * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
+  if (world.llaves && !Net.client) llvOleada(n);
   let sub;
   if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
@@ -17321,7 +17963,7 @@ function saveBest() { const best = store.get('sbB_best', null), isRec = !best ||
 function gameOver() {
   if (tuto) { toMenu(); return; }
   checkUnlocks();
-  $('#over .title').textContent = game && game.outAmmo ? 'Te quedaste sin balas' : 'Te comieron';
+  $('#over .title').textContent = game && game.sinLlave ? 'Sin llaves no hay salida' : game && game.outAmmo ? 'Te quedaste sin balas' : 'Te comieron';
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock();
   store.set(SAVE_KEY, null);
   if (Net.on) setTimeout(netLeave, 600);
@@ -21131,7 +21773,7 @@ function updateScale() {
   P.mat.uniforms.scale.value = projScale; PA.mat.uniforms.scale.value = projScale;
 }
 let flowT = 0;
-function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx - nav.tx, tz - nav.tz) > 1.2) { nav.dist = nav.mainDist; computeFlow(tx, tz); flowT = 0.4; } }
+function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx - nav.tx, tz - nav.tz) > (world.big ? 2.4 : 1.2)) { nav.dist = nav.mainDist; computeFlow(tx, tz); flowT = world.big ? 0.6 : 0.4; } }
 function updatePlay(dt) {
   grabStep(dt);
   if (game.deOn) { game.de -= dt * 22 / (1 + 0.35 * lv('cold')) / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
@@ -21506,8 +22148,10 @@ function roomDoor(x, z, ry, col, css, txt, sub, open) {
 // Tras vencer al jefe aparecen ahí mismo tres puertas de color: cada una lleva a otro lugar
 function openExitDoors() {
   if (player.down) revive();
+  const conLlave = llvSalidas();
+  if (conLlave && !conLlave.length) { llvSinLlaves(); return; }
   show(null); state = 'play'; game.phase = 'exit'; game.routeWave = game.wave;
-  const opts = routeOptions(), objs = [];
+  const opts = conLlave || routeOptions(), objs = [];
   const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   // sitios libres, alcanzables caminando y separados entre sí; primero delante del jugador, luego alrededor
   const spots = [], ok = (x, z) => insideArena(x, z, 2) && !pointBlocked(x, z, 1.7) && nav.mainDist[cellOf(x, z)] < 1e9 && spots.every(p => Math.hypot(p.x - x, p.z - z) >= 3.8);
@@ -22606,6 +23250,9 @@ function netEvent(p, e) {
   else if (t === 'revp') { if (e[1] === Net.id && player.down && game && game.downT > 0) { game.revP = e[2]; if (e[2] > 0) hint(`${p.name} te está levantando… ${e[2]} %`, 700); } }
   else if (t === 'up') { p.down = false; p.rv = false; }
   if (t === 'rev' || t === 'revp' || t === 'up') return;
+  // habilidades y llaves: los dos lados las escuchan (el anfitrión también recibe las de los invitados)
+  if (t === 'ab') { if (game) habRed(p, e); return; }
+  if (t === 'llv') { llvRed(p, e); return; }
   if (Net.host) {
     if (t === 'd') applyRemoteDamage(p.id, e);
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
@@ -22622,7 +23269,7 @@ function netEvent(p, e) {
   }
   if (!Net.client || !game) return;
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
-  if (t === 'ab') { habRed(p, e); return; }
+
   if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
