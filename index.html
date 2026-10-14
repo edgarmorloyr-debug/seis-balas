@@ -16408,7 +16408,12 @@ const ZDEF = {
   abom: { name: 'Abominación', hp: 1000, speed: [1.05, 1.15], dmg: 40, reach: 2.9, scale: 2.35, pts: 3000, eye: 0xff2a00, drop: 1, gold: 5, big: true, skin: [0x6a5048, 0x705a4a] },
   axer: { name: 'Hachero', hp: 95, speed: [1.5, 1.9], dmg: 12, reach: 1.25, scale: 1.05, pts: 220, eye: 0xffa040, drop: 0.2, gold: 2, skin: [0x6f7a5a, 0x7a8462] },
   knight: { name: 'Caballero', turn: 1.15, hp: 9999, speed: [1.05, 1.3], dmg: 22, reach: 1.45, scale: 1.12, pts: 500, eye: 0xff3030, drop: 0.6, gold: 6, skin: [0x6a7058, 0x5f6b55] },
-  saw: { name: 'Motosierra', hp: 380, speed: [1.2, 1.4], dmg: 36, reach: 1.75, scale: 1.3, pts: 450, eye: 0xff5020, drop: 0.45, gold: 4, big: true, skin: [0x6a7a58, 0x5f6e50, 0x748060] }
+  saw: { name: 'Motosierra', hp: 380, speed: [1.2, 1.4], dmg: 36, reach: 1.75, scale: 1.3, pts: 450, eye: 0xff5020, drop: 0.45, gold: 4, big: true, skin: [0x6a7a58, 0x5f6e50, 0x748060] },
+  caballero: { name: 'Caballero zombi', hp: 170, speed: [1.3, 1.7], dmg: 15, reach: 1.35, scale: 1.05, pts: 300, eye: 0xff5020, drop: 0.25, gold: 3, skin: [0x6a7058, 0x5f6b55, 0x748060] },
+  conjurador: { name: 'Conjurador', hp: 300, speed: [0.95, 1.15], dmg: 14, reach: 1.3, scale: 1.12, pts: 500, eye: 0xff2a00, drop: 0.5, gold: 6, skin: [0x8a2420, 0x7a1e1a] },
+  esqueleto: { name: 'Esqueleto', hp: 45, speed: [2.0, 2.6], dmg: 8, reach: 1.2, scale: 0.95, pts: 60, eye: 0x40c0ff, drop: 0.02, gold: 0, skin: [0xd8d0b8] },
+  oro: { name: 'Zombi de oro', hp: 160, speed: [1.7, 2.1], dmg: 10, reach: 1.25, scale: 1, pts: 1000, eye: 0xffffff, drop: 1, gold: 50, skin: [0xd8a838] },
+  enfermera: { name: 'Enfermera cuchillos', hp: 115, speed: [2.0, 2.5], dmg: 13, reach: 1.4, scale: 1, pts: 280, eye: 0xff3060, drop: 0.2, gold: 2, skin: [0xc8c0b0, 0xb8b0a0] }
 };
 const eyeMats = {}; Object.keys(ZDEF).forEach(k => eyeMats[k] = new THREE.MeshBasicMaterial({ color: ZDEF[k].eye }));
 const bellyMat = new THREE.MeshLambertMaterial({ color: 0x6fae2a, emissive: 0x2a5a08 });
@@ -16592,7 +16597,72 @@ function buildZombie(type) {
     const e2 = new THREE.Mesh(ZG.eye, eyeMats.abom); e2.position.set(0, 0.03, 0.151); h2.add(e2);
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
+  if (ZNUEVO[type]) ZNUEVO[type](z, mk);
   return z;
+}
+/* ===== Zombis nuevos: caballeros con variantes, conjurador, esqueletos, zombi de oro y enfermera ===== */
+// probabilidades de cada variante del caballero (se suman a 1 dentro de cada grupo)
+const CAB_ARMA = [['nada', 0.8], ['hacha', 0.1], ['espada', 0.1]];
+const CAB_ARMADURA = [['escudo y casco', 0.25], ['casco', 0.25], ['escudo', 0.2], ['nada', 0.3]];
+const ZN = { orop: 0.01, conjurarCada: 10, conjurarN: 2, conjurarMax: 6, escudoHp: 260, cascoHp: 160, armaDano: 6 };
+const swordG = { hoja: new THREE.BoxGeometry(0.035, 0.75, 0.09), guarda: new THREE.BoxGeometry(0.05, 0.05, 0.3), mango: new THREE.CylinderGeometry(0.025, 0.025, 0.18, 6) };
+const shieldG = new THREE.CylinderGeometry(0.34, 0.34, 0.05, 16), knifeG = new THREE.BoxGeometry(0.02, 0.32, 0.05), hornG = new THREE.ConeGeometry(0.05, 0.22, 6);
+const steelM = new THREE.MeshPhongMaterial({ color: 0xb8bcc4, specular: 0xffffff, shininess: 90 }), shieldM = new THREE.MeshPhongMaterial({ color: 0x6a4a2a, specular: 0x332211, shininess: 20 }), shieldRim = new THREE.MeshPhongMaterial({ color: 0x9aa0aa, specular: 0xffffff, shininess: 80 });
+const robeM = new THREE.MeshLambertMaterial({ color: 0x2a0a2a, emissive: 0x100010 }), boneM = new THREE.MeshLambertMaterial({ color: 0xe0d8c0 });
+const goldZM = new THREE.MeshPhongMaterial({ color: 0xd8a838, specular: 0xfff0b0, shininess: 120, emissive: 0x3a2804 });
+// tirada que da lo mismo en el anfitrión y en los compañeros (depende del número del zombi)
+const tirada = (id, sal) => { let h = Math.imul((id | 0) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(sal + 1, 0xc2b2ae35); h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15; return (h >>> 0) / 4294967296; };
+const sortear = (tabla, r) => { for (const [k, p] of tabla) { if ((r -= p) < 0) return k; } return tabla[tabla.length - 1][0]; };
+function armarCaballero(z) {
+  for (const m of z.cabPiezas || []) { m.parent && m.parent.remove(m); dropHit(z, m); }
+  z.cabPiezas = []; z.helmet = null; z.shield = null; z.helmetHp = 0; z.shieldHp = 0;
+  const arma = sortear(CAB_ARMA, tirada(z.id, 1)), arm = sortear(CAB_ARMADURA, tirada(z.id, 2));
+  const reg = (m, part) => { m.userData = { zombie: z, part }; z.hits.push(m); z.cabPiezas.push(m); return m; };
+  if (arm.includes('casco')) { const h = new THREE.Mesh(ZG.helmet, knightMat); h.position.set(0, 0.03, 0); z.head.add(h); reg(h, 'helmet'); z.helmet = h; z.helmetHp = ZN.cascoHp; const vi = new THREE.Mesh(ZG.visor, visorMat); vi.position.set(0, 0, 0.19); h.add(vi); const pl = new THREE.Mesh(KG.plume, plumeMat); pl.position.set(0, 0.2, -0.04); h.add(pl); }
+  if (arm.includes('escudo')) { const sh = new THREE.Mesh(shieldG, shieldM); sh.rotation.set(0, 0, 0); sh.position.set(-0.1, -0.5, 0.04); z.armL.add(sh); reg(sh, 'shield'); z.shield = sh; z.shieldHp = ZN.escudoHp; const rim = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.025, 6, 20), shieldRim); rim.rotation.x = Math.PI / 2; sh.add(rim); z.cabPiezas.push(rim); }
+  if (arma === 'hacha') { const a = axeModel(); a.position.set(0, -0.62, 0.08); a.rotation.x = -1.2; z.armR.add(a); z.cabPiezas.push(a); }
+  if (arma === 'espada') { const g = new THREE.Group(); const hj = new THREE.Mesh(swordG.hoja, steelM); hj.position.y = 0.42; g.add(hj); const gu = new THREE.Mesh(swordG.guarda, steelM); g.add(gu); const mg = new THREE.Mesh(swordG.mango, plumeMat); mg.position.y = -0.1; g.add(mg); g.position.set(0, -0.66, 0.06); g.rotation.x = -1.3; z.armR.add(g); z.cabPiezas.push(g); }
+  z.cabArma = arma; z.cabArmadura = arm; z.dmgExtra = arma === 'nada' ? 0 : ZN.armaDano;
+}
+const ZNUEVO = {
+  caballero(z, mk) {
+    z.mats[1].color.setHex(0x5a5e66); z.mats[2].color.setHex(0x3a3a40);
+    mk(KG.chest, knightMat, 'vest', z.torso, 0, 0.12, 0.165); mk(KG.back, knightMat, 'vest', z.torso, 0, 0.05, -0.165);
+    for (const sx of [-0.3, 0.3]) mk(KG.pauldron, knightMat, 'vest', z.torso, sx, 0.26, 0);
+    armarCaballero(z);
+  },
+  conjurador(z) {
+    z.mats[1].color.setHex(0x2a0a2a); z.mats[2].color.setHex(0x1a061a); z.mats[1].map = null; z.mats[2].map = null;
+    for (const sx of [-1, 1]) { const h = new THREE.Mesh(hornG, boneM); h.position.set(sx * 0.1, 0.24, 0.02); h.rotation.z = -sx * 0.5; z.head.add(h); }
+    const capa = new THREE.Mesh(LG.cone(0.5, 1.1), robeM); capa.position.set(0, 0.45, 0); z.body.add(capa);
+    for (const a of [z.armL, z.armR]) { const orb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xc040ff })); orb.position.set(0, -0.72, 0.02); a.add(orb); }
+    z.conjT = ZN.conjurarCada * 0.6; z.conjHijos = [];
+  },
+  esqueleto(z) {
+    for (const m of z.mats) { m.color.setHex(0xe0d8c0); m.map = null; }
+    z.torso.scale.set(0.62, 1, 0.55); z.armL.scale.set(0.55, 1, 0.55); z.armR.scale.set(0.55, 1, 0.55); z.legL.scale.set(0.6, 1, 0.6); z.legR.scale.set(0.6, 1, 0.6);
+    for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(ZG.rib, ribMat); r.position.set(0, 0.25 - i * 0.09, 0.1); r.scale.set(1.6, 1, 1); z.torso.add(r); }
+  },
+  oro(z) { for (let i = 0; i < z.mats.length; i++) { z.mats[i].dispose(); } z.mats = [goldZM.clone(), goldZM.clone(), goldZM.clone()]; z.body.traverse(o => { if (o.isMesh && o.material && o.material !== mouthMat && !(o.material.isMeshBasicMaterial)) o.material = z.mats[0]; }); },
+  enfermera(z) {
+    z.mats[1].map = null; z.mats[2].map = null; z.mats[1].needsUpdate = z.mats[2].needsUpdate = true;
+    try { LOOKS['Enfermera'](z); } catch (e) { }
+    for (const a of [z.armL, z.armR]) for (const dx of [-0.03, 0, 0.03]) { const k = new THREE.Mesh(knifeG, steelM); k.position.set(dx, -0.86, 0.04); a.add(k); }
+  }
+};
+// el conjurador levanta esqueletos cada cierto tiempo (solo lo decide el anfitrión)
+function conjurar(z, dt) {
+  z.conjT -= dt; if (z.conjT > 0) return;
+  z.conjT = ZN.conjurarCada;
+  z.conjHijos = (z.conjHijos || []).filter(h => !h.dead);
+  const n = Math.min(ZN.conjurarN, ZN.conjurarMax - z.conjHijos.length); if (n <= 0) return;
+  const p = z.root.position;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, x = p.x + Math.cos(a) * 2, zz = p.z + Math.sin(a) * 2;
+    const e = spawnZombie('esqueleto', x, zz, game.wave, true); game.alive++; z.conjHijos.push(e);
+    for (let k = 0; k < 14; k++) PA.add(x, 0.3, zz, rand(-1, 1), rand(1, 3), rand(-1, 1), rand(0.4, 0.9), 0.08, 0.7, 0.2, 1, 1, -1, 0.5, 0, 0);
+  }
+  Sfx.groan(panOf(p), volOf(p, 0.8), 0.5); feed('El Conjurador levanta a los muertos', 'red');
 }
 function spawnPoint(far) {
   const opts = world.spawns.filter(g => Math.hypot(g.x - player.pos.x, g.z - player.pos.z) > far);
@@ -16604,7 +16674,7 @@ function spawnZombie(type, x, zz, wave, rise = true) {
   z.maxHp = z.hp = d.hp * (game && state !== 'menu' ? waveHp(game.wave) : 1);
   z.speed = rand(d.speed[0], d.speed[1]) * (1 + Math.min(0.35, (w - 1) * 0.02));
   z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || 1);
-  z.dmg = d.dmg * (1 + (w - 1) * 0.04);
+  z.dmg = (d.dmg + (z.dmgExtra || 0)) * (1 + (w - 1) * 0.04);
   if (game && state !== 'menu' && !tuto) { const D_ = DF(); z.maxHp = z.hp = z.maxHp * D_.hp; z.dmg *= D_.dmg; z.speed *= D_.spd; }
   z.r = d.quad ? 0.32 : 0.33 * z.s;
   z.yaw = rand(0, TAU); z.phase = rand(0, TAU);
@@ -17200,11 +17270,14 @@ function chooseType(n) {
   if (game.waveMod && game.waveMod.only) return pick(game.waveMod.only);
   const mx = k => world.mix[k] || 1;
   // desde la primera oleada: corredores y que se arrastran; y un 5 % de motosierras antes de que salgan solas
+  if (Math.random() < ZN.orop) return 'oro'; // 1 de cada 100: el zombi de oro
   if (n < 6 && Math.random() < 0.05) return 'saw';
+  if (n < 7 && !Net.on && Math.random() < 0.04) return 'knight';
   const w = [['walker', 10], ['crawler', (2 + n * 0.25) * mx('crawler')], ['runner', (2.5 + n * 0.4) * mx('runner')],
     ['dog', n >= 4 ? (1.5 + n * 0.25) * mx('dog') : 0], ['spitter', n >= 5 ? (1 + n * 0.22) * mx('spitter') : 0], ['screamer', n >= 6 ? (0.7 + n * 0.1) * mx('screamer') : 0],
     ['copz', world.mix.copz && n >= 3 ? world.mix.copz * (1 + n * 0.05) : 0], ['armored', n >= 8 ? (1 + n * 0.2) * mx('armored') : 0],
-    ['axer', n >= 5 ? (0.8 + n * 0.15) * mx('axer') : 0], ['knight', n >= 7 && !Net.on ? 0.5 + n * 0.06 : 0], ['saw', n >= 6 ? (0.5 + n * 0.08) * mx('saw') : 0],
+    ['axer', n >= 5 ? (0.8 + n * 0.15) * mx('axer') : 0], ['knight', n >= 6 && !Net.on ? (0.5 + n * 0.08) * mx('saw') : 0], ['saw', n >= 6 ? (0.5 + n * 0.08) * mx('saw') : 0],
+    ['caballero', n >= 4 ? (0.8 + n * 0.12) * mx('caballero') : 0], ['enfermera', n >= 3 ? (0.9 + n * 0.12) * mx('enfermera') : 0], ['conjurador', n >= 8 ? (0.3 + n * 0.04) * mx('conjurador') : 0],
     ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0]];
   let tot = 0; w.forEach(x => tot += x[1]); let r = Math.random() * tot;
   for (const [k, v] of w) { if ((r -= v) < 0) return k; }
@@ -17841,6 +17914,11 @@ function damageZombie(z, amount, info) {
     if (z.helmetHp <= 0) { const hm = z.helmet; z.helmet = null; dropHit(z, hm); detach(hm, new THREE.Vector3((info.dir ? info.dir.x : 0) * 4, rand(3, 5), (info.dir ? info.dir.z : 0) * 4)); if (!info.ally) feed('¡Casco fuera!', 'blue'); }
     info.part = 'body';
   } else if (info.part === 'vest') { armorHit = true; amount *= 0.5; if (info.point) sparks(info.point, 4, null); if (!info.ally) Sfx.clang(pan); info.part = 'body'; }
+  else if (info.part === 'shield' && z.shield) {
+    armorHit = true; z.shieldHp -= amount; amount *= 0.08; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan);
+    if (z.shieldHp <= 0) { const sh = z.shield; z.shield = null; dropHit(z, sh); detach(sh, new THREE.Vector3((info.dir ? info.dir.x : 0) * 3, rand(2, 4), (info.dir ? info.dir.z : 0) * 3)); if (!info.ally) feed('¡Escudo roto!', 'blue'); }
+    info.part = 'body';
+  }
   if (info.bullet && !info.ally && lv('execute') && z.type !== 'abom' && z.boss == null && z.hp - amount < z.maxHp * 0.1 * lv('execute')) amount = z.hp + 1;
   z.hp -= amount; z.flash = 0.1;
   const head = info.part === 'head';
@@ -17920,6 +17998,7 @@ function killZombie(z, info) {
   if (Math.random() < 0.4 * Math.max(0.1, 1 + S('ammoC') / 100) * (1 + S('luck') / 200) * (game.char === 'johnny' ? 1.3 : 1)) makePickup('ammo', p.x + rand(-0.7, 0.7), p.z + rand(-0.7, 0.7), (2 + Math.floor(Math.random() * 2) + Math.floor(zoneOf(game.wave) / 3)) * (z.def.big ? 2 : 1) + (S('ammoN') | 0));
 }
 function creditKill(def, head, ally, weapon) {
+  if (def === ZDEF.oro && !ally) { banner('¡Zombi de oro!', `+${def.gold} $`, 2400, 'coins'); Sfx.win(); Sfx.cash(); }
   const hb = head && !ally ? (def.big ? 3 : 1) + lv('bounty') : 0;
   addGold(Math.round((def.gold + hb) * (dareOn() && !ally ? 1.5 : 1)));
   if (!ally && !tuto) { META.st.kills++; if (def.human) META.st.bandits = (META.st.bandits | 0) + 1; }
@@ -20601,6 +20680,7 @@ function updateZombies(dt, canAttack) {
       if (z.spitCd <= 0 && dist < 24 && dist > 4 && canAttack && !(z.charm > 0) && (z.los || z.tk === 'c')) { z.spitAnim = 0.45; z.spitCd = rand(2.6, 4.2); }
       if (z.spitAnim > 0) { z.spitAnim -= dt; spd *= 0.1; if (z.spitAnim <= 0) { if (z.type === 'axer') throwAxe(z); else spit(z); } }
     }
+    if (z.type === 'conjurador' && canAttack && game.phase === 'fight') conjurar(z, dt);
     if (z.type === 'bandit' && z.tk !== 'e') {
       if (direct || z.los) {
         if (dist < 6) { mx = -mx; mz = -mz; spd *= 0.7; }
@@ -20659,7 +20739,7 @@ function updateZombies(dt, canAttack) {
       }
     } else if (dist < reach) {
       spd = 0;
-      if (z.atkCd <= 0 && canAttack && !(z.charm > 0 && z.tk !== 'z') && !(z.def.turn && z.kOff > 0.6)) { z.windup = z.type === 'abom' ? 0.95 : z.boss != null ? 0.75 : z.type === 'brute' ? 0.65 : z.type === 'saw' ? 0.55 : 0.42; z.wupMax = z.windup; if (Math.random() < 0.5) Sfx.groan(panOf(pos), volOf(pos, 0.5), z.def.big ? 0.55 : 1.1); }
+      if (z.atkCd <= 0 && canAttack && !(z.charm > 0 && z.tk !== 'z') && !(z.def.turn && z.kOff > 0.6)) { z.windup = z.type === 'abom' ? 0.95 : z.boss != null ? 0.75 : z.type === 'brute' ? 0.65 : z.type === 'saw' ? 0.55 : z.type === 'enfermera' ? 0.26 : 0.42; z.wupMax = z.windup; if (Math.random() < 0.5) Sfx.groan(panOf(pos), volOf(pos, 0.5), z.def.big ? 0.55 : 1.1); }
     }
     z.atkCd -= dt; if (z.swing > 0) z.swing -= dt;
     for (const o of zombies) {
@@ -22640,6 +22720,7 @@ function applySnapshot(s) {
     if (!z) {
       if (a[6] & 1) continue;
       z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4];
+      if (z.type === 'caballero') armarCaballero(z);
       if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); }
       if (a[10] >= 0) makeElite(z, ELITE_KEYS[a[10]], true);
       if (a[11] >= 0) applyMini(z, a[11], true);
@@ -22679,6 +22760,7 @@ function clientDamage(z, amount, info) {
   let a = amount;
   if (info.part === 'helmet' && z.helmet) { a *= 0.12; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   else if (info.part === 'vest') a *= 0.5;
+  else if (info.part === 'shield' && z.shield) { a *= 0.08; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   if (z.mark > 0) a *= 1.5;
   z.flash = 0.1;
   if (info.bullet && info.point) { bloodBurst(info.point, info.dir || _up, head ? 16 : 9, head); Sfx.hit(head, pan); }
