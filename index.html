@@ -17066,6 +17066,7 @@ function saveGame() {
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
+  Net.waiting = false;
   player.grab = null; { const gb = document.getElementById('grab'); if (gb) gb.hidden = true; }
   if (!sv && !tuto) META.st.runs = (META.st.runs | 0) + 1;
   clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
@@ -20173,7 +20174,12 @@ function renderChips() {
 // Red de seguridad: si el juego cree que hay una ventana abierta (tienda, taller, inventario…) pero no se ve ninguna, te devuelve al juego
 const WIN_STATES = ['shop', 'items', 'inv', 'cards', 'event', 'relic', 'doors', 'route', 'perks', 'rescue'];
 let stuckT = 0;
+const WIN_IDS = ['shop', 'items-s', 'inv-s', 'cards-s', 'event-s', 'relic-s', 'doors-s', 'perks', 'rescue-s'];
+let ghostT = 0;
 function unstick() {
+  // al revés: se ve una ventana, pero el juego ya está jugando y sus botones no responden
+  const ghost = game && state === 'play' && WIN_IDS.find(id => { const e = document.getElementById(id); return e && !e.hidden; });
+  if (ghost) { const now = performance.now(); if (!ghostT) ghostT = now; else if (now - ghostT > 1500) { ghostT = 0; store.set('sb_stuck', { was: 'ventana ' + ghost + ' sin control', ph: game.phase, net: Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo', trail: showTrail.join(' > '), b: GAME_BUILD, t: Date.now() }); show(null); if (world.idx === ROOM_IDX && game.phase === 'room') backToRoom(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600); } } else ghostT = 0;
   if (!game || !WIN_STATES.includes(state) || document.querySelector('.overlay:not([hidden])')) { stuckT = 0; return; }
   const now = performance.now(); if (!stuckT) { stuckT = now; return; } if (now - stuckT < 1500) return;
   stuckT = 0; const was = state; state = 'play';
@@ -21867,7 +21873,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 43';
+const GAME_BUILD = '14-oct-2026 · 44';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22379,6 +22385,7 @@ function netFlows(dt) {
 }
 function allPeersReady() { for (const p of Net.peers.values()) if (p.ready !== game.wave) return false; return true; }
 function netHostStep() {
+  if (Net.waiting && game && game.phase !== 'wait') Net.waiting = false;   // solo espera quien ya salió por la puerta
   if (Net.waiting && allPeersReady()) hostProceed();
   if (player.down && [...Net.peers.values()].every(p => p.down)) { Net.ev(['over']); Net.flush(); gameOver(); }
 }
@@ -23526,7 +23533,7 @@ $('#fuse-a').addEventListener('change', fusePreview); $('#fuse-b').addEventListe
 $('#btn-fuse').addEventListener('click', () => { if (doFuse($('#fuse-a').value, $('#fuse-b').value)) renderInv(); });
 $('#btn-cards-go').addEventListener('click', () => { if (state === 'cards') continueAfter(); });
 $('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && !game.cardDone) continueAfter(); });
-$('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } });
+$('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } else if (!$('#shop').hidden) { show(null); if (game && world.idx === ROOM_IDX && game.phase !== 'wait') backToRoom(); else { state = 'play'; requestLock(); canvas.focus(); } } });
 for (const id of ['#box-grid', '#box-list']) { const e_ = $(id); e_.addEventListener('click', boxPick); e_.addEventListener('mouseover', boxPick); e_.addEventListener('mouseleave', () => boxInfo(game && game.boxSel)); }
 document.querySelectorAll('.sh-tab').forEach(b => b.addEventListener('click', () => { if (!game) return; game.shopOpen = null; shopTab(b.dataset.t); Sfx.holster(); }));
 $('#btn-reroll').addEventListener('click', () => { if (state !== 'shop' || game.gold < game.reroll) return; game.gold -= game.reroll; game.reroll += 3; rollOffers(); Sfx.dice(); renderShop(); });
