@@ -16107,6 +16107,7 @@ Object.assign(GM, {
   chrome: std({ color: 0xd2d4da, metalness: 1, roughness: 0.14 }),
   black: std({ color: 0x1b1c20, metalness: 0.6, roughness: 0.55 }),
   stain: std({ color: 0xa6aab2, metalness: 1, roughness: 0.38 }),
+  polish: std({ color: 0xf2f4f8, metalness: 0.55, roughness: 0.3 }),
   caseH: std({ color: 0xffffff, map: caseTex, metalness: 0.85, roughness: 0.3 }),
   brassF: std({ color: 0x9c7432, metalness: 1, roughness: 0.5, envMapIntensity: 0.7 }),
   rust: std({ color: 0xffffff, map: rustTex, metalness: 0.7, roughness: 0.7 }),
@@ -16166,13 +16167,14 @@ const gunName = id => isG629(id) ? G629_NAME : MODELS[id].name;
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
   while (h.k.children.length) { const c = h.k.children[0]; h.k.remove(c); c.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  const g629 = isG629(id, h), m = MODELS[id], N = m.cap, L = g629 ? 0.4 : m.L, R = g629 ? 0.013 : m.R, mini = id === 'minigun';
+  const g629 = isG629(id, h), m = MODELS[id], N = m.cap, L = g629 ? 0.36 : m.L, R = g629 ? 0.0125 : m.R, mini = id === 'minigun';
   const P_ = (geo, mat, x, y, z, parent = h.k) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); parent.add(o); return o; };
   const LOOK = {
     paci: { frame: GM.caseH, barrel: GM.blue, cyl: GM.blue, grip: GM.wood, trig: GM.brassF },
     corto: { frame: GM.chrome, barrel: GM.chrome, cyl: GM.chrome, grip: GM.ivory, trig: GM.chrome },
     viejo: { frame: GM.brassF, barrel: GM.rust, cyl: GM.rust, grip: GM.woodL, trig: GM.brassF },
     magnum: { frame: GM.stain, barrel: GM.stain, cyl: GM.stain, grip: GM.rubber, trig: GM.stain },
+    g629: { frame: GM.polish, barrel: GM.polish, cyl: GM.polish, grip: GM.woodL, trig: GM.steel },
     minigun: { frame: GM.black, barrel: GM.steel, cyl: GM.blue, grip: GM.rubber, trig: GM.steel },
     uzi: { frame: GM.black, barrel: GM.black, cyl: GM.chrome, grip: GM.rubber, trig: GM.chrome },
     cowboy: { frame: GM.blue, barrel: GM.blue, cyl: GM.steel, grip: GM.ivory, trig: GM.brassF },
@@ -16181,7 +16183,7 @@ function buildGun(h, id) {
     tesla: { frame: GM.brassF, barrel: GM.blue, cyl: GM.brassF, grip: GM.wood, trig: GM.brassF },
     jackpot: { frame: GM.brass, barrel: GM.chrome, cyl: GM.brass, grip: GM.ivory, trig: GM.orange },
     bazuca: { frame: GM.blue, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
-  }[g629 ? 'magnum' : id];
+  }[g629 ? 'g629' : id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
   let spinG = null, muzzleY = 0.03, muzzleZ;
@@ -16205,11 +16207,11 @@ function buildGun(h, id) {
     P_(profileGeo([[0, 0], [-0.004, -0.02], [0.004, -0.026], [0.006, -0.004]], 0.006, 0.0015), LOOK.trig, 0, -0.035, 0.004);
     muzzleY = 0.012; muzzleZ = -0.45;
   } else {
-    const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum' || g629;
+    const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
     // armazón con ventana para el tambor
     const rc = m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
     const fb = Math.min(-0.036, -rc - 0.004), wT = 0.005 + rc + 0.002, wB = 0.005 - rc - 0.002, fT = Math.max(0.058, wT + 0.016);
-    const fw = id === 'escopeta' ? 0.036 : 0.032, top = magnum ? 0.054 : 0.05;
+    const fw = id === 'escopeta' ? 0.036 : 0.032, top = magnum || g629 ? 0.054 : 0.05;
     const frameOut = [[0.078, top - 0.004], [0.075, 0.008], [0.075, fb + 0.006], [0.04, fb], [-0.02, fb], [-0.045, fb + 0.012], [-0.075, -0.012], [-0.08, 0.04], [-0.07, fT], [0.02, fT], [0.045, fT - 0.002], [0.06, 0.05], [0.075, top - 0.002]];
     const wF = -0.036 - cl / 2, wR = -0.034 + cl / 2, frameWin = [[wF, wB], [wF, wT], [wR, wT], [wR, wB]];
     P_(profileGeo(frameOut.map(([z, v]) => [-z, v]), fw, 0.004, [frameWin.map(([z, v]) => [-z, v])]), LOOK.frame, 0, 0, 0);
@@ -16223,6 +16225,11 @@ function buildGun(h, id) {
       for (let i = 0; i < 8; i++) P_(bx(0.016, 0.003, 0.003), GM.black, 0, 0.0525, -0.08 - i * (L - 0.02) / 8);
       P_(bx(0.022, 0.024, L * 0.96), LOOK.barrel, 0, 0.012, -0.07 - L * 0.48);
       P_(bx(0.014, 0.012, 0.016), GM.black, 0, 0.064, 0.04);
+    } else if (g629) {
+      // acero pulido: costilla lisa arriba y funda corta del extractor (no de largo completo como el Magnum)
+      P_(bx(0.01, 0.008, L * 0.97), LOOK.barrel, 0, 0.043, -0.07 - L * 0.485);
+      P_(bx(0.019, 0.022, L * 0.46), LOOK.barrel, 0, 0.012, -0.07 - L * 0.23);
+      rot(P_(cyl(0.0105, 0.0105, 0.012, 14), LOOK.barrel, 0, 0.012, -0.07 - L * 0.46));
     } else if (viejo) {
       P_(bx(0.008, 0.014, L * 0.6), GM.steel, 0, 0.008, -0.07 - L * 0.3);
       P_(bx(0.01, 0.006, 0.05), GM.brassF, 0, 0.0, -0.09);
