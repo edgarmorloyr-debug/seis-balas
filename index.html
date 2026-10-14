@@ -69,6 +69,11 @@ body{font-family:var(--hud);font-size:16px}
 #de>em{position:absolute;left:20%;top:0;bottom:0;width:2px;background:rgba(255,255,255,.28);z-index:0}
 .de-l{z-index:1}
 #de.ready{box-shadow:0 0 10px rgba(255,190,80,.7)}
+#hab{height:9px;margin-top:3px}
+#hab>b{background:linear-gradient(180deg,#d8a8ff,#6a2ab0)}
+#hab.ready{box-shadow:0 0 10px rgba(200,140,255,.8)}
+#hab .de-l{font-size:11px;white-space:nowrap}
+#fx-sombra{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(circle,transparent 35%,rgba(40,0,70,.7));z-index:3}
 #chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .chip{font-size:14px;font-weight:600;letter-spacing:.06em;padding:1px 6px;background:rgba(0,0,0,.5);border:1px solid rgba(214,165,75,.35);color:var(--bone)}
 .chip.gold{color:var(--gold);border-color:var(--gold)}
@@ -228,6 +233,9 @@ body{font-family:var(--hud);font-size:16px}
 #b-fan{right:calc(112px + env(safe-area-inset-right,0px));bottom:calc(116px + env(safe-area-inset-bottom,0px))}
 #b-de{right:calc(192px + env(safe-area-inset-right,0px));bottom:calc(104px + env(safe-area-inset-bottom,0px));width:68px;height:68px;font-size:13px;letter-spacing:0}
 #b-de.ready{border-color:var(--gold);box-shadow:0 0 12px rgba(255,190,80,.6)}
+#b-hab{right:calc(112px + env(safe-area-inset-right,0px));bottom:calc(192px + env(safe-area-inset-bottom,0px));width:68px;height:68px;font-size:12px;letter-spacing:0;line-height:1.05;background:conic-gradient(rgba(170,110,255,.55) var(--p,0%),rgba(20,15,10,.5) 0)}
+#b-hab.ready{border-color:#c88aff;box-shadow:0 0 14px rgba(200,140,255,.8)}
+#b-hab.on{border-color:#fff;background:rgba(170,110,255,.7)}
 #b-swap{right:calc(196px + env(safe-area-inset-right,0px));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
 #istrip{display:flex;align-items:flex-start;gap:6px;margin-top:6px;pointer-events:auto;max-width:min(46vw,440px)}
 .ibtn{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:10px;border:2px solid rgba(214,165,75,.7);background:rgba(20,12,6,.8);color:#ffd060;cursor:pointer}
@@ -668,6 +676,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
           <div class="bar" id="hp"><s></s><b></b><canvas id="ecg" width="300" height="48" aria-hidden="true"></canvas><span id="hp-n">100 / 100</span></div>
           <div class="bar" id="stam"><b></b></div>
           <div class="bar" id="de"><b></b><em></em><span class="de-l"><kbd class="only-desk">Q</kbd></span></div>
+          <div class="bar" id="hab" title="Habilidad de tu personaje"><b></b><span class="de-l only-desk"><span id="hab-n"></span> <kbd>C</kbd></span></div>
         </div>
         <div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div>
       </div>
@@ -714,11 +723,13 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <button class="tb" id="b-fan">Aba&shy;nicar</button>
     <button class="tb" id="b-scope" aria-label="Disparar con mirilla" aria-pressed="false"><svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="16" cy="16" r="10"/><path d="M16 2v8M16 22v8M2 16h8M22 16h8"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/></svg></button>
     <button class="tb" id="b-de">Ojo<br>Muerto</button>
+    <button class="tb" id="b-hab" aria-label="Habilidad del personaje"><span id="b-hab-n">Habi&shy;lidad</span></button>
     <button class="tb" id="b-swap" hidden>Arma</button>
     <button class="tb" id="b-talk" hidden>Hablar</button>
     <button class="tb" id="b-pause" aria-label="Pausa">II</button>
     <button class="tb" id="b-chat" hidden>Chat</button>
   </div>
+  <div id="fx-sombra"></div>
   <div id="grab" class="shake" hidden role="alert"><b>¡Te agarró!</b><span id="grab-k"></span><div class="gbar"><i id="grab-b"></i></div></div>
   <div id="chatlog" aria-live="polite"></div>
   <form id="chatbox" hidden><input id="chat-in" type="text" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Escribe al grupo y pulsa Enter" aria-label="Mensaje al grupo"></form>
@@ -758,6 +769,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <dt><kbd>F</kbd></dt><dd>Abanicar el martillo: vacía el tambor de golpe</dd>
         <dt><kbd>G</kbd></dt><dd>Girar el tambor: tus balas cambian de lugar al azar</dd>
         <dt><kbd>Q</kbd></dt><dd>Ojo Muerto: el tiempo se frena</dd>
+        <dt><kbd>C</kbd></dt><dd>Habilidad propia de tu personaje (se carga matando zombis)</dd>
         <dt><kbd>V</kbd> · <kbd>Y</kbd></dt><dd>En grupo: silenciar el micrófono (o mantener para hablar) · escribir en el chat</dd>
         <dt><kbd>Esc</kbd> · <kbd>M</kbd></dt><dd>Pausa · silenciar</dd>
       </dl>
@@ -17093,7 +17105,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge'];
+const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -17106,7 +17118,7 @@ function newGame(sv, run) {
   if (!sv && !tuto) META.st.runs = (META.st.runs | 0) + 1;
   clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
   game = {
-    wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0,
+    wave: 0, kills: 0, heads: 0, shots: 0, hits: 0, time: 0, de: 40, deOn: false, ts: 1, slowT: 0, hab: 0, habT: 0, sombraT: 0, sombraBono: 0,
     gold: 0, goldTotal: 0, goldT: 0, gold5: 0, perks: {}, toSpawn: 0, spawnT: 0, alive: 0, bossQ: [], phase: 'count', countT: 0, lastKill: -9, multi: 0,
     sixes: 0, powder: 3, nextRescue: 2, rescued: 0, npcLost: 0, waveT: 0, owned: {}, equip: null, dual: false, mag: {}, vest: 0, silver: false, endless: false, copsLost: 0,
     box: [], queue: [], wxp: {}, w: { hurt: false, shots: 0, kills: 0 }, sum: [], offers: [], reroll: 5, lastSpecial: null, allyLv: {}, allyGun: {}, char: run && CHARS[run.char] ? run.char : 'sheriff', skull: run ? run.skull : 0, diff: run && DIFF[run.diff] ? run.diff : 'normal', bossKills: 0, route: [0], zmod: null, items: {}, nextRescue: 1e9
@@ -17321,6 +17333,119 @@ function fan() {
   if (MODELS[game.equip].auto) { hint(`${MODELS[game.equip].name} no se abanica: mantén el gatillo`, 1500); return; }
   gs.fan = totalAmmo(); gs.fanT = 0; gs.aiming = false; if (!tuto) META.st.fans = (META.st.fans | 0) + 1;
 }
+
+/* ===== Habilidad propia de cada personaje (tecla C o botón «Habilidad»): se carga matando zombis ===== */
+const HAB_CARGA = { muerte: 5, cabeza: 8 }; // carga (de 100) por cada zombi y por cada tiro a la cabeza
+const HAB = {
+  sheriff: { k: 'lluvia', name: 'Lluvia de plomo', desc: 'Durante 5 s disparas sin gastar balas.', dur: 5 },
+  francois: { k: 'marcar', name: 'Marcar y disparar', desc: 'Marca hasta 6 cabezas a la vista y les dispara a todas de una vez.', max: 6, alcance: 38, dano: 2.5 },
+  johnny: { k: 'moneda', name: 'Moneda al aire', desc: 'Cara: 12 s de balas doradas (daño doble). Cruz: recarga gratis y +25 % de vida.', oro: 12, cura: 0.25 },
+  armando: { k: 'campana', name: 'Campana fúnebre', desc: 'Pone una campana que atrae a los zombis cercanos durante 6 s.', dur: 6, radio: 26 },
+  lilith: { k: 'sombra', name: 'Sombra', desc: 'Invisible 4 s: los zombis te pierden. Tu primer disparo al salir hace el triple de daño.', dur: 4, bono: 3 },
+  carlos: { k: 'cruzado', name: 'Fuego cruzado', desc: 'Vacía tus revólveres en abanico, de lado a lado, en un segundo.', arco: 1.1, ritmo: 0.07 }
+};
+const _ejeY = new THREE.Vector3(0, 1, 0);
+const habEl = $('#hab'), habB = $('#hab b'), habN = $('#hab-n'), bHab = $('#b-hab'), bHabN = $('#b-hab-n'), fxSombra = $('#fx-sombra');
+const habDe = () => game && HAB[game.char];
+function habHud() {
+  const H = habDe(); if (!H) return;
+  const v = game.habT > 0 ? 100 : (game.hab || 0), lista = v >= 100 && !(game.habT > 0);
+  setStyle(habB, 'hab', 'width', v.toFixed(0) + '%');
+  setText(habN, 'habn', H.name); setText(bHabN, 'bhabn', H.name);
+  bHab.style.setProperty('--p', v.toFixed(0) + '%');
+  if (cache.habr !== lista) { cache.habr = lista; habEl.classList.toggle('ready', lista); bHab.classList.toggle('ready', lista); }
+  const on = game.habT > 0 || !!gs.cruz; if (cache.habon !== on) { cache.habon = on; bHab.classList.toggle('on', on); }
+}
+function usarHab() {
+  const H = habDe();
+  if (!H || state !== 'play' || player.down || tuto) return;
+  if (game.habT > 0 || gs.cruz) return;
+  if ((game.hab || 0) < 100) { hint(`${H.name}: se carga matando zombis (${Math.floor(game.hab || 0)} %)`, 1400); Sfx.err(); return; }
+  game.hab = 0; game.habK = H.k;
+  if (H.k === 'lluvia') { game.habT = H.dur; for (const h of hands) if (h.active) { for (let i = 0; i < h.cap; i++) if (!isLoaded(h.loaded[i])) h.loaded[i] = 'normal'; h.ammo = h.cap; } banner(H.name, '¡5 segundos sin gastar balas!', 1800, 'gun'); Sfx.win(); }
+  else if (H.k === 'marcar') habMarcar(H);
+  else if (H.k === 'moneda') habMoneda(H);
+  else if (H.k === 'campana') { const d = camera.getWorldDirection(new THREE.Vector3()); const x = player.pos.x + d.x * 5, z = player.pos.z + d.z * 5; ponerCampana(x, z, H.dur); if (Net.on) Net.ev(['ab', 'campana', r2(x), r2(z), H.dur]); }
+  else if (H.k === 'sombra') { game.sombraT = H.dur; game.sombraPos = player.pos.clone(); fxSombra.style.opacity = '1'; banner(H.name, 'Los zombis te pierden de vista', 1600, 'skull'); Sfx.whoosh(0); for (const z of zombies) if (z.tk === 'p' && (!z.pid || z.pid === Net.id)) z.tgtT = 0; if (Net.on) Net.ev(['ab', 'sombra', r2(player.pos.x), r2(player.pos.z), H.dur]); }
+  else if (H.k === 'cruzado') { const hs = hands.filter(h => h.active && h.ammo > 0); const n = hs.reduce((s, h) => s + h.ammo, 0); if (!n) { game.hab = 100; hint('Necesitas balas en el tambor', 1400); Sfx.err(); return; } gs.cruz = { n, i: 0, t: 0 }; gs.aiming = false; banner(H.name, '', 1000, 'gun'); }
+  renderChips();
+}
+function habStep(dt) {
+  if (game.habT > 0) { game.habT -= dt; if (game.habT <= 0) { game.habT = 0; if (game.habK === 'lluvia') feed('Se acabó la Lluvia de plomo', 'blue'); } }
+  if (game.sombraT > 0) { game.sombraT -= dt; if (game.sombraT <= 0) finSombra(); }
+  if (game.sombraBono > 0) game.sombraBono -= dt;
+  const c = game.campana;
+  if (c && !c.dead) { c.t -= dt; c.ring -= dt; c.bell.rotation.z = Math.sin(game.time * 9) * 0.35 * Math.min(1, c.t); if (c.ring <= 0) { c.ring = 1.2; Sfx.bell(); } if (c.t <= 0) quitarCampana(); }
+  if (gs.cruz) {
+    const H = HAB.carlos, cz = gs.cruz; cz.t -= dt;
+    while (gs.cruz && cz.t <= 0) {
+      const hs = hands.filter(h => h.active && h.ammo > 0);
+      if (!hs.length || state !== 'play' || player.down) { gs.cruz = null; break; }
+      const h = hs[cz.i % hs.length], k = cz.n > 1 ? cz.i / (cz.n - 1) : 0.5;
+      shoot(h, true, (0.5 - k) * 2 * H.arco); h.fl = 0.05; h.kick = Math.min(1, (h.kick || 0) + 0.6);
+      cz.i++; cz.t += H.ritmo;
+      if (cz.i >= cz.n) gs.cruz = null;
+    }
+  }
+}
+function finSombra() { game.sombraT = 0; game.sombraBono = 3; fxSombra.style.opacity = '0'; for (const z of zombies) z.tgtT = 0; if (Net.on) Net.ev(['ab', 'sombra', 0, 0, 0]); }
+// ¿ese jugador está en la Sombra? (los zombis no le pegan)
+function sombraDe(pid) { if (!game) return false; if (!pid || pid === Net.id) return game.sombraT > 0; const pr = Net.peers.get(pid); return !!(pr && pr.sombraHasta > game.time); }
+function habMarcar(H) {
+  camera.updateMatrixWorld(); const o = camera.getWorldPosition(new THREE.Vector3()), f = camera.getWorldDirection(new THREE.Vector3()), v = new THREE.Vector3();
+  const cand = [];
+  for (const z of zombies) {
+    if (z.dead || z.state === 'rise' || !z.head) continue;
+    z.head.getWorldPosition(v); const d = v.clone().sub(o), dist = d.length(); if (dist > H.alcance) continue;
+    if (d.normalize().dot(f) < 0.62) continue;
+    if (!lineClear(player.pos.x, player.pos.z, z.root.position.x, z.root.position.z, 0.1)) continue;
+    cand.push([dist, z]);
+  }
+  cand.sort((a, b) => a[0] - b[0]);
+  const lista = cand.slice(0, H.max).map(c => c[1]);
+  if (!lista.length) { game.hab = 100; hint('No hay cabezas a la vista', 1400); Sfx.err(); return; }
+  for (const z of lista) z.mark = 0.8;
+  banner(H.name, `${lista.length} ${lista.length === 1 ? 'cabeza marcada' : 'cabezas marcadas'}`, 1200, 'skull'); Sfx.deadeye(true);
+  lista.forEach((z, i) => setTimeout(() => {
+    if (!game || z.dead || !z.head) return;
+    const h = hands[0]; h.muzzle.getWorldPosition(_mp); z.head.getWorldPosition(v);
+    addTracer(_mp, v.clone(), 0xffd040, 2.2); h.fl = 0.05; h.kick = Math.min(1, (h.kick || 0) + 0.5);
+    Sfx.shot(h.model, false, false);
+    damageZombie(z, bulletDmg(h) * H.dano, { part: 'head', dir: v.clone().sub(_mp).normalize(), point: v.clone() });
+    if (i === lista.length - 1) setTimeout(() => Sfx.deadeye(false), 200);
+  }, 380 + i * 130));
+}
+function habMoneda(H) {
+  Sfx.coin(); banner('Moneda al aire…', '', 900, 'coins');
+  const cara = Math.random() < luck(0.5, 1.3);
+  setTimeout(() => {
+    if (!game) return;
+    if (cara) { game.goldT = Math.min(30, game.goldT + H.oro); banner('¡Cara!', `${H.oro} s de balas doradas: daño doble`, 2200, 'coins'); Sfx.win(); }
+    else { for (const h of hands) if (h.active) { for (let i = 0; i < h.cap; i++) if (!isLoaded(h.loaded[i])) h.loaded[i] = 'normal'; h.ammo = h.cap; } player.hp = Math.min(player.maxHp, player.hp + player.maxHp * H.cura); banner('Cruz', 'Recarga gratis y +25 % de vida', 2000, 'heart'); Sfx.cash(); }
+  }, 950);
+}
+const campanaG = { poste: new THREE.CylinderGeometry(0.05, 0.06, 2.2, 8), viga: new THREE.BoxGeometry(0.9, 0.08, 0.08), campana: new THREE.CylinderGeometry(0.12, 0.32, 0.45, 14, 1, true), badajo: new THREE.SphereGeometry(0.07, 8, 6) };
+function ponerCampana(x, z, dur) {
+  if (game.campana) quitarCampana();
+  const root = new THREE.Group(); root.position.set(x, 0, z); scene.add(root);
+  const madera = new THREE.MeshLambertMaterial({ color: 0x4a3020 }), oro = new THREE.MeshPhongMaterial({ color: 0xc89a3a, specular: 0xffe8a0, shininess: 80, side: THREE.DoubleSide });
+  for (const sx of [-0.4, 0.4]) { const m = new THREE.Mesh(campanaG.poste, madera); m.position.set(sx, 1.1, 0); root.add(m); }
+  const vg = new THREE.Mesh(campanaG.viga, madera); vg.position.y = 2.2; root.add(vg);
+  const bell = new THREE.Group(); bell.position.y = 2.15; root.add(bell);
+  const b = new THREE.Mesh(campanaG.campana, oro); b.position.y = -0.25; bell.add(b); const bd = new THREE.Mesh(campanaG.badajo, oro); bd.position.y = -0.48; bell.add(bd);
+  const luz = new THREE.PointLight(0xffc060, 0.9, 6, 2); luz.position.y = 1.6; root.add(luz);
+  game.campana = { root, bell, t: dur, ring: 0, dead: false };
+  for (const zz of zombies) zz.tgtT = 0;
+  banner(HAB.armando.name, 'Los zombis cercanos van hacia la campana', 1800, 'skull');
+}
+function quitarCampana() { const c = game && game.campana; if (!c) return; c.dead = true; scene.remove(c.root); game.campana = null; for (const z of zombies) if (z.tk === 'b') z.tgtT = 0; }
+// lo que llega de un compañero
+function habRed(p, e) {
+  if (!game || state === 'menu') return;
+  if (e[1] === 'campana') ponerCampana(e[2], e[3], e[4]);
+  else if (e[1] === 'sombra') { const pr = Net.peers.get(p.id || p); if (pr) { pr.sombraHasta = e[4] ? game.time + e[4] : 0; pr.sombraPos = { x: e[2], z: e[3] }; } for (const z of zombies) z.tgtT = 0; }
+}
+function habFin() { if (!game) return; if (game.sombraT > 0) finSombra(); game.habT = 0; gs.cruz = null; quitarCampana(); }
 function wlv(id) { const x = (game && game.wxp[id]) || 0; let l = 1; for (let i = 1; i < WLV.length; i++) if (x >= WLV[i]) l = i + 1; return l; }
 function gainXp(id) {
   const before = wlv(id); game.wxp[id] = (game.wxp[id] || 0) + 1; const after = wlv(id);
@@ -17341,7 +17466,7 @@ function freeze(z, t) {
   const p = torsoPos(z); for (let i = 0; i < 12; i++) PA.add(p.x, p.y, p.z, rand(-2, 2), rand(-1, 2), rand(-2, 2), 0.5, 0.06, 0.6, 0.85, 1, 1, 3, 1, 0, 0);
 }
 let lastBulletFeed = -9;
-function shoot(h, fanned) {
+function shoot(h, fanned, yawOff = 0) {
   Music.duck(); h.cocked = false;
   const m = MODELS[h.model], st = 1 - 0.25 * lv('steady');
   let guard = 0;
@@ -17350,6 +17475,7 @@ function shoot(h, fanned) {
   let type = isLoaded(h.loaded[fired]) ? h.loaded[fired] : 'normal';
   if (hasB(type, 'eco')) type = game.lastSpecial || 'normal'; else if (type !== 'normal' && type !== 'mala') game.lastSpecial = type;
   h.loaded[fired] = 2; h.idx = (h.idx + 1) % h.cap; h.ammo--; h.cylTarget += TAU / h.cap;
+  if (game.habK === 'lluvia' && game.habT > 0) { h.loaded[fired] = 'normal'; h.ammo++; } // Lluvia de plomo: la bala vuelve al tambor
   if (sigOn(h.model, 'sinfondo') && Math.random() < 0.25) { h.loaded[fired] = 'normal'; h.ammo++; }
   if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) { h.loaded[fired] = 'normal'; h.ammo++; }
   else if (S('refund') && Math.random() < S('refund') / 100) { game.box.push(type); if (game.time - (game.refT || -9) > 1) { game.refT = game.time; feed('Bala recuperada', 'gold'); } }
@@ -17364,6 +17490,7 @@ function shoot(h, fanned) {
   camera.updateMatrixWorld(); camera.getWorldPosition(_cp);
   const cam = camera.getWorldDirection(new THREE.Vector3());
   _r.setFromMatrixColumn(camera.matrixWorld, 0); _u.setFromMatrixColumn(camera.matrixWorld, 1);
+  if (yawOff) { cam.applyAxisAngle(_ejeY, yawOff); _r.applyAxisAngle(_ejeY, yawOff); _u.applyAxisAngle(_ejeY, yawOff); }
   gs.fovKick = Math.max(gs.fovKick || 0, 1.7 * m.recoil * (1 - gs.aim * 0.5)); player.rollKick = (Math.random() < 0.5 ? -1 : 1) * 0.011 * m.recoil;
   player.recoil += (fanned ? 0.035 : 0.05) * m.recoil * (1 - gs.aim * 0.35) * st * (game.dual ? 0.8 : 1);
   player.yaw += rand(-0.012, 0.012) * st * (fanned ? 2 : 1) * m.recoil;
@@ -17381,6 +17508,7 @@ function shoot(h, fanned) {
   const ctx = { type, h, m, kills: 0, hitZ: false, boomRelic: rl('polvora') && game.shotN % 10 === 0, dmgMul: (rl('herradura') && firstOfDrum ? 3 : 1), first: firstOfDrum, last: h.ammo === 0, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : W_ ? W_.tr : 0xffe2a0) : hexCol(BULLETS[type].col) };
   if (W_) { flashMat.color.setHex(W_.flash); for (const hh of hands) hh.flashLight.color && hh.flashLight.color.setHex(W_.light); player.shake = Math.min(1, player.shake + 0.04 * W_.shake); }
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
+  if (game.sombraT > 0 || game.sombraBono > 0) { ctx.dmgMul *= HAB.lilith.bono; game.sombraBono = 0; if (game.sombraT > 0) finSombra(); feed('Golpe desde la sombra · daño ×3', 'gold'); }
   let pellets = m.pellets ? m.pellets + (h.model === 'escopeta' && wlv('escopeta') >= 3 ? 2 : 0) : 1;
   if (m.jackpot) {
     const r = Math.random();
@@ -17813,6 +17941,7 @@ function creditKill(def, head, ally, weapon) {
     else if (head) feed(`Tiro a la cabeza · +${1 + hb} $`, '');
   } else if (def.big) feed(`Un oficial abatió al ${def.name}`, 'blue');
   game.de = Math.min(100, game.de + (head ? 11 : 6) * ST.deX * (1 + 0.3 * lv('cold')) * (game.char === 'lilith' ? 1.5 : 1));
+  if (!(game.habT > 0)) game.hab = Math.min(100, (game.hab || 0) + (head ? HAB_CARGA.cabeza : HAB_CARGA.muerte));
 }
 const recMul = () => 1 + ALLY.recargador.reload * Math.min(3, myAllies().filter(c => c.kind === 'recargador').length);
 function startReload() {
@@ -20183,7 +20312,7 @@ function hostProceed() {
 }
 function travel(ni, w, then) {
   if (game && game.tiro) tiroEnd();
-  useCur = null; showUse(null); // la tarjeta de «Usar» (tragamonedas, ruleta…) no se queda en el mapa nuevo
+  habFin(); useCur = null; showUse(null); // la tarjeta de «Usar» (tragamonedas, ruleta…) no se queda en el mapa nuevo
   if (['shop', 'items', 'cards', 'inv', 'pause'].includes(state)) show(null);
   state = 'trans'; const room = ni === ROOM_IDX;
   const M_ = MAPS[ni], z = zoneOf(w || game.wave + 1), C = game.zmod && game.zmod.z === z ? ROUTE_MODS[game.zmod.k] : null;
@@ -20376,6 +20505,9 @@ function retarget(z, canAttack) {
   const p = z.root.position, np_ = nearestPlayer(p); z.tpos = np_.pos; z.pid = np_.id;
   const dP = Math.hypot(np_.pos.x - p.x, np_.pos.z - p.z);
   z.tk = 'p'; z.tobj = null;
+  // Campana fúnebre: los zombis cercanos van hacia ella (no los jefes)
+  const cp_ = game && game.campana;
+  if (cp_ && !cp_.dead && z.boss == null && !(z.charm > 0) && Math.hypot(cp_.root.position.x - p.x, cp_.root.position.z - p.z) < HAB.armando.radio) { z.tk = 'b'; z.tobj = cp_; z.los = false; return; }
   if (z.charm > 0) {
     let best = null, bd = 30;
     for (const o of zombies) { if (o === z || o.dead || o.charm > 0 || o.state === 'rise') continue; const d = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (d < bd) { bd = d; best = o; } }
@@ -20446,7 +20578,7 @@ function updateZombies(dt, canAttack) {
     }
     if (z.state === 'enter') { z.enterT -= dt; if (z.enterT <= 0) z.state = 'chase'; }
     z.tgtT -= dt;
-    if (z.tgtT <= 0 || (z.tk === 'c' && (!z.tobj || z.tobj.dead)) || (z.tk === 'e' && (!z.tobj || z.tobj.eatT <= 0)) || (z.tk === 'z' && (!z.tobj || z.tobj.dead || z.charm <= 0))) retarget(z, canAttack);
+    if (z.tgtT <= 0 || (z.tk === 'c' && (!z.tobj || z.tobj.dead)) || (z.tk === 'e' && (!z.tobj || z.tobj.eatT <= 0)) || (z.tk === 'z' && (!z.tobj || z.tobj.dead || z.charm <= 0)) || (z.tk === 'b' && (!z.tobj || z.tobj.dead))) retarget(z, canAttack);
     const tp = z.tk === 'p' ? (z.tpos || chase) : z.tobj.root.position;
     const dx = tp.x - pos.x, dz = tp.z - pos.z, dist = Math.hypot(dx, dz) || 0.001;
     let mx = dx / dist, mz = dz / dist, direct = true;
@@ -20521,7 +20653,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); tryGrabPeer(z, z.pid); } }
+          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); tryGrabPeer(z, z.pid); } }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -20880,6 +21012,7 @@ function updateHud(dt) {
   setStyle(el.deB, 'de', 'width', game.de.toFixed(0) + '%');
   const ready = game.de >= 20 && !game.deOn;
   if (cache.der !== ready) { cache.der = ready; el.de.classList.toggle('ready', ready); el.bDe.classList.toggle('ready', ready); }
+  habHud();
   setText(el.mapname, 'mapn', MAPS[world.idx].name);
   setText(el.wave, 'wave', tuto ? 'Tutorial' : `Oleada ${game.wave}`);
   const left = game.toSpawn + Math.max(0, game.alive);
@@ -20939,6 +21072,7 @@ function updatePlay(dt) {
     if (tuto) tutoStep(dt);
     if (Net.host) netHostStep();
     if (game.goldT > 0) game.goldT -= dt;
+    habStep(dt);
     if (player.hp < player.maxHp * 0.3 && !game.deOn) { heartT -= dt; if (heartT <= 0) { heartT = 0.9; Sfx.heart(); } }
   } else {
     dyingT += dt;
@@ -22408,7 +22542,8 @@ function netEvent(p, e) {
   }
   if (!Net.client || !game) return;
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
-  if (t === 'hurt') { if (e[1] === Net.id) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
+  if (t === 'ab') { habRed(p, e); return; }
+  if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
@@ -22431,8 +22566,10 @@ function netHurtArea(c, r, dmg, knock, acid) {
 }
 function anyPeerNear(pos, r) { if (!Net.host) return false; for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(pr.pos.x - pos.x, pr.pos.z - pos.z) < r) return true; return false; }
 function nearestPlayer(p) {
-  let best = { id: Net.id, pos: chase }, bd = Net.on && player.down ? 1e9 : Math.hypot(chase.x - p.x, chase.z - p.z);
-  if (Net.host) for (const pr of Net.peers.values()) { if (!pr.pos || pr.down) continue; const d = Math.hypot(pr.pos.x - p.x, pr.pos.z - p.z); if (d < bd) { bd = d; best = { id: pr.id, pos: pr.pos }; } }
+  // con la Sombra activa, los zombis van al último lugar donde te vieron
+  const yo = game && game.sombraT > 0 && game.sombraPos ? game.sombraPos : chase;
+  let best = { id: Net.id, pos: yo }, bd = Net.on && player.down ? 1e9 : Math.hypot(yo.x - p.x, yo.z - p.z);
+  if (Net.host) for (const pr of Net.peers.values()) { if (!pr.pos || pr.down) continue; const q = game && pr.sombraHasta > game.time && pr.sombraPos ? pr.sombraPos : pr.pos, d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = { id: pr.id, pos: q }; } }
   return best;
 }
 function flowArr(id) { return (!Net.host || !id || id === Net.id) ? nav.mainDist : (flowMap.get(id) || nav.mainDist); }
@@ -22970,7 +23107,7 @@ function renderCarousel(dir) {
       <b>${C.name}</b>
       <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>
     </div>${sideCard(1)}</div>
-    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${gunStats(C.gun)}</div>
+    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${HAB[id] ? `<span class="ch-desc"><b class="ch-ab">Habilidad · ${HAB[id].name}:</b> ${HAB[id].desc}</span>` : ''}${gunStats(C.gun)}</div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CHAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${charOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Partida nueva' : `${ico('lock')} Bloqueado`;
@@ -23647,6 +23784,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyY' && Net.on) { e.preventDefault(); chatOpen(); return; }
   if (e.code === 'KeyF') fan();
   if (e.code === 'KeyQ') deadEye(!game.deOn);
+  if (e.code === 'KeyC') usarHab();
   if (/^Digit[1-9]$/.test(e.code)) { const id = MODEL_ORDER[+e.code.slice(5) - 1]; if (game.owned[id] && game.equip !== id) equip(id); }
   if (e.code === 'KeyP' || (e.code === 'Escape' && (noLock || !locked))) pause();
 });
@@ -23712,6 +23850,7 @@ window.addEventListener('mousemove', e => {
   btn('#b-reload', () => startReload());
   btn('#b-fan', () => fan());
   btn('#b-de', () => { if (game && state === 'play') deadEye(!game.deOn); });
+  btn('#b-hab', () => usarHab());
   btn('#b-swap', () => { if (state === 'play') cycleWeapon(1); });
   btn('#b-pause', () => pause());
 }
