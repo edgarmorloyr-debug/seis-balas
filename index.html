@@ -1167,15 +1167,17 @@ const Sfx = (() => {
     setWind(v) { windLevel = v; if (windG) windG.gain.setTargetAtTime(v, ctx.currentTime, 0.5); },
     shot(model, gold, last) {
       if (!ctx) return; const p = SHOTS[model] || SHOTS.paci, mini = model === 'minigun';
-      // Revólveres de Geronimo: chasquido seco y agudo con un «tiiin» metálico; cada mano suena un poco distinta
+      // Revólveres de acero .44 de Geronimo: estampido grave y seco, con un eco metálico largo; cada mano suena un poco distinta
       if (model === 'gomez') {
-        takeN.gomez = (takeN.gomez | 0) + 1; const alt = takeN.gomez % 2, r = (alt ? 1.12 : 1.2) * rand(0.98, 1.02) * (last ? 0.92 : 1);
-        if (!smp(alt && SMP.shot_johnny_2 ? 'shot_johnny_2' : 'shot_johnny', { vol: 1.35, rate: r, wet: 0.1, choke: true, echo: last ? 1.1 : 0.7 })) {
-          burst({ ftype: 'highpass', f0: 3000, q: 0.7, dur: 0.02, vol: 0.9, wet: 0.1 }); burst({ ftype: 'lowpass', f0: 5200, f1: 500, q: 0.6, dur: 0.16, vol: 0.85, wet: 0.35 }); tone({ f0: 210, f1: 70, dur: 0.12, vol: 0.7, wet: 0.2 });
+        takeN.gomez = (takeN.gomez | 0) + 1; const alt = takeN.gomez % 2, r = (alt ? 0.86 : 0.91) * rand(0.98, 1.02) * (last ? 0.94 : 1);
+        if (!smp(alt && SMP.shot_francois_2 ? 'shot_francois_2' : 'shot_francois', { vol: 1.45, rate: r, wet: 0.16, choke: true, echo: last ? 1.4 : 1.05 })) {
+          burst({ ftype: 'highpass', f0: 2600, q: 0.7, dur: 0.025, vol: 1, wet: 0.1 }); burst({ ftype: 'lowpass', f0: 4200, f1: 300, q: 0.6, dur: 0.26, vol: 1, wet: 0.4 }); tone({ f0: 150, f1: 48, dur: 0.2, vol: 0.85, wet: 0.25 });
         }
-        tone({ type: 'sine', f0: alt ? 1650 : 1880, f1: alt ? 1580 : 1800, dur: 0.38, vol: 0.07, delay: 0.015, wet: 0.45 });
-        tone({ type: 'triangle', f0: alt ? 3300 : 3760, dur: 0.12, vol: 0.035, delay: 0.015, wet: 0.3 });
-        tone({ f0: 95, f1: 38, dur: 0.15, vol: 0.45, wet: 0 }); ear = Math.min(1.6, ear + 0.06);
+        tone({ f0: 70, f1: 30, dur: 0.32, vol: 0.8, wet: 0.1 });                                   // golpe en el pecho
+        burst({ ftype: 'bandpass', f0: 1200, q: 3, dur: 0.05, vol: 0.35, delay: 0.004, wet: 0.2 });   // chasquido del acero
+        tone({ type: 'sine', f0: alt ? 980 : 1080, f1: alt ? 940 : 1040, dur: 0.55, vol: 0.05, delay: 0.02, wet: 0.6 });   // eco metálico
+        burst({ ftype: 'lowpass', f0: 600, f1: 140, q: 0.8, dur: 0.7, vol: 0.28, delay: 0.18, wet: 1 });   // retumbe lejano
+        ear = Math.min(1.6, ear + 0.11);
         if (gold) tone({ type: 'triangle', f0: 2400, f1: 1800, dur: 0.25, vol: 0.12, wet: 0.5 });
         return true;
       }
@@ -16158,10 +16160,13 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
 
   }
 }
+const G629_NAME = 'Revólver de acero .44';
+const isG629 = (id, h) => id === 'cowboy' && ((h && h.skin629) || (game && game.char === 'carlos'));
+const gunName = id => isG629(id) ? G629_NAME : MODELS[id].name;
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
   while (h.k.children.length) { const c = h.k.children[0]; h.k.remove(c); c.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  const m = MODELS[id], N = m.cap, L = m.L, R = m.R, mini = id === 'minigun';
+  const g629 = isG629(id, h), m = MODELS[id], N = m.cap, L = g629 ? 0.4 : m.L, R = g629 ? 0.013 : m.R, mini = id === 'minigun';
   const P_ = (geo, mat, x, y, z, parent = h.k) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); parent.add(o); return o; };
   const LOOK = {
     paci: { frame: GM.caseH, barrel: GM.blue, cyl: GM.blue, grip: GM.wood, trig: GM.brassF },
@@ -16176,7 +16181,7 @@ function buildGun(h, id) {
     tesla: { frame: GM.brassF, barrel: GM.blue, cyl: GM.brassF, grip: GM.wood, trig: GM.brassF },
     jackpot: { frame: GM.brass, barrel: GM.chrome, cyl: GM.brass, grip: GM.ivory, trig: GM.orange },
     bazuca: { frame: GM.blue, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel }
-  }[id];
+  }[g629 ? 'magnum' : id];
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
   let spinG = null, muzzleY = 0.03, muzzleZ;
@@ -16200,7 +16205,7 @@ function buildGun(h, id) {
     P_(profileGeo([[0, 0], [-0.004, -0.02], [0.004, -0.026], [0.006, -0.004]], 0.006, 0.0015), LOOK.trig, 0, -0.035, 0.004);
     muzzleY = 0.012; muzzleZ = -0.45;
   } else {
-    const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
+    const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum' || g629;
     // armazón con ventana para el tambor
     const rc = m.rc || (corto ? 0.031 : 0.034), cl = id === 'escopeta' ? 0.085 : 0.07;
     const fb = Math.min(-0.036, -rc - 0.004), wT = 0.005 + rc + 0.002, wB = 0.005 - rc - 0.002, fT = Math.max(0.058, wT + 0.016);
@@ -16991,7 +16996,7 @@ function buildCylHud() {
     el.cyls.appendChild(svg);
   }
   refreshChambers();
-  el.wname.textContent = MODELS[game.equip].name + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + wlv(game.equip);
+  el.wname.textContent = gunName(game.equip) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + wlv(game.equip);
 }
 function refreshChambers() {
   for (const h of activeHands()) {
@@ -17312,7 +17317,7 @@ function gainXp(id) {
   const before = wlv(id); game.wxp[id] = (game.wxp[id] || 0) + 1; const after = wlv(id);
   if (after > before) {
     banner(`${MODELS[id].name} · nivel ${after}`, after === 3 ? MASTERY[id] : after === 2 ? '+15 % de daño' : '+15 % de daño y recarga más rápida', 2800); Sfx.win();
-    if (game.equip === id) el.wname.textContent = MODELS[id].name + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
+    if (game.equip === id) el.wname.textContent = gunName(id) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
 function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return itemDmg() * m.dmg * (h.model === sigGun() ? 1 + 0.25 * sigLv('dmg') : 1) * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0) + 0.1 * (game.forge | 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
@@ -19936,7 +19941,7 @@ function gunPic(id) {
   try {
     const W = 320, H = 180;
     if (!gunPicR) { const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff0dd, 0x302418, 0.9)); const d1 = new THREE.DirectionalLight(0xffffff, 1.3); d1.position.set(2, 3, 2); sc.add(d1); const d2 = new THREE.DirectionalLight(0xffc890, 0.6); d2.position.set(-3, 1, -1); sc.add(d2); gunPicR = { sc, cam: new THREE.PerspectiveCamera(28, W / H, 0.01, 10), rt: new THREE.WebGLRenderTarget(W, H), buf: new Uint8Array(W * H * 4) }; }
-    const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D() }; buildGun(h, id);
+    const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'g629' }; buildGun(h, id === 'g629' ? 'cowboy' : id);
     h.k.traverse(o => { if (o.name === 'hand') o.visible = false; });
     const w = new THREE.Group(); w.add(h.k); w.rotation.set(0.12, -Math.PI / 2 + 0.25, 0); gunPicR.sc.add(w); w.updateMatrixWorld(true);
     const box = new THREE.Box3(); h.gunG.traverse(o => { if (o.isMesh) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
@@ -22828,7 +22833,7 @@ const CHARS = {
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
   lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'gold', n: 5000, t: 'Junta 5000 $ sumando todas tus partidas' } },
-  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de vaquero, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.' },
+  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.' },
   francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'wins', n: 1, t: `Gana la partida completa (las ${LAST_WAVE} oleadas)` } }
 };
 // Logros entre partidas para desbloquear personajes
@@ -22953,7 +22958,7 @@ function renderCarousel(dir) {
     <div class="car-main ${open ? '' : 'lock'}">
       <div class="ch-pw"><img class="ch-pic" alt="" src="${charPic(id)}">${open ? '' : `<i class="ch-lock">${ico('lock')}</i>`}</div>
       <b>${C.name}</b>
-      <span class="ch-gun"><img alt="" src="${gunPic(C.gun)}">${MODELS[C.gun].name}</span>
+      <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>
     </div>${sideCard(1)}</div>
     <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${gunStats(C.gun)}</div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CHAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${charOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
@@ -23358,7 +23363,7 @@ const TU_ABIL = {
   armando: 'Una vez por partida, si te matan, te levantas con 30 % de vida. Solo una vez: no te confíes.',
   lilith: 'Tu Ojo Muerto se carga un 50 % más rápido y dura el doble. Úsalo seguido: es tu mejor arma.',
   francois: 'Al empezar cada oleada recibes 12 balas extra en la caja. Siempre está activa.',
-  carlos: 'Disparas con dos revólveres de vaquero a la vez y no pierdes puntería por llevar dos. Sus revólveres disparan sin amartillar: cada mano es un revólver.'
+  carlos: 'Disparas con dos revólveres de acero .44 a la vez y no pierdes puntería por llevar dos. Disparan sin amartillar: cada mano es un revólver.'
 };
 function tuAhead(d, side) { const f = tuto.f, o = tuto.o; return { x: o.x - Math.sin(f) * d + Math.cos(f) * side, z: o.z - Math.cos(f) * d - Math.sin(f) * side }; }
 // Busca hacia dónde poner los blancos: lo más cerca posible de donde mira el jugador, sin lápidas ni muros en medio
@@ -23524,7 +23529,7 @@ $('#btn-tu-again').addEventListener('click', () => { tutoStop(); tutoStart(); })
 $('#btn-tu-menu').addEventListener('click', () => toMenu());
 function startGame(sv) {
   Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: META.char, skull: Net.client ? (Net.skull | 0) : META.skull, diff: Net.client ? (Net.diff || 'normal') : META.diff });
-  if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${MODELS[CHARS[game.char].gun].name}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
+  if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   $('#me-pic').src = charPic(game.char);
