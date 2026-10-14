@@ -19138,9 +19138,20 @@ function zoneHit(z, info) {
 }
 // Agarre: algunos zombis te sujetan al golpear. Toca rápido (o pulsa Espacio) para soltarte.
 const GRAB = { p: { normal: 0.2, dificil: 0.28, apoc: 0.36 }, n: { normal: 7, dificil: 9, apoc: 11 }, t: 2.6, cd: 7, dps: 7, bite: 1.3 };
+const canGrab = z => !tuto && !z.grabbing && !z.def.quad && !z.def.big && z.boss == null && !z.mini;
 function tryGrab(z) {
-  if (tuto || player.grab || player.down || z.def.quad || z.def.big || z.boss != null || z.mini || (game.grabCd || 0) > 0) return;
+  if (!canGrab(z) || player.grab || player.down || (game.grabCd || 0) > 0) return;
   if (Math.random() >= (GRAB.p[game.diff] || GRAB.p.normal)) return;
+  startGrab(z);
+}
+// En grupo: el anfitrión decide si el zombi agarra a un compañero y se lo avisa a su teléfono
+const peerGrabCd = new Map();
+function tryGrabPeer(z, pid) {
+  if (!Net.host || !canGrab(z) || (peerGrabCd.get(pid) || 0) > game.time) return;
+  if (Math.random() >= (GRAB.p[game.diff] || GRAB.p.normal)) return;
+  peerGrabCd.set(pid, game.time + GRAB.cd + GRAB.t); z.grabbing = true; z.grabT = GRAB.t + 1.5; Net.ev(['grab', pid, z.id]);
+}
+function startGrab(z) {
   player.grab = { z, n: 0, need: GRAB.n[game.diff] || GRAB.n.normal, t: GRAB.t }; z.grabbing = true;
   gs.aiming = false; input.fireHeld = false; if (gs.reloading) gs.wantStop = true;
   $('#grab-k').textContent = IS_TOUCH ? 'Toca la pantalla rápido para soltarte' : 'Pulsa ESPACIO o haz clic rápido para soltarte';
@@ -19154,11 +19165,13 @@ function grabTap() {
 }
 function grabEnd(won) {
   const g = player.grab; if (!g) return; player.grab = null; $('#grab').hidden = true; game.grabCd = GRAB.cd;
-  const z = g.z; z.grabbing = false;
+  const z = g.z; z.grabbing = false; if (z.net) Net.ev(['ungrab', z.id, won ? 1 : 0]);
   if (won) { if (!z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); const dx = z.root.position.x - player.pos.x, dz = z.root.position.z - player.pos.z, d = Math.hypot(dx, dz) || 1; z.kbx = dx / d * 5; z.kbz = dz / d * 5; } feed('¡Te soltaste!', 'gold'); Sfx.whoosh(0); }
 }
 function grabStep(dt) {
   game.grabCd = Math.max(0, (game.grabCd || 0) - dt);
+  // el aviso de agarre llegó antes que el zombi: lo espera un momento
+  const pg = game.pendGrab; if (pg) { pg.t -= dt; const z = zombies.find(q => q.id === pg.id && !q.dead); if (z && !player.grab && !player.down && state === 'play') { game.pendGrab = null; startGrab(z); } else if (pg.t <= 0) { game.pendGrab = null; Net.ev(['ungrab', pg.id, 0]); } }
   const g = player.grab; if (!g) return;
   const z = g.z;
   if (z.dead || player.down || state === 'dying' || state === 'over') { grabEnd(false); return; }
@@ -20360,7 +20373,7 @@ function updateZombies(dt, canAttack) {
     if (z.unstuck > 0) { z.unstuck -= dt; mx = z.ux; mz = z.uz; }
     let spd = z.speed * (z.rage > 0 ? 1.45 : 1);
     if (z.limp > 0) { z.limp -= dt; spd *= ZONE.limpX; }
-    if (z.grabbing) spd = 0;
+    if (z.grabbing) { spd = 0; z.atkCd = Math.max(z.atkCd, 0.5); if (z.grabT != null && (z.grabT -= dt) <= 0) { z.grabbing = false; z.grabT = null; } }
     if (z.state === 'enter') spd *= 0.4;
     if (z.stagger > 0) { z.stagger -= dt; spd *= 0.15; }
     const reach = z.def.reach;
@@ -20426,7 +20439,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); }
+          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); tryGrabPeer(z, z.pid); } }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -21839,7 +21852,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 37';
+const GAME_BUILD = '14-oct-2026 · 38';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22272,6 +22285,8 @@ function netEvent(p, e) {
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
   if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
+  if (t === 'grab') { if (e[1] === Net.id && game && state === 'play' && !player.grab && !player.down) { const z = zombies.find(q => q.id === e[2] && !q.dead); if (z) startGrab(z); else game.pendGrab = { id: e[2], t: 1.5 }; } return; }
+  if (t === 'ungrab') { if (Net.host && game) { const z = zombies.find(q => q.id === e[1]); if (z) { z.grabbing = false; z.grabT = null; if (e[2] && !z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); } } } return; }
   if (t === 'dv') { if (Net.host && game && e[2] === game.wave) devilVote(p.id, e[1]); return; }
   if (t === 'dvCount') { if (!Net.host && game) devilShowCount(e[1]); return; }
   if (t === 'dvRes') { if (!Net.host && game && e[3] === game.wave) devilApply(e[1], e[2]); return; }
