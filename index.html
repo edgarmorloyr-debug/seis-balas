@@ -21867,7 +21867,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 42';
+const GAME_BUILD = '14-oct-2026 · 43';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22425,7 +22425,7 @@ function applySnapshot(s) {
     seen.add(a[0]);
     let z = zombies.find(q => q.id === a[0] && q.net);
     // si lo dimos por muerto solo porque faltó en un envío, y sigue vivo: vuelve a aparecer
-    if (z && z.dead && z.missDied && !(a[6] & 1)) { const k = zombies.indexOf(z); if (k >= 0) removeZombie(k); z = null; }
+    if (z && z.dead && !(a[6] & 1) && (z.missDied || (z.predT && performance.now() - z.predT > 1200))) { const k = zombies.indexOf(z); if (k >= 0) removeZombie(k); z = null; }
     if (z) z.miss = 0;
     if (!z) {
       if (a[6] & 1) continue;
@@ -22471,10 +22471,12 @@ function clientDamage(z, amount, info) {
   if (z.mark > 0) a *= 1.5;
   z.flash = 0.1;
   if (info.bullet && info.point) { bloodBurst(info.point, info.dir || _up, head ? 16 : 9, head); Sfx.hit(head, pan); }
-  z.hp -= a;
+  // jefes, minijefes y élite: su vida real solo la sabe el anfitrión, así que en este teléfono nunca se dan por muertos antes de tiempo
+  const sure = z.boss == null && !z.mini && !z.elite;
+  if (sure) z.hp -= a;
   if (info.part !== 'helmet' && info.part !== 'vest') goreHit(z, info, a, true);
-  if (z.hp > 0) hitReact(z, info, a);
-  if (z.hp <= 0) { proxyDie(z, info); if (info.bullet) hitmarker('kill'); return true; }
+  if (z.hp > 0 || !sure) hitReact(z, info, a);
+  if (sure && z.hp <= 0) { z.predT = performance.now(); proxyDie(z, info); if (info.bullet) hitmarker('kill'); return true; }
   if (info.bullet) hitmarker(head ? 'head' : '');
   return false;
 }
