@@ -20167,6 +20167,17 @@ function renderChips() {
   el.bSwap.hidden = MODEL_ORDER.filter(k => game.owned[k]).length < 2;
 }
 
+// Red de seguridad: si el juego cree que hay una ventana abierta (tienda, taller, inventario…) pero no se ve ninguna, te devuelve al juego
+const WIN_STATES = ['shop', 'items', 'inv', 'cards', 'event', 'relic', 'doors', 'route', 'perks', 'rescue'];
+let stuckT = 0;
+function unstick() {
+  if (!game || !WIN_STATES.includes(state) || document.querySelector('.overlay:not([hidden])')) { stuckT = 0; return; }
+  const now = performance.now(); if (!stuckT) { stuckT = now; return; } if (now - stuckT < 1500) return;
+  stuckT = 0; const was = state; state = 'play';
+  if (world.idx === ROOM_IDX && game.phase !== 'wait' && game.phase !== 'exit') game.phase = 'room';
+  releaseInput(); renderChips(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600);
+  try { console.warn('Seis Balas: ventana trabada arreglada (' + was + ')'); } catch (e) {}
+}
 /* ---- Actualización ---- */
 function updatePlayer(dt) {
   if (player.down) { player.vx = player.vz = 0; return; }
@@ -21852,7 +21863,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 38';
+const GAME_BUILD = '14-oct-2026 · 39';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -23647,6 +23658,7 @@ function frame() {
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
+  unstick();
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
   Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
