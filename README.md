@@ -8,6 +8,7 @@ Juego 3D en el navegador: un revólver de seis balas contra zombis sin fin.
 - Inventario sin límite y fusión de balas (2 balas especiales distintas = 1 con los dos efectos).
 - La partida se guarda sola en el navegador al empezar cada oleada.
 - La versión anterior (modo clásico, "Seis Balas A") está guardada en la rama `seis-balas-a`.
+- "Seis Balas B" tal como quedó (versión 53, octubre 2026) está guardado en la rama `seis-balas-b`.
 
 ## Cómo jugar
 
