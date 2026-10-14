@@ -16873,7 +16873,7 @@ function makePickup(type, x, z, amount) {
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(1.3, 1.3, 1); g.add(halo);
   scene.add(g);
-  pickups.push({ id: ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' || type === 'ammo' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' || type === 'ammo' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -17833,6 +17833,7 @@ function spit(z) {
   const dx = tx - _tmp.x, dz = tz - _tmp.z, d = Math.hypot(dx, dz) || 1, sp = 13, t = d / sp, vy = (1.1 - _tmp.y + 0.5 * 9.8 * t * t) / t;
   const m = new THREE.Mesh(acidGeo, acidMat); m.position.copy(_tmp); scene.add(m);
   acids.push({ m, v: new THREE.Vector3(dx / d * sp, vy, dz / d * sp), life: 4 }); projHit(acids[acids.length - 1], 0.42);
+  if (Net.host) Net.ev(['zp', 0, r2(_tmp.x), r2(_tmp.y), r2(_tmp.z), r2(dx / d * sp), r2(vy), r2(dz / d * sp)]);
   Sfx.spit(panOf(z.root.position), volOf(z.root.position, 1));
 }
 function throwAxe(z) {
@@ -17842,6 +17843,7 @@ function throwAxe(z) {
   const dx = tx - _tmp.x, dz = tz - _tmp.z, d = Math.hypot(dx, dz) || 1, sp = 16, t = d / sp, vy = (1.2 - _tmp.y + 0.5 * 9.8 * t * t) / t;
   const m = axeModel(); m.position.copy(_tmp); m.scale.setScalar(1.4); m.rotation.y = Math.atan2(dx, dz); scene.add(m);
   const a = { m, v: new THREE.Vector3(dx / d * sp, vy, dz / d * sp), life: 4, axe: true }; acids.push(a); projHit(a, 0.5);
+  if (Net.host) Net.ev(['zp', 1, r2(_tmp.x), r2(_tmp.y), r2(_tmp.z), r2(dx / d * sp), r2(vy), r2(dz / d * sp)]);
   Sfx.holster();
 }
 // Las hachas y el ácido en el aire se pueden reventar de un disparo
@@ -20178,17 +20180,26 @@ function renderChips() {
 // Red de seguridad: si el juego cree que hay una ventana abierta (tienda, taller, inventario…) pero no se ve ninguna, te devuelve al juego
 const WIN_STATES = ['shop', 'items', 'inv', 'cards', 'event', 'relic', 'doors', 'route', 'perks', 'rescue'];
 let stuckT = 0;
+// Tras destrabar: si se repite, te lleva al centro de la Trastienda y cierra las puertas cercanas hasta que te alejes; y deja una nota para el dueño
+const stuckLog = [];
+function unstuckFix(was) {
+  const now = performance.now(); stuckLog.push(now); while (stuckLog.length && now - stuckLog[0] > 15000) stuckLog.shift();
+  if (world.room) for (const o of world.room.objs) if (o.auto && Math.hypot(player.pos.x - o.x, player.pos.z - o.z) < o.r + 1.5) o.wait = true;
+  if (stuckLog.length >= 2 && world.start) { player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = 0; if (world.room) for (const o of world.room.objs) if (o.auto) o.wait = true; }
+  releaseInput(); renderChips(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600);
+  feed(`Atasco arreglado: ${was} · ${game.phase} · ${Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo'} · ${showTrail.slice(-3).join(' > ')}`, 'red');
+}
 const WIN_IDS = ['shop', 'items-s', 'inv-s', 'cards-s', 'event-s', 'relic-s', 'doors-s', 'perks', 'rescue-s'];
 let ghostT = 0;
 function unstick() {
   // al revés: se ve una ventana, pero el juego ya está jugando y sus botones no responden
   const ghost = game && state === 'play' && WIN_IDS.find(id => { const e = document.getElementById(id); return e && !e.hidden; });
-  if (ghost) { const now = performance.now(); if (!ghostT) ghostT = now; else if (now - ghostT > 1500) { ghostT = 0; store.set('sb_stuck', { was: 'ventana ' + ghost + ' sin control', ph: game.phase, net: Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo', trail: showTrail.join(' > '), b: GAME_BUILD, t: Date.now() }); show(null); if (world.idx === ROOM_IDX && game.phase === 'room') backToRoom(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600); } } else ghostT = 0;
+  if (ghost) { const now = performance.now(); if (!ghostT) ghostT = now; else if (now - ghostT > 1500) { ghostT = 0; store.set('sb_stuck', { was: 'ventana ' + ghost + ' sin control', ph: game.phase, net: Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo', trail: showTrail.join(' > '), b: GAME_BUILD, t: Date.now() }); show(null); if (world.idx === ROOM_IDX && game.phase === 'room') backToRoom(); unstuckFix('ventana ' + ghost); } } else ghostT = 0;
   if (!game || !WIN_STATES.includes(state) || document.querySelector('.overlay:not([hidden])')) { stuckT = 0; return; }
   const now = performance.now(); if (!stuckT) { stuckT = now; return; } if (now - stuckT < 1500) return;
   stuckT = 0; const was = state; state = 'play';
   if (world.idx === ROOM_IDX && game.phase !== 'wait' && game.phase !== 'exit') game.phase = 'room';
-  releaseInput(); renderChips(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600);
+  unstuckFix(was);
   store.set('sb_stuck', { was, ph: game.phase, net: Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo', trail: showTrail.join(' > '), b: GAME_BUILD, t: Date.now() });
   try { console.warn('Seis Balas: ventana trabada arreglada (' + was + ')'); } catch (e) {}
 }
@@ -20733,8 +20744,8 @@ function updateAcid(dt) {
     if (state === 'play' && Math.hypot(p.x - player.pos.x, p.z - player.pos.z) < 0.6 && p.y > player.pos.y && p.y < player.pos.y + 1.9) {
       if (a.axe) { hurtPlayer(18 * (1 + (game.wave - 1) * 0.04), p, { knock: 3 }); Sfx.clang(0); } else { hurtPlayer(12 * (1 + (game.wave - 1) * 0.04), p, { acid: true }); Sfx.sizzle(); } scene.remove(a.m); acids.splice(i, 1); continue;
     }
-    if (Net.host) { let hp_ = null; for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(p.x - pr.pos.x, p.z - pr.pos.z) < 0.6 && p.y < 1.9) hp_ = pr; if (hp_) { Net.ev(['hurt', hp_.id, 12, r2(p.x), r2(p.z), 0, 1]); scene.remove(a.m); acids.splice(i, 1); continue; } }
-    let hitCop = null; for (const c of cops) if (!c.dead && Math.hypot(p.x - c.root.position.x, p.z - c.root.position.z) < 0.6 && p.y < 1.9) hitCop = c;
+    // en grupo, cada jugador recibe su propia copia del ácido o del hacha y se calcula el golpe en su teléfono
+    let hitCop = null; if (!a.rep) for (const c of cops) if (!c.dead && Math.hypot(p.x - c.root.position.x, p.z - c.root.position.z) < 0.6 && p.y < 1.9) hitCop = c;
     if (hitCop) { hurtCop(hitCop, 12); scene.remove(a.m); acids.splice(i, 1); continue; }
     if (p.y <= 0.05 || a.life <= 0) {
       for (let k = 0; k < 14; k++) PA.add(p.x, 0.1, p.z, rand(-2, 2), rand(1, 3), rand(-2, 2), rand(0.3, 0.7), 0.06, 0.5, 1, 0.2, 1, 9.8, 0.5, 0, 0);
@@ -20758,7 +20769,7 @@ function updatePickups(dt) {
     { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (lv('magpie') && pdd < 5) || (rl('iman') && pdd < 8)) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
-      if (Net.client) Net.ev(['pk', p.id]);
+      if (Net.client && p.net) Net.ev(['pk', p.id]);
       if (p.type === 'health') { const h = Math.min(35, player.maxHp - player.hp); player.hp += h; feed(`Vida +${Math.round(h)}`, 'red'); }
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
       else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; game.box.push(k); Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
@@ -21877,7 +21888,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 47';
+const GAME_BUILD = '14-oct-2026 · 48';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22311,6 +22322,7 @@ function netEvent(p, e) {
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
   if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
+  if (t === 'zp') { if (!Net.host && game && state !== 'menu') { const m = e[1] ? axeModel() : new THREE.Mesh(acidGeo, acidMat); m.position.set(e[2], e[3], e[4]); if (e[1]) { m.scale.setScalar(1.4); m.rotation.y = Math.atan2(e[5], e[7]); } scene.add(m); const a = { m, v: new THREE.Vector3(e[5], e[6], e[7]), life: 4, axe: !!e[1], rep: true }; acids.push(a); projHit(a, e[1] ? 0.5 : 0.42); } return; }
   if (t === 'grab') { if (e[1] === Net.id && game && state === 'play' && !player.grab && !player.down) { const z = zombies.find(q => q.id === e[2] && !q.dead); if (z) startGrab(z); else game.pendGrab = { id: e[2], t: 1.5 }; } return; }
   if (t === 'ungrab') { if (Net.host && game) { const z = zombies.find(q => q.id === e[1]); if (z) { z.grabbing = false; z.grabT = null; if (e[2] && !z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); } } } return; }
   if (t === 'dv') { if (Net.host && game && e[2] === game.wave) devilVote(p.id, e[1]); return; }
@@ -22470,9 +22482,9 @@ function applySnapshot(s) {
   const ps = new Set();
   for (const a of s.pk) {
     ps.add(a[0]);
-    if (!pickups.some(q => q.id === a[0])) { makePickup(a[1], a[2], a[3], a[4]); pickups[pickups.length - 1].id = a[0]; }
+    if (!pickups.some(q => q.id === a[0])) { makePickup(a[1], a[2], a[3], a[4]); const q = pickups[pickups.length - 1]; q.id = a[0]; q.net = true; }
   }
-  for (let i = pickups.length - 1; i >= 0; i--) if (!ps.has(pickups[i].id)) { scene.remove(pickups[i].g); pickups.splice(i, 1); }
+  for (let i = pickups.length - 1; i >= 0; i--) if (pickups[i].net && !ps.has(pickups[i].id)) { scene.remove(pickups[i].g); pickups.splice(i, 1); }
 }
 // ---- Copias locales de zombis, policías y supervivientes ----
 function clientDamage(z, amount, info) {
