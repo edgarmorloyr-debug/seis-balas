@@ -19874,7 +19874,10 @@ function rollOffers() {
   }
   game.offers = out.map(id => ({ id, bought: false }));
 }
-function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
+function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null;
+  // si algo falla al dibujar la tienda, igual se abre (con lo que se pudo dibujar) y queda anotado el error
+  try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
+  show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
 // Ficha corta del arma para elegir personaje: daño, cadencia, recarga, puntería y tambor
 function gunStats(id) {
   const m = MODELS[id]; if (!m) return '';
@@ -20182,12 +20185,19 @@ const WIN_STATES = ['shop', 'items', 'inv', 'cards', 'event', 'relic', 'doors', 
 let stuckT = 0;
 // Tras destrabar: si se repite, te lleva al centro de la Trastienda y cierra las puertas cercanas hasta que te alejes; y deja una nota para el dueño
 const stuckLog = [];
+// el último error del juego (para la nota de atasco)
+let lastErr = null;
+function noteErr(e, where) { lastErr = { m: ((where ? where + ': ' : '') + (e && e.message ? e.message : String(e))).slice(0, 90), t: performance.now() }; try { console.error(e); } catch (x) {} }
+window.addEventListener('error', ev => noteErr(ev.error || ev.message));
+window.addEventListener('unhandledrejection', ev => noteErr(ev.reason));
 function unstuckFix(was) {
   const now = performance.now(); stuckLog.push(now); while (stuckLog.length && now - stuckLog[0] > 15000) stuckLog.shift();
   if (world.room) for (const o of world.room.objs) if (o.auto && Math.hypot(player.pos.x - o.x, player.pos.z - o.z) < o.r + 1.5) o.wait = true;
   if (stuckLog.length >= 2 && world.start) { player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = 0; if (world.room) for (const o of world.room.objs) if (o.auto) o.wait = true; }
   releaseInput(); renderChips(); requestLock(); canvas.focus(); hint('Listo, puedes seguir', 1600);
-  feed(`Atasco arreglado: ${was} · ${game.phase} · ${Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo'} · ${showTrail.slice(-3).join(' > ')}`, 'red');
+  const er = lastErr && performance.now() - lastErr.t < 20000 ? ' · error: ' + lastErr.m : '';
+  feed(`Atasco arreglado: ${was} · ${game.phase} · ${Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo'} · ${showTrail.slice(-3).join(' > ')}${er}`, 'red');
+  try { const k = store.get('sb_stuck', null); if (k && er) { k.trail += er; store.set('sb_stuck', k); } } catch (e) {}
 }
 const WIN_IDS = ['shop', 'items-s', 'inv-s', 'cards-s', 'event-s', 'relic-s', 'doors-s', 'perks', 'rescue-s'];
 let ghostT = 0;
@@ -21888,7 +21898,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 48';
+const GAME_BUILD = '14-oct-2026 · 49';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
