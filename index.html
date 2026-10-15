@@ -239,7 +239,7 @@ body{font-family:var(--hud);font-size:16px}
 #b-hab.ready{border-color:#c88aff;box-shadow:0 0 14px rgba(200,140,255,.8)}
 #b-hab.on{border-color:#fff;background:rgba(170,110,255,.7)}
 #b-swap{right:calc(196px + env(safe-area-inset-right,0px));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
-#inv-s .card{position:relative}#inv-ping{position:absolute;top:12px;right:14px;font-size:14px;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid currentColor}#inv-ping.ok{color:#7ad87a}#inv-ping.medio{color:#e8c040}#inv-ping.malo{color:#ff6a5a}
+#inv-s .card{position:relative}#inv-ping{position:absolute;top:12px;right:14px;display:flex;gap:6px}#inv-ping b{font-size:14px;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid currentColor}#inv-ping .ok{color:#7ad87a}#inv-ping .medio{color:#e8c040}#inv-ping .malo{color:#ff6a5a}
 #istrip{display:flex;align-items:flex-start;gap:6px;margin-top:6px;pointer-events:auto;max-width:min(46vw,440px)}
 .ibtn{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:10px;border:2px solid rgba(214,165,75,.7);background:rgba(20,12,6,.8);color:#ffd060;cursor:pointer}
 #iicons{display:flex;flex-wrap:wrap;gap:4px}
@@ -22936,7 +22936,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 66';
+const GAME_BUILD = '15-oct-2026 · 67';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -23372,12 +23372,23 @@ function pingTick(dt) {
   if (!Net.on || !Net.client || !game) return;
   if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); }
 }
+// esquina del inventario: cuadros por segundo (siempre) y ping (solo en grupo)
+const fpsM = { t: 0, n: 0, v: null };
+function fpsCuenta(rawDt) {
+  fpsM.t += rawDt; fpsM.n++;
+  if (fpsM.t < 1) return;
+  fpsM.v = Math.round(fpsM.n / fpsM.t); fpsM.t = fpsM.n = 0;
+  if (state === 'inv') pingHud();
+}
 function pingHud() {
   const e = $('#inv-ping'); if (!e) return;
-  e.hidden = !Net.on;
-  if (!Net.on) return;
-  if (Net.host) { e.textContent = 'Anfitrión'; e.className = 'ok'; return; }
-  const v = Net.ping; e.textContent = v == null ? 'Ping …' : `Ping ${v} ms`; e.className = v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo';
+  const f = fpsM.v, fc = f == null ? 'medio' : f >= 45 ? 'ok' : f >= 25 ? 'medio' : 'malo';
+  let h = `<b class="${fc}">${f == null ? '… FPS' : f + ' FPS'}</b>`;
+  if (Net.on) {
+    if (Net.host) h += '<b class="ok">Anfitrión</b>';
+    else { const v = Net.ping; h += `<b class="${v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'}">${v == null ? 'Ping …' : `Ping ${v} ms`}</b>`; }
+  }
+  e.hidden = false; if (e._h !== h) { e._h = h; e.innerHTML = h; }
 }
 function avisoCaido(p) {
   if (!game || state === 'menu' || !p) return;
@@ -24770,6 +24781,7 @@ const clock = new THREE.Clock(), clickHint = $('#click-hint');
 let tAll = 0;
 const perf = { t: 0, n: 0, good: 0 };
 function autoRes(rawDt) {
+  fpsCuenta(rawDt);
   if (state !== 'play') { perf.t = perf.n = 0; return; }
   perf.t += rawDt; perf.n++;
   if (perf.t < 2) return;
