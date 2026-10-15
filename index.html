@@ -1708,7 +1708,8 @@ const MAPS = [
   { name: 'Tokio', desc: 'El gran cruce de Tokio bajo la lluvia. Las pantallas gigantes siguen pidiendo que evacúen; ya es tarde.' },
   { name: 'Las Vegas', desc: 'El bulevar de los casinos sigue encendido. Esta noche la casa no gana: gana la horda.' },
   { name: 'El Planeta Arcade', desc: 'Un planeta entero convertido en sala de juegos. La partida nunca terminó: los jugadores siguen aquí, y ya no tienen fichas.' },
-  { name: 'Los Backrooms: Nivel 2', desc: 'Túneles de tuberías calientes que no terminan. Si oyes pasos, no son tuyos.' }
+  { name: 'Los Backrooms: Nivel 2', desc: 'Túneles de tuberías calientes que no terminan. Si oyes pasos, no son tuyos.' },
+  { name: 'Atlantis', desc: 'La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.' }
 ];
 function lam(color, o) { return new THREE.MeshLambertMaterial(Object.assign({ color }, o || {})); }
 function bsc(color, o) { return new THREE.MeshBasicMaterial(Object.assign({ color }, o || {})); }
@@ -1952,7 +1953,8 @@ const ECHO = [
   [0.14, 0.3, 0.32, 3500],   // Tokio
   [0.16, 0.3, 0.32, 3000],   // Las Vegas
   [0.07, 0.22, 0.4, 4000],   // El Planeta Arcade
-  [0.06, 0.2, 0.5, 2500]   // Los Backrooms: Nivel 2
+  [0.06, 0.2, 0.5, 2500],   // Los Backrooms: Nivel 2
+  [0.45, 0.3, 0.4, 1300]   // Atlantis: la plaza bajo el mar, eco largo y apagado
 ];
 const ACOUSTIC = [
   { sec: 1.8, decay: 3, wet: 0.4, step: 'grass' },               // cementerio: noche abierta
@@ -1983,8 +1985,591 @@ const ACOUSTIC = [
   { sec: 2.2, decay: 2.6, wet: 0.55, step: 'concrete' },   // Tokio
   { sec: 2, decay: 2.6, wet: 0.5, step: 'concrete' },   // Las Vegas
   { sec: 2.4, decay: 2.2, wet: 0.75, step: 'concrete' },   // El Planeta Arcade
-  { sec: 1.2, decay: 1.6, wet: 1, step: 'concrete' }   // Los Backrooms: Nivel 2
+  { sec: 1.2, decay: 1.6, wet: 1, step: 'concrete' },   // Los Backrooms: Nivel 2
+  { sec: 3.2, decay: 1.7, wet: 0.85, lp: 4500, step: 'snow' }   // Atlantis: bajo el agua, todo suena hondo y apagado
 ];
+// DESC: La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.
+// ---- Lugar nuevo: Atlantis
+// Red de cáusticas (líneas de luz del fondo marino) que se repite sin costuras: bordes de celdas de Voronoi
+function atlCaustTex(S) {
+  const t = canvasTex(S, S, (g, w, h) => {
+    const n = 22, pts = [];
+    for (let i = 0; i < n; i++) pts.push([srand() * w, srand() * h]);
+    const img = g.createImageData(w, h), d = img.data, W = w * 0.055;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let f1 = 1e9, f2 = 1e9;
+      for (let i = 0; i < n; i++) { let dx = Math.abs(x - pts[i][0]); if (dx > w / 2) dx = w - dx; let dy = Math.abs(y - pts[i][1]); if (dy > h / 2) dy = h - dy; const dd = dx * dx + dy * dy; if (dd < f1) { f2 = f1; f1 = dd; } else if (dd < f2) f2 = dd; }
+      const e = Math.sqrt(f2) - Math.sqrt(f1), v = Math.pow(Math.max(0, 1 - e / W), 2.6) * 255, o = (y * w + x) * 4;
+      d[o] = d[o + 1] = d[o + 2] = v; d[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+// Material de cáusticas: dos capas de la misma red que se cruzan y se mueven; se apaga con la distancia (como la niebla)
+function atlCaustMat(tex, color, scale, amp, fogD) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    uniforms: { uT: { value: tex }, uTime: { value: 0 }, uC: { value: new THREE.Color(color) }, uS: { value: scale }, uA: { value: amp }, uF: { value: fogD } },
+    vertexShader: 'varying vec2 vW; varying float vD; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xz; vec4 mv=viewMatrix*w; vD=length(mv.xyz); gl_Position=projectionMatrix*mv; }',
+    fragmentShader: 'uniform sampler2D uT; uniform float uTime; uniform vec3 uC; uniform float uS; uniform float uA; uniform float uF; varying vec2 vW; varying float vD; void main(){ vec2 p=vW*uS; float a=texture2D(uT,p+vec2(uTime*0.031,uTime*0.017)).r; float b=texture2D(uT,p*1.37+vec2(-uTime*0.022,uTime*0.027)).r; float c=min(a,b)*1.7+a*b*0.5; float f=exp(-uF*uF*vD*vD); gl_FragColor=vec4(uC*c*f*uA,1.); }'
+  });
+}
+function buildAtlantis() {
+  const _gc = new Map();
+  const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
+  const cyl = (rt, rb, h, s = 12) => { const k = 'c' + rt + ',' + rb + ',' + h + ',' + s; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.CylinderGeometry(rt, rb, h, s)); return g; };
+  const sph = (r, a = 10, b = 8) => { const k = 's' + r + ',' + a + ',' + b; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.SphereGeometry(r, a, b)); return g; };
+  const R = 41, FOG = 0x0b2d3b, FD = 0.02;
+  world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 21 };
+  world.shirts = [0xe8e4d8, 0x2a7a7a, 0xc8a040, 0x1e4a6a, 0xd8d0c0, 0x3a8a8a, 0x5a4a7a];
+  world.hat = null; world.hatP = 0;
+  world.mix = { walker: 1.2, crawler: 1.35, spitter: 1.15, runner: 0.9 };
+  world.noMoon = true;
+  env({ fog: FOG, dens: FD, top: 0x1f6f80, sky: false, hemiS: 0x7ad8e8, hemiG: 0x10283a, hemiI: 0.7, moonC: 0xa8f0ff, moonI: 0.85, moonDir: new THREE.Vector3(0.22, 1, 0.15), lantern: 1.0, wind: 0.12 });
+  const DOD = new THREE.DodecahedronGeometry(1, 0), OCT = new THREE.OctahedronGeometry(1, 0), CONE6 = new THREE.ConeGeometry(1, 1, 6);
+  const inst = (geo, mat, list, cast) => { const m = fairyInst(geo, mat, list, cast); m.frustumCulled = false; return m; };
+  const glow = (x, y, z, c, s, o, par) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); (par || world.group).add(sp); return sp; };
+  // pasa de coordenadas locales de una pieza girada (ry) a coordenadas del mundo
+  const W2 = (cx, cz, ry, lx, lz) => [cx + lx * Math.cos(ry) + lz * Math.sin(ry), cz - lx * Math.sin(ry) + lz * Math.cos(ry)];
+  const ryT = a => -a - Math.PI / 2;   // giro para que el eje x local vaya por la tangente del círculo en el ángulo a
+
+  // ---------- Texturas
+  const marbleT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#e6eeee'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 420; i++) { g.fillStyle = `rgba(${rand(150, 200) | 0},${rand(185, 215) | 0},${rand(195, 222) | 0},${rand(0.08, 0.25)})`; g.fillRect(rand(0, w), rand(0, h), rand(2, 9), rand(2, 9)); }
+    g.lineCap = 'round';
+    for (let i = 0; i < 12; i++) { g.strokeStyle = `rgba(60,${rand(105, 135) | 0},${rand(125, 145) | 0},${rand(0.25, 0.5)})`; g.lineWidth = rand(0.6, 2); g.beginPath(); let x = rand(0, w), y = rand(0, h); g.moveTo(x, y); for (let k = 0; k < 6; k++) { const nx = x + rand(-60, 60), ny = y + rand(-40, 40); g.quadraticCurveTo(x + rand(-20, 20), y + rand(-20, 20), nx, ny); x = nx; y = ny; } g.stroke(); }
+    for (let i = 0; i < 9; i++) { const x = rand(0, w), y = rand(0, h), r = rand(14, 46), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(60,110,80,.28)'); gr.addColorStop(1, 'rgba(60,110,80,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  });
+  const sandT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#b9ae8c'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 2) { const s = Math.sin(y * 0.19) * 0.5 + Math.sin(y * 0.07 + 1) * 0.5; g.fillStyle = s > 0.35 ? 'rgba(235,225,190,.18)' : s < -0.4 ? 'rgba(90,85,60,.14)' : 'rgba(0,0,0,0)'; g.fillRect(0, y + Math.sin(y) * 2, w, 2); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = pick(['rgba(120,110,80,.35)', 'rgba(230,225,200,.4)', 'rgba(90,100,90,.3)', 'rgba(200,180,140,.35)']); g.fillRect(rand(0, w), rand(0, h), rand(1, 2.5), rand(1, 2.5)); }
+  }, 50);
+  const caustT = atlCaustTex(256);
+
+  // ---------- Cielo submarino: oscuro abajo, verde azulado arriba y la luz de la superficie en lo alto
+  const sky = new THREE.Group(); world.group.add(sky);
+  {
+    const geo = new THREE.SphereGeometry(390, 32, 18), p = geo.attributes.position, col = new Float32Array(p.count * 3);
+    const lo = new THREE.Color(0x03121a), hz = new THREE.Color(FOG), hi = new THREE.Color(0x1f7a8c), zen = new THREE.Color(0x8ae8ee), c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i) / 390;
+      if (y < 0) c.copy(hz).lerp(lo, Math.min(1, -y * 3)); else { c.copy(hz).lerp(hi, Math.pow(Math.min(1, y * 1.3), 1.5)); if (y > 0.75) c.lerp(zen, (y - 0.75) / 0.25 * 0.7); }
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const ball = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, depthWrite: false, fog: false })); ball.renderOrder = -9; sky.add(ball);
+    const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xbff8ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); sun.scale.set(260, 260, 1); sun.position.set(30, 340, 20); sun.renderOrder = -8; sky.add(sun);
+  }
+  world.anims.push(() => { sky.position.set(camera.position.x, 0, camera.position.z); });
+  // la superficie del mar, muy arriba: la misma red de luz, enorme y lenta
+  const surfM = atlCaustMat(caustT, 0x8ef4ff, 0.018, 0.75, 0.0055);
+  { const s = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), surfM); s.rotation.x = Math.PI / 2; s.position.y = 60; s.renderOrder = -7; world.group.add(s); }
+
+  // ---------- Suelo: arena con ondas, mosaicos de la plaza y las avenidas, y cáusticas que se mueven
+  addGround(300, sandT).material.color.setHex(0xffffff);
+  const houses = [];   // suelos de casas en ruinas (se pintan en el mosaico)
+  overlayPlane(86, (g, w) => {
+    const k = w / 86, X = v => (v + 43) * k, C = X(0);
+    const tiles = ['#c4d2d0', '#b6c8c6', '#cfdcda', '#a8c0be', '#bccec8'];
+    g.lineJoin = 'round';
+    // plaza: anillos de losas alrededor del tridente
+    for (let r0 = 3.7, ring = 0; r0 < 16.8; r0 += 1.25, ring++) {
+      const r1 = r0 + 1.18, n = Math.max(10, Math.round(TAU * (r0 + 0.6) / 1.6)), off = ring * 0.37;
+      for (let i = 0; i < n; i++) {
+        if (srand() < (r0 > 13 ? 0.22 : 0.05)) continue;
+        const a0 = off + i / n * TAU, a1 = off + (i + 0.95) / n * TAU;
+        g.fillStyle = ring === 9 ? '#3e9c9a' : pick(tiles); g.beginPath(); g.arc(C, C, r1 * k, a0, a1); g.arc(C, C, r0 * k, a1, a0, true); g.closePath(); g.fill();
+        g.strokeStyle = 'rgba(40,70,72,.45)'; g.lineWidth = 0.07 * k; g.stroke();
+      }
+    }
+    // estrella de ocho puntas de mosaico turquesa y oro
+    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, long = i % 2 === 0, r = long ? 12.2 : 8.4, hw = long ? 0.2 : 0.16;
+      g.fillStyle = i % 4 === 0 ? 'rgba(200,168,80,.85)' : long ? 'rgba(58,154,154,.8)' : 'rgba(58,120,150,.7)';
+      g.beginPath(); g.moveTo(C + Math.cos(a) * r * k, C + Math.sin(a) * r * k); g.lineTo(C + Math.cos(a + hw) * 4.1 * k, C + Math.sin(a + hw) * 4.1 * k); g.lineTo(C + Math.cos(a - hw) * 4.1 * k, C + Math.sin(a - hw) * 4.1 * k); g.closePath(); g.fill(); }
+    // olas en la banda del borde
+    g.strokeStyle = 'rgba(230,245,240,.75)'; g.lineWidth = 0.12 * k; g.beginPath();
+    for (let i = 0; i <= 400; i++) { const a = i / 400 * TAU, r = 15.6 + Math.sin(a * 48) * 0.28; const x = C + Math.cos(a) * r * k, y = C + Math.sin(a) * r * k; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+    // avenidas hacia los cuatro arcos
+    for (let q = 0; q < 4; q++) {
+      g.save(); g.translate(C, C); g.rotate(q * Math.PI / 2);
+      for (let r = 17.1; r < 41; r += 1.55) for (let l = -3; l < 3; l += 1.5) {
+        if (srand() < 0.05 + (r - 17) / 24 * 0.35) continue;
+        g.fillStyle = pick(tiles); g.fillRect(r * k, (l + 0.04) * k, 1.48 * k, 1.42 * k);
+        g.strokeStyle = 'rgba(40,70,72,.4)'; g.lineWidth = 0.06 * k; g.strokeRect(r * k, (l + 0.04) * k, 1.48 * k, 1.42 * k);
+      }
+      g.fillStyle = 'rgba(70,120,120,.75)'; for (const l of [-3.45, 3.05]) for (let r = 17; r < 41; r += 1.2) if (srand() > 0.15) g.fillRect(r * k, l * k, 1.12 * k, 0.4 * k);
+      g.restore();
+    }
+    // suelos de casas en ruinas
+    for (const [x, z, ry, sw, sd] of houses) {
+      g.save(); g.translate(X(x), X(z)); g.rotate(-ry);
+      for (let a = -sw / 2; a < sw / 2; a += 1.1) for (let b = -sd / 2; b < sd / 2; b += 1.1) { if (srand() < 0.3) continue; g.fillStyle = pick(['#c8d4cc', '#b8c8c4', '#d4dcd4', '#a8bcb8']); g.fillRect(a * k, b * k, 1.04 * k, 1.04 * k); }
+      g.restore();
+    }
+    // grietas
+    g.strokeStyle = 'rgba(30,50,50,.55)'; g.lineWidth = 0.08 * k;
+    for (let i = 0; i < 40; i++) { let x = sr(-38, 38), z = sr(-38, 38); g.beginPath(); g.moveTo(X(x), X(z)); for (let s = 0; s < 6; s++) { x += sr(-1.5, 1.5); z += sr(-1.5, 1.5); g.lineTo(X(x), X(z)); } g.stroke(); }
+    // arena que el agua ha ido echando encima
+    for (let i = 0; i < 260; i++) { const a = sr(0, TAU), r = Math.sqrt(srand()) * 41, x = X(Math.cos(a) * r), y = X(Math.sin(a) * r), rr = sr(1, 4.5) * k * (0.5 + r / 41), gr = g.createRadialGradient(x, y, 0, x, y, rr); const o = 0.25 + r / 41 * 0.6; gr.addColorStop(0, `rgba(185,174,140,${o})`); gr.addColorStop(1, 'rgba(185,174,140,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+  }, 1024);
+  // las cáusticas: una sola capa sumada sobre todo el suelo
+  const caustM = atlCaustMat(caustT, 0x7fe6f2, 0.085, 0.3, FD);
+  { const c = new THREE.Mesh(new THREE.CircleGeometry(60, 48), caustM); c.rotation.x = -Math.PI / 2; c.position.y = 0.03; c.renderOrder = 2; world.group.add(c); }
+  world.anims.push((dt, t) => { caustM.uniforms.uTime.value = t; surfM.uniforms.uTime.value = t * 0.6; });
+
+  // ---------- Materiales de las ruinas
+  const marbleM = lam(0xffffff, { vertexColors: true, map: marbleT });
+  const bronzeM = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 60, specular: 0x5a7a6a, emissive: 0x0a1810 });
+  const rockM = lam(0xffffff, { vertexColors: true });
+  const WH = [0xe8eeee, 0xdce8e6, 0xd2e0de, 0xc8dad6, 0xe0e6e2];
+  const bake = (L, mat, solid = true, cast = true) => M(oceanGeo(L), mat, 0, 0, 0, { solid, cast });
+  const crystals = [];   // [x, y, z, rx, ry, rz, sx, sy, sz, color] para la malla instanciada de cristales
+  const cluster = (x, z, n, s, cols, list = crystals) => { for (let i = 0; i < n; i++) { const a = sr(0, TAU), d = i ? sr(0.2, 0.9) * s : 0, h = sr(0.9, 1.7) * s * (i ? 0.75 : 1.2); list.push([x + Math.cos(a) * d, h * 0.55, z + Math.sin(a) * d, Math.cos(a) * (i ? sr(0.25, 0.7) : 0.05), sr(0, TAU), Math.sin(a) * (i ? sr(0.25, 0.7) : 0.05), 0.28 * s, h, 0.28 * s, pick(cols)]); } };
+  const CY = [0x7ff4ff, 0x5ad8ff, 0x9ffcff], BL = [0x5a8aff, 0x7ab0ff, 0x9a7aff];
+  const corals = { branch: [], brain: [], fan: [], tube: [], tips: [] };
+  const CORC = [0xe86a8a, 0xf08a5a, 0xc85ab8, 0xf0c060, 0xe85050, 0x8a6ae0];
+  const coralAt = (x, z, s = 1) => {
+    const r = srand();
+    if (r < 0.4) corals.branch.push([x, 0, z, 0, sr(0, TAU), 0, s, s * sr(0.8, 1.3), s, pick(CORC)]);
+    else if (r < 0.62) corals.brain.push([x, 0.05, z, 0, sr(0, TAU), 0, s * 0.55, s * 0.4, s * 0.55, pick([0xd8a080, 0xb8c070, 0xe0b0c0, 0x90b8a0])]);
+    else if (r < 0.82) corals.fan.push([x, 0, z, 0, sr(0, TAU), 0, s * 0.9, s * sr(0.9, 1.3), 1, pick([0xa040c0, 0xe04a6a, 0xf08040, 0x6a50d0])]);
+    else corals.tube.push([x, 0, z, 0, sr(0, TAU), 0, s, s * sr(0.8, 1.4), s, pick([0xf09030, 0xe0c040, 0xc05ad0])]);
+    if (srand() < 0.35) corals.tips.push([x + sr(-0.4, 0.4), sr(0.1, 0.4), z + sr(-0.4, 0.4), 0, 0, 0, 0.09, 0.09, 0.09, pick([0xff70e0, 0x60ffe8, 0x80b0ff])]);
+  };
+
+  // ---------- El tridente gigante sobre su pedestal (centro de la plaza)
+  const TK = 0.74, TY = 3.8 - 3.75 * TK, orbY = TY + 19.4 * TK;   // el tridente se hace a escala 1 y luego se encoge a lo alto
+  {
+    const L = [], G = [];
+    L.push([cyl(3.7, 4.0, 0.6, 36), 0xdde8e6, 0, 0.3, 0], [cyl(2.9, 3.1, 0.9, 32), 0xd0dedc, 0, 1.05, 0], [cyl(1.7, 1.95, 2.0, 24), 0xe6eeee, 0, 2.5, 0], [cyl(2.05, 1.85, 0.32, 24), 0xc8d8d6, 0, 3.64, 0]);
+    // relieves de delfines y olas alrededor del tambor: placas
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + 0.2; L.push([bx(1.1, 1.2, 0.12), 0xbcd2d0, Math.cos(a) * 1.86, 2.5, Math.sin(a) * 1.86, 0, ryT(a), 0]); }
+    const G2 = [[new THREE.TorusGeometry(3.0, 0.08, 6, 40), 0xc8a24a, 0, 1.5, 0, Math.PI / 2], [new THREE.TorusGeometry(2.0, 0.07, 6, 32), 0xc8a24a, 0, 3.5, 0, Math.PI / 2]];
+    const BR = 0xc09848, PT = 0x5aa894;
+    G.push([cyl(0.4, 0.46, 0.5, 14), BR, 0, 4.0, 0], [cyl(0.25, 0.29, 14, 12), BR, 0, 11.1, 0]);
+    for (let y = 5; y < 17; y += 1.6) G.push([new THREE.TorusGeometry(0.26, 0.06, 6, 14), y % 3.2 < 1 ? PT : BR, 0, y, 0, Math.PI / 2]);
+    G.push([cyl(0.32, 0.42, 0.9, 12), BR, 0, 18.1, 0], [cyl(0.2, 0.2, 3.6, 10), BR, 0, 18.7, 0, 0, 0, Math.PI / 2]);
+    G.push([new THREE.TorusGeometry(1.75, 0.15, 8, 22, Math.PI), PT, 0, 18.7, 0, 0, 0, Math.PI]);
+    G.push([cyl(0.16, 0.22, 4.4, 10), BR, 0, 21.0, 0], [cyl(0, 0.36, 1.6, 8), 0xe0c070, 0, 24.0, 0]);
+    for (const s of [-1, 1]) {
+      G.push([cyl(0.15, 0.19, 3.4, 10), BR, s * 1.75, 20.3, 0, 0, 0, -s * 0.06], [cyl(0, 0.3, 1.3, 8), 0xe0c070, s * 1.86, 22.6, 0, 0, 0, -s * 0.06]);
+      G.push([cyl(0, 0.14, 0.7, 6), 0xe0c070, s * 1.5, 22.0, 0, 0, 0, s * 2.6], [cyl(0, 0.14, 0.7, 6), 0xe0c070, s * 2.15, 22.0, 0, 0, 0, -s * 2.6]);
+      G.push([cyl(0, 0.13, 0.6, 6), 0xe0c070, s * 0.32, 23.4, 0, 0, 0, s * 2.6]);
+    }
+    // conchas y caracolas al pie
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.5; L.push([sph(0.5, 8, 6), pick([0xf0d8c0, 0xe8c0b0]), Math.cos(a) * 3.3, 0.7, Math.sin(a) * 3.3, 0, 0, 0, 1, 0.5, 1.3]); }
+    bake(L, marbleM); bake(G2, bronzeM); const tm = bake(G, bronzeM); tm.scale.set(1.12, TK, 1.12); tm.position.y = TY; addCircle(0, 0, 4.0);
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; coralAt(Math.cos(a) * sr(3.9, 4.4), Math.sin(a) * sr(3.9, 4.4), sr(0.5, 0.8)); }
+  }
+  const orbM = bsc(0xb8ffff);
+  const orb = M(sph(0.55, 16, 12), orbM, 0, orbY, 0, { cast: false });
+  const orbG1 = glow(0, orbY, 0, 0x6ff0ff, 7, 0.75), orbG2 = glow(0, orbY, 0, 0x2a9aff, 16, 0.3);
+  lampLight(0, orbY, 0, 0x7ff0ff, 2.4, 46, null, 0.15);
+  const eRingM = new THREE.MeshBasicMaterial({ color: 0x7ff4ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const eRings = [0, 1, 2].map(i => { const m = M(new THREE.TorusGeometry(0.9 + i * 0.25, 0.04, 6, 32), eRingM, 0, 5 + i * 3, 0, { rx: Math.PI / 2, cast: false }); return m; });
+
+  // ---------- Templete circular: doce columnas alrededor de la plaza (tres caídas)
+  {
+    const L = [], RC = 12.2, N = 12, broken = [2, 6, 9], hFull = 8.2, topY = [];
+    for (let i = 0; i < N; i++) {
+      const a = (i + 0.5) / N * TAU, x = Math.cos(a) * RC, z = Math.sin(a) * RC, ry = ryT(a), br = broken.includes(i), h = br ? sr(1.6, 3.6) : hFull;
+      L.push([bx(1.6, 0.35, 1.6), 0xd0dcda, x, 0.17, z, 0, ry], [cyl(0.78, 0.78, 0.3, 16), 0xdae4e2, x, 0.48, z]);
+      L.push([cyl(0.52, 0.6, h - 0.9, 14), pick(WH), x, 0.63 + (h - 0.9) / 2, z, br ? sr(-0.06, 0.06) : 0, sr(0, 3), br ? sr(-0.06, 0.06) : 0]);
+      if (br) { L.push([DOD, 0xc8d6d4, x, h - 0.2, z, sr(0, 3), sr(0, 3), sr(0, 3), 0.55, 0.35, 0.55]);
+        // tambores caídos rodando hacia fuera
+        const n = 2 + (i % 2); for (let k = 0; k < n; k++) { const d = 2.2 + k * 1.5, fa = a + sr(-0.35, 0.35), dx = Math.cos(a) * RC + Math.cos(fa) * d, dz = Math.sin(a) * RC + Math.sin(fa) * d, dry = sr(0, TAU); L.push([cyl(0.56, 0.56, 1.3, 14), pick(WH), dx, 0.5, dz, 0, dry, Math.PI / 2]); addBox(dx, dz, 0.65, 0.58, dry); coralAt(dx + sr(-0.6, 0.6), dz + sr(-0.6, 0.6), 0.5); }
+      } else { L.push([cyl(0.8, 0.55, 0.45, 16), 0xe2eae8, x, h - 0.05, z], [bx(1.75, 0.35, 1.75), 0xdde6e4, x, h + 0.34, z, 0, ry]); topY[i] = h + 0.5; }
+      addCircle(x, z, 0.78);
+    }
+    // arquitrabes entre columnas enteras vecinas
+    for (let i = 0; i < N; i++) { const j = (i + 1) % N; if (!topY[i] || !topY[j]) continue; const a = (i + 1) / N * TAU, ch = 2 * RC * Math.sin(Math.PI / N);
+      L.push([bx(ch + 1.6, 0.85, 1.25), 0xe4ecea, Math.cos(a) * RC * Math.cos(Math.PI / N), topY[i] + 0.42, Math.sin(a) * RC * Math.cos(Math.PI / N), 0, ryT(a)]);
+      L.push([bx(ch + 1.6, 0.25, 1.45), 0xcfdcda, Math.cos(a) * RC * Math.cos(Math.PI / N), topY[i] + 0.97, Math.sin(a) * RC * Math.cos(Math.PI / N), 0, ryT(a)]); }
+    // un arquitrabe caído en el suelo de la plaza
+    { const a = 7 / N * TAU, x = Math.cos(a) * 9.4, z = Math.sin(a) * 9.4, ry = ryT(a) + 0.5; L.push([bx(6.4, 0.85, 1.25), 0xd8e2e0, x, 0.38, z, 0.08, ry, 0.12]); addBox(x, z, 3.2, 0.66, ry); }
+    bake(L, marbleM);
+  }
+
+  // ---------- Cuatro grandes arcos al final de las avenidas
+  {
+    const L = [], RA = 28.5;
+    for (let q = 0; q < 4; q++) {
+      const a = q * Math.PI / 2, cx = Math.cos(a) * RA, cz = Math.sin(a) * RA, ry = ryT(a), P = (lx, lz) => W2(cx, cz, ry, lx, lz);
+      const ruined = q === 0 || q === 3, H = 7.4;
+      // dovelas del arco: bloques en semicírculo (en los arcos rotos solo queda el tramo pegado al pilar alto)
+      const vou = (t0, t1) => { const n = 11; for (let k = 0; k < n; k++) { const th = Math.PI * (k + 0.5) / n; if (th < t0 || th > t1) continue; const [vx, vz] = P(Math.cos(th) * 4.1, 0); L.push([bx(1.22, 1.05, 1.8), k === 5 ? 0xc8a24a : pick(WH), vx, H + 0.7 + Math.sin(th) * 4.1, vz, 0, ry, th + Math.PI / 2]); } };
+      for (const s of [-1, 1]) {
+        const [px, pz] = P(s * 4.1, 0), short = ruined && s === 1, h = short ? 4.2 : H;
+        L.push([bx(2.4, 0.6, 2.6), 0xd0dcda, px, 0.3, pz, 0, ry], [bx(1.7, h, 1.9), pick(WH), px, h / 2 + 0.3, pz, 0, ry]);
+        if (!short) L.push([bx(2.2, 0.45, 2.4), 0xdde6e4, px, H + 0.5, pz, 0, ry]); else L.push([DOD, 0xc8d6d4, px, h + 0.2, pz, 0.5, 0.7, 0.3, 0.9, 0.5, 0.9]);
+        addBox(px, pz, 0.95, 1.05, ry);
+      }
+      if (!ruined) {
+        vou(0, Math.PI);
+        L.push([bx(11, 1.1, 2.2), 0xe6eeee, cx, H + 5.9, cz, 0, ry], [bx(11.6, 0.3, 2.5), 0xd0dcda, cx, H + 6.6, cz, 0, ry]);
+        const rg = roofGeo(11.2, 2.4, 1.6); L.push([rg, 0xe0e8e6, cx, H + 6.75, cz, 0, ry]);
+        // tritones de bronce en lo alto
+        for (const s of [-1, 1]) { const [tx, tz] = P(s * 5.2, 0); L.push([cyl(0.3, 0.4, 1.4, 8), 0x5aa894, tx, H + 7.5, tz], [sph(0.3, 8, 6), 0x5aa894, tx, H + 8.4, tz]); }
+      } else {
+        // medio arco que todavía aguanta y el resto en el suelo
+        vou(Math.PI * 0.6, Math.PI);
+        for (let k = 0; k < 4; k++) { const [rx, rz] = P(sr(1, 6), sr(-2.5, 2.5) + (k % 2 ? 2.6 : -2.6)), s = sr(0.6, 1.1); L.push([bx(1.4 * s, 1.0 * s, 1.6 * s), pick(WH), rx, 0.45 * s, rz, sr(-0.3, 0.3), sr(0, 3), sr(-0.3, 0.3)]); addCircle(rx, rz, 0.9 * s); }
+      }
+      // escalón de mármol bajo el arco (casi a ras del suelo)
+      L.push([bx(10.6, 0.12, 3.4), 0xd4dedc, cx, 0.06, cz, 0, ry]);
+    }
+    bake(L, marbleM);
+  }
+
+  // ---------- Muros en ruinas: bloques con la parte de arriba rota (devuelve la lista para la colisión)
+  const wall = (L, x0, z0, x1, z1, hMin, hMax, th = 0.7, gap) => {
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), ry = Math.atan2(-dz, dx), n = Math.max(1, Math.round(len / 1.15)), sl = len / n;
+    let run = null; const flush = () => { if (!run) return; const mx = (run.a + run.b) / 2, [cx, cz] = [x0 + dx * mx, z0 + dz * mx]; addBox(cx, cz, (run.b - run.a) * len / 2 + 0.05, th / 2 + 0.06, ry); run = null; };
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n, tm = (t0 + t1) / 2;
+      if (gap && tm > gap[0] && tm < gap[1]) { flush(); continue; }
+      const h = hMin + (hMax - hMin) * (0.5 + 0.5 * Math.sin(tm * 7.3 + x0)) * sr(0.7, 1);
+      const cx = x0 + dx * tm, cz = z0 + dz * tm;
+      for (let y = 0, row = 0; y < h - 0.05; row++) { const bh = Math.min(0.62, h - y); L.push([bx(sl + 0.02, bh - 0.03, th), pick(WH), cx + (row % 2 ? 0.08 : -0.08) * Math.cos(ry), y + bh / 2, cz - (row % 2 ? 0.08 : -0.08) * Math.sin(ry), 0, ry]); y += bh; }
+      if (!run) run = { a: t0, b: t1 }; else run.b = t1;
+    }
+    flush();
+    // escombros al pie
+    for (let i = 0; i < Math.round(len / 3); i++) { const t = sr(0, 1), s = sr(0.25, 0.45); L.push([bx(s * 1.4, s, s), pick(WH), x0 + dx * t + sr(-1, 1), s / 2 - 0.05, z0 + dz * t + sr(-1, 1), sr(-0.4, 0.4), sr(0, 3), sr(-0.4, 0.4)]); }
+  };
+
+  // ---------- Barrio del noreste (x+, z+): pórtico de columnas con la pared del fondo
+  {
+    const L = [], a = Math.PI / 4, cx = Math.cos(a) * 23.5, cz = Math.sin(a) * 23.5, ry = ryT(a), P = (lx, lz) => W2(cx, cz, ry, lx, lz);
+    houses.push([cx + Math.cos(a) * 2.5, cz + Math.sin(a) * 2.5, ry, 18, 6]);
+    for (let i = 0; i < 6; i++) {
+      const [x, z] = P(-8 + i * 3.2, 0), br = i === 1 || i === 4, h = br ? sr(2, 3.4) : 7.2;
+      L.push([bx(1.4, 0.3, 1.4), 0xd0dcda, x, 0.15, z, 0, ry], [cyl(0.46, 0.52, h - 0.4, 14), pick(WH), x, 0.3 + (h - 0.4) / 2, z]);
+      if (!br) L.push([bx(1.5, 0.3, 1.5), 0xdde6e4, x, h, z, 0, ry]); else L.push([DOD, 0xc8d6d4, x, h, z, 0.3, 0.5, 0.2, 0.5, 0.3, 0.5]);
+      addCircle(x, z, 0.62);
+    }
+    { const [x, z] = P(0, 0); L.push([bx(3.2 + 1.6, 0.8, 1.3), 0xe4ecea, x, 7.55, z, 0, ry]); }   // dintel sobre las dos columnas enteras del centro
+    { const [x, z] = P(-6.2, -2.4); L.push([bx(4.6, 0.8, 1.3), 0xdce6e4, x, 0.38, z, 0.1, ry + 0.25, 0.06]); addBox(x, z, 2.3, 0.65, ry + 0.25); }   // el otro dintel, caído delante
+    // pared del fondo con una puerta
+    const [w0x, w0z] = P(-9.6, 4.5), [w1x, w1z] = P(9.6, 4.5);
+    wall(L, w0x, w0z, w1x, w1z, 1.2, 4.6, 0.7, [0.44, 0.56]);
+    // ánforas
+    for (const [lx, lz] of [[-3, 2.6], [5.8, 2.9], [6.6, 2.2]]) { const [x, z] = P(lx, lz); L.push([sph(0.42, 10, 8), 0xb86a44, x, 0.55, z, 0, 0, 0, 1, 1.3, 1], [cyl(0.12, 0.2, 0.4, 8), 0xb86a44, x, 1.15, z]); addCircle(x, z, 0.42); }
+    { const [x, z] = P(9.5, 2.4); L.push([sph(0.42, 10, 8), 0xa05a3a, x, 0.36, z, 0, 0.6, Math.PI / 2, 1, 1.3, 1]); }
+    bake(L, marbleM);
+    for (let i = 0; i < 8; i++) { const [x, z] = P(sr(-10, 10), sr(3.6, 4.1)); coralAt(x, z, sr(0.5, 0.9)); }
+    cluster(...P(2.6, 2.8), 6, 0.9, CY);
+  }
+
+  // ---------- Barrio del noroeste (x-, z+): la cabeza de la estatua caída y su pedestal
+  {
+    const L = [], hx = -17.5, hz = 17.5, a = Math.atan2(hz, hx);
+    // cabeza tumbada mirando a la plaza, medio enterrada
+    const hd = new THREE.Group(); hd.position.set(hx, 1.7, hz); hd.rotation.set(0, Math.atan2(-Math.cos(a), -Math.sin(a)), 1.15, 'YXZ'); world.group.add(hd);
+    const H = [[sph(1, 18, 14), 0xdce6e4, 0, 0, 0, 0, 0, 0, 2.3, 2.75, 2.45], [bx(0.7, 1.4, 0.8), 0xd6e0de, 0, 0.1, 2.35, 0.25], [sph(0.45, 8, 6), 0x1e3036, -0.85, 0.75, 2.05, 0, 0, 0, 1, 0.6, 0.6], [sph(0.45, 8, 6), 0x1e3036, 0.85, 0.75, 2.05, 0, 0, 0, 1, 0.6, 0.6], [bx(1.3, 0.18, 0.4), 0xb8c8c6, 0, -0.75, 2.2]];
+    for (let i = 0; i < 12; i++) { const u = (i / 11 - 0.5) * 2.4; H.push([cyl(0.04, 0.32, 1.5, 6), 0xd4dedc, u * 0.9, -1.9 - Math.cos(u) * 0.3, 1.6 - Math.abs(u) * 0.4, 0.5, 0, u * 0.25]); }
+    for (let i = 0; i < 7; i++) { const u = (i / 6 - 0.5) * 2.2; H.push([cyl(0, 0.3, 1.2, 5), 0xc8a24a, Math.sin(u) * 2.2, 2.7 + Math.cos(u) * 0.2, Math.cos(u) * 1.2 - 0.3, -0.25, 0, -u * 0.4]); }
+    H.push([new THREE.TorusGeometry(2.25, 0.18, 6, 24), 0xc8a24a, 0, 2.15, -0.1, Math.PI / 2 - 0.25]);
+    M(oceanGeo(H), marbleM, 0, 0, 0, { p: hd, solid: true }); addCircle(hx, hz, 3.0);
+    // el brazo con la mano abierta
+    const ax = -25, az = 10.5, ary = 0.9; L.push([cyl(0.8, 0.95, 6.5, 14), 0xdae4e2, ax, 0.7, az, 0, ary, Math.PI / 2]);
+    { const [x, z] = W2(ax, az, ary, -3.9, 0); L.push([bx(1.2, 0.7, 1.7), 0xd6e0de, x, 0.4, z, 0, ary]); for (let f = 0; f < 4; f++) { const [fx, fz] = W2(ax, az, ary, -5, -0.6 + f * 0.4); L.push([cyl(0.17, 0.19, 1.3, 8), 0xd0dcda, fx, 0.3, fz, 0, ary, Math.PI / 2 + 0.2]); } }
+    addBox(...W2(ax, az, ary, -0.8, 0), 3.9, 0.95, ary);
+    // el pedestal de donde cayó, con los pies todavía encima
+    const px = -27, pz = 24, pry = -a + Math.PI / 2;
+    L.push([bx(4.4, 2.2, 4.4), 0xd4dedc, px, 1.1, pz, 0, pry], [bx(4.9, 0.4, 4.9), 0xc8d6d4, px, 2.3, pz, 0, pry]);
+    for (const s of [-1, 1]) { const [fx, fz] = W2(px, pz, pry, s * 0.9, 0.3); L.push([bx(0.9, 0.5, 1.6), 0xe0e8e6, fx, 2.75, fz, 0, pry], [cyl(0.42, 0.48, 1.6, 10), 0xdee6e4, fx, 3.6, fz - 0.2 * 0, sr(-0.1, 0.1), 0, sr(-0.1, 0.1)]); }
+    addBox(px, pz, 2.45, 2.45, pry);
+    houses.push([-24, 19, pry, 10, 8]);
+    wall(L, -33, 12, -30, 4, 0.6, 2.6);
+    bake(L, marbleM);
+    for (let i = 0; i < 7; i++) coralAt(hx + sr(-3.5, 3.5), hz + sr(-3.5, 3.5), sr(0.4, 0.8));
+    for (let i = 0; i < 4; i++) coralAt(px + sr(-3, 3), pz + sr(2.6, 3.2), sr(0.5, 0.9));
+  }
+
+  // ---------- Barrio del suroeste (x-, z-): la casa de la cúpula rota (se puede entrar)
+  const domeC = [-20, -20];
+  {
+    const L = [], [cx, cz] = domeC, RD = 5.2, open = Math.atan2(-cz, -cx), half = 0.75, segs = 18;
+    houses.push([cx, cz, 0, 9, 9]);
+    for (let i = 0; i < segs; i++) {
+      const a0 = i / segs * TAU, a1 = (i + 1) / segs * TAU, am = (a0 + a1) / 2;
+      let da = Math.atan2(Math.sin(am - open), Math.cos(am - open)); if (Math.abs(da) < half) continue;
+      const back = Math.abs(da) > 1.6, h = back ? 3.4 : sr(1.2, 3.0), x = cx + Math.cos(am) * RD, z = cz + Math.sin(am) * RD, ry = ryT(am), len = 2 * RD * Math.sin(Math.PI / segs) + 0.12;
+      for (let y = 0, row = 0; y < h - 0.05; row++) { const bh = Math.min(0.68, h - y); L.push([bx(len, bh - 0.03, 0.75), pick(WH), x, y + bh / 2, z, 0, ry]); y += bh; }
+      addBox(x, z, len / 2, 0.42, ry);
+    }
+    // la cúpula: media esfera que tapa la parte de atrás
+    const dg = new THREE.SphereGeometry(RD + 0.2, 22, 8, 0, Math.PI * 1.05, 0, Math.PI / 2);
+    const dm = M(dg, lam(0xffffff, { map: marbleT, side: THREE.DoubleSide, color: 0xd8e4e2 }), cx, 3.35, cz, { cast: true });
+    dm.rotation.y = -open - Math.PI * 0.525;
+    { const rg = new THREE.TorusGeometry(RD + 0.25, 0.14, 5, 20, Math.PI * 1.05); const m = M(rg, lam(0x5aa894), cx, 3.4, cz, { cast: false, rx: Math.PI / 2 }); m.rotation.z = open + Math.PI - Math.PI * 0.525; }
+    bake(L, marbleM);
+    for (let i = 0; i < 10; i++) { const a = sr(0, TAU); coralAt(cx + Math.cos(a) * (RD + 0.7), cz + Math.sin(a) * (RD + 0.7), sr(0.5, 1)); }
+  }
+
+  // ---------- Barrio del sureste (x+, z-): gradas de un teatro que miran a la plaza
+  {
+    const L = [], a0 = -Math.PI / 4 - 0.42, a1 = -Math.PI / 4 + 0.42, segs = 12;
+    for (let s = 0; s < 3; s++) {
+      const r = 23.6 + s * 1.5, h = 0.55 * (s + 1);
+      for (let i = 0; i < segs; i++) {
+        const am = a0 + (i + 0.5) / segs * (a1 - a0); if (i === 5 || i === 6) continue;   // pasillo en el centro
+        const x = Math.cos(am) * r, z = Math.sin(am) * r, ry = ryT(am), len = 2 * r * Math.sin((a1 - a0) / segs / 2) + 0.06, hh = (s === 2 && i % 4 === 3) ? h * 0.5 : h;
+        L.push([bx(len, hh, 1.5), pick(WH), x, hh / 2, z, 0, ry], [bx(len, 0.1, 0.25), 0xc8d6d4, Math.cos(am) * (r - 0.68), hh + 0.02, Math.sin(am) * (r - 0.68), 0, ry]);
+        addBox(x, z, len / 2, 0.78, ry);
+      }
+    }
+    // la estatua de una sirena con su concha, en el pasillo del centro
+    { const a = -Math.PI / 4, x = Math.cos(a) * 28.6, z = Math.sin(a) * 28.6, ry = ryT(a);
+      L.push([bx(1.8, 1.2, 1.8), 0xd0dcda, x, 0.6, z, 0, ry], [cyl(0.35, 0.55, 1.6, 10), 0xdce6e4, x, 2.0, z, 0.15], [sph(0.3, 10, 8), 0xdce6e4, x, 3.05, z], [new THREE.SphereGeometry(1.1, 12, 6, 0, Math.PI, 0, Math.PI / 2), 0xe8d8c8, x, 2.0, z, -Math.PI / 2, ry]);
+      addBox(x, z, 0.95, 0.95, ry); }
+    bake(L, marbleM);
+    for (let i = 0; i < 10; i++) { const am = sr(a0, a1), r = sr(28.4, 29.5); coralAt(Math.cos(am) * r, Math.sin(am) * r, sr(0.5, 1)); }
+  }
+
+  // ---------- Coberturas intermedias entre la plaza y los arcos (columnas tumbadas, bloques y muretes)
+  {
+    const L = [];
+    const spots = [[0.42, 18.6], [1.18, 19], [1.98, 18.2], [2.72, 18.8], [3.58, 18.4], [4.32, 19], [5.12, 18.6], [5.88, 18.4]];
+    spots.forEach(([a, r], i) => {
+      const x = Math.cos(a) * r, z = Math.sin(a) * r, ry = ryT(a) + sr(-0.4, 0.4);
+      if (i % 3 === 0) { // columna tumbada en dos trozos
+        L.push([cyl(0.58, 0.58, 3.2, 14), pick(WH), x, 0.56, z, 0, ry, Math.PI / 2], [cyl(0.58, 0.58, 2.0, 14), pick(WH), ...W2(x, z, ry, 2.9, 0.4).slice(0, 1), 0.56, W2(x, z, ry, 2.9, 0.4)[1], 0, ry + 0.3, Math.PI / 2]);
+        addBox(x, z, 1.6, 0.6, ry); addBox(...W2(x, z, ry, 2.9, 0.4), 1.0, 0.6, ry + 0.3);
+        L.push([bx(1.5, 0.4, 1.5), 0xd0dcda, ...W2(x, z, ry, -2.2, -0.2).slice(0, 1), 0.2, W2(x, z, ry, -2.2, -0.2)[1], 0.2, ry, 0.1]);
+      } else if (i % 3 === 1) { // murete bajo
+        const [x0, z0] = W2(x, z, ry, -2.2, 0), [x1, z1] = W2(x, z, ry, 2.2, 0); wall(L, x0, z0, x1, z1, 0.9, 1.5, 0.6);
+      } else { // montón de bloques
+        for (let k = 0; k < 4; k++) { const s = sr(0.8, 1.2), [bx_, bz] = W2(x, z, ry, sr(-1.5, 1.5), sr(-0.7, 0.7)); L.push([bx(1.3 * s, 0.9 * s, 1.0 * s), pick(WH), bx_, 0.45 * s + (k === 3 ? 0.8 : 0), bz, 0, ry + sr(-0.3, 0.3), sr(-0.1, 0.1)]); }
+        addBox(x, z, 2.1, 1.1, ry);
+      }
+      coralAt(x + sr(-1.5, 1.5), z + sr(-1.5, 1.5), sr(0.4, 0.7));
+    });
+    bake(L, marbleM);
+  }
+
+  // ---------- Anillo exterior: casas en ruinas entre los arcos
+  {
+    const L = [];
+    for (let q = 0; q < 8; q++) {
+      const a = (q + 0.5) / 8 * TAU + sr(-0.08, 0.08), r = q % 2 ? 35.5 : 34, cx = Math.cos(a) * r, cz = Math.sin(a) * r, ry = ryT(a);
+      if (q === 4 || q === 1) continue;  // ahí ya están la cúpula y la cabeza
+      const w2 = sr(3, 4.2), d2 = sr(2.2, 3);
+      const c = (lx, lz) => W2(cx, cz, ry, lx, lz);
+      const [ax, az] = c(-w2, -d2), [bx_, bz] = c(w2, -d2), [ccx, ccz] = c(w2, d2), [dx, dz] = c(-w2, d2);
+      wall(L, dx, dz, ax, az, 0.8, 3.8, 0.7);                // lado
+      wall(L, bx_, bz, ax, az, 0.6, 2.8, 0.7, [0.25, 0.55]); // frente con hueco
+      if (q % 2) wall(L, ccx, ccz, dx, dz, 1.5, 4.2, 0.7);   // fondo
+      houses.push([cx, cz, ry, w2 * 2, d2 * 2]);
+      for (let i = 0; i < 4; i++) { const [x, z] = c(sr(-w2, w2), d2 + sr(0.5, 1.2)); coralAt(x, z, sr(0.5, 1)); }
+    }
+    bake(L, marbleM);
+  }
+
+  // ---------- Rocas y arrecife que cierran el lugar
+  {
+    const L = [], RC = [0x34505a, 0x3e5a5e, 0x2c4450, 0x4a6262];
+    for (let i = 0; i < 80; i++) { const a = i / 80 * TAU + sr(-0.03, 0.03), r = sr(44.6, 48), s = sr(2.2, 3.6); L.push([DOD, pick(RC), Math.cos(a) * r, s * sr(0.2, 0.6), Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(0.8, 1.5), s]); }
+    for (let i = 0; i < 40; i++) { const a = sr(0, TAU), r = sr(49, 56), s = sr(3.5, 6); L.push([DOD, pick(RC), Math.cos(a) * r, s * 0.6, Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(1, 2), s]); }
+    bake(L, rockM, false);
+    for (let i = 0; i < 70; i++) { const a = sr(0, TAU), r = sr(41.8, 44); coralAt(Math.cos(a) * r, Math.sin(a) * r, sr(0.7, 1.4)); }
+  }
+
+  // ---------- La ciudad hundida a lo lejos: siluetas en la niebla (no la tapa la niebla)
+  {
+    const L = [], L2 = [], silM = bsc(0x072431, { fog: false }), silM2 = bsc(0x05202b, { fog: false });
+    const tower = (Lx, x, z, h, w) => { Lx.push([cyl(w * 0.8, w, h, 10), 0, x, h / 2, z], [new THREE.SphereGeometry(w * 1.05, 12, 6, 0, TAU, 0, Math.PI / 2), 0, x, h, z], [cyl(0.15, 0.3, w * 2, 6), 0, x, h + w * 1.6, z]); };
+    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(150, 230), h = sr(18, 60), w = sr(4, 10); if (srand() < 0.6) tower(L, Math.cos(a) * r, Math.sin(a) * r, h, w); else L.push([bx(w * 2.5, h * 0.6, w * 2), 0, Math.cos(a) * r, h * 0.3, Math.sin(a) * r, 0, sr(0, 3)]); }
+    // zigurat y el coloso con el brazo en alto
+    for (let s = 0; s < 5; s++) L2.push([bx(60 - s * 11, 9, 60 - s * 11), 0, -60, 4.5 + s * 9, -175]);
+    { const x = 120, z = -150; L2.push([bx(10, 30, 8), 0, x, 15, z], [bx(16, 26, 10), 0, x, 43, z], [sph(5, 10, 8), 0, x, 61, z], [bx(4, 24, 4), 0, x + 10, 62, z, 0, 0, -0.3], [cyl(0.8, 0.8, 70, 6), 0, x + 15, 60, z], [cyl(0, 3, 8, 6), 0, x + 15, 98, z]); }
+    for (let i = 0; i < 16; i++) { const a = sr(0, TAU), r = sr(105, 140), h = sr(10, 30), w = sr(3, 7); tower(L2, Math.cos(a) * r, Math.sin(a) * r, h, w); }
+    const m1 = M(oceanGeo(L), silM, 0, 0, 0, { cast: false, recv: false }), m2 = M(oceanGeo(L2), silM2, 0, 0, 0, { cast: false, recv: false }); m1.renderOrder = m2.renderOrder = -6;
+    // ventanas encendidas de cristal azul
+    const n = 160, wp = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { const a = sr(0, TAU), r = sr(110, 220); wp[i * 3] = Math.cos(a) * r; wp[i * 3 + 1] = sr(4, 40); wp[i * 3 + 2] = Math.sin(a) * r; }
+    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.BufferAttribute(wp, 3));
+    const wpts = new THREE.Points(wg, new THREE.PointsMaterial({ color: 0x5fe8ff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.55, depthWrite: false, fog: false })); wpts.renderOrder = -5; wpts.frustumCulled = false; world.group.add(wpts);
+    world.anims.push((dt, t) => { wpts.material.opacity = 0.4 + Math.sin(t * 0.7) * 0.15; });
+  }
+
+  // ---------- Cristales de oricalco que brillan (los grandes llevan luz)
+  const litSpots = [[Math.cos(0.52) * 31, Math.sin(0.52) * 31], [Math.cos(2.62) * 31, Math.sin(2.62) * 31], [Math.cos(5.76) * 31.5, Math.sin(5.76) * 31.5]];
+  cluster(domeC[0], domeC[1], 8, 1.4, CY); addCircle(domeC[0], domeC[1], 1.1);
+  for (const [x, z] of litSpots) { cluster(x, z, 8, 1.3, CY); addCircle(x, z, 1.1); }
+  for (let i = 0; i < 14; i++) { const a = sr(0, TAU), r = sr(15, 39); const x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) < 4 || Math.abs(z) < 4 || pointBlocked(x, z, 1)) continue; cluster(x, z, 4, sr(0.5, 0.8), srand() < 0.5 ? CY : BL); addCircle(x, z, 0.6); }
+  for (let i = 0; i < 30; i++) { const a = sr(0, TAU), r = sr(42, 46); cluster(Math.cos(a) * r, Math.sin(a) * r, 3, sr(0.8, 1.6), srand() < 0.6 ? CY : BL); }
+  const crysM = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x168aa8, specular: 0xcfffff, shininess: 90, flatShading: true, transparent: true, opacity: 0.92 });
+  inst(OCT, crysM, crystals, false);
+  lampLight(domeC[0], 2.2, domeC[1], 0x6ae8ff, 1.6, 15, null, 0.2);
+  for (const [x, z] of litSpots.slice(0, 2)) lampLight(x, 2.4, z, 0x5ad8ff, 1.5, 16, null, 0.2);
+  lampLight(litSpots[2][0], 2.4, litSpots[2][1], 0x8a7aff, 1.4, 16, null, 0.2);
+  const crysGlows = [...litSpots, domeC].map(([x, z]) => glow(x, 1.4, z, 0x5ff0ff, 5, 0.35));
+  // cristales que estallan al dispararles (un solo uso cada uno)
+  const boomSpots = [[24, -10], [-9, -27], [-30, 3]];
+  for (const [x, z] of boomSpots) {
+    const list = []; cluster(x, z, 7, 1.1, BL, list);
+    const parts = list.map(c => [OCT, c[9], c[0] - x, c[1], c[2] - z, c[3], c[4], c[5], c[6], c[7], c[8]]);
+    const g = Grp(x, z); const m = M(oceanGeo(parts), new THREE.MeshPhongMaterial({ vertexColors: true, emissive: 0x3a3ab8, specular: 0xe0e0ff, shininess: 90, flatShading: true }), 0, 0, 0, { p: g, cast: false });
+    const stub = M(oceanGeo(parts.slice(0, 3).map(p => { const q = p.slice(); q[9] = q[9] * 0.25; q[3] *= 0.25; return q; })), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { p: g, cast: false }); stub.visible = false;
+    const halo = glow(x, 1.3, z, 0x7a8aff, 4.5, 0.4); addCircle(x, z, 1.0);
+    let done = false;
+    shootable(m, () => { if (done) return; done = true; m.visible = false; stub.visible = true; halo.visible = false; Sfx.boom(); explode(new THREE.Vector3(x, 1, z), 5.5, 300, 20, true);
+      for (let i = 0; i < 40; i++) PA.add(x, 1, z, rand(-6, 6), rand(1, 6), rand(-6, 6), rand(0.6, 1.3), rand(0.1, 0.22), 0.45, 0.6, 1, 1, 1, 1.5, 0, 0);
+      feed('¡Cristal de oricalco!', 'gold'); });
+    world.anims.push((dt, t) => { if (!done) halo.material.opacity = 0.3 + Math.sin(t * 2.2 + x) * 0.12; });
+  }
+
+  // ---------- Corales, esponjas y anémonas que brillan
+  {
+    const brG = oceanGeo([[cyl(0.06, 0.12, 1.0, 6), 0xffffff, 0, 0.5, 0], [cyl(0.04, 0.08, 0.7, 5), 0xffffff, 0.2, 0.95, 0, 0, 0, -0.6], [cyl(0.04, 0.08, 0.7, 5), 0xffffff, -0.2, 0.9, 0.05, 0, 0, 0.6], [cyl(0.03, 0.07, 0.6, 5), 0xffffff, 0, 0.95, 0.2, 0.6], [cyl(0.03, 0.07, 0.55, 5), 0xffffff, 0.05, 0.85, -0.22, -0.7], [cyl(0.03, 0.05, 0.45, 5), 0xffffff, 0.35, 1.3, 0, 0, 0, -0.2], [cyl(0.03, 0.05, 0.45, 5), 0xffffff, -0.3, 1.25, 0, 0, 0, 0.3]]);
+    const brainG = new THREE.IcosahedronGeometry(1, 1);
+    const fanG = (() => { const g = new THREE.CircleGeometry(0.8, 10, 0, Math.PI); g.translate(0, 0.05, 0); return g; })();
+    const tubeG = oceanGeo([[cyl(0.12, 0.1, 0.9, 8), 0xffffff, 0, 0.45, 0], [cyl(0.1, 0.08, 0.6, 8), 0xffffff, 0.22, 0.3, 0.05, 0, 0, -0.2], [cyl(0.11, 0.09, 1.2, 8), 0xffffff, -0.15, 0.6, -0.12, 0.1, 0, 0.15]]);
+    inst(brG, lam(0xffffff, { vertexColors: true, emissive: 0x1a0a10 }), corals.branch, false);
+    inst(brainG, lam(0xffffff, { emissive: 0x0a0a08 }), corals.brain, false);
+    inst(fanG, lam(0xffffff, { side: THREE.DoubleSide, emissive: 0x100818 }), corals.fan, false);
+    inst(tubeG, lam(0xffffff, { vertexColors: true, emissive: 0x140a04 }), corals.tube, false);
+    const tipM = bsc(0xffffff); inst(sph(1, 6, 5), tipM, corals.tips, false);
+    world.anims.push((dt, t) => { const k = 0.75 + Math.sin(t * 1.6) * 0.25; tipM.color.setRGB(k, k, k); });
+  }
+
+  // ---------- Bosques de algas que se mecen (en la tarjeta gráfica)
+  {
+    const kelpT = canvasTex(64, 256, (g, w, h) => {
+      g.clearRect(0, 0, w, h); g.fillStyle = '#fff';
+      g.beginPath(); g.moveTo(w / 2 - 3, h); for (let y = h; y >= 0; y -= 8) g.lineTo(w / 2 - 6 - Math.abs(Math.sin(y * 0.09)) * 22 * (0.4 + 0.6 * y / h), y);
+      for (let y = 0; y <= h; y += 8) g.lineTo(w / 2 + 6 + Math.abs(Math.sin(y * 0.09 + 1.3)) * 22 * (0.4 + 0.6 * y / h), y); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(40,60,20,.6)'; g.fillRect(w / 2 - 1.5, 0, 3, h);
+    });
+    const kg = new THREE.PlaneGeometry(0.9, 1, 1, 6); kg.translate(0, 0.5, 0); const kg2 = kg.clone(); kg2.rotateY(Math.PI / 2);
+    const kelpG = oceanGeo([[kg, 0xffffff, 0, 0, 0], [kg2, 0xffffff, 0, 0, 0]]);
+    const kelpM = lam(0xffffff, { map: kelpT, alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, emissive: 0x0a1406 });
+    const uT = { value: 0 }; farmSway(kelpM, uT, 0.009);
+    const K = [];
+    const patch = (x, z, n, rad, hMin, hMax) => { for (let i = 0; i < n; i++) { const a = sr(0, TAU), d = Math.sqrt(srand()) * rad; K.push([x + Math.cos(a) * d, 0, z + Math.sin(a) * d, 0, sr(0, TAU), 0, sr(0.8, 1.3), sr(hMin, hMax), 1, pick([0x5a8a2a, 0x6a9a34, 0x4a7a3a, 0x7a8a2a, 0x3a6a3a])]); } };
+    for (let i = 0; i < 26; i++) { const a = i / 26 * TAU + sr(-0.1, 0.1); patch(Math.cos(a) * sr(39.5, 43), Math.sin(a) * sr(39.5, 43), 6, 2.2, 4, 10); }
+    for (const [x, z] of [[30, 18], [-34, -12], [12, -34], [-12, 34], [34, -20], [-20, 30]]) patch(x, z, 7, 2, 2.5, 6);
+    for (let i = 0; i < 20; i++) { const a = sr(0, TAU), r = sr(50, 60); patch(Math.cos(a) * r, Math.sin(a) * r, 5, 3, 8, 16); }
+    inst(kelpG, kelpM, K, false);
+    world.anims.push((dt, t) => { uT.value = t * 0.55; });
+  }
+
+  // ---------- Rayos de luz que bajan desde la superficie
+  {
+    const shT = canvasTex(64, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.6, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'destination-in'; const hg = g.createLinearGradient(0, 0, w, 0); hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(0.5, 'rgba(0,0,0,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = hg; g.fillRect(0, 0, w, h); });
+    const shG = new THREE.PlaneGeometry(1, 1); shG.translate(0, -0.5, 0);
+    const shafts = [];
+    for (let i = 0; i < 8; i++) {
+      const a = sr(0, TAU), r = i === 0 ? 0 : sr(8, 34), x = Math.cos(a) * r, z = Math.sin(a) * r, w = sr(3, 7);
+      const m = new THREE.Mesh(shG, new THREE.MeshBasicMaterial({ map: shT, color: 0x9ff4ff, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+      m.scale.set(w, 48, 1); m.position.set(x, 46, z); m.renderOrder = 3; world.group.add(m); shafts.push({ m, ph: sr(0, 6), o: sr(0.06, 0.12), sw: sr(0.04, 0.09) });
+    }
+    world.anims.push((dt, t) => { for (const s of shafts) { s.m.rotation.y = Math.atan2(camera.position.x - s.m.position.x, camera.position.z - s.m.position.z); s.m.rotation.z = Math.sin(t * 0.21 + s.ph) * s.sw; s.m.material.opacity = s.o * (0.6 + 0.4 * Math.sin(t * 0.37 + s.ph)); } });
+  }
+
+  // ---------- Bancos de peces y mantas que pasan
+  {
+    const fishG = oceanGeo([[sph(1, 8, 6), 0xffffff, 0, 0, 0, 0, 0, 0, 0.36, 0.14, 0.07], [CONE6, 0xc8d8e0, -0.42, 0, 0, 0, 0, -Math.PI / 2, 0.14, 0.2, 0.05]]);
+    const fishM = lam(0xffffff, { vertexColors: true, emissive: 0x0c1c22 });
+    const schools = [];
+    const mkSchool = (n, col, rx, rz, y, sp, ph, sc) => {
+      const g = new THREE.Group(); world.group.add(g);
+      const L = [], offs = [];
+      for (let i = 0; i < n; i++) { const o = [sr(-3, 3), sr(-1.1, 1.1), sr(-2, 2), sr(0, 6), sr(0.85, 1.15) * sc]; offs.push(o); L.push([o[0], o[1], o[2], 0, 0, 0, o[4], o[4], o[4], col]); }
+      const im = inst(fishG, fishM, L, false); g.add(im);
+      schools.push({ g, im, offs, rx, rz, y, sp, ph });
+    };
+    mkSchool(30, 0xd8e8f0, 26, 20, 5, 0.09, 0, 1); mkSchool(22, 0xf0d040, 18, 24, 3.6, -0.12, 2, 0.9); mkSchool(24, 0x60b0ff, 30, 26, 8, 0.07, 4, 1.1); mkSchool(16, 0xf07a40, 14, 12, 2.8, 0.15, 1, 0.8);
+    const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
+    // manta raya: cuerpo y dos alas que aletean
+    const mantas = [];
+    const mantaM = lam(0x1c2c36, { side: THREE.DoubleSide, emissive: 0x050a0e });
+    const wingS = new THREE.Shape(); wingS.moveTo(0.6, 0); wingS.quadraticCurveTo(0.2, 1.4, -0.4, 2.6); wingS.quadraticCurveTo(-0.6, 1.2, -1.1, 0); wingS.closePath();
+    const wingG = new THREE.ShapeGeometry(wingS); wingG.rotateX(Math.PI / 2);
+    for (let i = 0; i < 2; i++) {
+      const g = new THREE.Group(); world.group.add(g);
+      M(sph(1, 10, 6), mantaM, 0, 0, 0, { p: g, cast: false }).scale.set(1.2, 0.25, 0.6);
+      M(cyl(0.02, 0.05, 2.4, 4), mantaM, -2.2, 0, 0, { p: g, rz: Math.PI / 2, cast: false });
+      const wl = new THREE.Group(), wr = new THREE.Group(); g.add(wl); g.add(wr);
+      M(wingG, mantaM, 0, 0, 0, { p: wl, cast: false }); const r2 = M(wingG, mantaM, 0, 0, 0, { p: wr, cast: false }); r2.scale.z = -1;
+      g.scale.setScalar(i ? 1.3 : 1.7); mantas.push({ g, wl, wr, r: i ? 22 : 30, y: i ? 11 : 15, sp: i ? -0.05 : 0.04, ph: i * 3 });
+    }
+    world.anims.push((dt, t) => {
+      for (const sc of schools) {
+        const u = t * sc.sp + sc.ph, x = Math.cos(u) * sc.rx, z = Math.sin(u * 1.0) * sc.rz, y = sc.y + Math.sin(u * 2.3) * 1.2;
+        const dx = -Math.sin(u) * sc.rx * sc.sp, dz = Math.cos(u) * sc.rz * sc.sp;
+        sc.g.position.set(x, y, z); sc.g.rotation.y = Math.atan2(-dz, dx);
+        for (let i = 0; i < sc.offs.length; i++) { const o = sc.offs[i]; p.set(o[0] + Math.sin(t * 1.3 + o[3]) * 0.3, o[1] + Math.sin(t * 0.9 + o[3] * 2) * 0.2, o[2] + Math.cos(t * 1.1 + o[3]) * 0.3); e.set(0, Math.sin(t * 9 + o[3]) * 0.18, 0); q.setFromEuler(e); s.setScalar(o[4]); mt.compose(p, q, s); sc.im.setMatrixAt(i, mt); }
+        sc.im.instanceMatrix.needsUpdate = true;
+      }
+      for (const m of mantas) { const u = t * m.sp + m.ph; m.g.position.set(Math.cos(u) * m.r, m.y + Math.sin(t * 0.3 + m.ph) * 1.5, Math.sin(u) * m.r); m.g.rotation.y = Math.atan2(-Math.cos(u) * Math.sign(m.sp), -Math.sin(u) * Math.sign(m.sp)); const f = Math.sin(t * 1.4 + m.ph) * 0.45; m.wl.rotation.x = f; m.wr.rotation.x = -f; m.g.rotation.z = Math.sin(t * 0.5) * 0.08; }
+    });
+  }
+
+  // ---------- Burbujas que suben y nieve marina (dos nubes de puntos baratas)
+  {
+    const bubT = canvasTex(32, 32, (g, w) => { g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 2.5; g.beginPath(); g.arc(w / 2, w / 2, w / 2 - 3, 0, TAU); g.stroke(); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(w / 2 - 4, w / 2 - 4, 3, 0, TAU); g.fill(); });
+    const vents = [[0, 3.9], [0, -3.9], [3.9, 0], [-3.9, 0], domeC, ...litSpots, ...boomSpots, [17, 17], [-17.5, 17.5], [21, -21]];
+    const n = FAST() ? 90 : 170, bp = new Float32Array(n * 3), B = [];
+    for (let i = 0; i < n; i++) { const v = vents[i % vents.length]; B.push({ v, sp: rand(0.8, 1.8), ph: rand(0, 6), y: rand(0, 26) }); }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(bp, 3));
+    const bpts = new THREE.Points(bg, new THREE.PointsMaterial({ map: bubT, color: 0xcff8ff, size: 0.22, transparent: true, opacity: 0.75, depthWrite: false })); bpts.frustumCulled = false; world.group.add(bpts);
+    const m = FAST() ? 160 : 320, sp = new Float32Array(m * 3);
+    for (let i = 0; i < m; i++) { sp[i * 3] = rand(-16, 16); sp[i * 3 + 1] = rand(0, 12); sp[i * 3 + 2] = rand(-16, 16); }
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    const spts = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xd8f4f0, size: 0.07, transparent: true, opacity: 0.6, depthWrite: false })); spts.frustumCulled = false; world.group.add(spts);
+    world.anims.push((dt, t) => {
+      for (let i = 0; i < n; i++) { const b = B[i]; b.y += b.sp * dt; if (b.y > 26) { b.y = 0; b.ph = rand(0, 6); } bp[i * 3] = b.v[0] + Math.sin(b.y * 1.7 + b.ph) * (0.15 + b.y * 0.02); bp[i * 3 + 1] = b.y + 0.2; bp[i * 3 + 2] = b.v[1] + Math.cos(b.y * 1.3 + b.ph) * (0.15 + b.y * 0.02); }
+      bg.attributes.position.needsUpdate = true;
+      const cx = camera.position.x, cz = camera.position.z;
+      for (let i = 0; i < m; i++) { let x = sp[i * 3], y = sp[i * 3 + 1] - dt * 0.25, z = sp[i * 3 + 2]; x += Math.sin(t * 0.3 + i) * dt * 0.1;
+        if (y < 0) y += 12; if (x - cx > 16) x -= 32; else if (cx - x > 16) x += 32; if (z - cz > 16) z -= 32; else if (cz - z > 16) z += 32;
+        sp[i * 3] = x; sp[i * 3 + 1] = y; sp[i * 3 + 2] = z; }
+      sg.attributes.position.needsUpdate = true;
+    });
+  }
+  mistField(8, 0x3a8a9a, 36);
+
+  // ---------- El tridente se puede invocar: una onda del mar empuja y aturde a los zombis
+  {
+    const waveM = new THREE.MeshBasicMaterial({ color: 0x8ff6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const wave = M(new THREE.RingGeometry(0.85, 1, 64), waveM, 0, 0.4, 0, { rx: -Math.PI / 2, cast: false }); wave.visible = false;
+    const pillarG = new THREE.CylinderGeometry(0.6, 1.4, orbY, 16, 1, true); pillarG.translate(0, orbY / 2, 0);
+    const pillar = M(pillarG, new THREE.MeshBasicMaterial({ color: 0x8ff6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, { cast: false }); pillar.visible = false;
+    const padG = glow(0, 0.6, 4.6, 0x6ff0ff, 2.4, 0.4);
+    let fx = -1;
+    const o = mapUse({ x: 0, z: 4.6, r: 2.6, t: 'Tridente de Poseidón', d: 'Despierta el tridente: una ola empuja y aturde a todos los zombis cercanos.', b: 'Invocar', price: 8, cd: 45, use() {
+      fx = 0; wave.visible = pillar.visible = true; Sfx.thunder(); player.shake = Math.min(1, (player.shake || 0) + 0.35);
+      let nz = 0;
+      for (const z of zombies) { if (z.dead) continue; const zp = z.root.position, d = Math.hypot(zp.x, zp.z) || 0.1; if (d > 19) continue; nz++;
+        const f = 16 * (1 - d / 24); z.kbx = zp.x / d * f; z.kbz = zp.z / d * f; z.stagger = Math.max(z.stagger || 0, 3); damageZombie(z, 30, { part: 'body' });
+        for (let k = 0; k < 5; k++) PA.add(zp.x, rand(0.5, 2), zp.z, rand(-1, 1), rand(0.5, 2), rand(-1, 1), 0.7, 0.08, 0.5, 0.95, 1, 1, 0, 1, 0, 0); }
+      for (let i = 0; i < 70; i++) { const a = rand(0, TAU); PA.add(Math.cos(a) * 4.5, rand(0.3, 3), Math.sin(a) * 4.5, Math.cos(a) * 5, rand(1, 4), Math.sin(a) * 5, rand(0.6, 1.3), 0.1, 0.5, 0.95, 1, 1, 0, 1, 0, 0); }
+      banner('LA FURIA DEL MAR', 'El tridente despierta', 1800);
+      feed(nz ? `El tridente empuja a ${nz} zombi${nz > 1 ? 's' : ''}` : 'El tridente brilla en las profundidades', 'gold');
+    } });
+    world.anims.push((dt, t) => {
+      const ready = !o.readyT || !game || game.time >= o.readyT, k = ready ? 1 : 0.35;
+      orbM.color.setRGB(0.55 * k + 0.2, 0.9 * k + 0.1, k);
+      orbG1.material.opacity = (0.55 + Math.sin(t * 2.1) * 0.2) * k; orbG2.material.opacity = (0.22 + Math.sin(t * 1.3) * 0.08) * k; padG.material.opacity = ready ? 0.35 + Math.sin(t * 3) * 0.15 : 0.08;
+      orb.scale.setScalar(1 + Math.sin(t * 2.1) * 0.08);
+      for (let i = 0; i < eRings.length; i++) { const r = eRings[i], u = ((t * 0.18 + i / 3) % 1); r.position.y = 4.4 + u * (orbY - 6); r.scale.setScalar(1 + Math.sin(u * Math.PI) * 0.3); }
+      eRingM.opacity = 0.3 * k;
+      if (fx >= 0) { fx += dt; const u = fx / 1.4; wave.scale.setScalar(1 + u * 19); waveM.opacity = Math.max(0, 0.9 * (1 - u)); pillar.material.opacity = Math.max(0, 0.5 * (1 - fx / 1.0)); orbG2.scale.setScalar(16 + Math.max(0, 1 - fx) * 30);
+        if (u >= 1) { fx = -1; wave.visible = pillar.visible = false; orbG2.scale.setScalar(16); } }
+    });
+  }
+
+  // ---------- Puntos de aparición: salen de la arena cerca del arrecife
+  for (let i = 0; i < 12; i++) { const a = (i + 0.25) / 12 * TAU, r = 38; world.spawns.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, rise: i % 3 !== 0 }); }
+  for (const sp of world.spawns) { if (!pointBlocked(sp.x, sp.z, 0.7)) continue; const a0 = Math.atan2(sp.z, sp.x), r0 = Math.hypot(sp.x, sp.z); for (let k = 1; k < 40; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.03, r = r0 - (k % 5) * 0.4, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!pointBlocked(x, z, 0.7)) { sp.x = x; sp.z = z; break; } } }
+}
+
 function buildMap(i) {
   world.lampN = 0;
   if (world.group) { scene.remove(world.group); disposeObj(world.group); }
@@ -1996,7 +2581,7 @@ function buildMap(i) {
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null;
   world.idx = i; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
-  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
+  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
   moonMesh.visible = moonHalo.visible = !world.noMoon;
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -13480,7 +14065,7 @@ const LOOKS = {
   'Cajero': z => { z.mats[1].color.set(0x9a2a2a); z.mats[2].color.set(0x22303a); clearHat(z); addHat(z.head, 'cap'); addL(z.torso, LG.box(0.42, 0.5, 0.02), LM(0x2a6a3a), 0, -0.08, 0.15); addL(z.torso, LG.box(0.12, 0.05, 0.01), LM(0xf0f0f0), 0.1, 0.22, 0.16); },
   'Chef': z => { z.mats[1].color.set(0xf2f2f2); z.mats[2].color.set(0x2a2a2a); clearHat(z); addL(z.head, LG.cyl(0.15, 0.12, 0.26), LM(0xffffff), 0, 0.26, -0.01); addL(z.torso, LG.box(0.42, 0.55, 0.02), LM(0xf8f8f8), 0, -0.1, 0.15); for (let i = 0; i < 3; i++) addL(z.torso, LG.sph(0.015), LM(0x202020), 0.08, 0.2 - i * 0.1, 0.16); }
 };
-const MAP_LOOKS = [['Novia', 'Momia', 'Vaquero', 'Carbonizado', 'Minero'], ['Granjero', 'Vaquero', 'Payaso', 'Ahogado', 'Minero'], ['Bombero', 'Motociclista', 'Soldado', 'Payaso', 'Enfermera', 'Carbonizado'], ['Cajero', 'Chef', 'Enfermera', 'Payaso', 'Oficinista'], ['Payaso', 'Payaso', 'Vaquero', 'Chef', 'Granjero'], ['Oficinista', 'Novia', 'Momia', 'Enfermera', 'Cajero'], ['Ahogado', 'Ahogado', 'Motociclista', 'Cajero', 'Carbonizado'], ['Bombero', 'Soldado', 'Motociclista', 'Carbonizado', 'Enfermera', 'Cirujano'], ['Payaso', 'Chef', 'Cajero', 'Novia', 'Vaquero'], ['Oficinista', 'Cirujano', 'Enfermera', 'Bombero', 'Soldado', 'Motociclista'], ['Minero', 'Minero', 'Carbonizado', 'Soldado', 'Bombero'], ['Cirujano', 'Oficinista', 'Soldado', 'Enfermera', 'Cirujano'], ['Oficinista', 'Oficinista', 'Cajero', 'Momia', 'Novia'], ['Oficinista', 'Chef', 'Enfermera', 'Motociclista', 'Payaso'], ['Granjero', 'Vaquero', 'Payaso', 'Cajero', 'Chef'], ['Soldado', 'Cirujano', 'Momia', 'Carbonizado'], ['Minero', 'Soldado', 'Bombero', 'Granjero', 'Ahogado'], ['Oficinista'], ['Novia', 'Momia', 'Enfermera', 'Cirujano'], ['Ahogado', 'Ahogado', 'Vaquero', 'Cajero'], ['Granjero', 'Novia', 'Momia', 'Payaso'], ['Chef', 'Chef', 'Payaso', 'Cajero'], ['Ahogado', 'Ahogado', 'Ahogado', 'Soldado'], ['Soldado', 'Motociclista', 'Oficinista', 'Bombero'], ['Ahogado', 'Ahogado', 'Granjero', 'Novia', 'Chef'], ['Oficinista', 'Oficinista', 'Motociclista', 'Cajero', 'Enfermera'], ['Cajero', 'Novia', 'Vaquero', 'Payaso', 'Oficinista'], ['Cajero', 'Cajero', 'Chef', 'Oficinista', 'Enfermera'], ['Minero', 'Oficinista', 'Carbonizado', 'Bombero']];
+const MAP_LOOKS = [['Novia', 'Momia', 'Vaquero', 'Carbonizado', 'Minero'], ['Granjero', 'Vaquero', 'Payaso', 'Ahogado', 'Minero'], ['Bombero', 'Motociclista', 'Soldado', 'Payaso', 'Enfermera', 'Carbonizado'], ['Cajero', 'Chef', 'Enfermera', 'Payaso', 'Oficinista'], ['Payaso', 'Payaso', 'Vaquero', 'Chef', 'Granjero'], ['Oficinista', 'Novia', 'Momia', 'Enfermera', 'Cajero'], ['Ahogado', 'Ahogado', 'Motociclista', 'Cajero', 'Carbonizado'], ['Bombero', 'Soldado', 'Motociclista', 'Carbonizado', 'Enfermera', 'Cirujano'], ['Payaso', 'Chef', 'Cajero', 'Novia', 'Vaquero'], ['Oficinista', 'Cirujano', 'Enfermera', 'Bombero', 'Soldado', 'Motociclista'], ['Minero', 'Minero', 'Carbonizado', 'Soldado', 'Bombero'], ['Cirujano', 'Oficinista', 'Soldado', 'Enfermera', 'Cirujano'], ['Oficinista', 'Oficinista', 'Cajero', 'Momia', 'Novia'], ['Oficinista', 'Chef', 'Enfermera', 'Motociclista', 'Payaso'], ['Granjero', 'Vaquero', 'Payaso', 'Cajero', 'Chef'], ['Soldado', 'Cirujano', 'Momia', 'Carbonizado'], ['Minero', 'Soldado', 'Bombero', 'Granjero', 'Ahogado'], ['Oficinista'], ['Novia', 'Momia', 'Enfermera', 'Cirujano'], ['Ahogado', 'Ahogado', 'Vaquero', 'Cajero'], ['Granjero', 'Novia', 'Momia', 'Payaso'], ['Chef', 'Chef', 'Payaso', 'Cajero'], ['Ahogado', 'Ahogado', 'Ahogado', 'Soldado'], ['Soldado', 'Motociclista', 'Oficinista', 'Bombero'], ['Ahogado', 'Ahogado', 'Granjero', 'Novia', 'Chef'], ['Oficinista', 'Oficinista', 'Motociclista', 'Cajero', 'Enfermera'], ['Cajero', 'Novia', 'Vaquero', 'Payaso', 'Oficinista'], ['Cajero', 'Cajero', 'Chef', 'Oficinista', 'Enfermera'], ['Minero', 'Oficinista', 'Carbonizado', 'Bombero'], ['Ahogado', 'Ahogado', 'Ahogado', 'Novia', 'Momia']];
 /* ===== Formas de caminar: cada zombi saca una al azar (velocidad propia) ===== */
 const GAITS_WALK = { clasico: 1, arrastra: 0.8, encorvado: 0.95, tambaleante: 0.9, cuellorroto: 1, espasmos: 1.06, colgando: 0.85 };
 const GAITS_RUN = { sprint: 1, atras: 1.06, frenetico: 0.97 };
@@ -13867,7 +14452,8 @@ const NPC_LOOK = [
   { name: 'El oficinista', obj: 'al oficinista', shirt: 0x1a1a22, pants: 0x1a1a22, hat: null },
   { name: 'El crupier', obj: 'al crupier', shirt: 0xf0f0f0, pants: 0x1a1a1e, hat: null },
   { name: 'La campeona del arcade', obj: 'a la campeona del arcade', shirt: 0x7a2ab0, pants: 0x1a1a2e, hat: 'cap' },
-  { name: 'El técnico', obj: 'al técnico', shirt: 0x6a5a2a, pants: 0x3a3a30, hat: 'cap' }
+  { name: 'El técnico', obj: 'al técnico', shirt: 0x6a5a2a, pants: 0x3a3a30, hat: 'cap' },
+  { name: 'La arqueóloga submarina', obj: 'a la arqueóloga submarina', shirt: 0x2a6a7a, pants: 0x1a2a3a, hat: null }
 ];
 const beamGeo = new THREE.CylinderGeometry(0.45, 0.45, 30, 12, 1, true);
 const npcEyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
@@ -16473,7 +17059,8 @@ const MINIS = {
   25: { name: 'El Luchador de Sumo', base: 'brute', ab: 'quake', sc: 1.25, tint: 0xf0e0c0, glow: [1, 0.4, 0.4], hat: 'bun' },
   26: { name: 'El Crupier', base: 'walker', ab: 'frenzy', sc: 1.6, tint: 0x1a1a1a, glow: [1, 0.85, 0.2], hat: 'visor', coins: true },
   27: { name: 'El Campeón del Arcade', base: 'runner', ab: 'blink', sc: 1.55, tint: 0x6a2a9a, glow: [0.3, 1, 1], hat: 'cap' },
-  28: { name: 'El Fontanero', base: 'brute', ab: 'aura', sc: 1.15, tint: 0x8a3a1a, glow: [1, 0.5, 0.2], hat: 'cap' }
+  28: { name: 'El Fontanero', base: 'brute', ab: 'aura', sc: 1.15, tint: 0x8a3a1a, glow: [1, 0.5, 0.2], hat: 'cap' },
+  29: { name: 'El Rey de Atlantis', base: 'brute', ab: 'shield', sc: 1.2, tint: 0x2a7a7a, glow: [0.4, 0.95, 1], hat: 'crown' }
 };
 const miniMat = c => new THREE.MeshLambertMaterial({ color: c });
 function miniHat(z, k) {
@@ -18536,7 +19123,7 @@ function renderTeam(dt) {
     return `<div class="tm${dn ? ' down' : hp <= 30 ? ' low' : hp <= 60 ? ' mid' : ''}${p.wait && !dn ? ' rd' : ''}" title="${dn ? 'Caído' : `${p.drum | 0} en el tambor + ${p.box | 0} en la caja`}"><img alt="" src="${charPic(p.char || 'sheriff')}">${p.voice ? `<i class="vmic ${Voice.peerState(p)}">${VMIC}</i>` : ''}<span class="am">${dn ? '✕' : p.drum == null ? '–' : n}</span><div class="hb"><i style="width:${hp}%"></i></div></div>`; }).join('');
   if (html !== teamKey) { teamKey = html; box.innerHTML = html; } box.hidden = false;
 }
-const AMB = ['grillos', 'grillos', 'sirena', 'zumbido', 'feria', 'zumbido', 'olas', 'sirena', 'feria', 'viento', 'goteo', 'zumbido', 'zumbido', 'grillos', 'grillos', null, 'viento', 'fuego', 'viento', 'olas', 'grillos', 'zumbido', 'olas', 'sirena', 'goteo', 'sirena', 'feria', 'feria', 'zumbido'];
+const AMB = ['grillos', 'grillos', 'sirena', 'zumbido', 'feria', 'zumbido', 'olas', 'sirena', 'feria', 'viento', 'goteo', 'zumbido', 'zumbido', 'grillos', 'grillos', null, 'viento', 'fuego', 'viento', 'olas', 'grillos', 'zumbido', 'olas', 'sirena', 'goteo', 'sirena', 'feria', 'feria', 'zumbido', 'goteo'];
 let moodT = 0;
 function moodStep(dt) {
   if (!game || state === 'menu') return; Sfx.amb(state === 'play' ? AMB[world.idx] : null, dt);
@@ -19963,7 +20550,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 127';
+const GAME_BUILD = '15-oct-2026 · 128';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
