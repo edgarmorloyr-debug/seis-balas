@@ -1480,6 +1480,7 @@ function mapUseStep() {
 }
 function mapUseDo(o) {
   if (o.readyT > game.time || o.off) return;
+  if (o.ficha && !pagaFicha()) return;
   if (o.price) { if (game.gold < o.price) { hint(`Te faltan ${o.price - game.gold} $`, 1400); Sfx.err(); return; } game.gold -= o.price; Sfx.coin(); }
   o.readyT = game.time + (o.cd || 30); useCur = null; showUse(null); fxRun(o.shared, o.use, [o]); renderChips();
   if (Net.on && o.shared) Net.ev(['mfx', 'u', world.idx, r2(o.x), r2(o.z)]);
@@ -6380,7 +6381,7 @@ function buildVegas() {
     };
     const sp = lw(g, 0, 1.25);
     mapUse({
-      x: sp.x, z: sp.z, r: 2.3, t: 'Tragamonedas', d: 'Pagas 5 $ y giran los rodillos: premio pequeño al azar (oro, botiquín o balas).', b: 'Jugar', price: 5, cd: 20,
+      x: sp.x, z: sp.z, r: 2.3, t: 'Tragamonedas', d: 'Echa 1 ficha de póker y giran los rodillos: premio pequeño al azar (oro, botiquín o balas).', b: 'Jugar', ficha: 1, cd: 20,
       use() {
         const r = Math.random(), kind = r < 0.06 ? 0 : r < 0.2 ? 1 : r < 0.35 ? 2 : r < 0.5 ? 3 : 4;
         const S = [[0, 0, 0], [3, 3, 3], [1, 1, 1], [4, 4, 4]][kind] || (() => { const a = Math.floor(Math.random() * 6); let b = Math.floor(Math.random() * 6); if (b === a) b = (a + 2) % 6; return [a, b, (b + 1) % 6]; })();
@@ -6865,7 +6866,7 @@ function buildArcade() {
       }
     });
     const out = lw(c.g, 0, 1.5);
-    mapUse({ x: out.x, z: out.z, r: 2.2, t: 'Garra de la suerte', d: 'Echa una moneda: la garra baja y saca un premio al azar (balas o vida).', b: 'Jugar', price: 5, cd: 25,
+    mapUse({ x: out.x, z: out.z, r: 2.2, t: 'Garra de la suerte', d: 'Echa 1 ficha de póker: la garra baja y saca un premio al azar (balas o vida).', b: 'Jugar', ficha: 1, cd: 25,
       use() { c.mode = 1; c.mt = 0; c.head.position.x = 0; c.head.position.z = 0; Sfx.whoosh(panOf(out)); const r = Math.random();
         c.done = () => { if (!game) return; if (r < 0.15) { feed('¡Casi! Se le escapó el peluche', 'red'); Sfx.err(); return; } if (r < 0.6) { makePickup('ammo', out.x, out.z, 6); feed('Premio: caja de balas', 'gold'); } else if (r < 0.9) { makePickup('health', out.x, out.z); feed('Premio: botiquín de peluche', 'gold'); } else { makePickup('ammo', out.x - 0.5, out.z, 12); makePickup('health', out.x + 0.5, out.z); feed('¡PREMIO GORDO!', 'gold'); } Sfx.win(); for (let i = 0; i < 20; i++) PA.add(out.x, 1.5, out.z, rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.6, 1.2), 0.06, Math.random(), Math.random(), 1, 1, 6, 0.5, 0, 0); }; } });
   }
@@ -17755,7 +17756,14 @@ function updateStrikes(dt) {
   }
 }
 const pickups = []; let pickUid = 0;
-const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 } };
+const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c } };
+// Fichas de póker: las suelta 1 de cada 20 zombis; con ellas se juega a la tragamonedas, la ruleta y la garra (no cuestan oro)
+const FICHA_P = 0.05;
+const fichasTxt = n => `${n} ficha${n === 1 ? '' : 's'} de póker`;
+function pagaFicha() {
+  if ((game.poker | 0) < 1) { hint('Necesitas una ficha de póker: las sueltan los zombis', 1800); Sfx.err(); return false; }
+  game.poker--; Sfx.coin(); feed(`Usaste una ficha · te quedan ${game.poker}`, 'gold'); return true;
+}
 function makePickup(type, x, z, amount) {
   const g = new THREE.Group(); g.position.set(x, 0.6, z);
   const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
@@ -17764,12 +17772,13 @@ function makePickup(type, x, z, amount) {
   else if (type === 'powder') { const b = new THREE.Mesh(cyl(0.2, 0.2, 0.36, 12), new THREE.MeshLambertMaterial({ color: 0x5a3a20, emissive: 0x1a0e04 })); g.add(b); for (const y of [-0.12, 0.12]) { const r = new THREE.Mesh(cyl(0.21, 0.21, 0.04, 12), mat); r.position.y = y; g.add(r); } }
   else if (type === 'bala') { const b = new THREE.Mesh(cyl(0.07, 0.07, 0.3, 12), mat); g.add(b); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), mat); tip.position.y = 0.23; g.add(tip); const cs = new THREE.Mesh(cyl(0.075, 0.075, 0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd09a3e, emissive: 0x2a1c04 })); cs.position.y = -0.17; g.add(cs); g.scale.setScalar(1.3); }
   else if (type === 'key') { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16), mat); r.position.y = 0.16; g.add(r); const sh = new THREE.Mesh(bx(0.04, 0.32, 0.04), mat); sh.position.y = -0.06; g.add(sh); for (const y of [-0.16, -0.08]) { const t = new THREE.Mesh(bx(0.09, 0.04, 0.04), mat); t.position.set(0.05, y, 0); g.add(t); } }
+  else if (type === 'ficha') { const d = new THREE.Group(); d.add(new THREE.Mesh(cyl(0.22, 0.22, 0.06, 20), mat)); const w = new THREE.MeshLambertMaterial({ color: 0xfff4e0, emissive: 0x403830 }); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bx(0.07, 0.065, 0.05), w), a = i / 6 * TAU; m.position.set(Math.cos(a) * 0.19, 0, Math.sin(a) * 0.19); m.rotation.y = -a; d.add(m); } const c = new THREE.Mesh(cyl(0.11, 0.11, 0.07, 16), w); d.add(c); d.rotation.x = Math.PI / 2; g.add(d); g.scale.setScalar(1.25); }
   else if (type === 'bag') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a3a, emissive: 0x2a1a08 })); s.scale.y = 1.1; g.add(s); const k = new THREE.Mesh(cyl(0.08, 0.12, 0.14, 8), mat); k.position.y = 0.32; g.add(k); }
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(1.3, 1.3, 1); g.add(halo);
   scene.add(g);
-  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' || type === 'ammo' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -17954,7 +17963,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
+const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'poker', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -18012,7 +18021,9 @@ const diffW = n => 1 + 2 * zoneOf(n) + wavePos(n);
 const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
 const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => false;
-function waveCount(n) { const z = zoneOf(n), p = wavePos(n); return p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; }
+// al principio del juego salen más zombis (el primer lugar con un 60 % más, el segundo con un 30 % más) para que la pelea arranque con acción
+const INICIO_EXTRA = [1.6, 1.3];
+function waveCount(n) { const z = zoneOf(n), p = wavePos(n), base = p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; return Math.round(base * (INICIO_EXTRA[z] || 1)); }
 // Lo que cada jugador hace por su cuenta al empezar una oleada (también los invitados)
 function waveStartLocal(n) {
   if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
@@ -18063,7 +18074,7 @@ function chooseType(n) {
   for (const [k, v] of w) { if ((r -= v) < 0) return k; }
   return 'walker';
 }
-function maxAlive() { return Math.min(8 + diffW(game.wave) * 2, IS_TOUCH ? 16 : 26); }
+function maxAlive() { return Math.min(8 + diffW(game.wave) * 2 + (zoneOf(game.wave) < INICIO_EXTRA.length ? 4 : 0), IS_TOUCH ? 16 : 26); }
 
 function hurtPlayer(amount, src, opt = {}) {
   if (tuto) return;
@@ -18772,6 +18783,7 @@ function killZombie(z, info) {
   if (z.mini && !z.net) miniDied(z, p);
   if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper && !(z.B.id === 'mass' && z.gen)) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
   if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
+  if (!tuto && Math.random() < FICHA_P) makePickup('ficha', p.x + rand(-0.6, 0.6), p.z + rand(-0.6, 0.6), 0);
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (1 + S('luck') / 100) * (rl('trebol') ? 2 : 1) * (game.char === 'johnny' ? 1.8 : 1)) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
     makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, 3);
@@ -20462,7 +20474,7 @@ function updateWave(dt) {
         if (game.waveMod && game.waveMod.speed) nz.speed *= game.waveMod.speed;
         if (zmodOn('speed')) nz.speed *= zmodOn('speed');
         if (sk(5)) nz.speed *= 1.1;
-        game.spawnT = Math.max(0.3, 1.9 - diffW(game.wave) * 0.08) * rand(0.6, 1.2);
+        game.spawnT = Math.max(0.3, (zoneOf(game.wave) < INICIO_EXTRA.length ? 1.45 : 1.9) - diffW(game.wave) * 0.08) * rand(0.6, 1.2);
         if (sp.rise) dirtBurst(sp.x, 0.05, sp.z, 12, 2.5);
         if (t === 'brute' || t === 'abom') Sfx.roar(panOf(sp), volOf(sp, 1.8));
         if (t === 'abom') hint('¡Cuidado! La Abominación golpea el suelo a su alrededor', 3500);
@@ -21818,6 +21830,7 @@ function updatePickups(dt) {
       else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; game.box.push(k); Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
       else if (p.type === 'ammo') { for (let n = 0; n < p.amount; n++) game.box.push('normal'); Sfx.insert(); feed(`+${p.amount} balas`, 'gold'); }
       else if (p.type === 'key') { game.keys = (game.keys || 0) + 1; Sfx.coin(); feed(`Llave · tienes ${game.keys}`, 'gold'); renderChips(); }
+      else if (p.type === 'ficha') { game.poker = (game.poker | 0) + 1; Sfx.coin(); feed(`Ficha de póker · tienes ${game.poker}`, 'gold'); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
       else if (p.type === 'powder') { game.powder = Math.min(9, game.powder + 1); feed(`Barril de pólvora · tienes ${game.powder}`, 'gold'); }
       else { game.goldT = Math.min(30, game.goldT + 15); feed('¡Balas doradas! Daño doble', 'gold'); }
@@ -22343,8 +22356,7 @@ function enterRoom() {
     hint(game.roomRoute ? 'La Trastienda · compra lo que quieras y, a tus espaldas, elige la puerta de color de tu camino' : 'La Trastienda · compra objetos, prueba las puertas del fondo y sal por la puerta de atrás', 4200);
   });
 }
-// ---- Tragamonedas y ruleta de la Trastienda: cuestan 10 $ y dan poco (es para divertirse) ----
-const GAMBLE_P = 10;
+// ---- Tragamonedas y ruleta de la Trastienda: se juegan con 1 ficha de póker y dan poco (es para divertirse) ----
 // El Herrero (desbloqueo): yunque con fragua; afila el revólver una vez por visita
 const forgePrice = () => shopP(40 + 20 * (game.forge | 0));
 function buildForge(x, z, used) {
@@ -22391,8 +22403,10 @@ function shopRoomDecor(HX, HZ, H) {
   neon.position.set(7.3, 3.4, -HZ + 0.02); world.group.add(neon);
   world.anims.push((dt, t) => { neon.material.opacity = Math.sin(t * 7) > 0.97 || (t % 6 > 5.6 && t % 6 < 5.7) ? 0.3 : 1; });
 }
-// Galería de tiro de feria (5 %): 10 $ por 15 s de tiros a patitos y zombis de cartón; oro por acierto y objeto raro si los tumbas todos
-const TIRO_P = 10, TIRO_T = 15, TIRO_N = 10, TIRO_GOLD = 3;
+// Galería de tiro de feria (5 %): 10 $ por 12 s de tiros a patitos y zombis de cartón; oro por acierto y objeto raro si los tumbas todos
+const TIRO_P = 10, TIRO_T = 12, TIRO_N = 10, TIRO_GOLD = 3;
+// dificultad: velocidad de los blancos durante el juego, cuánto suben y bajan, y tamaño del blanco
+const TIRO_VEL = 0.27, TIRO_SALTO = 0.17, TIRO_TAM = 0.42;
 function tiroTex(kind) {
   return canvasTex(128, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h); g.lineWidth = 5; g.strokeStyle = '#2a1408';
@@ -22419,19 +22433,20 @@ function buildTiro(x, z) {
   for (let i = 0; i < TIRO_N; i++) {
     const top = i % 2 === 0, g = new THREE.Group(); g.position.set(0, top ? 1.95 : 1.25, -0.38); P.add(g);
     const piv = new THREE.Group(); g.add(piv);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.55), new THREE.MeshBasicMaterial({ map: top ? texP : texZ, transparent: true, side: THREE.DoubleSide, alphaTest: 0.3 })); m.position.y = 0.28; piv.add(m);
-    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.12), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.28; piv.add(hit);
-    const t = { g, piv, hit, top, ph: i / TIRO_N, down: false, fall: 0 };
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(TIRO_TAM, TIRO_TAM), new THREE.MeshBasicMaterial({ map: top ? texP : texZ, transparent: true, side: THREE.DoubleSide, alphaTest: 0.3 })); m.position.y = TIRO_TAM / 2; piv.add(m);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(TIRO_TAM * 0.85, TIRO_TAM, 0.12), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = TIRO_TAM / 2; piv.add(hit);
+    const t = { g, piv, hit, top, ph: i / TIRO_N, down: false, fall: 0, y0: g.position.y, v: 0.75 + ((i * 7) % 5) * 0.15, fase: i * 1.7 };
     shootable(hit, () => tiroHit(t));
     tg.push(t);
   }
   const o = { kind: 'tiro', x: x - 3.6, z, r: 1.4, used: !!(game && game.roomUsed && game.roomUsed.tiro), tg, P, bul };
   world.anims.push((dt, t) => {
     for (let i = 0; i < bul.length; i++) bul[i].material.color.setHex(Math.floor(t * 4 + i) % 3 ? 0xffd890 : 0xff5a3a);
-    const T = game && game.tiro, sp = T ? 0.16 : 0.05;
+    const T = game && game.tiro, sp = T ? TIRO_VEL : 0.05;
     for (const k of tg) {
-      k.ph = (k.ph + dt * sp * (k.top ? 1.25 : 1)) % 1;
+      k.ph = (k.ph + dt * sp * (k.top ? 1.25 : 1) * (T ? k.v : 1)) % 1;
       k.g.position.x = (k.top ? 1 : -1) * (-1.9 + k.ph * 3.8);
+      k.g.position.y = k.y0 + (T ? Math.sin(t * 3.2 + k.fase) * TIRO_SALTO : 0);   // durante el juego suben y bajan
       if (k.down) { k.fall = Math.min(1, k.fall + dt * 6); k.piv.rotation.x = -k.fall * 1.45; }
       else k.piv.rotation.x = 0;
     }
@@ -22799,7 +22814,7 @@ function buildShopRoom() {
 }
 function useLabel(o) {
   if (!o) return null;
-  if (o.kind === 'map') { const wait = o.readyT > game.time, ok = !wait && (!o.price || game.gold >= o.price); return { key: 'mp' + o.t + wait + ok, t: o.t, r: '', d: o.d, b: wait ? 'Recargando…' : o.price ? (game.gold >= o.price ? `${o.b} · ${o.price} $` : `Faltan ${o.price - game.gold} $`) : o.b, ok }; }
+  if (o.kind === 'map') { const wait = o.readyT > game.time, ok = !wait && (!o.price || game.gold >= o.price) && (!o.ficha || (game.poker | 0) > 0); return { key: 'mp' + o.t + wait + ok, t: o.t, r: '', d: o.d, b: wait ? 'Recargando…' : o.ficha ? ((game.poker | 0) > 0 ? `${o.b} · 1 ficha` : 'Sin fichas de póker') : o.price ? (game.gold >= o.price ? `${o.b} · ${o.price} $` : `Faltan ${o.price - game.gold} $`) : o.b, ok }; }
   if (o.kind === 'item') { const I = ITEMS[o.it.id], p = itemPrice(o.it.id); return { key: 'i' + o.it.id + game.gold, t: I.name, r: `<span class="rar-${I.rar + 1}">${IRAR[I.rar].name}</span>`, d: I.desc, b: game.gold >= p ? `Comprar · ${p} $` : `Faltan ${p - game.gold} $`, ok: game.gold >= p }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
@@ -22807,8 +22822,8 @@ function useLabel(o) {
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra', t: 'Radio de rescate', r: '', d: 'Pide refuerzos: elige un ayudante que pelea a tu lado solo durante la próxima oleada.', b: 'Llamar', ok: true };
-  if (o.kind === 'slot') { const ok = !o.busy && game.gold >= GAMBLE_P; return { key: 'sl' + game.gold + !!o.busy, t: 'Tragamonedas', r: '', d: 'Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse.', b: o.busy ? 'Girando…' : game.gold >= GAMBLE_P ? `Jugar · ${GAMBLE_P} $` : `Faltan ${GAMBLE_P - game.gold} $`, ok }; }
-  if (o.kind === 'wheel') { const ok = !o.busy && game.gold >= GAMBLE_P; return { key: 'wh' + game.gold + !!o.busy, t: 'Ruleta', r: '', d: 'Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada.', b: o.busy ? 'Girando…' : game.gold >= GAMBLE_P ? `Girar · ${GAMBLE_P} $` : `Faltan ${GAMBLE_P - game.gold} $`, ok }; }
+  if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de póker', ok }; }
+  if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de póker', ok }; }
   if (o.kind === 'reroll') return { key: 'rr' + game.rerollP + game.gold, t: 'Campanita', r: '', d: 'Cambia los objetos que no compraste.', b: game.gold >= game.rerollP ? `Cambiar · ${game.rerollP} $` : `Faltan ${game.rerollP - game.gold} $`, ok: game.gold >= game.rerollP };
   return null;
 }
@@ -22858,8 +22873,8 @@ function useObj(o) {
     useCur = null; showUse(null); openRadio(o);
   } else if (o.kind === 'slot' || o.kind === 'wheel') {
     if (o.busy || o.used) return;
-    if (game.gold < GAMBLE_P) { hint(`Te faltan ${GAMBLE_P - game.gold} $`, 1400); Sfx.err(); return; }
-    game.gold -= GAMBLE_P; Sfx.coin(); useCur = null; showUse(null);
+    if (!pagaFicha()) return;
+    useCur = null; showUse(null);
     if (o.kind === 'slot') playSlot(o); else playWheel(o);
   } else if (o.kind === 'door') {
     game.roomUsed[o.door] = (o.door !== 'shop'); if (o.door !== 'shop') o.used = true;
@@ -22913,7 +22928,7 @@ function openInv() {
 function closeInv() { if (state !== 'inv') return; show(null); state = 'play'; requestLock(); canvas.focus(); }
 function renderInv() {
   const its = Object.keys(game.items || {}).filter(k => ITEMS[k]).sort((a, b) => ITEMS[b].rar - ITEMS[a].rar);
-  $('#inv-sum').textContent = `${itemCount()} objetos · ${game.box.length} balas en la caja · ${totalAmmo()} en el tambor · $ ${game.gold}`;
+  $('#inv-sum').textContent = `${itemCount()} objetos · ${game.box.length} balas en la caja · ${totalAmmo()} en el tambor · $ ${game.gold} · ${fichasTxt(game.poker | 0)}`;
   $('#inv-items').innerHTML = its.length ? its.map(k => { const I = ITEMS[k]; return `<div class="inv-it r${I.rar}"><i>${ico(I.ic)}</i><div><b>${I.name}${game.items[k] > 1 ? ` <em>×${game.items[k]}</em>` : ''}</b><span>${I.desc}</span></div></div>`; }).join('') : '<p class="note">Todavía no tienes objetos. Se compran en la trastienda, entre oleada y oleada.</p>';
   const cnt = {}; game.box.forEach(b => cnt[b] = (cnt[b] || 0) + 1);
   const keys = Object.keys(cnt).sort((a, b) => (a === 'normal') - (b === 'normal') || BULLETS[b].rar - BULLETS[a].rar);
@@ -22936,7 +22951,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 67';
+const GAME_BUILD = '15-oct-2026 · 68';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
