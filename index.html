@@ -552,6 +552,10 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .sc-pic{position:relative;height:84px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 60%,rgba(120,90,50,.4),rgba(0,0,0,0) 70%)}
 .sc-pic img{max-width:100%;max-height:84px;object-fit:contain}
 .sc-dot{width:34px;height:34px;border-radius:50%}
+.sobre-pic{display:flex;flex-direction:column;align-items:center;justify-content:center;width:64px;height:84px;margin:0 auto;border-radius:8px;background:linear-gradient(160deg,var(--c),#1a1008);border:2px solid var(--c);color:#fff;box-shadow:0 0 14px var(--c)}.sobre-pic svg{width:30px;height:30px}.sobre-pic s{text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
+.sobre-res{grid-column:1/-1;padding:10px;border:1px solid rgba(214,165,75,.5);border-radius:10px;background:rgba(0,0,0,.5);text-align:center}.sobre-res>b{display:block;margin-bottom:8px;font-size:16px}.sobre-res>div{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.sb-c{display:flex;flex-direction:column;align-items:center;gap:4px;width:110px;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(214,165,75,.3)}.sb-c em{font-style:normal;font-size:14px;font-weight:700}.sb-c small{font-size:14px;color:var(--bone-dim,#bbb)}.sb-c.moj{opacity:.75;border-color:#4a5a6a}
+.sobre-res.anim .sb-c{animation:sbFlip .5s var(--d) both}@keyframes sbFlip{0%{transform:rotateY(90deg) scale(.8);opacity:0}100%{transform:none;opacity:1}}
 .sc-emo{font-size:40px;color:#e8c070}
 .sc-por{width:78px;height:84px;background-size:cover;background-position:center;border-radius:10px}
 .sc-pic .ally-ic{right:calc(50% - 50px);bottom:-4px}
@@ -612,6 +616,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #fee{font-size:14px;color:#ffc860;margin-top:2px;letter-spacing:.04em}
 #bossbar{position:absolute;top:calc(112px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(560px,78vw);text-align:center;pointer-events:none}
 #boss-n{font-family:var(--display);font-size:22px;color:#ffd0b0;text-shadow:0 2px 4px #000}
+.touch #bossbar{width:min(440px,52vw)}.touch #boss-n{font-size:18px}
 .bbar{position:relative;height:14px;background:rgba(0,0,0,.65);border:1px solid rgba(255,120,60,.7);margin-top:4px}
 #boss-b{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(#ff6a3a,#a01a0a)}
 #boss-a{position:absolute;left:0;top:0;height:4px;width:0;background:#70b8ff}
@@ -19996,6 +20001,7 @@ function bossFx(dt) {
   if (!bossAlive && mname) { bossAlive = true; hp = mhp; mx = mmx; name = 'Minijefe · ' + mname; arm = armMax = 0; }
   if (bossAlive && state !== 'menu') {
     if (bb.hidden) bb.hidden = false;
+    { const tc = $('#hud-tc'), bb = $('#bossbar'), y = Math.round(tc.getBoundingClientRect().bottom + 8); if (bb._y !== y) { bb._y = y; bb.style.top = y + 'px'; } }   // la barra del jefe va justo debajo de la oleada, la llave y la misión (sin taparlas)
     setText($('#boss-n'), 'bossn', name + ZF.tag); $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
   } else if (!bb.hidden) bb.hidden = true;
   // el Proyeccionista apaga las luces: solo se ve con el destello de los disparos
@@ -20969,7 +20975,7 @@ function rollOffers() {
   }
   game.offers = out.map(id => ({ id, bought: false }));
 }
-function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null;
+function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null;
   // si algo falla al dibujar la tienda, igual se abre (con lo que se pudo dibujar) y queda anotado el error
   try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
   show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
@@ -21118,6 +21124,15 @@ function renderShop() {
   // ---- Balas ----
   const normals = game.box.filter(b => b === 'normal').length;
   const bl = $('#shop-bullets'); bl.innerHTML = '';
+  // ---- Sobres de balas especiales: 3 espacios; cada uno puede salir mojado (no sirve) ----
+  if (game.sobre) { const R_ = game.sobre, fresh = performance.now() - R_.t < 1500, res = document.createElement('div'); res.className = 'sobre-res' + (fresh ? ' anim' : '');
+    res.innerHTML = `<b>${R_.name}</b><div>${R_.out.map((k, i) => k ? `<span class="sb-c r${BULLETS[k].rar}" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:${BULLETS[k].col};box-shadow:0 0 14px ${BULLETS[k].col}"></i><em>${BULLETS[k].name}</em><small>${RAR[BULLETS[k].rar].name}</small></span>` : `<span class="sb-c moj" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:#4a5a6a"></i><em>Bala mojada</em><small>No sirve</small></span>`).join('')}</div>`;
+    bl.appendChild(res); }
+  for (const S_ of SOBRES) {
+    const c = shopCard('sobre:' + S_.k, { pic: `<span class="sobre-pic" style="--c:${S_.col}">${ico('bullets')}<s>${S_.name.replace('Sobre ', '')}</s></span>`, name: S_.name, line: S_.d, tag: `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % de que cada una salga mojada` });
+    shopBtn(c.act, 'sobre-' + S_.k, 'buy', cost(S_.price), game.gold < S_.price, () => { if (game.gold < S_.price) return; game.gold -= S_.price; abrirSobre(S_); renderShop(); });
+    bl.appendChild(c.d);
+  }
   for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {
     const price = shopP(pr), c = shopCard('ammo' + n, { pic: `<span class="sc-emo">${ico('bullets')}</span>`, name: `${n} balas normales`, line: 'Se suman a tu caja', tag: `Tienes ${game.box.length}` });
     shopBtn(c.act, 'buy-ammo-' + n, 'buy', cost(price), game.gold < price, () => { if (game.gold < price) return; game.gold -= price; for (let k = 0; k < n; k++) game.box.push('normal'); Sfx.cash(); Sfx.insert(); renderShop(); });
@@ -22306,6 +22321,25 @@ const fusable = k => BULLETS[k] && k !== 'normal' && k !== 'mala' && !BULLETS[k]
    Lo que compras (o encuentras) es tuyo para toda la partida. Al empezar cada oleada, por cada 10 balas normales de tu caja
    sale 1 especial al azar de tu colección; al terminar la oleada vuelven todas a la colección (disparadas o no). */
 const COL_CADA = 10, COL_PRECIO = [0, 25, 50, 100, 400];
+// Sobres de la tienda: probabilidad de común / rara / legendaria en cada espacio, y la de que salga mojada (no sirve)
+const SOBRE_MOJADA = 0.25;
+const SOBRES = [
+  { k: 'standard', name: 'Sobre Standard', price: 50, w: [0, 70, 25, 5], col: '#c8a868', d: '3 balas especiales, casi siempre comunes.' },
+  { k: 'terminator', name: 'Sobre Terminator', price: 100, w: [0, 40, 45, 15], col: '#ff5a3a', d: '3 balas especiales: más raras y alguna legendaria.' },
+  { k: 'especial', name: 'Sobre Especial', price: 300, w: [0, 10, 50, 40], col: '#c070ff', d: '3 balas especiales: muchas legendarias.' }
+];
+function abrirSobre(S_) {
+  const out = [];
+  for (let i = 0; i < 3; i++) {
+    if (Math.random() < SOBRE_MOJADA) { out.push(null); continue; }
+    let r = Math.random() * 100, rar = 1; for (let k = 1; k <= 3; k++) { if ((r -= S_.w[k]) < 0) { rar = k; break; } }
+    const pool = Object.keys(BULLETS).filter(k => BULLETS[k].rar === rar && !BULLETS[k].fused && isOpen('b:' + k));
+    const k = pool.length ? pick(pool) : null; if (k) colAdd(k); out.push(k);
+  }
+  game.sobre = { name: S_.name, out, t: performance.now() };
+  const buenas = out.filter(Boolean).length; Sfx.cash(); if (buenas) Sfx.insert(); else Sfx.err();
+  feed(`${S_.name}: ${buenas} de 3 balas buenas${buenas < 3 ? ` · ${3 - buenas} mojada${3 - buenas > 1 ? 's' : ''}` : ''}`, buenas ? 'gold' : 'red');
+}
 const esEspecial = k => BULLETS[k] && k !== 'normal' && k !== 'mala';
 function colAdd(k, n = 1) { game.col = game.col || {}; game.col[k] = (game.col[k] | 0) + n; }
 const colTotal = () => Object.values((game && game.col) || {}).reduce((a, b) => a + b, 0);
@@ -23046,7 +23080,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 70';
+const GAME_BUILD = '15-oct-2026 · 71';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
