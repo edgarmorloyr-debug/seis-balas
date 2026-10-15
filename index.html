@@ -19297,7 +19297,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 81';
+const GAME_BUILD = '15-oct-2026 · 82';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20197,12 +20197,34 @@ function setAvGun(av, p) {
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
 const P3D = { cache: {}, esperan: {}, v: 1 };
+// algunos modelos traen vértices unidos a un hueso lejano (al moverse se estiran como una espina): se sueltan de ese hueso
+function p3dSanear(m) {
+  const v = new THREE.Vector3(); let n = 0;
+  m.traverse(o => {
+    if (!o.isSkinnedMesh) return;
+    const g = o.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+    const bp = o.skeleton.boneInverses.map(x => new THREE.Vector3().setFromMatrixPosition(x.clone().invert()));
+    const box = new THREE.Box3().setFromBufferAttribute(P), lim = 0.32 * (box.max.y - box.min.y || 1);
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(o.bindMatrix);
+      const ix = [SI.getX(i), SI.getY(i), SI.getZ(i), SI.getW(i)], w = [SW.getX(i), SW.getY(i), SW.getZ(i), SW.getW(i)];
+      let mal = false, tot = 0;
+      for (let k = 0; k < 4; k++) { if (w[k] > 0 && v.distanceTo(bp[ix[k]]) > lim) { w[k] = 0; mal = true; } tot += w[k]; }
+      if (!mal) continue; n++;
+      if (tot <= 0) { let best = 0, bd = 1e9; bp.forEach((b, j) => { const d = v.distanceTo(b); if (d < bd) { bd = d; best = j; } }); ix[0] = best; w[0] = 1; w[1] = w[2] = w[3] = 0; tot = 1; SI.setXYZW(i, ix[0], ix[1], ix[2], ix[3]); }
+      SW.setXYZW(i, w[0] / tot, w[1] / tot, w[2] / tot, w[3] / tot);
+    }
+    SI.needsUpdate = SW.needsUpdate = true;
+  });
+  return n;
+}
 function p3dCargar(ch, cb) {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !CHARS[ch]) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
   new THREE.GLTFLoader().load(`modelos/personajes/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
+    m.updateMatrixWorld(true); p3dSanear(m);
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
     const C = { m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
@@ -20567,7 +20589,7 @@ function renderCarousel(dir) {
     <div class="car-info"><span class="ch-desc">Al empezar la partida sale uno de los personajes al azar, con su arma y su habilidad. ¿Quién te tocará?</span></div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
     cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
-    const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Partida nueva'; return;
+    const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Partida nueva'; menu3d('azar'); return;
   }
   cl.innerHTML = `<div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}">${sideCard(-1)}
     <div class="car-main ${open ? '' : 'lock'}">
@@ -20584,7 +20606,8 @@ function renderCarousel(dir) {
 // En el menú, el personaje elegido aparece en 3D de cuerpo completo, quieto y con su propia pose:
 // en pantallas anchas, en la franja libre a la izquierda de la tarjeta; en las angostas, sobre su retrato
 const M3 = { r: null, scene: null, cam: null, inst: null, ch: null, on: false, lado: false };
-const MENU_POSE = { sheriff: ['wait', 0.3], johnny: ['cheer', 0.3], armando: ['victory_celebration', 0.3], lilith: ['standing_relax', 0.6], francois: ['look_around', 0.3], carlos: ['cheer', 0.6] };
+const MENU_POSE = {};   // todos con la misma pose (la de Françoise)
+const MENU_POSE_TODOS = ['look_around', 0.3];
 function menu3dCaja() {
   const card = document.querySelector('#menu .card'), lado = $('#m3d-lado'); if (!card || !lado) return null;
   const r = card.getBoundingClientRect(), libre = r.left - 24;
@@ -20592,18 +20615,26 @@ function menu3dCaja() {
   lado.hidden = true; return null;   // en el teléfono no hay espacio: solo el retrato
 }
 function menu3dPose(I, id) {
-  const [clip, f] = MENU_POSE[id] || ['idle', 0.3], a = I.acts[clip] || I.acts.idle; if (!a) return;
+  const [clip, f] = MENU_POSE[id] || MENU_POSE_TODOS, a = I.acts[clip] || I.acts.idle; if (!a) return;
   a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0);
 }
 function menu3d(id) {
   const caja = menu3dCaja();
   if (!caja) { if (M3.r) M3.r.domElement.remove(); const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
-  if (!THREE.GLTFLoader || !CHARS[id]) { if (M3.r) M3.r.domElement.style.opacity = '0'; const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
+  if (!THREE.GLTFLoader || !(CHARS[id] || id === 'azar')) { if (M3.r) M3.r.domElement.style.opacity = '0'; const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
   if (!M3.r) {
     try { M3.r = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
     M3.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); M3.r.outputEncoding = renderer.outputEncoding;
     Object.assign(M3.r.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', transition: 'opacity .35s', opacity: '0' });
-    M3.scene = new THREE.Scene(); M3.scene.add(new THREE.HemisphereLight(0xfff2e0, 0x2a1a10, 1.05)); const dl = new THREE.DirectionalLight(0xffe0b0, 0.95); dl.position.set(2, 3, 4); M3.scene.add(dl); const rim = new THREE.DirectionalLight(0x80a0ff, 0.6); rim.position.set(-3, 2, -3); M3.scene.add(rim); const fr = new THREE.DirectionalLight(0xffffff, 0.55); fr.position.set(0, 1.5, 5); M3.scene.add(fr);
+    M3.scene = new THREE.Scene(); M3.scene.add(new THREE.HemisphereLight(0xfff2e0, 0x2a1a10, 1.05)); const dl = new THREE.DirectionalLight(0xffe0b0, 0.95); dl.position.set(2, 3, 4); M3.scene.add(dl); const rim = new THREE.DirectionalLight(0x80a0ff, 0.6); rim.position.set(-3, 2, -3); M3.scene.add(rim); const fr = new THREE.DirectionalLight(0xffffff, 0.35); fr.position.set(0, 1.5, 5); M3.scene.add(fr);
+    M3.scene.children[0].intensity = 0.55; dl.intensity = 0.45;
+    // reflector de escenario: luz desde arriba, un haz visible y un círculo de luz en el piso
+    const sp = new THREE.SpotLight(0xfff0d0, 2.4, 9, 0.42, 0.55, 1.2); sp.position.set(0, 4.2, 0.6); sp.target.position.set(0, 0.6, 0); M3.scene.add(sp, sp.target);
+    const hazT = canvasTex(8, 128, g => { const r = g.createLinearGradient(0, 0, 0, 128); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.55, 'rgba(255,255,255,.35)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 8, 128); });
+    for (const [rb, op] of [[0.32, 0.07], [0.55, 0.05], [0.8, 0.03]]) { const haz = new THREE.Mesh(new THREE.CylinderGeometry(0.04, rb, 4.2, 40, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe2a8, map: hazT, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); haz.position.set(0, 2.1, 0); M3.scene.add(haz); }
+    const pisoT = canvasTex(128, 128, g => { const r = g.createRadialGradient(64, 64, 4, 64, 64, 64); r.addColorStop(0, 'rgba(255,230,180,.85)'); r.addColorStop(0.6, 'rgba(255,210,150,.25)'); r.addColorStop(1, 'rgba(255,200,140,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); });
+    const piso = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.MeshBasicMaterial({ map: pisoT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    piso.rotation.x = -Math.PI / 2; piso.position.y = 0.01; M3.scene.add(piso);
     M3.cam = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
     addEventListener('resize', () => { if (state === 'menu' && M3.ch) menu3d(M3.ch); });
   }
@@ -20615,7 +20646,10 @@ function menu3d(id) {
   M3.cam.position.set(0, 0.95, dist); M3.cam.lookAt(0, 0.92, 0); M3.cam.updateProjectionMatrix();
   if (M3.ch !== id) {
     M3.ch = id; if (M3.inst) { M3.scene.remove(M3.inst.m); M3.inst = null; } M3.r.domElement.style.opacity = '0';
-    p3dCargar(id, C => { if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I; menu3dPose(I, id); menu3dPon(); });
+    p3dCargar(id === 'azar' ? 'sheriff' : id, C => {
+      if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I;
+      if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404, skinning: true }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
+      menu3dPose(I, id); menu3dPon(); });
   } else menu3dPon();
   if (!M3.on) { M3.on = true; const loop = () => { if (!M3.r.domElement.isConnected) { M3.on = false; return; } requestAnimationFrame(loop); if (state !== 'menu' || $('#menu').hidden || !M3.inst) return; M3.r.render(M3.scene, M3.cam); }; loop(); }
 }
