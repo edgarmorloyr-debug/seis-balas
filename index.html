@@ -8852,7 +8852,7 @@ function buildCemetery() {
   for (let i = 0; i < 52; i++) { const p = spot(0.6, [6, 39]); if (p) tombstone(p[0], p[1]); }
   for (let i = 0; i < 12; i++) { const p = spot(0.8, [10, 40]); if (p) tree(p[0], p[1], sr(0.8, 1.3), true); }
   for (let i = 0; i < 10; i++) { const p = spot(1, [9, 40]); if (!p) continue; const rr = sr(0.5, 1.1), m = M(ROCK, darkStone, p[0], rr * 0.35, p[1], { p: tmp }); m.scale.set(rr, rr * sr(0.5, 0.8), rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); addCircle(p[0], p[1], rr * 0.9); }
-  cemGrande({ stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree });
+  cemGrande({ stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree, tombstone, grave });
   cemBake(tmp, [stoneMat, darkStone, bark]);
 
   // ---- El enterrador huyó: pala clavada, carretilla y su farol en el suelo
@@ -9240,6 +9240,8 @@ function cemGrande(K) {
       for (const [lw_, col] of stone ? [[4.6, 'rgba(20,18,15,.85)'], [3.8, 'rgba(78,74,64,.95)']] : [[3.0, 'rgba(18,14,10,.7)'], [2.2, 'rgba(48,38,26,.9)']]) { g.strokeStyle = col; g.lineWidth = lw_ * k; g.beginPath(); path.forEach(([x, z], j) => j ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))); g.stroke(); }
     });
     for (const [cx, cz, r] of CLAROS) { const gr = g.createRadialGradient(X(cx), X(cz), 0, X(cx), X(cz), r * k); gr.addColorStop(0, 'rgba(46,38,26,.75)'); gr.addColorStop(1, 'rgba(46,38,26,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X(cx), X(cz), r * k, 0, TAU); g.fill(); }
+    // fuera de la verja: manchas de barro, pasto seco y musgo para que el suelo no sea liso
+    for (let i = 0; i < 1600; i++) { const x = rand(-85, 85), z = rand(-85, 85); if (Math.hypot(x, z) < 43.5 || enBosque(x, z)) continue; g.fillStyle = pick(['rgba(40,32,20,.4)', 'rgba(60,70,36,.3)', 'rgba(22,26,14,.38)', 'rgba(74,62,40,.28)']); g.beginPath(); g.ellipse(X(x), X(z), rand(3, 14), rand(2, 9), rand(0, 3), 0, TAU); g.fill(); }
     for (let i = 0; i < 1400; i++) { const x = rand(-84, 84), z = rand(-84, 84); if (!enBosque(x, z)) continue; g.fillStyle = pick(['rgba(14,16,10,.45)', 'rgba(40,30,18,.35)', 'rgba(24,30,16,.4)']); g.beginPath(); g.ellipse(X(x), X(z), rand(3, 12), rand(2, 8), rand(0, 3), 0, TAU); g.fill(); }
     g.fillStyle = 'rgba(70,66,58,.85)'; g.fillRect(X(52), X(-12), 24 * k, 24 * k);
     for (let i = 0; i < 2600; i++) { g.fillStyle = pick(['rgba(40,38,32,.5)', 'rgba(96,90,78,.5)']); g.fillRect(X(rand(52, 76)), X(rand(-12, 12)), 3, 3); }
@@ -9392,6 +9394,132 @@ function cemGrande(K) {
   }
   for (const [x, z] of [[-55, 0], [-70, 30], [-45, 60], [-25, 70], [-60, -35], [-40, -55], [-80, 15], [-56, 20]]) world.spawns.push({ x, z, rise: true });
 
+  // ======================= DETALLE: el cementerio viejo se desborda fuera de la verja y ningún rincón queda vacío =======================
+  {
+    const { tombstone, grave } = K;
+    const fueraCat = (x, z) => !(x > CAT.x0 - 3 && x < CAT.x0 + 39 && z > CAT.z0 - 3 && z < CAT.z0 + 31);
+    const libre = (x, z, r) => insideArena(x, z, r + 0.6) && Math.hypot(x, z) > 45.5 && fueraCat(x, z) && !pointBlocked(x, z, r + 0.35) && !cercaRuta(x, z, r + 1.4) && !enClaro(x, z, 0.4);
+    const enGrupo = (cx, cz, rad, n, fn, rr = 0.7) => { let k = 0; for (let t = 0; t < n * 10 && k < n; t++) { const a = sr(0, TAU), d = Math.sqrt(srand()) * rad, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; if (!libre(x, z, rr)) continue; fn(x, z); k++; } };
+    // cruces de madera torcidas sobre montículos de tierra (tumbas de pobres)
+    const CRV = new THREE.BoxGeometry(0.1, 1.15, 0.08), CRH = new THREE.BoxGeometry(0.62, 0.1, 0.08), MND = new THREE.SphereGeometry(0.7, 8, 5), woodDk = lam(0x3a2a1c), dirt = lam(0x2e2418);
+    const cruz = (x, z) => {
+      const g = Grp(x, z, sr(0, TAU), tmp), t = new THREE.Group(); t.rotation.set(sr(-0.2, 0.2), 0, sr(-0.25, 0.25)); g.add(t);
+      M(CRV, srand() < 0.5 ? wood : woodDk, 0, 0.55, 0, { p: t }); M(CRH, srand() < 0.5 ? wood : woodDk, 0, 0.82, 0, { p: t });
+      const m = M(MND, dirt, 0, 0, 0.85, { p: g, cast: false }); m.scale.set(0.7, 0.28, 1.3);
+      addCircle(x, z, 0.3);
+    };
+    // camposanto viejo: al norte, junto al castillo y en la colina de la horca
+    enGrupo(-4, -46.6, 22, 12, tombstone);
+    enGrupo(30, -50, 12, 22, tombstone); enGrupo(30, -50, 12, 3, grave, 1.4);
+    enGrupo(58, -30, 11, 18, cruz); enGrupo(70, -26, 6, 6, tombstone);
+    enGrupo(36, 32, 11, 20, tombstone); enGrupo(36, 32, 10, 3, grave, 1.4);
+    enGrupo(56, 44, 9, 14, cruz); enGrupo(70, 20, 7, 8, cruz);
+    // rocas, arbustos secos, troncos caídos, tocones y huesos por todo lo que queda fuera de la verja
+    const ROCA = new THREE.DodecahedronGeometry(1, 0), TRONCO = new THREE.CylinderGeometry(0.22, 0.26, 3, 7), TOCON = new THREE.CylinderGeometry(0.3, 0.4, 0.5, 8);
+    const HUESO = new THREE.CylinderGeometry(0.03, 0.03, 0.45, 5), CALAV = new THREE.SphereGeometry(0.12, 7, 5), boneM2 = lam(0xd8d0b8);
+    const suelto = (n, rr, fn) => { let k = 0; for (let t = 0; t < n * 12 && k < n; t++) { const a = sr(0, TAU), r = sr(46, 84), x = Math.cos(a) * r, z = Math.sin(a) * r; if (!libre(x, z, rr)) continue; fn(x, z, enBosque(x, z)); k++; } };
+    suelto(55, 0.9, (x, z) => { const rr = sr(0.35, 1.0), m = M(ROCA, darkStone, x, rr * 0.3, z, { p: tmp }); m.scale.set(rr, rr * sr(0.45, 0.75), rr * sr(0.8, 1.2)); m.rotation.set(sr(0, 3), sr(0, 3), 0); if (rr > 0.6) addCircle(x, z, rr * 0.8); });
+    suelto(45, 0.5, (x, z) => { const g = Grp(x, z, sr(0, TAU), tmp); for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(branchGeo, bark); b.scale.set(0.035, sr(0.5, 0.9), 0.035); b.rotation.set(0, sr(0, TAU), sr(0.3, 1.0), 'YXZ'); g.add(b); } });
+    suelto(18, 1.8, (x, z) => { const m = M(TRONCO, bark, x, 0.24, z, { p: tmp, rz: Math.PI / 2, ry: sr(0, TAU) }); m.scale.set(1, sr(0.7, 1.2), 1); addCircle(x, z, 0.6); });
+    suelto(22, 0.6, (x, z) => { M(TOCON, bark, x, 0.25, z, { p: tmp, ry: sr(0, TAU) }); addCircle(x, z, 0.4); });
+    suelto(26, 0.4, (x, z) => { M(CALAV, boneM2, x, 0.1, z, { p: tmp, cast: false }); for (let i = 0; i < 2; i++) M(HUESO, boneM2, x + sr(-0.4, 0.4), 0.03, z + sr(-0.4, 0.4), { p: tmp, cast: false, rz: Math.PI / 2, ry: sr(0, TAU) }); });
+    // matas de pasto (afuera) y helechos (en el bosque): miles de hojas en dos mallas
+    {
+      const n = IS_TOUCH ? 700 : 1300, hoja = new THREE.ConeGeometry(0.05, 0.42, 3).translate(0, 0.21, 0), mt = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+      const pasto = new THREE.InstancedMesh(hoja, lam(0x3e4a26), n), helecho = new THREE.InstancedMesh(hoja, lam(0x1e3018), n);
+      let a1 = 0, a2 = 0;
+      for (let t = 0; t < n * 6 && (a1 < n || a2 < n); t++) {
+        const a = rand(0, TAU), r = rand(43.5, 85), cx = Math.cos(a) * r, cz = Math.sin(a) * r; if (!fueraCat(cx, cz) || enCastillo(cx, cz) || cercaRuta(cx, cz, 0.8)) continue;
+        const bosque = enBosque(cx, cz); if (bosque ? a2 >= n : a1 >= n) continue;
+        for (let i = 0; i < 5; i++) {
+          if (bosque ? a2 >= n : a1 >= n) break;
+          pv.set(cx + rand(-0.25, 0.25), 0, cz + rand(-0.25, 0.25)); e.set(rand(-0.5, 0.5), rand(0, TAU), rand(-0.5, 0.5)); q.setFromEuler(e); const s = bosque ? rand(1.4, 2.4) : rand(0.8, 1.5); sv.set(s * (bosque ? 2.2 : 1), s, s);
+          (bosque ? helecho : pasto).setMatrixAt(bosque ? a2++ : a1++, mt.compose(pv, q, sv));
+        }
+      }
+      pasto.count = a1; helecho.count = a2; pasto.receiveShadow = helecho.receiveShadow = true; world.group.add(pasto); world.group.add(helecho);
+    }
+    // faroles de camino (solo brillo, sin luz de verdad: el teléfono no se entera)
+    const POSTE = new THREE.BoxGeometry(0.12, 2.6, 0.12), BRAZO = new THREE.BoxGeometry(0.5, 0.06, 0.06), FAROL = new THREE.BoxGeometry(0.22, 0.3, 0.22), farolM = bsc(0xffb460);
+    RUTAS.forEach((path, ri) => {
+      if (ri === 5) return;
+      let acc = 0, lado = 1;
+      for (let i = 0; i < path.length - 1; i++) {
+        const [x1, z1] = path[i], [x2, z2] = path[i + 1], len = Math.hypot(x2 - x1, z2 - z1), nx = -(z2 - z1) / len, nz = (x2 - x1) / len;
+        for (let d = 7 - acc; d < len; d += 15) {
+          const t = d / len, x = x1 + (x2 - x1) * t + nx * 2.0 * lado, z = z1 + (z2 - z1) * t + nz * 2.0 * lado; lado = -lado;
+          if (Math.hypot(x, z) < 45 || pointBlocked(x, z, 0.4)) continue;
+          M(POSTE, woodDk, x, 1.3, z, { p: tmp }); M(BRAZO, woodDk, x - nx * 0.25 * lado, 2.55, z - nz * 0.25 * lado, { p: tmp, ry: Math.atan2(nz, -nx) });
+          const fx = x - nx * 0.45 * lado, fz = z - nz * 0.45 * lado; M(FAROL, farolM, fx, 2.32, fz, { cast: false }); flames.push(torchFlame(fx, 2.32, fz, 0xffa040, 1.6));
+          addCircle(x, z, 0.2);
+        }
+        acc = (acc + len) % 15;
+      }
+    });
+    // barriles de pólvora en el castillo: un disparo y revientan (como los faroles de gas del cementerio)
+    const barrilM = lam(0x6a3a1a), aroM = lam(0x2a2a2e), BARRIL = new THREE.CylinderGeometry(0.34, 0.34, 0.85, 10), ARO = new THREE.CylinderGeometry(0.355, 0.355, 0.07, 10);
+    const polvora = (cx, cz) => {
+      const g = new THREE.Group(); g.position.set(cx, 0, cz); g.userData.vivo = 1; world.group.add(g);
+      const piezas = [];
+      for (const [dx, dz, y] of [[0, 0, 0.43], [0.7, 0.1, 0.43], [0.35, 0.6, 0.43], [0.33, 0.25, 1.28]]) { const b = M(BARRIL, barrilM, dx, y, dz, { p: g }); piezas.push(b); for (const yy of [-0.28, 0.28]) piezas.push(M(ARO, aroM, dx, y + yy, dz, { p: g, cast: false })); }
+      const cartel = M(new THREE.PlaneGeometry(0.5, 0.25), bsc(0xffffff, { map: signTex('PÓLVORA', 128, 64, 'bold 30px sans-serif', '#c8281e', '#fff') }), 0.35, 0.6, -0.36, { p: g, cast: false, ry: Math.PI });
+      addCircle(cx + 0.35, cz + 0.3, 0.9);
+      let hecho = false;
+      const boom = () => {
+        if (hecho) return; hecho = true; g.visible = false; for (const m of piezas) solidOff(m); cartel.visible = false;
+        Sfx.boom(); explode(new THREE.Vector3(cx + 0.35, 0.8, cz + 0.3), 6.5, 380, 24); feed('¡Los barriles de pólvora revientan!', 'gold');
+        for (let i = 0; i < 40; i++) PA.add(cx + rand(-1, 1.5), rand(0.2, 1.5), cz + rand(-1, 1.5), rand(-2, 2), rand(1, 4), rand(-2, 2), rand(0.6, 1.4), rand(0.2, 0.5), 0.2, 0.2, 0.2, 0.8, -0.3, 1.2, 1.2, 0);
+      };
+      for (const m of piezas) { solids.push(m); shootable(m, boom); }
+    };
+    polvora(62.6, -10.2); polvora(71.6, 6.2);
+    // cripta de los Valdés, con candado (como el mausoleo de los Robles)
+    {
+      const x = 26, z = -59, g = Grp(x, z, -0.6); g.userData.vivo = 1;
+      M(bx(3.6, 2.8, 4.2), stoneMat, 0, 1.4, 0, { p: g, solid: true }); M(roofGeo(4.2, 1.4, 4.8), darkStone, 0, 2.8, 0, { p: g, solid: true });
+      M(bx(0.14, 1.0, 0.14), darkStone, 0, 4.55, 2.1, { p: g }); M(bx(0.55, 0.12, 0.14), darkStone, 0, 4.75, 2.1, { p: g });
+      const puertaM = bsc(0x060504); M(bx(1.4, 2.1, 0.06), puertaM, 0, 1.05, 2.12, { p: g, cast: false });
+      M(new THREE.PlaneGeometry(2.4, 0.45), bsc(0xffffff, { map: signTex('FAMILIA VALDÉS', 256, 48, 'bold 26px serif', '#5a5850', '#1a1810') }), 0, 2.45, 2.13, { p: g, cast: false });
+      const lockM = lam(0xe0b030, { emissive: 0x6a4a00 }), lock = M(bx(0.22, 0.26, 0.1), lockM, 0, 1.1, 2.2, { p: g, cast: false });
+      const brillo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffd040, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); brillo.scale.set(0.9, 0.9, 1); brillo.position.set(0, 1.12, 2.4); g.add(brillo);
+      addBox(x, z, 1.85, 2.15, -0.6);
+      const P1 = lw(g, 0, 3.4); let abierto = false;
+      mapUse({ x: P1.x, z: P1.z, r: 2.4, t: 'Cripta con candado', d: 'Rompe el candado: los Valdés escondieron balas y vendas. Solo una vez.', b: 'Romper el candado', price: 10, cd: 5, use(o) {
+        o.off = true; abierto = true; lock.visible = false; brillo.visible = false; puertaM.color.setHex(0x5a3a14); Sfx.clang(0); setTimeout(() => { if (game) Sfx.coin(); }, 400);
+        const a = lw(g, -0.5, 3.0), b = lw(g, 0.5, 3.0), c = lw(g, 0, 3.8); makePickup('ammo', a.x, a.z, 6); makePickup('ammo', b.x, b.z, 6); makePickup('health', c.x, c.z);
+        feed('¡El candado cede! Dentro había balas y vendas', 'gold');
+      } });
+      world.anims.push((dt, t) => { if (!abierto) brillo.material.opacity = 0.4 + Math.sin(t * 3.5) * 0.25; });
+    }
+    // caja del cazador en el campamento: se abre una vez
+    {
+      const x = -71.2, z = -7.4, caja = Grp(x, z, 0.3); caja.userData.vivo = 1;
+      M(bx(1.0, 0.55, 0.65), wood, 0, 0.28, 0, { p: caja }); const tapa = M(bx(1.04, 0.1, 0.7), woodDk, 0, 0.6, 0, { p: caja });
+      addCircle(x, z, 0.6);
+      mapUse({ x, z: z + 1.0, r: 2.0, t: 'Caja del cazador', d: 'El cazador dejó munición antes de huir. Solo una vez.', b: 'Abrir la caja', price: 0, cd: 5, use(o) {
+        o.off = true; tapa.rotation.x = -1.2; tapa.position.set(0, 0.85, -0.3); Sfx.coin(); makePickup('ammo', x + 0.8, z + 0.8, 8); feed('Munición del cazador: +8 balas', 'gold');
+      } });
+    }
+    // murciélagos alrededor de las torres del castillo
+    {
+      const bm = lam(0x0c0a0e), wingG = new THREE.BoxGeometry(0.42, 0.02, 0.2).translate(0.21, 0, 0), bats = [];
+      for (let i = 0; i < 9; i++) {
+        const c = new THREE.Group(); world.group.add(c); c.userData.vivo = 1;
+        M(new THREE.SphereGeometry(0.09, 6, 4), bm, 0, 0, 0, { p: c, cast: false });
+        const wl = new THREE.Mesh(wingG, bm), wr = new THREE.Mesh(wingG, bm); wr.rotation.y = Math.PI; c.add(wl); c.add(wr);
+        const tw = [[51, -13], [77, -13], [51, 13], [77, 13], [69, -2]][i % 5];
+        bats.push({ c, wl, wr, cx: tw[0], cz: tw[1], a: sr(0, TAU), r: sr(2.5, 6), h: sr(12, 16), sp: sr(0.9, 1.6) * (srand() < 0.5 ? -1 : 1), ph: sr(0, 9) });
+      }
+      world.anims.push((dt, t) => { for (const b of bats) { b.a += b.sp * dt; b.c.position.set(b.cx + Math.cos(b.a) * b.r, b.h + Math.sin(t * 2 + b.ph) * 0.6, b.cz + Math.sin(b.a) * b.r); b.c.rotation.y = -b.a + (b.sp > 0 ? 0 : Math.PI); const f = Math.sin(t * 18 + b.ph) * 0.9; b.wl.rotation.z = f; b.wr.rotation.z = -f; } });
+    }
+    world.spawns.push({ x: 30, z: -50, rise: true }, { x: 58, z: -30, rise: true }, { x: 36, z: 32, rise: true });
+  }
+  // ningún punto de aparición puede quedar encima de una tumba, un farol o un muro: se corre al hueco libre más cercano
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.5)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 4 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.5)) { sp.x = x; sp.z = z; ok = true; } }
+  }
   fundirEstatico(g0);
   world.anims.push(() => { for (const f of flames) f.material.opacity = 0.55 + Math.random() * 0.3; });
   // más niebla en el bosque y más oscuridad en las catacumbas, según dónde estés
@@ -22868,7 +22996,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 61';
+const GAME_BUILD = '15-oct-2026 · 62';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
