@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Seis Balas · Panel en vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Rye&family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#120d09;--panel:#1d1610;--line:#3f3022;--fg:#efe2c8;--dim:#b5a385;--brass:#e0a948;--ok:#5fc47a;--warn:#e8b24a;--bad:#e2604a;color-scheme:dark;--disp:'Rye',Georgia,serif;--body:'Archivo',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+main{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+h1{font:400 clamp(26px,5vw,38px) var(--disp);color:var(--brass);margin:0}
+#estado{font-size:14px;color:var(--dim);display:flex;align-items:center;gap:8px}
+#estado i{width:10px;height:10px;border-radius:50%;background:var(--warn);display:inline-block}
+#estado.on i{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.kpi b{display:block;font:800 34px var(--body);font-variant-numeric:tabular-nums}
+.kpi span{font-size:14px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+h2{font:400 22px var(--disp);margin:6px 0 0}
+.tabla{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:760px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+th{color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:13px}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--line)}
+.p-mapa{background:#2a3d24;border-color:#4e7a3f}.p-tras{background:#3d3020;border-color:#7a5f30}.p-menu{background:#262626;border-color:#444}.p-down{background:#4a1f18;border-color:var(--bad)}
+.vida{display:inline-block;width:60px;height:8px;background:#000;border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:6px}.vida i{display:block;height:100%;background:var(--ok)}
+.vacio{padding:22px;color:var(--dim);text-align:center}
+.salas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.sala{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.sala b{font-size:17px}.sala small{color:var(--dim);font-size:14px}
+footer{color:var(--dim);font-size:13px}
+</style></head><body>
+<main>
+<header><h1>Panel en vivo</h1><div id="estado"><i></i><span>Conectando…</span></div></header>
+<section class="kpis">
+ <div class="kpi"><b id="k-total">0</b><span>Jugadores ahora</span></div>
+ <div class="kpi"><b id="k-jugando">0</b><span>En partida</span></div>
+ <div class="kpi"><b id="k-menu">0</b><span>En el menú</span></div>
+ <div class="kpi"><b id="k-salas">0</b><span>Salas en grupo</span></div>
+ <div class="kpi"><b id="k-tel">0</b><span>Desde el teléfono</span></div>
+</section>
+<h2>Jugadores</h2>
+<div class="tabla"><table><thead><tr><th>Jugador</th><th>Personaje</th><th>Dónde</th><th>Oleada</th><th>Vida</th><th>Oro</th><th>Zombis</th><th>Modo</th><th>Equipo</th><th>Tiempo</th><th>Versión</th></tr></thead><tbody id="filas"><tr><td colspan="11" class="vacio">Buscando jugadores…</td></tr></tbody></table></div>
+<h2>Salas en grupo</h2>
+<div class="salas" id="salas"><div class="vacio">No hay salas en grupo ahora.</div></div>
+<footer>Se actualiza solo cada 3 segundos. Un jugador desaparece de la lista 10 segundos después de cerrar el juego.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js"></script>
+<script>
+const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
+const PJ = { sheriff: 'El Sheriff', johnny: 'Johnny R.', armando: 'Don Velorio', lilith: 'Lilith', carlos: 'Geronimo', francois: 'Françoise', azar: 'Al azar' };
+const DIF = { normal: 'Normal', dificil: 'Difícil', apocalipsis: 'Apocalipsis' };
+const vivos = new Map();
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = s => document.querySelector(s);
+const cl = supabase.createClient(SUPA.url, SUPA.key);
+const ch = cl.channel('seisbalas-vivo', { config: { broadcast: { self: false } } });
+ch.on('broadcast', { event: 'a' }, ({ payload: p }) => { if (p && p.id) { p.visto = Date.now(); vivos.set(p.id, p); } });
+ch.subscribe(st => { const e = $('#estado'); e.classList.toggle('on', st === 'SUBSCRIBED'); e.querySelector('span').textContent = st === 'SUBSCRIBED' ? 'Conectado · en vivo' : 'Conectando…'; if (st === 'SUBSCRIBED') preguntar(); });
+function preguntar() { try { ch.send({ type: 'broadcast', event: 'q', payload: {} }); } catch (e) {} }
+setInterval(preguntar, 3000);
+function donde(p) {
+  if (p.st === 'dying' || p.st === 'over') return '<span class="pill p-down">Murió</span>';
+  if (p.d === 'mapa') return `<span class="pill p-mapa">${esc(p.m)}</span>`;
+  if (p.d === 'trastienda') return '<span class="pill p-tras">La Trastienda</span>';
+  return '<span class="pill p-menu">Menú</span>';
+}
+function pintar() {
+  const ahora = Date.now();
+  for (const [k, p] of vivos) if (ahora - p.visto > 10000) vivos.delete(k);
+  const L = [...vivos.values()].sort((a, b) => (b.d !== 'menu') - (a.d !== 'menu') || b.w - a.w);
+  $('#k-total').textContent = L.length;
+  $('#k-jugando').textContent = L.filter(p => p.d !== 'menu').length;
+  $('#k-menu').textContent = L.filter(p => p.d === 'menu').length;
+  $('#k-tel').textContent = L.filter(p => p.tel).length;
+  const salas = new Map(); for (const p of L) if (p.grupo && p.grupo.r) { const s = salas.get(p.grupo.r) || { r: p.grupo.r, js: [] }; s.js.push(p); salas.set(p.grupo.r, s); }
+  $('#k-salas').textContent = salas.size;
+  $('#filas').innerHTML = L.length ? L.map(p => `<tr><td><b>${esc(p.n)}</b>${p.cuenta ? ' · Google' : ''}</td><td>${esc(PJ[p.ch] || p.ch || '')}</td><td>${donde(p)}</td><td>${p.d === 'menu' ? '—' : p.w}</td>
+    <td>${p.d === 'menu' ? '—' : `<span class="vida"><i style="width:${Math.min(100, p.hp)}%"></i></span>${p.hp}`}</td><td>${p.d === 'menu' ? '—' : p.oro + ' $'}</td><td>${p.d === 'menu' ? '—' : p.k}</td>
+    <td>${p.grupo ? `Grupo · ${p.grupo.c} ${p.grupo.h ? '(anfitrión)' : ''}` : 'Solo'}${p.dif && p.dif !== 'normal' ? ' · ' + esc(DIF[p.dif] || p.dif) : ''}</td><td>${p.tel ? 'Teléfono' : 'PC'}${p.fps ? ' · ' + p.fps + ' FPS' : ''}</td><td>${p.min} min</td><td>${esc(String(p.v).split('·').pop().trim())}</td></tr>`).join('')
+    : '<tr><td colspan="11" class="vacio">Nadie está jugando ahora mismo.</td></tr>';
+  $('#salas').innerHTML = salas.size ? [...salas.values()].map(s => { const h = s.js.find(p => p.grupo.h) || s.js[0]; return `<div class="sala"><b>Sala ${esc(s.r)}</b><small>Anfitrión: ${esc(h.n)} · ${h.grupo.c} de 4</small><small>${h.d === 'menu' ? 'Esperando jugadores' : h.d === 'trastienda' ? 'En la Trastienda · oleada ' + h.w : esc(h.m) + ' · oleada ' + h.w}</small><small>${s.js.map(p => esc(p.n)).join(', ')}</small></div>`; }).join('')
+    : '<div class="vacio">No hay salas en grupo ahora.</div>';
+}
+setInterval(pintar, 1000); pintar();
+</script>
+</body></html>

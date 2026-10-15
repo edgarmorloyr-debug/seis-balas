@@ -689,7 +689,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
           <div class="bar" id="hp"><s></s><b></b><canvas id="ecg" width="300" height="48" aria-hidden="true"></canvas><span id="hp-n">100 / 100</span></div>
           <div class="bar" id="stam"><b></b></div>
           <div class="bar" id="de"><b></b><em></em><span class="de-l"><kbd class="only-desk">Q</kbd></span></div>
-          <div class="bar" id="hab" title="Habilidad de tu personaje"><b></b><span class="de-l only-desk"><span id="hab-n"></span> <kbd>C</kbd></span></div>
+          <div class="bar" id="hab" title="Ultimate de tu personaje"><b></b><span class="de-l only-desk"><span id="hab-n"></span> <kbd>C</kbd></span></div>
         </div>
         <div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div>
       </div>
@@ -736,7 +736,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
     <button class="tb" id="b-fan">Aba&shy;nicar</button>
     <button class="tb" id="b-scope" aria-label="Disparar con mirilla" aria-pressed="false"><svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="16" cy="16" r="10"/><path d="M16 2v8M16 22v8M2 16h8M22 16h8"/><circle cx="16" cy="16" r="1.6" fill="currentColor"/></svg></button>
     <button class="tb" id="b-de">Ojo<br>Muerto</button>
-    <button class="tb" id="b-hab" aria-label="Habilidad del personaje"><span id="b-hab-n">Habi&shy;lidad</span></button>
+    <button class="tb" id="b-hab" aria-label="Ultimate del personaje"><span id="b-hab-n">Ultimate</span></button>
     <button class="tb" id="b-swap" hidden>Arma</button>
     <button class="tb" id="b-talk" hidden>Hablar</button>
     <button class="tb" id="b-pause" aria-label="Pausa">II</button>
@@ -784,7 +784,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <dt><kbd>F</kbd></dt><dd>Abanicar el martillo: vacía el tambor de golpe</dd>
         <dt><kbd>G</kbd></dt><dd>Girar el tambor: tus balas cambian de lugar al azar</dd>
         <dt><kbd>Q</kbd></dt><dd>Ojo Muerto: el tiempo se frena</dd>
-        <dt><kbd>C</kbd></dt><dd>Habilidad propia de tu personaje (se carga matando zombis)</dd>
+        <dt><kbd>C</kbd></dt><dd>Ultimate de tu personaje: su poder especial. Se carga matando zombis; cuando la barra está llena, úsala</dd>
         <dt><kbd>Tab</kbd> · <kbd>I</kbd></dt><dd>Inventario: tus objetos y qué hace cada uno, tus balas normales y tu colección de especiales. En grupo, además, la tabla de jugadores: conexión, zombis, caídas y oro</dd>
         <dt><kbd>V</kbd> · <kbd>Y</kbd></dt><dd>En grupo: silenciar el micrófono (o mantener para hablar) · escribir en el chat</dd>
         <dt><kbd>Esc</kbd> · <kbd>M</kbd></dt><dd>Pausa · silenciar</dd>
@@ -14147,7 +14147,7 @@ const HAB_CARGA = { muerte: 5, cabeza: 8 }; // carga (de 100) por cada zombi y p
 const HAB = {
   sheriff: { k: 'ayudante', name: 'Ayudante del sheriff', desc: 'Llama a un ayudante que pelea contigo con daño y velocidad moderados. Puedes tener hasta 6 a la vez.', max: 6 },
   francois: { k: 'dash', name: 'Agente especial', desc: 'Un impulso rápido hacia delante. Gasta la mitad de la barra: guardas hasta 2 cargas.', carga: 50, fuerza: 24, inmune: 0.3 },
-  johnny: { k: 'dado', name: 'Ludopatía', desc: 'Lanza un dado y usa hasta 6 armas aleatorias.', dur: 60 },
+  johnny: { k: 'dado', name: 'Ludopatía', desc: 'Lanza un dado y usa hasta 6 armas aleatorias.', dur: 60, cargadores: 2 },
   armando: { k: 'furia', name: 'Furia del viejo', desc: 'Durante 5 s hace el triple de daño (300 %) y nada le hace daño.', dur: 5, dano: 3 },
   lilith: { k: 'rafaga', name: 'Plomo ardiente', desc: 'Con sus dos MP5 descarga 40 balas gratis hacia donde apunta; cada bala incendia al zombi 4 s.', balas: 40, ritmo: 0.07, fuego: 4 },
   carlos: { k: 'minigun', name: 'Revólver minigun', desc: 'Durante 10 s empuñas el revólver minigun, con balas sin fin. Después vuelves a tus revólveres.', dur: 10 }
@@ -14189,7 +14189,7 @@ function usarHab() {
   renderChips();
 }
 function habStep(dt) {
-  if (game.habK === 'dado' && game.habMini && game.habT > 0.4 && !hands.some(h => h.active && h.ammo > 0)) game.habT = 0.4;   // Ludopatía: se acaba al vaciar el cargador
+  if (game.habK === 'dado' && game.habMini && game.habT > 0.4 && !hands.some(h => h.active && h.ammo > 0)) { if (game.habMini.extra > 0) dadoRecarga(); else game.habT = 0.4; }   // Ludopatía: al vaciar el último cargador se acaba
   if (game.habT > 0) { game.habT -= dt; if (game.habT <= 0) { game.habT = 0; if (game.habK === 'lluvia') feed('Se acabó la Lluvia de plomo', 'blue'); if (game.habK === 'furia') { fxFuria.style.opacity = '0'; feed('Se acabó la Furia del viejo', 'blue'); } if (game.habMini) finMinigun(); } }
   if (game.dashT > 0) game.dashT -= dt;
   const rf = gs.rafaga;
@@ -14243,8 +14243,13 @@ function habDado(H) {
   game.habT = H.dur + 1;   // la barra queda ocupada mientras rueda
   setTimeout(() => {
     if (!game || state === 'menu' || player.down) { if (game) game.habT = 0; return; }
-    prestarArma(id, H.dur); banner(`Dado: ${n}`, `${MODELS[id].name} · hasta vaciar el cargador`, 2200, 'gun'); n === 1 ? Sfx.err() : Sfx.win();
+    prestarArma(id, H.dur); game.habMini.extra = (H.cargadores || 1) - 1; banner(`Dado: ${n}`, `${MODELS[id].name} · ${H.cargadores || 1} cargadores`, 2200, 'gun'); n === 1 ? Sfx.err() : Sfx.win();
   }, 950);
+}
+function dadoRecarga() {
+  const M = game.habMini; if (!M || !(M.extra > 0)) return; M.extra--;
+  for (const h of hands) if (h.active) { for (let i = 0; i < h.cap; i++) h.loaded[i] = 'normal'; h.ammo = h.cap; h.idx = 0; }
+  refreshChambers(); gs.draw = 0.35; Sfx.insert(); Sfx.close(); feed(M.extra ? `Cargador nuevo · quedan ${M.extra}` : 'Último cargador', 'gold');
 }
 // Lilith · Plomo ardiente: dos MP5 que descargan 40 balas gratis hacia donde apuntaba al usarla
 function habRafaga(H) {
@@ -14846,7 +14851,7 @@ function creditKill(def, head, ally, weapon) {
 const recMul = () => 1 + ALLY.recargador.reload * Math.min(3, myAllies().filter(c => c.kind === 'recargador').length);
 function startReload() {
   if (gs.reloading || gs.fan > 0 || gs.draw > 0) return;
-  if (game.habMini && game.habK === 'dado') return;   // el arma del dado no se recarga
+  if (game.habMini && game.habK === 'dado') { if (game.habMini.extra > 0 && activeHands().some(h => h.ammo < h.cap)) dadoRecarga(); return; }   // el arma del dado trae sus propios cargadores
   for (const h of hands) h.cocked = false;
   if (!activeHands().some(h => h.loaded.some(x => x === 0 || x === 2))) return;
   if (!game.box.length) { hint('No te quedan balas en la caja', 1500); return; }
@@ -19306,7 +19311,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 83';
+const GAME_BUILD = '15-oct-2026 · 84';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -19427,6 +19432,28 @@ const Salas = {
     if (ul.innerHTML !== html) ul.innerHTML = html;
   }
 };
+// ---- Panel de administración en vivo (/admin/): el panel pregunta «¿quién está?» y cada juego abierto responde con lo que está haciendo.
+// Nadie envía nada si el panel no está abierto. No se manda nada privado: nombre de jugador, personaje, mapa, oleada y sala.
+const Vivo = {
+  ch: null, id: (() => { try { let v = sessionStorage.getItem('sb_vivo'); if (!v) { v = Math.random().toString(36).slice(2, 10); sessionStorage.setItem('sb_vivo', v); } return v; } catch (e) { return Math.random().toString(36).slice(2, 10); } })(),
+  t0: Date.now(),
+  async open() {
+    if (this.ch || !SUPA.url || !SUPA.key) return; this.ch = 1;
+    try {
+      if (!window.supabase) await loadScript(SUPA_JS);
+      const cl = supaCl(), ch = cl.channel('seisbalas-vivo', { config: { broadcast: { self: false } } });
+      ch.on('broadcast', { event: 'q' }, () => setTimeout(() => { try { ch.send({ type: 'broadcast', event: 'a', payload: this.yo() }); } catch (e) {} }, Math.random() * 600));
+      ch.subscribe(); this.ch = ch;
+    } catch (e) { this.ch = null; }
+  },
+  yo() {
+    const g = game && state !== 'menu', donde = !g ? 'menu' : world.idx === ROOM_IDX ? 'trastienda' : 'mapa';
+    return { id: this.id, n: myNick(), ch: g ? game.char : (META.azar ? 'azar' : META.char), st: state, d: donde, m: g && world.idx !== ROOM_IDX ? MAPS[world.idx].name : '', w: g ? game.wave | 0 : 0,
+      hp: g ? Math.max(0, Math.round(player.hp)) : 0, oro: g ? game.gold | 0 : 0, k: g ? game.kills | 0 : 0, dif: g ? (game.diff || 'normal') : '', grupo: Net.on ? { r: Net.room, h: Net.host ? 1 : 0, c: Net.peers.size + 1 } : null,
+      cuenta: Cuenta.user ? 1 : 0, tel: IS_TOUCH ? 1 : 0, fps: typeof fpsM !== 'undefined' && fpsM.v ? Math.round(fpsM.v) : 0, v: GAME_BUILD, min: Math.round((Date.now() - this.t0) / 60000) };
+  }
+};
+setTimeout(() => Vivo.open(), 4000);
 function loadScript(src) { return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); }); }
 async function supaTransport(room) {
   const msg = $('#lobby-msg');
@@ -20595,7 +20622,7 @@ function renderCarousel(dir) {
   if (azar) {
     cl.innerHTML = `<div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}">${sideCard(-1)}
     <div class="car-main"><div class="ch-pw"><img class="ch-pic" alt="" src="${charPic('azar')}"></div><b>Al azar</b><span class="ch-gun">Arma sorpresa</span></div>${sideCard(1)}</div>
-    <div class="car-info"><span class="ch-desc">Al empezar la partida sale uno de los personajes al azar, con su arma y su habilidad. ¿Quién te tocará?</span></div>
+    <div class="car-info"><span class="ch-desc">Al empezar la partida sale uno de los personajes al azar, con su arma y su ultimate. ¿Quién te tocará?</span></div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
     cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
     const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Partida nueva'; menu3d('azar'); return;
@@ -20606,7 +20633,7 @@ function renderCarousel(dir) {
       <b>${C.name}</b>
       <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>
     </div>${sideCard(1)}</div>
-    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${HAB[id] ? `<span class="ch-desc"><b class="ch-ab">Habilidad · ${HAB[id].name}:</b> ${HAB[id].desc}</span>` : ''}${gunStats(C.gun)}</div>
+    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${HAB[id] ? `<span class="ch-desc"><b class="ch-ab">Ultimate · ${HAB[id].name}:</b> ${HAB[id].desc}</span>` : ''}${gunStats(C.gun)}</div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Partida nueva' : `${ico('lock')} Bloqueado`;
@@ -21160,10 +21187,10 @@ const TU_STEPS = [
       const n = tuto.tg.length;
       return { p: `Ojo Muerto: ${tuOk(tuto.de)} · Zombis ${tuDead()}/${n}`, done: tuto.de && tuDead() >= n };
     } },
-  { n: 6, t: 'Tu habilidad', imp: true, info: 10,
+  { n: 6, t: 'Tu vaquero y su ultimate', imp: true, info: 16,
     title: () => `${CHARS[game.char].ab || 'Tu habilidad'} · ${CHARS[game.char].name}`,
-    txt: () => TU_ABIL[game.char] || CHARS[game.char].desc,
-    keys: () => `Tus tres trucos: la mira (precisión), ${IS_TOUCH ? 'ABANICAR' : 'la F'} (rapidez) y ${IS_TOUCH ? 'OJO MUERTO' : 'la Q'} (tiempo lento). La habilidad de tu vaquero va sola.` },
+    txt: () => (TU_ABIL[game.char] || CHARS[game.char].desc) + (HAB[game.char] ? `<br><br>${tuB('Ultimate · ' + HAB[game.char].name)}: ${HAB[game.char].desc} La barra de abajo se llena matando zombis (más rápido con tiros a la cabeza). Cuando esté llena, ${IS_TOUCH ? 'toca ' + tuB('ULTIMATE') : 'pulsa ' + tuK('C')}.` : ''),
+    keys: () => `Tus tres trucos: la mira (precisión), ${IS_TOUCH ? 'ABANICAR' : 'la F'} (rapidez) y ${IS_TOUCH ? 'OJO MUERTO' : 'la Q'} (tiempo lento). Y tu ultimate: ${IS_TOUCH ? 'botón ULTIMATE' : 'tecla C'}.` },
   { n: 7, t: 'Tu inventario', imp: true, hl: ['#box-n', '#iicons'],
     txt: () => (IS_TOUCH ? `Toca ${tuB('BALAS EN LA CAJA')} (o los íconos de tus objetos)` : `Pulsa ${tuB('Tab')} (o la ${tuB('I')})`) + ': se abre tu inventario. Ahí ves tus objetos y qué hace cada uno, tus balas normales y tu colección de balas especiales (sale 1 por cada 10 normales al empezar la oleada). En grupo también ves a tus compañeros: conexión, zombis, caídas y oro. Ábrelo y vuelve al juego.',
     keys: () => IS_TOUCH ? 'Inventario: toca BALAS EN LA CAJA' : 'Inventario: Tab o I',
