@@ -18581,6 +18581,7 @@ function prepRoom() {
   const cas = unl('t:maquinas') ? 2 : 1;
   game.lastDoor = null; game.roomSlot = Math.random() < 0.15 * cas; game.roomWheel = Math.random() < 0.10 * cas; game.roomRadio = Math.random() < 0.06 * (unl('t:radio') ? 2 : 1) * (ST.radioX || 1);
   game.roomForge = unl('t:herrero') && Math.random() < 0.45;
+  game.roomRamen = Math.random() < RAMEN.p; game.ramenOfertas = null;
   game.roomTaller = Math.random() < 0.25;   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
   game.roomTiro = Math.random() < 0.05;
   game.roomFuse = Math.random() < 0.30; game.fuseUsed = false; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
@@ -18987,6 +18988,117 @@ function openHerrero(o) {
   $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
   show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button:not([disabled])'); if (f) f.focus(); }, 50);
 }
+// Puesto de ramen (1 de cada 4 visitas): comida que sube la vida máxima y cura. Ofrece 2 platos al azar, del común al legendario.
+const RAMEN = { p: 0.25, peso: [50, 28, 14, 6, 2] };
+const RAMEN_RAR = [['Común', '#d8d0c0'], ['Poco común', '#7ad07a'], ['Raro', '#6ab0ff'], ['Épico', '#c07aff'], ['Legendario', '#ffc040']];
+const COMIDAS = [
+  { id: 'leche', name: 'Leche de almendras?', rar: 0, max: 1, cura: 1, price: 4, desc: 'Nadie sabe por qué la venden aquí.' },
+  { id: 'sardinas', name: 'Lata de sardinas', rar: 0, max: 5, cura: 5, price: 16, desc: 'Aceitosas y saladas. Llenan.' },
+  { id: 'onigiri', name: 'Onigiri', rar: 0, max: 3, cura: 12, price: 14, desc: 'Bola de arroz con alga. Rápida y fresca.' },
+  { id: 'ramen', name: 'Ramen', rar: 1, max: 5, cura: 10, price: 24, desc: 'El plato de la casa: caldo, fideos y huevo.' },
+  { id: 'gyoza', name: 'Gyozas', rar: 1, max: 6, cura: 6, price: 24, desc: 'Tres empanaditas doradas a la plancha.' },
+  { id: 'yakitori', name: 'Brocheta yakitori', rar: 1, max: 4, cura: 15, price: 22, desc: 'Pollo a la brasa con salsa dulce.' },
+  { id: 'takoyaki', name: 'Takoyaki', rar: 2, max: 9, cura: 10, price: 42, desc: 'Bolitas de pulpo recién salidas del fuego.' },
+  { id: 'frijoles', name: 'Frijoles del vaquero', rar: 2, max: 10, cura: 5, price: 42, desc: 'Una lata de frijoles con chile. Aguantas lo que sea.' },
+  { id: 'sushi', name: 'Sushi del chef', rar: 3, max: 14, cura: 20, price: 75, desc: 'Lo que el chef guardaba para él.' },
+  { id: 'medianoche', name: 'Ramen de medianoche', rar: 4, max: 25, cura: 999, price: 130, desc: 'Solo lo sirve pasada la medianoche.' }
+];
+function ramenOferta() {
+  const tot = RAMEN.peso.reduce((a, b) => a + b, 0), ids = [];
+  for (let k = 0; k < 40 && ids.length < 2; k++) { let r = Math.random() * tot, rar = 0; while (r >= RAMEN.peso[rar]) { r -= RAMEN.peso[rar]; rar++; } const C = pick(COMIDAS.filter(c => c.rar === rar)); if (C && !ids.includes(C.id)) ids.push(C.id); }
+  return { ids, comido: [] };
+}
+// cada plato en 3D (unos 25 cm), para el mostrador del puesto
+function comida3d(id, P) {
+  const g = new THREE.Group(); P.add(g); const q = { p: g, cast: false };
+  const plato = (r = 0.17, c = 0xf0ece4) => M(cyl(r, r * 0.8, 0.03, 18), lam(c), 0, 0.015, 0, q);
+  if (id === 'ramen' || id === 'medianoche') {
+    const oro = id === 'medianoche', bowl = lam(oro ? 0xd8a838 : 0xb02020, { emissive: oro ? 0x3a2808 : 0x200404 });
+    M(new THREE.SphereGeometry(0.15, 18, 10, 0, TAU, Math.PI / 2, Math.PI / 2), bowl, 0, 0.15, 0, q).scale.y = 0.9;
+    M(cyl(0.135, 0.135, 0.01, 18), lam(0xd89a50), 0, 0.14, 0, q);
+    for (let i = 0; i < 5; i++) M(new THREE.TorusGeometry(0.05, 0.008, 5, 10), lam(0xf0d890), rand(-0.05, 0.05), 0.15, rand(-0.05, 0.05), { p: g, rx: Math.PI / 2, cast: false });
+    M(new THREE.SphereGeometry(0.035, 10, 6, 0, TAU, 0, Math.PI / 2), lam(0xfff8e8), 0.06, 0.145, 0.03, q); M(cyl(0.018, 0.018, 0.005, 10), lam(0xffa020), 0.06, 0.148, 0.03, q);
+    M(bx(0.08, 0.002, 0.06), lam(0x1a3a1a), -0.06, 0.15, -0.04, q);
+    for (const dz of [-0.012, 0.012]) M(cyl(0.005, 0.004, 0.3, 5), lam(0x8a5a30), 0.02, 0.17, dz, { p: g, rz: Math.PI / 2 - 0.15, cast: false });
+  } else if (id === 'sardinas') {
+    const lata = M(cyl(0.12, 0.12, 0.04, 20), lam(0xb8bcc4, { emissive: 0x101014 }), 0, 0.02, 0, q); lata.scale.z = 0.6;
+    const tapa = M(cyl(0.11, 0.11, 0.005, 20), lam(0xd8dce4), 0.04, 0.09, 0, { p: g, rz: 0.9, cast: false }); tapa.scale.z = 0.6;
+    for (let i = 0; i < 4; i++) { const f = M(cyl(0.013, 0.013, 0.12, 6), lam(0x8a9aa8), -0.04 + i * 0.027, 0.045, 0, { p: g, rx: Math.PI / 2, cast: false }); f.rotation.z = rand(-0.1, 0.1); }
+  } else if (id === 'leche') {
+    const tx = canvasTex(64, 64, (c, w, h) => { c.fillStyle = '#f4ecd8'; c.fillRect(0, 0, w, h); c.fillStyle = '#7a5a30'; c.font = 'bold 46px Georgia'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', w / 2, h / 2 + 2); });
+    M(bx(0.1, 0.22, 0.1), new THREE.MeshLambertMaterial({ map: tx }), 0, 0.11, 0, q);
+    const tejado = M(cyl(0.001, 0.075, 0.06, 4), lam(0xe8dcc0), 0, 0.25, 0, q); tejado.rotation.y = Math.PI / 4;
+  } else if (id === 'onigiri') {
+    plato(0.13); const t = M(cyl(0.01, 0.1, 0.1, 3), lam(0xf8f8f4), 0, 0.09, 0, { p: g, rx: Math.PI / 2, cast: false }); t.position.y = 0.09; t.rotation.set(-Math.PI / 2 + 0.3, 0, 0);
+    M(bx(0.07, 0.05, 0.03), lam(0x10200e), 0, 0.05, 0.05, q);
+  } else if (id === 'gyoza') {
+    plato(); for (let i = 0; i < 3; i++) { const m = M(new THREE.SphereGeometry(0.05, 12, 6, 0, TAU, 0, Math.PI / 2), lam(0xe8c890), -0.07 + i * 0.07, 0.03, 0, q); m.scale.set(1, 0.6, 0.5); M(bx(0.07, 0.004, 0.04), lam(0x9a6024), -0.07 + i * 0.07, 0.032, 0, q); }
+  } else if (id === 'yakitori') {
+    plato(0.14); M(cyl(0.004, 0.004, 0.3, 5), lam(0xc8a878), 0, 0.05, 0, { p: g, rz: Math.PI / 2, cast: false });
+    for (let i = 0; i < 4; i++) M(new THREE.SphereGeometry(0.03, 8, 6), lam(0x8a4a1a), -0.075 + i * 0.05, 0.05, 0, q);
+  } else if (id === 'takoyaki') {
+    M(bx(0.22, 0.02, 0.16), lam(0xd8c8a0), 0, 0.01, 0, q);
+    for (let i = 0; i < 6; i++) M(new THREE.SphereGeometry(0.03, 10, 8), lam(0xb87a3a), -0.06 + (i % 3) * 0.06, 0.04, -0.035 + Math.floor(i / 3) * 0.07, q);
+    for (let i = 0; i < 6; i++) M(bx(0.03, 0.004, 0.006), lam(0x3a1a08), -0.06 + (i % 3) * 0.06, 0.07, -0.035 + Math.floor(i / 3) * 0.07, q);
+  } else if (id === 'frijoles') {
+    M(cyl(0.065, 0.065, 0.15, 16), lam(0xa8acb4, { emissive: 0x101014 }), 0, 0.075, 0, q); M(cyl(0.067, 0.067, 0.09, 16), lam(0xb02a1a), 0, 0.075, 0, q);
+    M(cyl(0.06, 0.06, 0.01, 16), lam(0x6a2a10), 0, 0.15, 0, q);
+  } else if (id === 'sushi') {
+    M(bx(0.26, 0.03, 0.12), lam(0x2a1a10), 0, 0.015, 0, q);
+    for (let i = 0; i < 4; i++) { M(bx(0.045, 0.03, 0.06), lam(0xf8f8f0), -0.09 + i * 0.06, 0.045, 0, q); M(bx(0.05, 0.012, 0.065), lam(i % 2 ? 0xff7a50 : 0xd02a3a), -0.09 + i * 0.06, 0.066, 0, q); }
+  }
+  return g;
+}
+function buildRamen(x, z, left) {
+  const P = Grp(x, z, left ? Math.PI / 2 : -Math.PI / 2), q = { p: P }, wood = lam(0x8a5a30), dk = lam(0x3a2216), roja = lam(0xa01818, { emissive: 0x200404 });
+  // mostrador con banquitos
+  M(bx(2.8, 1.0, 0.8), wood, 0, 0.5, 0.05, q); M(bx(3.0, 0.08, 1.0), lam(0xb07a40), 0, 1.04, 0.05, q); M(bx(2.8, 0.1, 0.05), dk, 0, 0.8, 0.46, q);
+  for (const bx_ of [-0.9, 0, 0.9]) { M(cyl(0.18, 0.18, 0.06, 12), roja, bx_, 0.66, 0.85, q); M(cyl(0.04, 0.04, 0.63, 6), dk, bx_, 0.32, 0.85, q); }
+  addBox(x, z, left ? 0.55 : 0.55, 1.45);
+  // postes, techito y cortina (noren) con el letrero
+  for (const px of [-1.4, 1.4]) M(bx(0.1, 2.5, 0.1), dk, px, 1.25, -0.3, q);
+  M(bx(3.2, 0.1, 1.2), dk, 0, 2.5, 0.1, q);
+  const tx = canvasTex(512, 96, (c, w, h) => { c.fillStyle = '#e8e0d0'; c.fillRect(0, 0, w, h); c.fillStyle = '#8a1010'; c.font = 'bold 64px Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('RAMEN', w / 2, h / 2 + 4); });
+  for (let i = 0; i < 5; i++) { const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.5), new THREE.MeshLambertMaterial({ map: tx, side: THREE.DoubleSide })); cl.material.map = tx.clone(); cl.material.map.needsUpdate = true; cl.material.map.repeat.set(0.2, 1); cl.material.map.offset.set(i * 0.2, 0); cl.position.set(-1.16 + i * 0.58, 2.2, 0.68); P.add(cl); }
+  // farolillos rojos
+  for (const px of [-1.5, 1.5]) M(new THREE.SphereGeometry(0.16, 12, 8), lam(0xd02a1a, { emissive: 0x601008 }), px, 2.15, 0.72, { p: P, cast: false }).scale.y = 1.25;
+  lampLight(0, 2.3, 0.6, 0xff8050, 0.5, 5, P, 0.4);
+  // olla humeante detrás
+  M(cyl(0.22, 0.22, 0.3, 14), lam(0x6a6a70), 0.9, 1.23, -0.15, q);
+  // los 2 platos de hoy
+  if (!game.ramenOfertas) game.ramenOfertas = ramenOferta();
+  P.updateMatrixWorld(true); const humo = P.localToWorld(new THREE.Vector3(0.9, 1.4, -0.15));
+  const platos = game.ramenOfertas.ids.map((id, i) => { const h = new THREE.Group(); h.position.set(-0.5 + i * 1.0, 1.08, 0.2); P.add(h); comida3d(id, h).scale.setScalar(1.3); h.visible = !game.ramenOfertas.comido[i]; return h; });
+  world.anims.push((dt, t) => { platos.forEach((h, i) => { h.rotation.y = t * 0.6 + i; }); if (Math.random() < dt * 6) PA.add(humo.x + rand(-0.1, 0.1), humo.y, humo.z + rand(-0.1, 0.1), rand(-0.1, 0.1), rand(0.4, 0.8), rand(-0.1, 0.1), rand(0.8, 1.4), 0.12, 0.9, 0.9, 0.9, 0.5, -0.2, 0.3, 0, 0); });
+  const o = { kind: 'ramen', x: x + (left ? 1.3 : -1.3), z, r: 1.4, platos }; return o;
+}
+function openRamen(o) {
+  state = 'items'; if (document.pointerLockElement) document.exitPointerLock(); input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  const box = $('#items-opts'); box.classList.add('radio-opts');
+  $('#items-hd').innerHTML = ico('heart'); $('#items-t').textContent = 'Puesto de ramen';
+  const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
+  const R = game.ramenOfertas || (game.ramenOfertas = ramenOferta());
+  const draw = () => {
+    box.innerHTML = '';
+    $('#items-say').textContent = `«Siéntate, forastero. Hoy hay esto.» Cada plato sube tu vida máxima y te cura. Tienes ${Math.round(player.hp)} de ${player.maxHp} de vida y ${game.gold} $.`;
+    R.ids.forEach((id, i) => {
+      const C = COMIDAS.find(c => c.id === id), [rn, rc] = RAMEN_RAR[C.rar], pr = shopP(C.price), comido = !!R.comido[i], b = document.createElement('button'); b.className = 'perk item r' + Math.min(2, C.rar >> 1);
+      b.disabled = comido || game.gold < pr; b.style.borderColor = rc;
+      b.innerHTML = `<span class="relic-ic" style="color:${rc}">${ico('heart')}</span><em style="color:${rc}">${rn}</em><b>${C.name}</b><span>${C.desc} +${C.max} de vida máxima${C.cura >= 999 ? ' y te cura por completo' : ` y cura ${C.cura}`}.</span><span class="tl-p">${comido ? 'Ya te lo comiste' : game.gold >= pr ? `Comer · ${pr} $` : `Faltan ${pr - game.gold} $`}</span>`;
+      b.addEventListener('click', () => {
+        if (state !== 'items' || R.comido[i] || game.gold < pr) return;
+        game.gold -= pr; R.comido[i] = 1; player.maxHp += C.max; player.hp = Math.min(player.maxHp, player.hp + C.cura);
+        if (o.platos && o.platos[i]) o.platos[i].visible = false;
+        Sfx.cash(); Sfx.chew && Sfx.chew(); feed(`${C.name}: +${C.max} de vida máxima`, 'gold'); renderChips(); draw();
+      });
+      box.appendChild(b);
+    });
+  };
+  draw();
+  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
+  $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
+  show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button:not([disabled])'); if (f) f.focus(); }, 50);
+}
 // Radio de rescate (a veces): por 1 ficha de póker llamas a una escuadra de 3 para la próxima oleada
 function buildRadio(x, z, used) {
   const P = Grp(x, z, Math.PI / 2), q = { p: P }, wood = lam(0x5a3a20), dk = lam(0x2a2a24), olive = lam(0x4a5a32, { emissive: 0x0a0e04 });
@@ -19282,6 +19394,8 @@ function buildShopRoom() {
   if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
   if (game && game.roomTaller) R.objs.push(buildTaller(-HX + 2.15, 1.5, true));
+  // puesto de ramen: en el hueco entre las macetas de la pared que esté libre (izquierda si no está el taller; si no, derecha)
+  if (game && game.roomRamen) { const izq = !game.roomTaller, libre = izq || !game.roomTiro; if (libre) R.objs.push(buildRamen(izq ? -HX + 1.0 : HX - 1.0, 1.0, izq)); }
   // van en la pared de la derecha al entrar, mirando al centro
   { const spots = [[HX - 0.55, -5.8], [HX - 0.55, 6.2]]; if (game && game.roomSlot) R.objs.push(buildSlot(...spots.shift())); if (game && game.roomWheel) { const w = buildWheel(...spots.shift()); w.used = !!(game.roomUsed || {}).wheel; R.objs.push(w); } }
   // Puertas del fondo: aparecen al azar (todas, algunas o ninguna)
@@ -19316,6 +19430,7 @@ function useLabel(o) {
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
+  if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan, t: 'Puesto de ramen', r: '', d: quedan ? 'Comida caliente: te sube la vida máxima y te cura un poco. Hoy hay 2 platos.' : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de póker (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
   if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de póker', ok }; }
@@ -19368,6 +19483,8 @@ function useObj(o) {
     useCur = null; showUse(null); openHerrero(o);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
+  } else if (o.kind === 'ramen') {
+    useCur = null; showUse(null); openRamen(o);
   } else if (o.kind === 'taller') {
     useCur = null; showUse(null); openTaller();
   } else if (o.kind === 'radio') {
@@ -19454,7 +19571,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 94';
+const GAME_BUILD = '15-oct-2026 · 95';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20936,8 +21053,13 @@ function menu3dPoseMano(I, P, ch) {
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
   if (!P.arma || !B.R_Hand) return;
   const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g);
-  const hp = wp(B.R_Hand), d = dir(P.Rg || P.R[1]); g.position.copy(hp).addScaledVector(d, 0.03);
-  g.up.copy(Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); g.lookAt(hp.clone().add(d)); g.translateY(-0.06);
+  // como en el juego: la empuñadura va en la palma (un poco más allá de la muñeca) y el cañón apunta hacia Rg
+  const k = 1.05 * (g.userData.k || 1), hw = wp(B.R_Hand), brazo = hw.clone().sub(wp(B.R_Forearm)).normalize(), d = dir(P.Rg || P.R[1]);
+  const up = (Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); up.addScaledVector(d, -up.dot(d)).normalize();
+  const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(up, d), up, d));
+  g.quaternion.copy(q);
+  const palma = hw.addScaledVector(brazo, 0.06).addScaledVector(up, -0.02), grip = new THREE.Vector3(0, -0.056 * k, -0.045 * k).applyQuaternion(q);
+  g.position.copy(palma.sub(grip));
 }
 function menu3dPose(I, id) {
   if (MENU_POSE[id]) { menu3dPoseMano(I, MENU_POSE[id], id); return; }
