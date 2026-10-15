@@ -19311,7 +19311,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 89';
+const GAME_BUILD = '15-oct-2026 · 90';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -19344,7 +19344,7 @@ const Net = {
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
     if (Voice.on) m.v = Voice.sending() || settings.voice === 'ptt' ? 1 : 2;
-    m.q = this.seq = (this.seq || 0) + 1;
+    m.q = this.seq = (this.seq || 0) + 1; m.t = Math.round(performance.now());   // hora de envío: el que recibe ubica cada posición en su momento real (sin los saltos de la red)
     try { if (Directo.todos()) Directo.send(m); else this.tr.send(m); } catch (e) {}
     this.lastP = { x: player.pos.x, z: player.pos.z, yaw: player.yaw };
   },
@@ -19358,7 +19358,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; p.vmute = m.v === 2; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p && !viejo) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
+    if (m.p && !viejo) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; histPos(p, a, m.t); p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client && !viejo) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -20362,7 +20362,7 @@ P3D.giro = -Math.PI / 2;   // el modelo de Tripo mira hacia +x; el muñeco, haci
 P3D.invisible = new THREE.MeshBasicMaterial({ visible: false });
 function avatar3dPaso(av, p, spd, dt) {
   const I = av.p3d; if (!I) return;
-  const now = performance.now(), mueve = spd > 0.35; I.unaR = (I.unaR || 0) - dt; I.aimR = (I.aimR || 0) - dt; I.varR = I.varR == null ? rand(5, 10) : I.varR - dt;
+  const now = performance.now(); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7; const mueve = I.mueve;   // con margen: no parpadea entre caminar y quieto I.unaR = (I.unaR || 0) - dt; I.aimR = (I.aimR || 0) - dt; I.varR = I.varR == null ? rand(5, 10) : I.varR - dt;
   // golpe recibido: se dobla (si está quieto)
   if (p.hp != null) { if (I.hpAntes != null && p.hp < I.hpAntes - 3 && !p.down && !mueve) p3dUna(I, 'hit_to_body_01'); I.hpAntes = p.hp; }
   if (p.down) { if (I.cur !== 'fall') p3dUna(I, 'fall'); }
@@ -20373,11 +20373,12 @@ function avatar3dPaso(av, p, spd, dt) {
     else if (I.varR <= 0 && !(I.aimR > 0)) { I.varR = rand(9, 16); if (!p3dUna(I, pick(['look_around', 'scratch', 'standing_relax', 'wait']), 0.4)) p3dAnim(I, 'idle'); }   // de vez en cuando mira alrededor, se rasca, descansa…
     else p3dAnim(I, 'idle');
   }
-  if (I.cur === 'walk') I.acts.walk.timeScale = clamp(spd / 1.7, 0.6, 1.5); else if (I.cur === 'run') I.acts.run.timeScale = clamp(spd / 4.5, 0.7, 1.4);
+  const atras = av.atras ? -1 : 1;
+  if (I.cur === 'walk') I.acts.walk.timeScale = clamp(spd / 1.7, 0.6, 1.5) * atras; else if (I.cur === 'run') I.acts.run.timeScale = clamp(spd / 4.5, 0.7, 1.4) * atras;
   I.mix.update(dt);
   av.root.updateMatrixWorld(true);
   // apunta con el revólver al moverse o al disparar; con retroceso en cada disparo
-  if (!p.down && (mueve || I.aimR > 0) && !(I.una && I.una !== 'hit_to_body_01' && I.unaR > 0)) {
+  if (!p.down && I.aimR > 0 && !(I.una && I.una !== 'hit_to_body_01' && I.unaR > 0)) {   // apunta solo al disparar; al caminar, los brazos se balancean
     p3dApunta(I, 'R_Upperarm', av.armRG, -1); p3dApunta(I, 'R_Forearm', av.armRG, -1);
     if (p.dual) { p3dApunta(I, 'L_Upperarm', av.armLG, -1); p3dApunta(I, 'L_Forearm', av.armLG, -1); }
     if (I.kick > 0.01) { for (const n of p.dual ? ['R_Forearm', 'L_Forearm'] : ['R_Forearm']) { const b = I.B[n]; if (b) { b.rotateX(-0.5 * I.kick); b.updateMatrixWorld(true); } } }
@@ -20403,16 +20404,52 @@ function avAgarre(I, g, s, av) {
   palma.sub(grip); g.parent.worldToLocal(palma); g.position.copy(palma);
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
+// ---- Movimiento fluido de los compañeros: se guardan las posiciones que llegan y se muestra al compañero un instante «en el pasado»,
+// recorriendo el camino entre dos posiciones a velocidad pareja (sin tirones aunque los mensajes lleguen cada 0,1 s)
+function histPos(p, a, ts) {
+  let now = performance.now();
+  if (ts) {   // reloj del otro jugador → el nuestro: se queda con el desfase más chico visto (el del mensaje más rápido), que sube muy despacio si los relojes se separan
+    const off = now - ts; p.off = p.off == null || off < p.off ? off : p.off + Math.min(off - p.off, 0.02);
+    now = ts + p.off;
+  }
+  const H = p.hist || (p.hist = []), last = H[H.length - 1];
+  if (last && now <= last.t) return;
+  if (last) { const g = now - last.t; if (g > 5 && g < 1000) p.gap = p.gap ? p.gap * 0.85 + g * 0.15 : g; }
+  H.push({ t: now, x: a[0], y: a[1] || 0, z: a[2], yaw: a[3] }); if (H.length > 24) H.shift();
+}
+const angDif = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; };
+function posInterp(p, out) {
+  const H = p.hist; if (!H || !H.length) return false;
+  const espera = clamp((p.gap || 100) * 1.6 + 25, 70, 320), t = performance.now() - espera;   // cuánto «atrás» se muestra: un poco más que el tiempo entre mensajes
+  let i = H.length - 1; while (i > 0 && H[i - 1].t > t) i--;
+  const b = H[i], a = H[i - 1];
+  if (!a || t >= b.t) {   // sin dato más nuevo: sigue un poco en la misma dirección (máx. 0,15 s) y luego se queda quieto
+    const c = H[H.length - 2], d = H[H.length - 1]; let ex = 0;
+    if (c && d.t > c.t) ex = Math.min(t - d.t, 150) / (d.t - c.t);
+    const u = Math.max(0, ex); out.x = d.x + (c ? (d.x - c.x) * u : 0); out.z = d.z + (c ? (d.z - c.z) * u : 0); out.y = d.y; out.yaw = d.yaw; return true;
+  }
+  if (Math.hypot(b.x - a.x, b.z - a.z) > 6) { out.x = b.x; out.z = b.z; out.y = b.y; out.yaw = b.yaw; return true; }   // teletransporte (cambio de lugar): sin deslizarse
+  const k = (t - a.t) / Math.max(1, b.t - a.t);
+  out.x = a.x + (b.x - a.x) * k; out.z = a.z + (b.z - a.z) * k; out.y = a.y + (b.y - a.y) * k; out.yaw = a.yaw + angDif(b.yaw, a.yaw) * k; return true;
+}
+const _pi = { x: 0, y: 0, z: 0, yaw: 0 };
 function updateRemotes(dt) {
   if (!Net.on) return;
   for (const p of Net.peers.values()) {
     if (!game || state === 'menu' || !p.pos) { if (p.av) removeRemote(p); continue; }
     if (p.av && p.av.charKey !== (p.char || '')) removeRemote(p);
     if (!p.av) p.av = makeAvatar(p);
-    const av = p.av, r = av.root.position, k = Math.min(1, dt * 10), ox = r.x, oz = r.z;
-    r.x += (p.pos.x - r.x) * k; r.z += (p.pos.z - r.z) * k; r.y += ((p.y || 0) - r.y) * k;
-    const yaw = (p.yaw || 0) + Math.PI; let dy = yaw - av.root.rotation.y; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; av.root.rotation.y += dy * k;
-    const spd = Math.hypot(r.x - ox, r.z - oz) / Math.max(dt, 1e-3); av.phase += dt * spd * 2.4; const sw = Math.sin(av.phase);
+    const av = p.av, r = av.root.position, ox = r.x, oz = r.z;
+    if (posInterp(p, _pi)) { r.x = _pi.x; r.z = _pi.z; r.y = _pi.y; } else { const k = Math.min(1, dt * 10); r.x += (p.pos.x - r.x) * k; r.z += (p.pos.z - r.z) * k; _pi.yaw = p.yaw || 0; }
+    // velocidad suavizada (sin saltos entre caminar y quieto)
+    const vx = (r.x - ox) / Math.max(dt, 1e-3), vz = (r.z - oz) / Math.max(dt, 1e-3);
+    av.vx = damp(av.vx || 0, vx, 10, dt); av.vz = damp(av.vz || 0, vz, 10, dt);
+    const spd = Math.hypot(av.vx, av.vz); av.phase += dt * spd * 2.4; const sw = Math.sin(av.phase);
+    // hacia dónde mira el cuerpo: al caminar, hacia donde va; si retrocede, de frente y caminando hacia atrás; al disparar, hacia donde apunta
+    const mira = _pi.yaw, ir = Math.atan2(-av.vx, -av.vz), apunta = av.p3d && av.p3d.aimR > 0;
+    av.atras = spd > 0.6 && Math.abs(angDif(ir, mira)) > 1.9;
+    const yObj = (spd > 0.6 && !apunta && !av.atras ? ir : mira) + Math.PI;
+    av.root.rotation.y += angDif(yObj, av.root.rotation.y) * Math.min(1, dt * 9);
     av.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); av.legR.rotation.x = -av.legL.rotation.x;
     setAvGun(av, p);
     av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = p.dual ? -1.5 - (p.pitch || 0) : -sw * 0.4;
@@ -20718,32 +20755,17 @@ function menu3dCaja() {
   if (libre >= 200 && innerWidth > innerHeight) { lado.style.width = Math.min(460, libre) + 'px'; lado.hidden = false; return lado; }
   lado.hidden = true; return null;   // en el teléfono no hay espacio: solo el retrato
 }
-// Pose del menú (elegida por el dueño: la «3 del Sheriff» para todos): piernas rectas, arma en alto junto a la cara y la otra mano en el cinturón.
-// Geronimo levanta sus dos revólveres.
+// Pose del menú (pedido del dueño): sencilla, sin arma, piernas rectas y las dos manos en el cinturón
 function menu3dPose(I, id) {
   for (const k in I.acts) I.acts[k].stop();
-  const fija = (n, f) => { const a = I.acts[n] || I.acts.idle; a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0); a.stop(); };
-  const B = I.B, brazoL = Object.keys(B).filter(n => /^L_(Clavicle|Upperarm|Forearm|Hand)/.test(n));
-  const mano = I.acts.wait ? (fija('wait', 0.3), brazoL.map(n => [n, B[n].quaternion.clone()])) : [];   // la mano en el cinturón sale de la pose «wait»
-  const base = I.acts.idle || I.acts[Object.keys(I.acts)[0]]; base.reset().setLoop(THREE.LoopOnce, 1); base.clampWhenFinished = true; base.play(); base.paused = true; base.time = base.getClip().duration * 0.3; I.mix.update(0);
-  const dual = id === 'carlos';
-  if (!dual) for (const [n, q] of mano) B[n].quaternion.copy(q);
-  I.m.updateMatrixWorld(true);
-  const wp = b => b.getWorldPosition(new THREE.Vector3()), U = new THREE.Vector3(0, 1, 0);
-  const F = new THREE.Vector3(1, 0, 0).applyQuaternion(I.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(), R = new THREE.Vector3().crossVectors(F, U).normalize();
-  const dir = v => F.clone().multiplyScalar(v[0]).add(R.clone().multiplyScalar(v[1])).add(U.clone().multiplyScalar(v[2])).normalize();
-  const apunta = (bn, cn, v) => { const b = B[bn], c = B[cn]; if (!b || !c) return; I.m.updateMatrixWorld(true); const q = new THREE.Quaternion().setFromUnitVectors(wp(c).sub(wp(b)).normalize(), dir(v)), bw = b.getWorldQuaternion(new THREE.Quaternion()), pw = b.parent.getWorldQuaternion(new THREE.Quaternion()); b.quaternion.copy(pw.invert().multiply(q.multiply(bw))); b.updateMatrixWorld(true); };
-  const lados = dual ? [['R', 1], ['L', -1]] : [['R', 1]];
-  for (const [s, k] of lados) { apunta(s + '_Upperarm', s + '_Forearm', k > 0 ? [0.25, 0.6, -0.6] : [0.45, -0.3, -0.6]); apunta(s + '_Forearm', s + '_Hand', [0.15, -0.05 * k, 1]); }
+  const fija = (n, f) => { const a = I.acts[n] || I.acts.idle; a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0); };
+  const B = I.B, brazos = Object.keys(B).filter(n => /^[LR]_(Clavicle|Upperarm|Forearm|Hand)/.test(n));
+  let manos = [];
+  if (I.acts.wait) { fija('wait', 0.3); manos = brazos.map(n => [n, B[n].quaternion.clone()]); I.acts.wait.stop(); }   // las manos en el cinturón salen de la pose «wait»
+  fija(I.acts.idle ? 'idle' : Object.keys(I.acts)[0], 0.3);   // piernas rectas
+  for (const [n, q] of manos) B[n].quaternion.copy(q);
   I.m.updateMatrixWorld(true);
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
-  const C = CHARS[id] || CHARS.sheriff, gun = id === 'azar' ? 'paci' : C.gun;
-  for (const [s, k] of lados) {
-    const g = avGun(gun, id); g.scale.setScalar(id === 'francois' ? 0.8 : dual ? 0.85 : 0.95);
-    if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404 }); g.traverse(o => { if (o.isMesh) o.material = negro; }); }
-    const hp = wp(B[s + '_Hand']), d = dir([0.15, 0, 1]); g.position.copy(hp).addScaledVector(d, 0.03); g.up.copy(F); g.lookAt(hp.clone().add(d)); g.translateY(-0.06);
-    M3.scene.add(g); M3.armas.push(g);
-  }
 }
 function menu3d(id) {
   const caja = menu3dCaja();
