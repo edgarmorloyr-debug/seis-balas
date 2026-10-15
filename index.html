@@ -1522,6 +1522,7 @@ function mapUseStep() {
   if (state !== 'play' || player.down) { if (useCur && useCur.kind === 'map') showUse(null); return; }
   let near = null, nd = 1e9;
   for (const o of world.uses) { if (o.off) continue; const d = Math.hypot(player.pos.x - o.x, player.pos.z - o.z); if (d < o.r && d < nd) { nd = d; near = o; } }
+  for (const c of chests) { if (c.open || !c.use) continue; const d = Math.hypot(player.pos.x - c.use.x, player.pos.z - c.use.z); if (d < c.use.r && d < nd) { nd = d; near = c.use; } }   // los cofres se abren con E
   if (near || (useCur && useCur.kind === 'map')) showUse(near);
 }
 function mapUseDo(o) {
@@ -1753,7 +1754,7 @@ function buildMap(i) {
   world.group = new THREE.Group(); scene.add(world.group);
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
-  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null;
+  world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null;
   world.idx = i; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
@@ -7818,23 +7819,47 @@ function llvOleada(n) {
   if (!game.llv || n % WAVES_PER_MAP === 1 || zoneOf(n) !== zoneOf(game.llv.w || n)) llvIni();
   game.llv.w = n;
   if (!game.llv.on) llvSoltar();
-  llvBotin();
+  llvBotin(); llvFichas();
 }
 // Botín escondido en los puntos de llaves: en cada oleada, 8 % de que aparezca una llave de cofre, 8 % una bala especial y 8 % una ficha de póker
 const LLV_BOTIN = { p: 0.08, vida: 120 };
 function llvLugar(lejos) {
   const S = world.llvSpots; if (!S || !S.length) return null;
   const L = game.llv, ps = llvJugadores();
-  const ok = S.filter((s, i) => !(L && L.on && L.on.i === i) && Math.min(...ps.map(p => Math.hypot(p.x - s.x, p.z - s.z))) > (lejos || 8));
-  return pick(ok.length ? ok : S);
+  const ok = S.filter((s, i) => !(L && L.on && L.on.i === i) && !lugarOcupado(s.x, s.z) && Math.min(...ps.map(p => Math.hypot(p.x - s.x, p.z - s.z))) > (lejos || 8));
+  return ok.length ? pick(ok) : null;
 }
 function llvBotin() {
   for (const [t, a] of [['key', 0], ['bala', 1], ['ficha', 0]]) {
     if (Math.random() >= LLV_BOTIN.p * (ST.botinX || 1)) continue;
     const S = llvLugar(20); if (!S) continue;
-    makePickup(t, S.x + rand(-0.8, 0.8), S.z + rand(-0.8, 0.8), t === 'bala' ? BKEYS.indexOf(randomBullet()) : a);
+    makePickup(t, S.x + rand(-0.4, 0.4), S.z + rand(-0.4, 0.4), t === 'bala' ? BKEYS.indexOf(randomBullet()) : a);
     pickups[pickups.length - 1].life = LLV_BOTIN.vida;
     feed(`Algo brilla ${S.zona}…`, 'gold');
+  }
+}
+// Fichas de póker escondidas: cada zona de llave (catacumbas, castillo, bosque) tiene 7 escondites; en cada oleada,
+// cada escondite vacío tiene 5 % de tener una ficha, que se queda ahí hasta que alguien la recoja.
+const LLV_FICHAS = { n: 7, p: 0.05 };
+const lugarOcupado = (x, z, r = 1.8) => pickups.some(p => Math.hypot(p.g.position.x - x, p.g.position.z - z) < r) || chests.some(c => !c.open && Math.hypot(c.g.position.x - x, c.g.position.z - z) < r);
+function llvFichaSpots() {
+  if (world.fichaSpots) return world.fichaSpots;
+  const S = world.fichaSpots = [];
+  for (const [zona, en] of [['cat', enCatacumbas], ['cas', enCastillo], ['bos', enBosque]]) {
+    let n = 0;
+    for (let k = 0; k < 4000 && n < LLV_FICHAS.n; k++) {
+      const x = rand(-95, 95), z = rand(-95, 95);
+      if (!en(x, z) || !insideArena(x, z, 1.5) || pointBlocked(x, z, 0.6) || S.some(q => Math.hypot(q.x - x, q.z - z) < 5)) continue;
+      S.push({ x, z, zona }); n++;
+    }
+  }
+  return S;
+}
+function llvFichas() {
+  if (Net.client) return;
+  for (const q of llvFichaSpots()) {
+    if (Math.random() >= LLV_FICHAS.p || lugarOcupado(q.x, q.z)) continue;   // nunca dos cosas en el mismo escondite
+    makePickup('ficha', q.x, q.z, 0); pickups[pickups.length - 1].life = 1e9;
   }
 }
 function llvSoltar() {
@@ -13719,7 +13744,7 @@ function updateStrikes(dt) {
 const pickups = []; let pickUid = 0;
 const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c } };
 // Fichas de póker: las suelta 1 de cada 20 zombis; con ellas se juega a la tragamonedas, la ruleta y la garra (no cuestan oro)
-const FICHA_P = 0.05;
+const FICHA_P = 0.08;
 const fichasTxt = n => `${n} ficha${n === 1 ? '' : 's'} de póker`;
 function pagaFicha() {
   if ((game.poker | 0) < 1) { hint('Necesitas una ficha de póker: las sueltan los zombis', 1800); Sfx.err(); return false; }
@@ -13955,6 +13980,7 @@ function newGame(sv, run) {
   if (game.char === 'carlos' && !sv) game.owned.cowboy = 2;   // Maestría: dos revólveres de vaquero desde el principio
   shuffleBox(true);
   Object.assign(player, { vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, lastHurt: -99, shake: 0, roll: 0, down: false, webT: 0, frostT: 0 });
+  player.hp = player.maxHp = CHAR_VIDA[game.char] || 100;
   const w0 = sv ? sv.wave : 1, mi = mapForWave(w0);
   buildMap(mi);   // siempre de cero: barriles, puertas y objetos vuelven a estar como nuevos
   player.pos.set(world.start.x, 0, world.start.z);
@@ -16840,7 +16866,12 @@ const CHESTS = {
 function spawnChest(kind) {
   const a = world.arena; let spot = null;
   // en los mapas con puntos de llaves, los cofres salen siempre en uno de esos puntos
-  if (world.llvSpots && world.llvSpots.length && game.llv) { const S = llvLugar(8); if (S) for (let k = 0; k < 20 && !spot; k++) { const x = S.x + rand(-1.5, 1.5), z = S.z + rand(-1.5, 1.5); if (!pointBlocked(x, z, 0.8) && nav.mainDist[cellOf(x, z)] < 1e9) spot = { x, z, zona: S.zona }; } }
+  if (world.llvSpots && world.llvSpots.length && game.llv) {   // en los mapas con zonas de llave: en un punto de llave o en un escondite de fichas
+    const zn = { cat: 'en las catacumbas', cas: 'en el castillo', bos: 'en el bosque' }, ps = llvJugadores();
+    const C_ = world.llvSpots.filter((q, i) => !(game.llv.on && game.llv.on.i === i)).concat(llvFichaSpots().map(q => ({ x: q.x, z: q.z, zona: zn[q.zona] })))
+      .filter(q => !lugarOcupado(q.x, q.z) && Math.min(...ps.map(p => Math.hypot(p.x - q.x, p.z - q.z))) > 8 && !pointBlocked(q.x, q.z, 0.8) && nav.mainDist[cellOf(q.x, q.z)] < 1e9);
+    if (C_.length) { const q = pick(C_); spot = { x: q.x, z: q.z, zona: q.zona }; }
+  }
   for (let k = 0; k < 120 && !spot; k++) {
     const x = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hx, a.hx), z = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hz, a.hz), d = Math.hypot(x - player.pos.x, z - player.pos.z);
     if (d < 8 || d > 28 || !insideArena(x, z, 2) || pointBlocked(x, z, 0.8) || nav.mainDist[cellOf(x, z)] >= 1e9) continue;
@@ -16857,12 +16888,15 @@ function spawnChest(kind) {
   if (kind === 'bone') { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mt); sk.position.set(0, 0.3, 0.32); g.add(sk); }
   const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: C.glow, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); beam.scale.set(0.5, 1, 0.5); beam.position.y = 15; g.add(beam);
   g.position.set(spot.x, 0, spot.z); g.rotation.y = rand(0, TAU); scene.add(g);
-  chests.push({ kind, g, lid, beam, t: 0, open: 0, warnT: 0 });
+  const c = { kind, g, lid, beam, t: 0, open: 0, warnT: 0 };
+  c.use = { kind: 'map', cofre: c, x: spot.x, z: spot.z, r: 1.8, readyT: 0, shared: null, cd: 1, t: C.name, d: kind === 'gold' ? 'Necesita una llave de cofre (la sueltan los zombis élite).' : kind === 'bone' ? 'Abrirlo cuesta 15 de vida.' : kind === 'curse' ? 'Puede traer suerte… o una maldición.' : 'Ábrelo y mira qué trae.', b: 'Abrir',
+    use() { if (c.open) return; if (c.kind === 'gold' && !(game.keys > 0)) { hint('Cofre dorado cerrado: necesitas una llave (la sueltan los zombis élite)', 2600); Sfx.err(); return; } if (c.kind === 'bone' && player.hp <= 20) { hint('Cofre de hueso: abrirlo cuesta 15 de vida y no te alcanza', 2200); Sfx.err(); return; } openChest(c); } };
+  chests.push(c);
   feed(`Apareció un ${C.name.toLowerCase()} ${spot.zona || 'en el mapa'}`, 'gold');
 }
 function clearChests() { for (const c of chests) scene.remove(c.g); chests.length = 0; }
 function openChest(c) {
-  c.open = 0.001; const p = c.g.position, z = zoneOf(game.wave);
+  c.open = 0.001; if (useCur === c.use) { useCur = null; showUse(null); } const p = c.g.position, z = zoneOf(game.wave);
   if (c.kind === 'gold') {
     if (S('ganzua') && Math.random() < S('ganzua') / 100) feed('La ganzúa abrió el cofre: no gastaste la llave', 'gold'); else game.keys--;
     const g = Math.round((50 + 25 * z) * (ST.cofreX || 1)), b = bossBullet(), i = game.box.indexOf('normal'); addGold(g, true); if (i >= 0) game.box[i] = b;
@@ -16895,11 +16929,6 @@ function updateChests(dt) {
     if (c.open) { c.open += dt; c.lid.rotation.x = -Math.min(1.9, c.open * 5); c.beam.material.opacity = Math.max(0, 0.16 - c.open * 0.08); if (c.open > 3) { scene.remove(c.g); chests.splice(i, 1); } continue; }
     c.beam.material.opacity = 0.12 + Math.sin(c.t * 3) * 0.05;
     if (state !== 'play' || player.down) continue;
-    const d = Math.hypot(player.pos.x - c.g.position.x, player.pos.z - c.g.position.z);
-    if (d > 1.6) continue;
-    if (c.kind === 'gold' && !(game.keys > 0)) { if (c.warnT <= 0) { hint('Cofre dorado cerrado: necesitas una llave (la sueltan los zombis élite)', 2600); c.warnT = 4; } continue; }
-    if (c.kind === 'bone' && player.hp <= 20) { if (c.warnT <= 0) { hint('Cofre de hueso: abrirlo cuesta 15 de vida', 2200); c.warnT = 4; } continue; }
-    openChest(c);
   }
 }
 
@@ -18992,16 +19021,16 @@ function openHerrero(o) {
 const RAMEN = { p: 0.25, peso: [50, 28, 14, 6, 2] };
 const RAMEN_RAR = [['Común', '#d8d0c0'], ['Poco común', '#7ad07a'], ['Raro', '#6ab0ff'], ['Épico', '#c07aff'], ['Legendario', '#ffc040']];
 const COMIDAS = [
-  { id: 'leche', name: 'Leche de almendras?', rar: 0, max: 1, cura: 1, price: 4, desc: 'Nadie sabe por qué la venden aquí.' },
-  { id: 'sardinas', name: 'Lata de sardinas', rar: 0, max: 5, cura: 5, price: 16, desc: 'Aceitosas y saladas. Llenan.' },
-  { id: 'onigiri', name: 'Onigiri', rar: 0, max: 3, cura: 12, price: 14, desc: 'Bola de arroz con alga. Rápida y fresca.' },
-  { id: 'ramen', name: 'Ramen', rar: 1, max: 5, cura: 10, price: 24, desc: 'El plato de la casa: caldo, fideos y huevo.' },
-  { id: 'gyoza', name: 'Gyozas', rar: 1, max: 6, cura: 6, price: 24, desc: 'Tres empanaditas doradas a la plancha.' },
-  { id: 'yakitori', name: 'Brocheta yakitori', rar: 1, max: 4, cura: 15, price: 22, desc: 'Pollo a la brasa con salsa dulce.' },
-  { id: 'takoyaki', name: 'Takoyaki', rar: 2, max: 9, cura: 10, price: 42, desc: 'Bolitas de pulpo recién salidas del fuego.' },
-  { id: 'frijoles', name: 'Frijoles del vaquero', rar: 2, max: 10, cura: 5, price: 42, desc: 'Una lata de frijoles con chile. Aguantas lo que sea.' },
-  { id: 'sushi', name: 'Sushi del chef', rar: 3, max: 14, cura: 20, price: 75, desc: 'Lo que el chef guardaba para él.' },
-  { id: 'medianoche', name: 'Ramen de medianoche', rar: 4, max: 25, cura: 999, price: 130, desc: 'Solo lo sirve pasada la medianoche.' }
+  { id: 'leche', name: 'Leche de almendras?', rar: 0, max: 1, cura: 1, fichas: 1, desc: 'Nadie sabe por qué la venden aquí.' },
+  { id: 'sardinas', name: 'Lata de sardinas', rar: 0, max: 5, cura: 5, fichas: 1, desc: 'Aceitosas y saladas. Llenan.' },
+  { id: 'onigiri', name: 'Onigiri', rar: 0, max: 3, cura: 12, fichas: 1, desc: 'Bola de arroz con alga. Rápida y fresca.' },
+  { id: 'ramen', name: 'Ramen', rar: 1, max: 5, cura: 10, fichas: 2, desc: 'El plato de la casa: caldo, fideos y huevo.' },
+  { id: 'gyoza', name: 'Gyozas', rar: 1, max: 6, cura: 6, fichas: 2, desc: 'Tres empanaditas doradas a la plancha.' },
+  { id: 'yakitori', name: 'Brocheta yakitori', rar: 1, max: 4, cura: 15, fichas: 2, desc: 'Pollo a la brasa con salsa dulce.' },
+  { id: 'takoyaki', name: 'Takoyaki', rar: 2, max: 9, cura: 10, fichas: 3, desc: 'Bolitas de pulpo recién salidas del fuego.' },
+  { id: 'frijoles', name: 'Frijoles del vaquero', rar: 2, max: 10, cura: 5, fichas: 3, desc: 'Una lata de frijoles con chile. Aguantas lo que sea.' },
+  { id: 'sushi', name: 'Sushi del chef', rar: 3, max: 14, cura: 20, fichas: 4, desc: 'Lo que el chef guardaba para él.' },
+  { id: 'medianoche', name: 'Ramen de medianoche', rar: 4, max: 25, cura: 999, fichas: 6, desc: 'Solo lo sirve pasada la medianoche.' }
 ];
 function ramenOferta() {
   const tot = RAMEN.peso.reduce((a, b) => a + b, 0), ids = [];
@@ -19080,14 +19109,15 @@ function openRamen(o) {
   const R = game.ramenOfertas || (game.ramenOfertas = ramenOferta());
   const draw = () => {
     box.innerHTML = '';
-    $('#items-say').textContent = `«Siéntate, forastero. Hoy hay esto.» Cada plato sube tu vida máxima y te cura. Tienes ${Math.round(player.hp)} de ${player.maxHp} de vida y ${game.gold} $.`;
+    const f = game.poker | 0;
+    $('#items-say').textContent = `«Siéntate, forastero. Aquí no aceptamos dinero: solo fichas de póker.» Cada plato sube tu vida máxima y te cura. Tienes ${Math.round(player.hp)} de ${player.maxHp} de vida y ${f} ${f === 1 ? 'ficha' : 'fichas'}.`;
     R.ids.forEach((id, i) => {
-      const C = COMIDAS.find(c => c.id === id), [rn, rc] = RAMEN_RAR[C.rar], pr = shopP(C.price), comido = !!R.comido[i], b = document.createElement('button'); b.className = 'perk item r' + Math.min(2, C.rar >> 1);
-      b.disabled = comido || game.gold < pr; b.style.borderColor = rc;
-      b.innerHTML = `<span class="relic-ic" style="color:${rc}">${ico('heart')}</span><em style="color:${rc}">${rn}</em><b>${C.name}</b><span>${C.desc} +${C.max} de vida máxima${C.cura >= 999 ? ' y te cura por completo' : ` y cura ${C.cura}`}.</span><span class="tl-p">${comido ? 'Ya te lo comiste' : game.gold >= pr ? `Comer · ${pr} $` : `Faltan ${pr - game.gold} $`}</span>`;
+      const C = COMIDAS.find(c => c.id === id), [rn, rc] = RAMEN_RAR[C.rar], pr = C.fichas, comido = !!R.comido[i], b = document.createElement('button'); b.className = 'perk item r' + Math.min(2, C.rar >> 1);
+      b.disabled = comido || f < pr; b.style.borderColor = rc;
+      b.innerHTML = `<span class="relic-ic" style="color:${rc}">${ico('heart')}</span><em style="color:${rc}">${rn}</em><b>${C.name}</b><span>${C.desc} +${C.max} de vida máxima${C.cura >= 999 ? ' y te cura por completo' : ` y cura ${C.cura}`}.</span><span class="tl-p">${comido ? 'Ya te lo comiste' : f >= pr ? `Comer · ${pr} ${pr === 1 ? 'ficha' : 'fichas'}` : `Te ${pr - f === 1 ? 'falta 1 ficha' : `faltan ${pr - f} fichas`}`}</span>`;
       b.addEventListener('click', () => {
-        if (state !== 'items' || R.comido[i] || game.gold < pr) return;
-        game.gold -= pr; R.comido[i] = 1; player.maxHp += C.max; player.hp = Math.min(player.maxHp, player.hp + C.cura);
+        if (state !== 'items' || R.comido[i] || (game.poker | 0) < pr) return;
+        game.poker -= pr; R.comido[i] = 1; player.maxHp += C.max; player.hp = Math.min(player.maxHp, player.hp + C.cura);
         if (o.platos && o.platos[i]) o.platos[i].visible = false;
         Sfx.cash(); Sfx.chew && Sfx.chew(); feed(`${C.name}: +${C.max} de vida máxima`, 'gold'); renderChips(); draw();
       });
@@ -19430,7 +19460,7 @@ function useLabel(o) {
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
-  if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan, t: 'Puesto de ramen', r: '', d: quedan ? 'Comida caliente: te sube la vida máxima y te cura un poco. Hoy hay 2 platos.' : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
+  if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de póker (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de póker (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
   if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de póker', ok }; }
@@ -19571,7 +19601,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 95';
+const GAME_BUILD = '15-oct-2026 · 96';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20861,6 +20891,8 @@ function requestLock(gesture) {
 const META_KEY = 'sbB_meta';
 const META = Object.assign({ fichas: 0, un: {}, char: 'sheriff', skull: 0, skullMax: 0 }, store.get(META_KEY, {}) || {});
 const saveMeta = () => { store.set(META_KEY, META); try { Cuenta.dirty(); } catch (e) {} };
+// vida inicial de cada personaje (decisión del dueño, 15-oct-2026)
+const CHAR_VIDA = { sheriff: 100, carlos: 100, johnny: 90, francois: 90, armando: 80, lilith: 70 };
 const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata (+10 % de daño) y empieza con 12 balas más en la caja.' },
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
@@ -21016,7 +21048,7 @@ function renderCarousel(dir) {
       <b>${C.name}</b>
       <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>
     </div>${sideCard(1)}</div>
-    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span>${HAB[id] ? `<span class="ch-desc"><b class="ch-ab">Ultimate · ${HAB[id].name}:</b> ${HAB[id].desc}</span>` : ''}${gunStats(C.gun)}</div>
+    <div class="car-info">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}<span class="ch-desc">${C.ab ? `<b class="ch-ab">${C.ab}:</b> ` : ''}${C.desc}</span><span class="ch-desc"><b class="ch-ab">Vida:</b> ${CHAR_VIDA[id] || 100}</span>${HAB[id] ? `<span class="ch-desc"><b class="ch-ab">Ultimate · ${HAB[id].name}:</b> ${HAB[id].desc}</span>` : ''}${gunStats(C.gun)}</div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Partida nueva' : `${ico('lock')} Bloqueado`;
@@ -21037,7 +21069,9 @@ function menu3dCaja() {
 const MENU_POSE = {
   johnny: { base: 'wait', R: [[0.55, 0.45, -0.35], [-0.35, -0.35, 0.85]], Rg: [-0.6, 0, 0.8], head: [0.18, 0, 0.15], arma: true },
   armando: { base: 'look_around', R: [[0.35, 0.25, -1], [0.25, -1, 0.2]], L: [[0.35, -0.25, -1], [0.25, 1, 0.3]], Rg: [0.2, -1, 0.1], head: [0, 0.12, 0], arma: true },
-  lilith: { base: 'look_around', R: [[0.4, 0.35, -0.5], [0.15, -0.4, 1]], head: [0.22, 0.12, 0] }
+  lilith: { base: 'look_around', R: [[0.4, -0.05, -1], [0.6, -0.8, 0.12]], L: [[0.45, 0.15, -1], [0.7, -0.15, 0.12]], head: [0.12, 0.1, 0] },
+  carlos: { base: 'look_around', R: [[0.35, 0.25, -1], [0.25, -1, 0.2]], L: [[0.35, -0.25, -1], [0.25, 1, 0.3]], head: [0, 0.08, 0] },
+  francois: { base: 'look_around', R: [[0.3, 0.55, -0.75], [0.3, -0.15, 1]], Rg: [0.15, 0, 1], L: [[0.45, -0.1, -0.6], [0.3, 0.9, 0.4]], arma: true }
 };
 function menu3dPoseMano(I, P, ch) {
   for (const k in I.acts) I.acts[k].stop();
