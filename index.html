@@ -19297,7 +19297,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 80';
+const GAME_BUILD = '15-oct-2026 · 81';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20162,6 +20162,15 @@ function makeAvatar(p) {
 }
 // Revólver que lleva cada compañero, con su forma y color, y su nombre sobre la cabeza.
 const RV_COL = { paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], cowboy: [0x2a3040, 0xe8e0c8], uzi: [0x1a1a1e, 0x1a1a1e], mp5: [0x1c1d20, 0x18181a], ballesta: [0x9a6a3a, 0x6e3b1b], tesla: [0xb88a3a, 0x3a90ff], jackpot: [0xd09a3e, 0xece2c8], bazuca: [0x3a3c42, 0x5a6a3a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
+// el arma de un compañero: la misma pieza detallada que se ve en primera persona (sin la mano), orientada como la versión simple
+function avGun(id, ch) {
+  const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'cowboy' && ch === 'carlos' };
+  try { buildGun(h, MODELS[id] ? id : 'paci'); } catch (e) { return revolverMini(id); }
+  const g = new THREE.Group(), arma = h.gunG; h.k.remove(arma);
+  arma.rotation.y = Math.PI; arma.position.set(0, 0.03, 0.02); arma.scale.setScalar(1.0);
+  arma.traverse(o => { if (o.isMesh) { o.renderOrder = 0; o.castShadow = true; } });
+  g.add(arma); return g;
+}
 function revolverMini(id) {
   const Md = MODELS[id] || MODELS.paci, [fc, gc] = RV_COL[id] || RV_COL.paci, g = new THREE.Group(), fm = LM(fc, { emissive: 0x141518 }), gm = LM(gc);
   const L = Math.round((Md.L * 1.1 + 0.06) * 100) / 100, r = Math.round((Md.R || 0.011) * 1400) / 1000, cr = id === 'escopeta' || id === 'minigun' ? 0.045 : 0.035;
@@ -20182,7 +20191,7 @@ function setAvGun(av, p) {
   const key = `${p.model}|${p.dual ? 1 : 0}|${p.name}`; if (av.gunKey === key) return; av.gunKey = key;
   for (const g of av.guns) g.parent.remove(g); av.guns = [];
   const id = MODEL_RED[p.model] || 'paci';
-  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = revolverMini(id); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); }
+  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = avGun(id, p.char); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); }
   const old = av.label.material.map; av.label.material.map = avLabelTex(p); av.label.material.needsUpdate = true; if (old) old.dispose();
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
@@ -20361,27 +20370,35 @@ const Music = (() => {
       beatT += bd; beatN++;
     }
   }
-  // canciones grabadas (del dueño) que suenan en bucle en ciertos mapas
-  const buf = {}, cargando = {}; let pista = null;
-  function cargar(f, cb) {
-    if (buf[f]) return cb(buf[f]); if (cargando[f]) { cargando[f].push(cb); return; } cargando[f] = [cb];
-    fetch('snd/musica/' + f + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no)))
-      .then(b => { buf[f] = b; const l = cargando[f]; cargando[f] = null; l.forEach(c => c(b)); }).catch(() => { cargando[f] = null; });
+  // canciones grabadas (del dueño) que suenan en bucle en ciertos mapas: se reproducen por partes con un <audio>
+  // (no se decodifican enteras en memoria, que en el teléfono falla) y pasan por el mismo volumen que el resto
+  let pista = null, el = null, elSrc = null, pend = false;
+  function prepEl() {
+    if (el || !ctx) return;
+    el = new Audio(); el.loop = true; el.preload = 'auto'; el.setAttribute('playsinline', '');
+    try { elSrc = ctx.createMediaElementSource(el); } catch (e) { elSrc = null; }
+    // desbloqueo (iPhone): un sonido mudo dentro del toque del jugador deja este <audio> listo para sonar después
+    el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='; const pr = el.play(); if (pr) pr.then(() => { if (!pista) el.pause(); }).catch(() => {});
   }
+  function sonar() { if (!el || !pista) return; const pr = el.play(); pend = false; if (pr) pr.catch(() => { pend = true; }); }
   function play(k) {
     if (!ctx || k === key) return; key = k;
-    if (out) { const o = out; o.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); setTimeout(() => { try { if (o.src) o.src.stop(); o.disconnect(); } catch (e) {} }, 2500); out = null; }
+    if (out) { const o = out; o.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); setTimeout(() => { try { o.disconnect(); } catch (e) {} if (el && !pista) el.pause(); }, 2500); out = null; }
     const file = typeof k === 'string' ? k : null; pista = file;
     cur = k === null || file ? null : THEMES[k];
-    if (cur || file) { out = ctx.createGain(); out.gain.setValueAtTime(0.0001, ctx.currentTime); out.connect(bus); step = 0; nextT = ctx.currentTime + 0.1; }
-    if (cur) out.gain.setTargetAtTime(1, ctx.currentTime, 0.8);
-    if (file) { const o = out; cargar(file, b => { if (out !== o) return; const src = ctx.createBufferSource(); src.buffer = b; src.loop = true; src.connect(o); src.start(); o.src = src; o.gain.setTargetAtTime(0.9, ctx.currentTime, 0.6); }); }
+    if (cur || file) { out = ctx.createGain(); out.gain.setValueAtTime(0.0001, ctx.currentTime); out.connect(bus); step = 0; nextT = ctx.currentTime + 0.1; out.gain.setTargetAtTime(file ? 0.9 : 1, ctx.currentTime, file ? 0.6 : 0.8); }
+    if (file) {
+      prepEl(); if (!el) return;
+      if (elSrc) { try { elSrc.disconnect(); } catch (e) {} elSrc.connect(out); } else el.volume = Math.min(1, settings.vol * 0.5);
+      el.src = 'snd/musica/' + file + '.mp3'; el.currentTime = 0; sonar();
+    }
   }
   return {
-    init() { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); },
+    init() { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); prepEl(); if (pend) sonar(); },
+    estado() { return { ctx: ctx && ctx.state, pista, t: el ? +el.currentTime.toFixed(1) : null, pausa: el ? el.paused : null, listo: el ? el.readyState : null }; },
     update() {
       const on = game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state) && settings.music !== 'off';
-      const can = on && settings.music === 'map' && world.idx !== ROOM_IDX ? (game.wave > (MAP_COUNT - 1) * WAVES_PER_MAP && game.wave <= LAST_WAVE ? 'final' : MUSICA_MAPA[world.idx]) : null;
+      const can = on && world.idx !== ROOM_IDX ? (game.wave > (MAP_COUNT - 1) * WAVES_PER_MAP && game.wave <= LAST_WAVE ? 'final' : MUSICA_MAPA[world.idx]) : null;
       play(on ? can ? can : (settings.music === 'map' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 3, 5, 1, 0, 6, 1, 9, 6, 2, 8, 9, 7, 2, 7, 4, 3, 3][Math.max(0, world.idx)] : +settings.music) : null);
     },
     // amenaza 0..1 (zombis cerca), si hay jefe vivo y si estamos en calma (Trastienda)
@@ -20572,14 +20589,15 @@ function menu3dCaja() {
   const card = document.querySelector('#menu .card'), lado = $('#m3d-lado'); if (!card || !lado) return null;
   const r = card.getBoundingClientRect(), libre = r.left - 24;
   if (libre >= 200 && innerWidth > innerHeight) { lado.style.width = Math.min(460, libre) + 'px'; lado.hidden = false; return lado; }
-  lado.hidden = true; return document.querySelector('#char-list .car-main .ch-pw');
+  lado.hidden = true; return null;   // en el teléfono no hay espacio: solo el retrato
 }
 function menu3dPose(I, id) {
   const [clip, f] = MENU_POSE[id] || ['idle', 0.3], a = I.acts[clip] || I.acts.idle; if (!a) return;
   a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0);
 }
 function menu3d(id) {
-  const caja = menu3dCaja(); if (!caja) return;
+  const caja = menu3dCaja();
+  if (!caja) { if (M3.r) M3.r.domElement.remove(); const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
   if (!THREE.GLTFLoader || !CHARS[id]) { if (M3.r) M3.r.domElement.style.opacity = '0'; const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
   if (!M3.r) {
     try { M3.r = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
