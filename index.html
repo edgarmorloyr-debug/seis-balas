@@ -239,6 +239,7 @@ body{font-family:var(--hud);font-size:16px}
 #b-hab.ready{border-color:#c88aff;box-shadow:0 0 14px rgba(200,140,255,.8)}
 #b-hab.on{border-color:#fff;background:rgba(170,110,255,.7)}
 #b-swap{right:calc(196px + env(safe-area-inset-right,0px));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
+#bj-body{text-align:center}.bj-mano{display:flex;gap:6px;justify-content:center;margin:6px 0 2px;flex-wrap:wrap}.bj-c{width:46px;height:66px;border-radius:6px;background:#f4ead8;color:#1a1008;font:700 20px/1 var(--hud,sans-serif);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 2px 6px #000}.bj-c.rojo{color:#c0182a}.bj-c.oculta{background:repeating-linear-gradient(45deg,#7a1020,#7a1020 6px,#5a0a18 6px,#5a0a18 12px);color:transparent}.bj-t{font-size:15px;color:var(--bone-dim,#bbb);margin-top:8px}.bj-tot{font-size:16px;font-weight:700;color:var(--bone,#eee)}.bj-msg{font-size:17px;margin:10px 0;color:#ffd060}.bj-votos{font-size:15px;color:var(--bone-dim,#bbb);margin:6px 0}#bj-btns{flex-wrap:wrap;gap:8px}
 #inv-s .card{position:relative}#inv-jug{margin:6px 0 10px;overflow-x:auto}table.jug{width:100%;border-collapse:collapse;font-size:15px}table.jug th{font-family:var(--hud);font-size:14px;letter-spacing:.06em;color:var(--gold,#d8a838);text-align:left;padding:6px 8px;border-bottom:1px solid rgba(214,165,75,.4)}table.jug td{padding:7px 8px;border-bottom:1px solid rgba(214,165,75,.15);color:var(--bone,#eee)}table.jug tr.yo td{background:rgba(214,165,75,.1)}table.jug td.ok{color:#7ad87a}table.jug td.medio{color:#e8c040}table.jug td.malo{color:#ff6a5a}#inv-ping{position:absolute;top:12px;right:14px;display:flex;gap:6px}#inv-ping b{font-size:14px;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid currentColor}#inv-ping .ok{color:#7ad87a}#inv-ping .medio{color:#e8c040}#inv-ping .malo{color:#ff6a5a}
 #istrip{display:flex;align-items:flex-start;gap:6px;margin-top:6px;pointer-events:auto;max-width:min(46vw,440px)}
 .ibtn{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:10px;border:2px solid rgba(214,165,75,.7);background:rgba(20,12,6,.8);color:#ffd060;cursor:pointer}
@@ -911,6 +912,13 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <p class="npc" id="items-say"></p>
       <div id="items-opts"></div>
       <div class="row"><button class="btn2" id="btn-items-skip" hidden>Irme sin nada</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="bj-s" hidden>
+    <div class="card">
+      <h2 class="title sm">Blackjack en equipo</h2>
+      <div id="bj-body"></div>
+      <div class="row" id="bj-btns"></div>
     </div>
   </div>
   <div class="overlay" id="inv-s" hidden>
@@ -21258,7 +21266,7 @@ function hostProceed() {
 function travel(ni, w, then) {
   if (game && game.tiro) tiroEnd();
   habFin(); useCur = null; showUse(null); // la tarjeta de «Usar» (tragamonedas, ruleta…) no se queda en el mapa nuevo
-  if (['shop', 'items', 'cards', 'inv', 'pause'].includes(state)) show(null);
+  if (['shop', 'items', 'cards', 'inv', 'pause', 'bj'].includes(state)) show(null);
   state = 'trans'; const room = ni === ROOM_IDX;
   const M_ = MAPS[ni], z = zoneOf(w || game.wave + 1), C = game.zmod && game.zmod.z === z ? ROUTE_MODS[game.zmod.k] : null;
   $('#fade-s').textContent = room ? `Oleada ${game.wave} superada` : z < MAP_COUNT ? `Nivel ${z + 1}` : `Sin fin · nivel ${z + 1}`; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc + (C ? ` · ${C.name}: ${C.desc}` : '');
@@ -22456,6 +22464,7 @@ function prepRoom() {
   game.roomTaller = Math.random() < 0.10;
   game.roomTiro = Math.random() < 0.05;
   game.roomFuse = Math.random() < 0.30; game.fuseUsed = false;   // la mesa de fusión de balas sale 3 de cada 10 visitas
+  game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
   game.roomRoute = null;
 }
 function enterRoom() {
@@ -22470,6 +22479,107 @@ function enterRoom() {
 // ---- Tragamonedas y ruleta de la Trastienda: se juegan con 1 ficha de póker y dan poco (es para divertirse) ----
 // El Herrero (desbloqueo): yunque con fragua; afila el revólver una vez por visita
 const forgePrice = () => shopP(40 + 20 * (game.forge | 0));
+/* ===== Blackjack en equipo (evento de la Trastienda, 5 %) =====
+   Todos se sientan para empezar. Se vota la apuesta (mínimo 80 $), y en cada mano se vota pedir o plantarse. Juegan UNA mano entre todos
+   contra la banca; si ganan, cada uno cobra su parte y se vota otra mano o retirarse. Al perder una mano, la mesa se cierra.
+   En grupo manda el anfitrión: los demás le envían sus votos y él reparte las cartas. */
+const BJ = { prob: 0.05, apuestas: [80, 150, 300], palos: ['♠', '♥', '♦', '♣'], rangos: ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] };
+const bjYo = () => Net.on ? Net.id : 'yo';
+const bjJugadores = () => [bjYo()].concat(Net.on ? [...Net.peers.keys()] : []);
+const bjNombre = id => id === bjYo() ? 'Tú' : ((Net.peers.get(id) || {}).name || 'Vaquero');
+function bjSale(semilla) {   // la mesa sale igual para todo el grupo: depende de la sala y la oleada
+  if (!Net.on) return Math.random() < BJ.prob;
+  let h = 7; for (const ch of String(Net.room || '') + ':' + game.wave) h = Math.imul(h ^ ch.charCodeAt(0), 0x5bd1e995) >>> 0;
+  return (h % 10000) / 10000 < BJ.prob;
+}
+const bjCarta = () => ({ r: Math.floor(Math.random() * 13), p: Math.floor(Math.random() * 4) });
+function bjValor(m) { let t = 0, a = 0; for (const c of m) { const v = c.r === 0 ? 11 : Math.min(10, c.r + 1); t += v; if (c.r === 0) a++; } while (t > 21 && a) { t -= 10; a--; } return t; }
+function bjNueva() { return { f: 'sentarse', sent: {}, votos: {}, apuesta: 0, mano: [], banca: [], n: 0, res: '', msg: 'Siéntense todos para empezar.' }; }
+// el anfitrión (o el jugador solo) aplica un voto o acción
+function bjAccion(id, k, v) {
+  const B = game.bj; if (!B) return;
+  const todos = bjJugadores(), sentados = () => todos.every(j => B.sent[j]);
+  if (k === 'sit' && B.f === 'sentarse') { B.sent[id] = 1; if (sentados()) { B.f = 'apuesta'; B.votos = {}; B.msg = 'Voten la apuesta inicial (cada uno pone lo mismo).'; } }
+  else if (k === 'up' && B.f === 'sentarse') delete B.sent[id];
+  else if (k === 'bet' && B.f === 'apuesta' && BJ.apuestas.includes(v)) { B.votos[id] = v; if (todos.every(j => B.votos[j])) { const c = {}; for (const j of todos) c[B.votos[j]] = (c[B.votos[j]] | 0) + 1; B.apuesta = +Object.keys(c).sort((a, b) => c[b] - c[a] || a - b)[0]; bjRepartir(B); } }
+  else if (k === 'act' && B.f === 'jugada' && (v === 'pedir' || v === 'plantarse')) {
+    B.votos[id] = v;
+    if (todos.every(j => B.votos[j])) {
+      const pe = todos.filter(j => B.votos[j] === 'pedir').length; B.votos = {};
+      if (pe > todos.length - pe) { B.mano.push(bjCarta()); const t = bjValor(B.mano); if (t > 21) bjFin(B, 'pierde', `Se pasaron: ${t}. La banca gana.`); else if (t === 21) bjBanca(B); else B.msg = `Pidieron carta: llevan ${t}. ¿Otra o se plantan?`; }
+      else bjBanca(B);
+    }
+  }
+  else if (k === 'next' && B.f === 'resultado' && (v === 'otra' || v === 'retirarse')) {
+    B.votos[id] = v;
+    if (todos.every(j => B.votos[j])) { const ot = todos.filter(j => B.votos[j] === 'otra').length; B.votos = {}; if (ot > todos.length - ot) bjRepartir(B); else { B.f = 'fin'; B.msg = 'Se retiraron con las ganancias. La mesa se cierra.'; } }
+  }
+  bjEnviar();
+}
+function bjRepartir(B) { B.n++; B.mano = [bjCarta(), bjCarta()]; B.banca = [bjCarta(), bjCarta()]; B.f = 'jugada'; B.votos = {}; B.res = ''; const t = bjValor(B.mano); if (t === 21) bjBanca(B); else B.msg = `Mano ${B.n} · apuesta ${B.apuesta} $ cada uno. Llevan ${t}: ¿piden o se plantan?`; }
+function bjBanca(B) {
+  while (bjValor(B.banca) < 17) B.banca.push(bjCarta());
+  const t = bjValor(B.mano), b = bjValor(B.banca), nat = t === 21 && B.mano.length === 2;
+  if (b > 21 || t > b) bjFin(B, nat ? 'natural' : 'gana', nat ? '¡Blackjack! Cada uno cobra 2,5 veces su apuesta.' : `¡Ganan! ${t} contra ${b > 21 ? 'la banca pasada' : b}. Cada uno cobra el doble.`);
+  else if (t === b) bjFin(B, 'empate', `Empate a ${t}: cada uno recupera su apuesta.`);
+  else bjFin(B, 'pierde', `La banca gana: ${b} contra ${t}. La mesa se cierra.`);
+}
+function bjFin(B, res, msg) { B.res = res; B.msg = msg; B.f = res === 'pierde' ? 'fin' : 'resultado'; B.votos = {}; }
+function bjEnviar() { if (Net.host) Net.ev(['bjs', game.bj]); bjLocal(); }
+// cada jugador paga y cobra su parte (su oro es suyo); una sola vez por mano
+function bjLocal() {
+  const B = game.bj; if (!B) return; game.bjPag = game.bjPag || {};
+  if (B.n && B.sent[bjYo()]) {
+    const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; game.gold -= B.apuesta; Sfx.coin(); }
+    const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const g = B.res === 'natural' ? Math.floor(B.apuesta * 2.5) : B.res === 'gana' ? B.apuesta * 2 : B.res === 'empate' ? B.apuesta : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); }
+  }
+  if (state === 'bj') renderBj();
+}
+function bjMandar(k, v) { if (Net.client) Net.ev(['bjv', k, v]); else bjAccion(bjYo(), k, v); }
+function abrirBj() {
+  if (!game.bj) { hint('La mesa todavía se está preparando…', 1200); return; }
+  if (game.bj.f === 'fin') { hint('La mesa ya se cerró en esta visita', 1400); return; }
+  if (game.gold < BJ.apuestas[0]) { hint(`Para sentarte necesitas al menos ${BJ.apuestas[0]} $`, 1600); Sfx.err(); return; }
+  state = 'bj'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
+  if (!game.bj.sent[bjYo()]) bjMandar('sit');
+  show('bj-s'); renderBj();
+}
+function cerrarBj() { if (state !== 'bj') return; const B = game.bj; if (B && B.f === 'sentarse') bjMandar('up'); show(null); state = 'play'; requestLock(); canvas.focus(); }
+function renderBj() {
+  const B = game.bj; if (!B) return;
+  const carta = (c, oc) => oc ? '<span class="bj-c oculta">?</span>' : `<span class="bj-c${c.p === 1 || c.p === 2 ? ' rojo' : ''}">${BJ.rangos[c.r]}<small>${BJ.palos[c.p]}</small></span>`;
+  const todos = bjJugadores(), oculta = B.f === 'jugada';
+  let h = '';
+  if (B.n) h += `<div class="bj-t">Banca${oculta ? '' : ` · <span class="bj-tot">${bjValor(B.banca)}</span>`}</div><div class="bj-mano">${B.banca.map((c, i) => carta(c, oculta && i === 1)).join('')}</div><div class="bj-t">Su mano · <span class="bj-tot">${bjValor(B.mano)}</span></div><div class="bj-mano">${B.mano.map(c => carta(c)).join('')}</div>`;
+  h += `<p class="bj-msg">${B.msg}</p>`;
+  h += `<p class="bj-t">Tu oro: <span class="bj-tot">${game.gold} $</span></p>`;
+  if (B.f === 'sentarse') h += `<p class="bj-votos">Sentados: ${todos.filter(j => B.sent[j]).map(bjNombre).join(', ') || 'nadie'}${todos.some(j => !B.sent[j]) ? ` · faltan: ${todos.filter(j => !B.sent[j]).map(bjNombre).join(', ')}` : ''}</p>`;
+  else if (B.f !== 'fin') h += `<p class="bj-votos">Votos: ${todos.map(j => `${bjNombre(j)} ${B.votos[j] ? '✔' : '…'}`).join(' · ')}</p>`;
+  $('#bj-body').innerHTML = h;
+  const bt = $('#bj-btns'); bt.innerHTML = ''; const yo = B.votos[bjYo()];
+  const btn = (txt, cls, fn, dis) => { const b = document.createElement('button'); b.className = cls; b.textContent = txt; b.disabled = !!dis; b.addEventListener('click', fn); bt.appendChild(b); };
+  if (B.f === 'sentarse') btn('Levantarme', 'btn2', cerrarBj);
+  else if (B.f === 'apuesta') { const ok = BJ.apuestas.filter(a => a <= game.gold); BJ.apuestas.forEach((a, i) => btn(`${a} $`, i === 0 ? 'btn' : 'btn2', () => bjMandar('bet', a), !!yo || !ok.includes(a))); }
+  else if (B.f === 'jugada') { btn('Pedir carta', 'btn', () => bjMandar('act', 'pedir'), !!yo); btn('Plantarse', 'btn2', () => bjMandar('act', 'plantarse'), !!yo); }
+  else if (B.f === 'resultado') { btn('Otra mano', 'btn', () => bjMandar('next', 'otra'), !!yo || game.gold < B.apuesta); btn('Retirarse', 'btn2', () => bjMandar('next', 'retirarse'), !!yo); }
+  else btn('Volver a la Trastienda', 'btn', cerrarBj);
+}
+function buildBlackjack(x, z) {
+  const P = Grp(x, z, 0), q = { p: P }, felt = lam(0x1a6a3a), wood = lam(0x5a3018), dk = lam(0x2a1a10), brass = lam(0xd8a838, { emissive: 0x2a1c04 });
+  const top = M(new THREE.CylinderGeometry(1.15, 1.15, 0.1, 24, 1, false, Math.PI / 2, Math.PI), felt, 0, 0.92, 0, q);   // media luna, la banca del lado de la pared
+  M(new THREE.CylinderGeometry(1.25, 1.25, 0.08, 24, 1, false, Math.PI / 2, Math.PI), wood, 0, 0.86, 0, q);
+  M(cyl(0.25, 0.35, 0.86, 10), dk, -0.3, 0.43, 0, q);
+  for (let i = 0; i < 6; i++) M(bx(0.12, 0.01, 0.17), lam(0xf4ead8), -0.5 - (i % 3) * 0.18, 0.98, -0.3 + Math.floor(i / 3) * 0.6, { p: P, ry: rand(-0.3, 0.3), cast: false });
+  M(cyl(0.06, 0.06, 0.08, 10), lam(0xc0182a), -0.2, 1.0, 0.2, q); M(cyl(0.06, 0.06, 0.12, 10), lam(0x2a5ad0), -0.25, 1.02, -0.15, q);
+  for (let i = 0; i < 4; i++) { const a = Math.PI * (0.62 + i * 0.25), sx = Math.cos(a) * 1.65, sz = Math.sin(a) * 1.65; M(cyl(0.22, 0.2, 0.08, 12), lam(0x7a1020), sx, 0.62, sz, q); M(cyl(0.05, 0.05, 0.6, 6), brass, sx, 0.3, sz, q); }
+  M(bx(0.5, 1.5, 0.4), dk, 0.9, 0.75, 0, q);   // la banca: un maniquí con chaleco
+  M(new THREE.SphereGeometry(0.18, 10, 8), lam(0xd8b090), 0.9, 1.65, 0, q); M(cyl(0.2, 0.22, 0.08, 10), dk, 0.9, 1.82, 0, q);
+  addBox(x + 0.2, z, 0.75, 1.25);
+  lampLight(0, 2.6, 0, 0xffe0a0, 0.8, 5, P);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({ map: canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#0a2a14'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ffd060'; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#ffd060'; g.font = 'bold 66px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('BLACKJACK', w / 2, h / 2 + 4); }) }));
+  sign.position.set(1.15, 2.4, 0); sign.rotation.y = -Math.PI / 2; P.add(sign);
+  return { kind: 'bj', x: x - 1.7, z, r: 1.4 };
+}
 // Mesa de fusión (evento de la Trastienda, 30 %): junta 2 balas especiales de tu colección en una sola con los dos efectos
 function buildFusion(x, z, used) {
   const P = Grp(x, z, 0), q = { p: P }, wood = lam(0x5a3a22), dk = lam(0x2a1a10), brass = lam(0xd8a838, { emissive: 0x2a1c04 });
@@ -22910,9 +23020,11 @@ function buildShopRoom() {
   // Juegos de azar (a veces): tragamonedas y ruleta, solo para entretener
   if (game && game.roomRadio) R.objs.push(buildRadio(-HX + 0.6, 6.2, !!(game.roomUsed || {}).radio));
   if (game && game.roomForge) R.objs.push(buildForge(-HX + 0.9, -5.8, !!(game.roomUsed || {}).forge));
-  if (game && game.roomFuse) R.objs.push(buildFusion(6, -3.2, !!(game.roomUsed || {}).fuse));
+  // cada evento tiene su lugar fijo: fusión al frente a la izquierda, blackjack al frente a la derecha
+  if (game && game.roomFuse) R.objs.push(buildFusion(-4.6, 5.0, !!(game.roomUsed || {}).fuse));
+  if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
-  if (game && game.roomTaller) R.objs.push(game.roomTiro ? buildTaller(-HX + 2.15, 1.5, true) : buildTaller(HX - 2.15, 1.5));
+  if (game && game.roomTaller) R.objs.push(buildTaller(-HX + 2.15, 1.5, true));
   // van en la pared de la derecha al entrar, mirando al centro
   { const spots = [[HX - 0.55, -5.8], [HX - 0.55, 6.2]]; if (game && game.roomSlot) R.objs.push(buildSlot(...spots.shift())); if (game && game.roomWheel) { const w = buildWheel(...spots.shift()); w.used = !!(game.roomUsed || {}).wheel; R.objs.push(w); } }
   // Puertas del fondo: aparecen al azar (todas, algunas o ninguna)
@@ -22942,6 +23054,7 @@ function useLabel(o) {
   if (o.kind === 'item') { const I = ITEMS[o.it.id], p = itemPrice(o.it.id); return { key: 'i' + o.it.id + game.gold, t: I.name, r: `<span class="rar-${I.rar + 1}">${IRAR[I.rar].name}</span>`, d: I.desc, b: game.gold >= p ? `Comprar · ${p} $` : `Faltan ${p - game.gold} $`, ok: game.gold >= p }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
+  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; return { key: 'bj' + (B ? B.f : '') + (game.gold >= BJ.apuestas[0]), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold >= BJ.apuestas[0] ? 'Sentarse' : `Necesitas ${BJ.apuestas[0]} $`, ok: !cerr && game.gold >= BJ.apuestas[0] }; }
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), ok = game.gold >= pr; return { key: 'fg' + game.gold, t: 'El Herrero', r: '', d: `Afila tu revólver: +10 % de daño para toda la partida (llevas +${(game.forge | 0) * 10} %). Una vez por visita.`, b: ok ? `Afilar · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
@@ -22985,6 +23098,8 @@ function useObj(o) {
     const ex = game.roomItems.map(x => x.id).filter(Boolean);
     for (const ob of world.room.objs) if (ob.kind === 'item' && !ob.it.sold) { const id = randItem(2, ex); if (!id) continue; ex.push(id); ob.it.id = id; ob.sp.material.map = itemTex(ITEMS[id].ic, ITEMS[id].rar); ob.sp.material.needsUpdate = true; ob.lab.material.map = itemLabel(id); ob.lab.material.needsUpdate = true; ob.glow.material.color.setHex([0xfff0d0, 0x7ac0ff, 0xffc040][ITEMS[id].rar]); }
     useCur = null;
+  } else if (o.kind === 'bj') {
+    useCur = null; showUse(null); abrirBj();
   } else if (o.kind === 'fusion') {
     if (o.used || game.fuseUsed) return; useCur = null; showUse(null); game.fuseOpen = true; openInv(); setTimeout(() => { const f = $('#inv-fuse'); if (f) f.scrollIntoView({ block: 'start' }); }, 60);
   } else if (o.kind === 'forge') {
@@ -23080,7 +23195,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 71';
+const GAME_BUILD = '15-oct-2026 · 72';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -23540,7 +23655,9 @@ function netStartAsClient() {
 // Aviso suave cuando un compañero cae (y cuando vuelve): una línea en el registro y un sonido bajo. Le llega a todos.
 // Ping: el invitado manda la hora cada 2 s, el anfitrión la devuelve y se mide la ida y vuelta
 let pingT = 0;
+let bjT = 0;
 function pingTick(dt) {
+  if (Net.host && game && game.bj && (bjT -= dt) <= 0) { bjT = 2; if (game.phase === 'room' || game.phase === 'wait' || game.phase === 'exit') Net.ev(['bjs', game.bj]); }   // la mesa de blackjack, para quien llega tarde
   if (!Net.on || !Net.client || !game) return;
   if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); }
 }
@@ -23612,6 +23729,8 @@ function netEvent(p, e) {
   if (t === 'rev' || t === 'revp' || t === 'up') return;
   // habilidades y llaves: los dos lados las escuchan (el anfitrión también recibe las de los invitados)
   if (t === 'pi') { if (Net.host) Net.ev(['po', p.id, e[1]]); return; }
+  if (t === 'bjv') { if (Net.host && game && game.bj) bjAccion(p.id, e[1], e[2]); return; }
+  if (t === 'bjs') { if (!Net.host && game && e[1]) { game.bj = e[1]; bjLocal(); } return; }
   if (t === 'po') { if (e[1] === Net.id) { Net.ping = Math.max(1, Math.round(performance.now() - e[2])); if (state === 'inv') pingHud(); } return; }
   if (t === 'ab') { if (game) habRed(p, e); return; }
   if (t === 'llv') { llvRed(p, e); return; }
@@ -24074,7 +24193,7 @@ const Music = (() => {
 
 /* ===================== PANTALLAS ===================== */
 const showTrail = [];
-function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if (id === 'menu' && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'bj-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
