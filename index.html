@@ -13966,7 +13966,7 @@ const PERKS = [
 ];
 const lv = id => (game && game.perks[id]) || 0;
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
-const copsAlive = () => cops.filter(c => !c.dead && !c.npc && !c.radio && !c.indep && c.kind !== 'ayudante').length;
+const copsAlive = () => cops.filter(c => !c.dead && !c.npc && !c.radio && !c.indep && !c.caza && c.kind !== 'ayudante').length;
 const HELP = [
   { id: 'powder', name: 'Barril de pólvora', desc: 'Fabrica una caja nueva de 50 balas cuando se acaba la tuya. Sin pólvora, la caja sale de balas malas: la mitad de daño y sin efectos.', price: () => 10, can: () => game.powder < 9, why: 'Ya tienes 9' },
   { id: 'med', name: 'Botiquín', desc: 'Recuperas 60 de vida ahora mismo.', price: () => 15, can: () => player.hp < player.maxHp, why: 'Tienes la vida llena' },
@@ -18009,7 +18009,7 @@ function updateCops(dt) {
     }
     if (D.melee && c.tgt) { const tx = c.tgt.root.position.x - pos.x, tz = c.tgt.root.position.z - pos.z, td_ = Math.hypot(tx, tz) || 1; if (td_ > 1.1) { if (lineClear(pos.x, pos.z, c.tgt.root.position.x, c.tgt.root.position.z, 0.3)) { mx = tx / td_; mz = tz / td_; } else if (flowDir(pos.x, pos.z, 0.35)) { mx = FD.x; mz = FD.z; } spd = c.speed; } threat = null; }
     else if (threat) { mx = pos.x - threat.root.position.x; mz = pos.z - threat.root.position.z; const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l; spd = c.speed * 0.8; }
-    else if (c.radio) { if (!(c.tgt && Math.hypot(c.tgt.root.position.x - pos.x, c.tgt.root.position.z - pos.z) < 9)) {   // escuadra de la radio: va a buscar zombis por su cuenta (con uno a tiro, se planta y dispara)
+    else if (c.radio || c.caza) { if (!(c.tgt && Math.hypot(c.tgt.root.position.x - pos.x, c.tgt.root.position.z - pos.z) < 9)) {   // escuadra de la radio: va a buscar zombis por su cuenta (con uno a tiro, se planta y dispara)
       if ((c.huntT = (c.huntT || 0) - dt) <= 0) { c.huntT = rand(0.6, 1); let bd = 1e9; c.hunt = null; for (const z of zombies) { if (z.dead || z.state === 'rise') continue; const d = Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z); if (d < bd) { bd = d; c.hunt = z; } } }
       const g = c.hunt && !c.hunt.dead ? c.hunt.root.position : c.ronda;
       if (!g || (!c.hunt && Math.hypot(g.x - pos.x, g.z - pos.z) < 1.5)) { const sp = pick(world.spawns.length ? world.spawns : [{ x: 0, z: 0 }]); c.ronda = { x: sp.x + rand(-4, 4), z: sp.z + rand(-4, 4) }; }
@@ -19398,8 +19398,10 @@ function waveEvent(n) {
   }
   const kinds = ev === 'refuerzos' ? ['cop', 'cop', 'cop', 'swat', 'swat', 'swat'] : ['bill', 'bill', 'bill', 'bill', 'bill', 'bill'];
   game.evW = n;
-  kinds.forEach((k, i) => setTimeout(() => { if (game && game.wave === n && game.evW === n) { const c = spawnCop(k, null, 1, 0); c.temp = 1; c.evTemp = 1; } }, 1800 + i * 250));
-  setTimeout(() => { if (game && game.wave === n) { if (ev === 'refuerzos') banner('¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean contigo esta oleada', 2800, 'badge'); else banner('¡Llegó el ejército!', '6 soldados como Bill pelean contigo esta oleada', 2800, 'medal'); Sfx.bell(); } }, 1700);
+  const a0 = rand(0, TAU);
+  kinds.forEach((k, i) => setTimeout(() => { if (game && game.wave === n && game.evW === n) { const c = spawnCop(k, null, 1, 0); c.temp = 1; c.evTemp = 1; c.caza = 1;   // guerreros independientes: se reparten y cazan zombis por su cuenta
+    const a = a0 + i * TAU / kinds.length, b = player.pos; c.root.position.set(b.x + Math.cos(a) * 3.5, 0, b.z + Math.sin(a) * 3.5); resolve(c.root.position, 0.35); c.ronda = { x: b.x + Math.cos(a) * 16, z: b.z + Math.sin(a) * 16 }; c.huntT = rand(1.5, 3); } }, 1800 + i * 250));
+  setTimeout(() => { if (game && game.wave === n) { if (ev === 'refuerzos') banner('¡Llegaron los refuerzos!', '3 policías y 3 SWAT se reparten por el mapa a cazar zombis', 2800, 'badge'); else banner('¡Llegó el ejército!', '6 soldados se reparten por el mapa a cazar zombis esta oleada', 2800, 'medal'); Sfx.bell(); } }, 1700);
   if (Net.on) Net.ev(['evb', ev]);
 }
 function waveEventEnd() {
@@ -19813,7 +19815,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 110';
+const GAME_BUILD = '15-oct-2026 · 111';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
