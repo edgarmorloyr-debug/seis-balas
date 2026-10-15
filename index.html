@@ -114,6 +114,11 @@ body{font-family:var(--hud);font-size:16px}
 #ach-toast small{display:block;font:800 12px var(--hud);letter-spacing:.14em;text-transform:uppercase;color:#d8a838}
 #ach-toast b{display:block;font:700 18px var(--hud);color:#ffd47a}
 #ach-toast span{display:block;font-size:14px;color:var(--bone)}
+#ach-list .ach-it{display:block;font-size:14px;color:#9fe0a8;margin-top:2px}#ach-list .ach-it b{color:#bff5c6}#ach-list .ach:not(.ok) .ach-it{color:var(--bone-dim)}#ach-list .ach:not(.ok) .ach-it b{color:#ffd060}
+#altar-list .altar-sec{grid-column:1/-1;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid rgba(214,165,75,.35)}#altar-list .altar-sec b{display:block;font:700 16px var(--hud);letter-spacing:.1em;text-transform:uppercase;color:#ffd060}#altar-list .altar-sec span{font-size:14px;color:var(--bone-dim)}
+#altar-list .item.bloq{opacity:.75}#altar-list .item .req{font-size:14px;color:var(--bone-dim);margin-top:4px}
+#over-cerca{margin:10px auto 0;max-width:420px;padding:10px 14px;border:1px solid rgba(214,165,75,.45);border-radius:10px;background:rgba(0,0,0,.35);text-align:left}#over-cerca small{display:block;font:800 13px var(--hud);letter-spacing:.14em;text-transform:uppercase;color:#d8a838}#over-cerca b{font:700 17px var(--hud);color:#ffd47a}#over-cerca span{display:block;font-size:14px;color:var(--bone)}#over-cerca .ach-p{height:8px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;margin:6px 0 4px}#over-cerca .ach-p s{display:block;height:100%;background:#d8a838}#over-cerca em{font-style:normal;font-size:14px;color:var(--bone-dim)}#over-cerca em b{font-size:14px;color:#bff5c6}
+#ach-toast .ach-prem{margin-top:4px;color:#9fe0a8}#ach-toast .ach-prem b{display:inline;font:700 14px var(--hud);color:#bff5c6}
 #wait-call{position:fixed;z-index:22;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 18px;border-radius:10px;background:rgba(18,12,6,.94);border:2px solid #d8a838;box-shadow:0 0 0 3px rgba(0,0,0,.35),0 0 24px rgba(216,168,56,.45);text-align:center;pointer-events:none;animation:waitPulse 1.6s ease-in-out infinite}
 #wait-call b{display:block;font:700 17px var(--hud);color:#ffd47a;letter-spacing:.04em}
 #wait-call span{display:block;font:600 14px var(--hud);color:var(--bone);margin-top:2px}
@@ -1004,6 +1009,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <h2 class="title sm">Te comieron</h2>
       <div class="rec" id="over-rec" hidden>Nuevo récord</div>
       <div class="stats" id="over-stats"></div>
+      <div class="cerca" id="over-cerca" hidden></div>
       <div class="row"><button class="btn" id="btn-again">Otra vez</button><button class="btn2" id="btn-menu">Menú</button></div>
     </div>
   </div>
@@ -14063,6 +14069,8 @@ function gameOver() {
   awardFichas(false); submitRun(true);
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
+  { const c = logroCerca(), el_ = $('#over-cerca'), it = c && ACH_ITEM[c.A.id] && ITEMS[ACH_ITEM[c.A.id]];   // te falta poco: el logro más cercano y su premio
+    if (el_) { el_.hidden = !c; if (c) el_.innerHTML = `<small>Te falta poco</small><b>${c.A.name}</b><span>${c.A.d}</span><div class="ach-p"><s style="width:${Math.round(c.r * 100)}%"></s></div><em>${c.A.n > 1 ? c.v.toLocaleString('es') + ' / ' + c.A.n.toLocaleString('es') : 'Pendiente'}${it ? ` · premio: <b>${it.name}</b>` : ''}</em>`; } }
   show('over'); el.hud.hidden = true; $('#touch').hidden = true;
   setTimeout(() => $('#btn-again').focus(), 50);
   updateBest();
@@ -18439,7 +18447,7 @@ function doFuse(a, b) {
 // Objetos al azar según la rareza
 function randItem(maxRar = 2, exclude = []) {
   const W = S('rareShop') ? [40, 40, 20] : [IRAR[0].w, IRAR[1].w, IRAR[2].w];
-  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !(ITEMS[id].once && game.items && game.items[id]));
+  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !itemBloq(id) && !(ITEMS[id].once && game.items && game.items[id]));
   if (!pool.length) return null;
   let t = 0; pool.forEach(id => t += W[ITEMS[id].rar]); let r = Math.random() * t;
   for (const id of pool) if ((r -= W[ITEMS[id].rar]) < 0) return id;
@@ -18811,7 +18819,7 @@ function tiroEnd() {
   input.fireHeld = false;
   const g = T.hits * TIRO_GOLD; if (g) addGold(g, true);
   if (T.hits >= TIRO_N) {
-    const pool = ITEM_IDS.filter(id => ITEMS[id].rar >= 1 && !(ITEMS[id].once && game.items && game.items[id])), id = pool.length ? pick(pool) : null;
+    const pool = ITEM_IDS.filter(id => ITEMS[id].rar >= 1 && !itemBloq(id) && !(ITEMS[id].once && game.items && game.items[id])), id = pool.length ? pick(pool) : null;
     if (id) gainItem(id); banner('¡Pleno!', `Los ${TIRO_N} blancos · +${g} $${id ? ' y ' + ITEMS[id].name : ''}`, 3000, 'medal'); Sfx.win();
   } else { banner('Tiempo', `${T.hits} de ${TIRO_N} blancos · +${g} $`, 2400, 'target'); Sfx.bell(); }
   renderChips();
@@ -19311,7 +19319,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 90';
+const GAME_BUILD = '15-oct-2026 · 91';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20651,6 +20659,17 @@ const ACH = [
   { id: 'partidas', ic: 'cards', name: 'Cliente habitual', d: 'Juega 10 partidas', n: 10, v: () => META.st.runs | 0 }
 ];
 META.ach = META.ach || {}; META.ab = META.ab || {};
+// Reinicio de logros pedido por el dueño (15-oct-2026): se borra el avance de logros y las cuentas que los alimentan, una sola vez por jugador
+if (META.reinicioLogros !== 1) { META.reinicioLogros = 1; META.ach = {}; META.ab = {}; META.st = { gold: 0, kills: 0, bosses: 0, clean: 0, wins: 0 }; META.pl = {}; try { store.set(META_KEY, META); } catch (e) {} }
+// Cada logro desbloquea un objeto (estilo roguelike): hasta conseguirlo, ese objeto no sale en tus partidas
+const ACH_ITEM = { sangre: 'p_vamp', cazador: 'trofeo', exterm: 'p_execute', leyenda: 'garra', punteria: 'p_head', halcon: 'p_boom', ol5: 'p_second', ol15: 'tambor_doble', ol30: 'infierno', gana: 'r_calavera', sinfin: 'menos',
+  jefe1: 'r_vela', jefe10: 'p_crit', jefe50: 'cena', combo5: 'racha', combo10: 'p_frenzy', seis: 'r_herradura', seis5: 'r_polvora', ahorro: 'avaro', rico: 'midas2', resc1: 'corneta', resc5: 'r_biblia',
+  abanico: 'espejo', ojo: 'calma', objetos: 'sonrisa', grupo: 'medalla_equipo', gallina: 'lingote', taller: 'piedra', saq: 'desesperado', calavera: 'rosario', sheriff: 'hierro', todos: 'llave_dueno',
+  lugares10: 'rastreador', lugares20: 'bendita', partidas: 'pandora' };
+const ITEM_ACH = Object.fromEntries(Object.entries(ACH_ITEM).map(([a, i]) => [i, a]));
+const itemBloq = id => !!ITEM_ACH[id] && !META.ach[ITEM_ACH[id]];
+// el logro que tienes más cerca (para «Te falta poco» al terminar la partida)
+function logroCerca() { let best = null, br = -1; for (const A of ACH) { if (META.ach[A.id]) continue; const r = Math.min(0.99, achVal(A) / A.n); if (r > br) { br = r; best = A; } } return best ? { A: best, r: br, v: Math.min(best.n, achVal(best)) } : null; }
 const achVal = A => A.run ? Math.max(META.ab[A.id] | 0, game ? A.run() : 0) : A.v();
 const achQ = []; let achBusy = false, achT = 0;
 function checkAch(dt) {
@@ -20667,15 +20686,15 @@ function checkAch(dt) {
 }
 function achShow() {
   if (achBusy || !achQ.length) return; const A = achQ.shift(), el_ = $('#ach-toast'); if (!el_) return;
-  achBusy = true; el_.innerHTML = `<i>${ico(A.ic)}</i><div><small>¡Logro conseguido!</small><b>${A.name}</b><span>${A.d}</span></div>`; el_.hidden = false;
+  achBusy = true; const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; el_.innerHTML = `<i>${ico(A.ic)}</i><div><small>¡Logro conseguido!</small><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-prem">Nuevo objeto desbloqueado: <b>${it.name}</b></span>` : ''}</div>`; el_.hidden = false;
   el_.classList.remove('on'); void el_.offsetWidth; el_.classList.add('on'); Sfx.coin(); setTimeout(() => Sfx.bell(), 120);
-  setTimeout(() => { el_.classList.remove('on'); setTimeout(() => { el_.hidden = true; achBusy = false; achShow(); }, 400); }, 3600);
+  setTimeout(() => { el_.classList.remove('on'); setTimeout(() => { el_.hidden = true; achBusy = false; achShow(); }, 400); }, 4600);
 }
 function renderAch() {
   const done = ACH.filter(A => META.ach[A.id]).length;
   $('#ach-count').textContent = `${done} de ${ACH.length} conseguidos`;
   $('#ach-bar').style.width = `${Math.round(done / ACH.length * 100)}%`;
-  $('#ach-list').innerHTML = ACH.map(A => { const ok = !!META.ach[A.id], v = Math.min(A.n, achVal(A)); return `<div class="ach${ok ? ' ok' : ''}"><i>${ico(A.ic)}</i><div><b>${A.name}</b><span>${A.d}</span>${ok ? '<em>Conseguido</em>' : A.n > 1 ? `<div class="ach-p"><s style="width:${Math.round(v / A.n * 100)}%"></s></div><em class="pr">${v.toLocaleString('es')} / ${A.n.toLocaleString('es')}</em>` : '<em class="pr">Pendiente</em>'}</div></div>`; }).join('');
+  $('#ach-list').innerHTML = ACH.map(A => { const ok = !!META.ach[A.id], v = Math.min(A.n, achVal(A)); const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; return `<div class="ach${ok ? ' ok' : ''}"><i>${ico(A.ic)}</i><div><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-it">${ok ? 'Desbloqueaste' : 'Desbloquea'}: <b>${it.name}</b></span>` : ''}${ok ? '<em>Conseguido</em>' : A.n > 1 ? `<div class="ach-p"><s style="width:${Math.round(v / A.n * 100)}%"></s></div><em class="pr">${v.toLocaleString('es')} / ${A.n.toLocaleString('es')}</em>` : '<em class="pr">Pendiente</em>'}</div></div>`; }).join('');
 }
 const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : p;
 const UNLOCKS = [
@@ -20821,13 +20840,15 @@ const TOP_H = () => ({ apikey: SUPA.key, Authorization: 'Bearer ' + SUPA.key, 'C
 const escH = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 function myNick() { let n = store.get('sb_nick', ''); if (!n) { n = 'Vaquero ' + Math.floor(rand(10, 99)); store.set('sb_nick', n); } return String(n).slice(0, 12); }
 let topT = -1e9;
+// La tabla de mejores jugadores empieza de cero en esta fecha (pedido del dueño); las partidas anteriores siguen guardadas en Supabase, solo no se muestran
+const TOP_DESDE = '2026-10-15T15:30:00Z';
 async function loadTop(force) {
   const ol = $('#top-list'); if (!ol || !SUPA.url) return;
   if (!force && performance.now() - topT < 30000) return; topT = performance.now();
   if (!ol.children.length) ol.innerHTML = '<li class="note">Cargando…</li>';
   try {
-    const r = await fetch(SUPA.url + '/rest/v1/sb_top?select=name,personaje,wave,kills,secs&order=wave.desc,kills.desc,secs.asc&limit=10', { headers: TOP_H() });
-    if (!r.ok) throw new Error(r.status); const rows = await r.json(), me = myNick().toLowerCase();
+    const r = await fetch(SUPA.url + '/rest/v1/sb_ranking?select=name,personaje,wave,kills,secs&created_at=gte.' + TOP_DESDE + '&order=wave.desc,kills.desc,secs.asc&limit=300', { headers: TOP_H() });
+    if (!r.ok) throw new Error(r.status); const vistos = new Set(), rows = (await r.json()).filter(x => { const k = String(x.name).toLowerCase(); if (vistos.has(k)) return false; vistos.add(k); return true; }).slice(0, 10), me = myNick().toLowerCase();
     ol.innerHTML = rows.length ? rows.map(x => `<li class="${String(x.name).toLowerCase() === me ? 'me' : ''}"><b>${escH(x.name)}</b> · oleada ${x.wave | 0} <small>· ${x.kills | 0} zombis · ${CHARS[x.personaje] ? CHARS[x.personaje].name : ''}</small></li>`).join('') : '<li class="note">Todavía no hay nadie. ¡Sé el primero!</li>';
   } catch (e) { ol.innerHTML = '<li class="note">El top no está disponible ahora.</li>'; }
 }
@@ -20850,6 +20871,15 @@ function renderAltar() {
     b.textContent = own ? 'Desbloqueado' : META.fichas >= u.cost ? `Desbloquear · ${u.cost} fichas` : `Te faltan ${u.cost - META.fichas} fichas`;
     b.addEventListener('click', () => { if (own || META.fichas < u.cost) return; META.fichas -= u.cost; META.un[u.k] = 1; saveMeta(); Sfx.win(); renderAltar(); });
     d.querySelector('.row').appendChild(b); L.appendChild(d);
+  }
+  // objetos que se desbloquean consiguiendo logros
+  const n = Object.keys(ACH_ITEM).filter(a => META.ach[a]).length, h = document.createElement('div'); h.className = 'altar-sec';
+  h.innerHTML = `<b>Objetos por logros</b><span>${n} de ${Object.keys(ACH_ITEM).length} desbloqueados · consigue logros para que salgan en tus partidas</span>`; L.appendChild(h);
+  for (const A of ACH) {
+    const id = ACH_ITEM[A.id]; if (!id || !ITEMS[id]) continue; const ok = !!META.ach[A.id], I = ITEMS[id], d = document.createElement('div');
+    d.className = 'item' + (ok ? '' : ' bloq');
+    d.innerHTML = `<div class="item-top"><b>${ok ? I.name : '???'}</b><span class="own">${ok ? I.desc : 'Objeto bloqueado'}</span></div><div class="req">${ok ? 'Desbloqueado con' : 'Consigue el logro'} «${A.name}»${ok ? '' : ': ' + A.d}</div>`;
+    L.appendChild(d);
   }
 }
 function awardFichas(win) {
