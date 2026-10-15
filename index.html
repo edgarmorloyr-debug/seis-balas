@@ -6301,8 +6301,8 @@ function buildIsland() {
       }
     });
     mapUse({ x: bx0, z: bz0 + 1.8, r: 3, t: 'Hoguera de señales', d: 'Enciéndela: una avioneta lanzará una caja de balas.', b: 'Encender', price: 6, cd: 75, use() {
-      lit = 26; pyre.material.color.setHex(0xffffff); Sfx.whoosh(0); planeT = 0; plane.visible = true;
-      setTimeout(() => { crateG.visible = true; chute.visible = true; flare.visible = true; dropT = 0; hint('¡Te han visto! Cae una caja de suministros', 2600); }, 4800);
+      lit = 26; pyre.material.color.setHex(0xffffff); Sfx.whoosh(0); planeT = 0; plane.visible = true; const wi = world.idx, run = game;
+      setTimeout(() => { if (game !== run || world.idx !== wi) return; crateG.visible = true; chute.visible = true; flare.visible = true; dropT = 0; hint('¡Te han visto! Cae una caja de suministros', 2600); }, 4800);
       feed('¡Hoguera encendida!', 'gold');
     } }); }
 
@@ -7888,8 +7888,32 @@ function llvMalla() {
 }
 // cada cuadro: animación, recoger la llave y el «frío / caliente» del marcador
 let llvHudT = 0;
+// Al entrar a una zona de llave (catacumbas, castillo o bosque) salen de 3 a 6 zombis de distintos lados a perseguirte.
+// Se suman a los que faltan y pasa una sola vez por zona en cada oleada (lo decide el anfitrión o el jugador solo).
+const ZONA_EMBOSCADA = { min: 3, max: 6, lejos: [13, 22] };
+function zonaEmboscada() {
+  if (Net.client || state !== 'play' || game.phase !== 'fight') return;
+  if (!game.zonaEmb || game.zonaEmb.w !== game.wave) game.zonaEmb = { w: game.wave };
+  const quien = [];
+  if (!player.down) quien.push(player.pos);
+  if (Net.on) for (const pr of Net.peers.values()) if (pr.pos && !pr.down) quien.push(pr.pos);
+  for (const q of quien) {
+    const zona = enCatacumbas(q.x, q.z) ? 'cat' : enCastillo(q.x, q.z) ? 'cas' : enBosque(q.x, q.z) ? 'bos' : null;
+    if (!zona || game.zonaEmb[zona]) continue;
+    game.zonaEmb[zona] = 1;
+    const n = ZONA_EMBOSCADA.min + Math.floor(Math.random() * (ZONA_EMBOSCADA.max - ZONA_EMBOSCADA.min + 1)), a0 = rand(0, TAU);
+    for (let i = 0; i < n; i++) {
+      let x = q.x, z = q.z;
+      for (let k = 0; k < 12; k++) { const a = a0 + i * TAU / n + rand(-0.4, 0.4), r = rand(ZONA_EMBOSCADA.lejos[0], ZONA_EMBOSCADA.lejos[1]); x = q.x + Math.cos(a) * r; z = q.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.5)) break; }
+      const cola = game.bossQ; game.bossQ = []; const t = chooseType(diffW(game.wave)); game.bossQ = cola;   // sin robarle el turno a un jefe
+      const nz = spawnZombie(t, x, z, diffW(game.wave), true); game.alive++; maybeElite(nz);
+    }
+    if (q === player.pos) hint('¡Algo se mueve entre las sombras!', 1800); Sfx.roar(0, 0.6);
+  }
+}
 function llvStep(dt, t) {
   if (!game || !world.llaves || !game.llv) return;
+  zonaEmboscada();
   const L = game.llv; if (L.on && !world.llvObj) llvMalla(); const o = world.llvObj;
   if (o && L.on) {
     const u = o.userData; u.k.rotation.y += dt * 2.2; u.k.position.y = 1.0 + Math.sin(t * 2.6) * 0.12; u.halo.material.opacity = 0.6 + Math.sin(t * 5) * 0.2; u.haz.material.opacity = 0.09 + Math.sin(t * 3) * 0.04;
@@ -13755,7 +13779,7 @@ const PERKS = [
 ];
 const lv = id => (game && game.perks[id]) || 0;
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
-const copsAlive = () => cops.filter(c => !c.dead && !c.npc && !c.radio && c.kind !== 'ayudante').length;
+const copsAlive = () => cops.filter(c => !c.dead && !c.npc && !c.radio && !c.indep && c.kind !== 'ayudante').length;
 const HELP = [
   { id: 'powder', name: 'Barril de pólvora', desc: 'Fabrica una caja nueva de 50 balas cuando se acaba la tuya. Sin pólvora, la caja sale de balas malas: la mitad de daño y sin efectos.', price: () => 10, can: () => game.powder < 9, why: 'Ya tienes 9' },
   { id: 'med', name: 'Botiquín', desc: 'Recuperas 60 de vida ahora mismo.', price: () => 15, can: () => player.hp < player.maxHp, why: 'Tienes la vida llena' },
@@ -13902,11 +13926,12 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'poker', 'col', 'sacadas', 'rascadas', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab'];
+const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'poker', 'col', 'sacadas', 'rascadas', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
   for (const k of SAVE_FIELDS) sv[k] = game[k];
+  if (game.habMini) { const M = game.habMini, id = M.id || 'minigun'; sv.owned = Object.assign({}, game.owned); if (M.owned === undefined) delete sv.owned[id]; else sv.owned[id] = M.owned; sv.mag = undefined; }
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
@@ -13926,7 +13951,7 @@ function newGame(sv, run) {
   game.items = game.items || {}; game.nextRescue = 1e9; game.box.forEach(registerFused); calcStats();
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
-  game.owned[CHARS[game.char].gun] = 1;
+  game.owned[CHARS[game.char].gun] = Math.max(1, game.owned[CHARS[game.char].gun] | 0);
   if (game.char === 'carlos' && !sv) game.owned.cowboy = 2;   // Maestría: dos revólveres de vaquero desde el principio
   shuffleBox(true);
   Object.assign(player, { vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, lastHurt: -99, shake: 0, roll: 0, down: false, webT: 0, frostT: 0 });
@@ -14253,8 +14278,10 @@ function habDado(H) {
   Sfx.dice(); banner('Lanzando el dado…', '', 900, 'coins');
   const n = 1 + Math.floor(Math.random() * 6), id = DADO_ARMAS[n - 1];
   game.habT = H.dur + 1;   // la barra queda ocupada mientras rueda
+  const tok = game.habTok = (game.habTok | 0) + 1, run = game;
   setTimeout(() => {
-    if (!game || state === 'menu' || player.down) { if (game) game.habT = 0; return; }
+    if (game !== run || game.habTok !== tok) return;
+    if (state !== 'play' || game.phase !== 'fight' || player.down) { game.habT = 0; return; }
     prestarArma(id, H.dur); game.habMini.extra = (H.cargadores || 1) - 1; banner(`Dado: ${n}`, `${MODELS[id].name} · ${H.cargadores || 1} cargadores`, 2200, 'gun'); n === 1 ? Sfx.err() : Sfx.win();
   }, 950);
 }
@@ -14279,7 +14306,7 @@ function habDash(H) {
   gs.fovKick = Math.max(gs.fovKick || 0, 9); Sfx.whoosh(0); feed(`${H.name} · quedan ${Math.floor(game.hab / H.carga)}`, 'blue');
 }
 // Sheriff · Ayudante del sheriff (hasta 6 a la vez)
-const misAyudantes = () => cops.filter(c => c.kind === 'ayudante' && !c.dead && !c.radio && (!c.owner || c.owner === Net.id || Net.client)).length;
+const misAyudantes = () => cops.filter(c => c.kind === 'ayudante' && !c.dead && !c.radio && (c.owner || Net.id) === Net.id).length;
 function habAyudante(H) {
   if (Net.client) Net.ev(['cop', 'ayudante', 1, 0, 1]); else spawnCop('ayudante', null, 1, 0);
   banner(H.name, `Ayudantes: ${misAyudantes() + (Net.client ? 1 : 0)} de ${H.max}`, 1500, 'star'); Sfx.bell();
@@ -14346,7 +14373,7 @@ function habRed(p, e) {
   if (e[1] === 'campana') ponerCampana(e[2], e[3], e[4]);
   else if (e[1] === 'sombra') { const pr = Net.peers.get(p.id || p); if (pr) { pr.sombraHasta = e[4] ? game.time + e[4] : 0; pr.sombraPos = { x: e[2], z: e[3] }; } for (const z of zombies) z.tgtT = 0; }
 }
-function habFin() { if (!game) return; if (game.sombraT > 0) finSombra(); game.habT = 0; fxFuria.style.opacity = '0'; if (game.habMini) finMinigun(); gs.cruz = null; gs.rafaga = null; quitarCampana(); }
+function habFin() { if (!game) return; game.habTok = (game.habTok | 0) + 1; if (game.sombraT > 0) finSombra(); game.habT = 0; fxFuria.style.opacity = '0'; if (game.habMini) finMinigun(); gs.cruz = null; gs.rafaga = null; quitarCampana(); }
 function wlv(id) { const x = (game && game.wxp[id]) || 0; let l = 1; for (let i = 1; i < WLV.length; i++) if (x >= WLV[i]) l = i + 1; return l; }
 function gainXp(id) {
   if (MODELS[id] && MODELS[id].temp) return;
@@ -14377,10 +14404,11 @@ function shoot(h, fanned, yawOff = 0) {
   let type = isLoaded(h.loaded[fired]) ? h.loaded[fired] : 'normal';
   if (hasB(type, 'eco')) type = game.lastSpecial || 'normal'; else if (type !== 'normal' && type !== 'mala') game.lastSpecial = type;
   h.loaded[fired] = 2; h.idx = (h.idx + 1) % h.cap; h.ammo--; h.cylTarget += TAU / h.cap;
-  if (prohib('diablo') && player.hp > 1.5 && !player.down) { h.loaded[fired] = 'normal'; h.ammo++; player.hp = Math.max(1, player.hp - 2); }   // Gatillo del diablo: la bala vuelve, pagas con sangre
-  if ((game.habK === 'lluvia' || game.habK === 'minigun' || game.habK === 'rafaga') && game.habT > 0) { h.loaded[fired] = 'normal'; h.ammo++; } // Lluvia de plomo y minigun de Geronimo: la bala vuelve al tambor
-  if (sigOn(h.model, 'sinfondo') && Math.random() < 0.25) { h.loaded[fired] = 'normal'; h.ammo++; }
-  if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) { h.loaded[fired] = 'normal'; h.ammo++; }
+  const vuelve = () => { if (h.loaded[fired] !== 2) return false; h.loaded[fired] = 'normal'; h.ammo++; return true; };   // la bala vuelve al tambor (una sola vez por disparo)
+  if ((game.habK === 'lluvia' || game.habK === 'minigun' || game.habK === 'rafaga') && game.habT > 0) vuelve();   // Lluvia de plomo y minigun de Geronimo
+  if (sigOn(h.model, 'sinfondo') && Math.random() < 0.25) vuelve();
+  if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) vuelve();
+  if (prohib('diablo') && player.hp > 1.5 && !player.down && vuelve()) player.hp = Math.max(1, player.hp - 2);   // Gatillo del diablo: la bala vuelve, pagas con sangre
   else if (S('refund') && Math.random() < S('refund') / 100) { game.box.push(type); if (game.time - (game.refT || -9) > 1) { game.refT = game.time; feed('Bala recuperada', 'gold'); } }
   if (type === 'normal' && S('goldBullet') && Math.random() < S('goldBullet') / 100) type = 'dorada';
   else if (type === 'normal' && S('randomFx') && Math.random() < S('randomFx') / 100) type = pick(RANDOM_FX);
@@ -16580,7 +16608,6 @@ function lootWait() {
 }
 function lootPull() { if (game.countT < 1.6) for (const p of pickups) if (isLoot(p)) { p.mag = true; p.life = Math.max(p.life, p.t + 5); } }
 function waveSummary() {
-  radioLeave(); waveEventEnd();
   if (game.w.hurt) game.mapHurt = true;
   if (isMapEnd(game.wave) && game.mapStart === game.wave - WAVES_PER_MAP + 1 && !game.mapHurt) META.st.clean = 1;
   checkUnlocks();
@@ -16598,7 +16625,7 @@ function waveSummary() {
   if (pw) { game.powder = Math.min(9, game.powder + pw); feed(`El Recargador fabricó ${pw} ${pw === 1 ? 'barril' : 'barriles'} de pólvora`, 'gold'); }
   if (S('waveGold')) { game.sum.push(['Cartera', S('waveGold')]); g += S('waveGold'); }
   if (S('interest')) { const it = Math.min(S('interest'), Math.floor(game.gold / 10)); if (it) { game.sum.push(['Intereses', it]); g += it; } }
-  addGold(g, true);
+  addGold(g, true); radioLeave(); waveEventEnd();
   banner(`Oleada ${wv} superada`, `+${g} $ · +20 de vida${clean ? ' · ¡sin un rasguño!' : ''}`, 2300);
   if (!player.down) player.hp = Math.min(player.maxHp, player.hp + (sk(8) ? 0 : 20) + 25 * lv('medic'));
   if (!game.w.hurt) game.cleanW = (game.cleanW || 0) + 1;
@@ -17079,7 +17106,7 @@ function renderSig(cost) {
     else shopBtn(c.act, 'sig-' + U.id, 'buy', cost(pr), game.gold < pr, () => {
       const p2 = shopP(U.price(sigLv(U.id))); if (sigLv(U.id) >= U.max || game.gold < p2) return;
       game.gold -= p2; game.sig = game.sig || {}; game.sig[U.id] = sigLv(U.id) + 1; Sfx.cash(); Sfx.insert();
-      if (U.id === 'cap') { sigApply(); if (game.equip === g) equip(g, true); }
+      if (U.id === 'cap') capChanged();
       feed(`${U.name} para tu ${m.name}`, 'gold'); renderShop();
     });
     box.appendChild(c.d);
@@ -17282,7 +17309,7 @@ function travel(ni, w, then) {
   setTimeout(() => {
     clearActors(); buildMap(ni); try { renderer.compile(scene, camera); } catch (e) {}
     player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
-    for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead) removeCop(i);
+    for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead || (cops[i].indep && !cops[i].radio)) removeCop(i);
     cops.forEach((c, i) => { c.root.position.set(world.start.x + (i - 1) * 1.5, 0, world.start.z + 2); resolve(c.root.position, 0.35); });
     updateCamera(0.016);
   }, room ? 450 : 900);
@@ -18374,6 +18401,7 @@ function capChanged() {
   if (!game || !game.equip) return;
   sigApply();
   for (const h of hands) { for (const b of h.loaded) if (isLoaded(b)) game.box.push(b); h.loaded = []; h.ammo = 0; }
+  for (const k in game.mag) if (k !== game.equip) for (const sl of game.mag[k] || []) for (const b of (sl && sl.loaded) || []) if (isLoaded(b)) game.box.push(b);
   game.mag = {}; equip(game.equip, true);
 }
 // Daño extra de los objetos que dependen de la situación
@@ -18633,7 +18661,7 @@ function bjEnviar() { if (Net.host) Net.ev(['bjs', game.bj]); bjLocal(); }
 function bjLocal() {
   const B = game.bj; if (!B) return; game.bjPag = game.bjPag || {};
   if (B.n && B.sent[bjYo()]) {
-    const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; game.gold -= (B.parte || B.apuesta); Sfx.coin(); }
+    const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; const pt = B.parte || B.apuesta; if (game.gold < pt) { game.bjPag['r' + B.n] = 1; hint(`No te alcanza para esta mano (${pt} $): miras sin apostar`, 2200); } else { game.gold -= pt; Sfx.coin(); } }
     const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const pt = B.parte || B.apuesta, g = B.res === 'natural' ? Math.floor(pt * 2.5) : B.res === 'gana' ? pt * 2 : B.res === 'empate' ? pt : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); }
   }
   if (state === 'bj') renderBj();
@@ -18912,7 +18940,7 @@ function openTaller() {
       b.addEventListener('click', () => {
         const p2 = shopP(U.price(sigLv(U.id)) * TALLER_X); if (state !== 'items' || sigLv(U.id) >= U.max || game.gold < p2) return;
         game.gold -= p2; game.sig = game.sig || {}; game.sig[U.id] = sigLv(U.id) + 1; Sfx.cash(); Sfx.clang(0); META.st.taller = (META.st.taller | 0) + 1; setTimeout(() => Sfx.insert(), 160);
-        if (U.id === 'cap') { sigApply(); if (game.equip === g) equip(g, true); }
+        if (U.id === 'cap') capChanged();
         feed(`${U.name} instalada`, 'gold'); renderChips(); draw();
       });
       box.appendChild(b);
@@ -19146,8 +19174,9 @@ function playSlot(o) {
   else if (res === 2) { const b = pick(SLOT_SYM.filter(k => k !== a)); syms = shuffled([a, a, b]); }
   else syms = shuffled(SLOT_SYM).slice(0, 3);
   o.st.cur = syms; o.st.spin = [0.9, 1.3, 1.75];
+  const run = game, wi = world.idx;
   setTimeout(() => {
-    if (!game) return; o.busy = false;
+    if (game !== run || world.idx !== wi) return; o.busy = false;
     if (res === 3) { const id = randItem(2); if (id) { gainItem(id); banner('¡Tres iguales!', `Te llevas: ${ITEMS[id].name}`, 2800, ITEMS[id].ic); } else { addGold(30); banner('¡Tres iguales!', '+30 $', 2400); } Sfx.win(); Sfx.cash(); o.win = 3; }
     else if (res === 2) { addGold(12); feed('Dos iguales · +12 $', 'gold'); Sfx.cash(); o.win = 1.2; }
     else feed('Nada esta vez', 'blue');
@@ -19188,8 +19217,9 @@ function playWheel(o) {
   if (!WHEEL_SEG[k].go && Math.random() < luck(0, 1) + (game.char === 'johnny' ? 0.3 : 0)) k = pick(WHEEL_SEG.map((s, i) => s.go ? i : -1).filter(i => i >= 0));
   const want = (k + 0.5) * a + rand(-0.28, 0.28) * a, cur = ((o.ang % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   o.from = o.ang; o.to = o.ang + Math.PI * 2 * 4 + (((want - cur) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); o.t = 0; o.dur = 3.2;
+  const run = game, wi = world.idx;
   setTimeout(() => {
-    if (!game) return; o.busy = false; o.used = true; const S_ = WHEEL_SEG[k];
+    if (game !== run || world.idx !== wi) return; o.busy = false; o.used = true; const S_ = WHEEL_SEG[k];
     if (S_.go) { const extra = S_.go(); banner('Ruleta', extra ? `${S_.t}: ${extra}` : S_.t, 2200); Sfx.cash(); renderChips(); }
     else feed('Ruleta: nada esta vez', 'blue');
   }, 3300);
@@ -19334,7 +19364,7 @@ function useObj(o) {
   } else if (o.kind === 'fusion') {
     if (o.used || game.fuseUsed) return; useCur = null; showUse(null); game.fuseOpen = true; openInv(); setTimeout(() => { const f = $('#inv-fuse'); if (f) f.scrollIntoView({ block: 'start' }); }, 60);
   } else if (o.kind === 'forge') {
-    const pr = forgePrice(); if (o.used || forjaTotal() >= FORJA_MAX) return; if (game.gold < pr) { hint(`Te faltan ${pr - game.gold} $`, 1400); Sfx.err(); return; }
+    const pr = forgePrice(); if (forjaTotal() >= FORJA_MAX) { hint('Tus armas ya no aguantan más trabajo en esta partida', 1600); Sfx.err(); return; } if (o.used) return; if (game.gold < pr) { hint(`Te faltan ${pr - game.gold} $`, 1400); Sfx.err(); return; }
     useCur = null; showUse(null); openHerrero(o);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
@@ -19424,7 +19454,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 93';
+const GAME_BUILD = '15-oct-2026 · 94';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -19597,7 +19627,7 @@ async function supaTransport(room) {
 async function netOpen(room, asHost) {
   netLeave();
   Net.room = room; Net.host = asHost; Net.client = !asHost; Net.started = false; Net.hostId = asHost ? Net.id : null; Net.peers.clear(); Net.nextIdx = 1;
-  Net.tr = SUPA.url && SUPA.key ? await supaTransport(room) : localTransport(room);
+  try { Net.tr = SUPA.url && SUPA.key ? await supaTransport(room) : localTransport(room); } catch (e) { netLeave(); throw e; }
   Net.on = true; Net.flush();
 }
 let netEl = null, sentN = 0;
@@ -19631,7 +19661,8 @@ const Directo = {
   pcs: new Map(), ice: null,
   ok() { return typeof RTCPeerConnection !== 'undefined' && Net.on && !Net.local; },
   async servidores() { if (!this.ice) { this.ice = ICE; this.ice = await voiceIceServers(); } return this.ice; },
-  check(p) { if (!this.ok() || this.pcs.has(p.id) || !(Net.id < p.id)) return; this.llamar(p); },   // ofrece el de id menor (sin choques)
+  llamando: new Set(),
+  check(p) { const v = this.pcs.get(p.id); if (v && v.pc.connectionState === 'failed' && performance.now() - v.t > 15000) this.close(p.id); if (!this.ok() || this.pcs.has(p.id) || this.llamando.has(p.id) || !(Net.id < p.id)) return; this.llamando.add(p.id); this.llamar(p).finally(() => this.llamando.delete(p.id)); },   // ofrece el de id menor (sin choques)
   mk(p) {
     const pc = new RTCPeerConnection({ iceServers: this.ice || ICE }), v = { pc, dc: null, pend: [], t: performance.now(), abierto: false };
     pc.onicecandidate = e => { if (e.candidate) Net.ev(['dc', p.id, { c: e.candidate.toJSON() }]); };
@@ -19655,7 +19686,7 @@ const Directo = {
     } catch (e) {}
   },
   // todos los compañeros con el canal abierto (si falta uno, se manda por Supabase, que llega a todos)
-  todos() { if (!Net.on || !Net.peers.size) return false; for (const id of Net.peers.keys()) { const v = this.pcs.get(id); if (!v || !v.abierto || !v.dc || v.dc.readyState !== 'open') return false; } return true; },
+  todos() { if (!Net.on || !Net.peers.size) return false; for (const id of Net.peers.keys()) { const v = this.pcs.get(id); if (!v || !v.abierto || !v.dc || v.dc.readyState !== 'open' || v.dc.bufferedAmount >= 262144) return false; } return true; },
   send(m) { const t = JSON.stringify(m); for (const v of this.pcs.values()) if (v.abierto && v.dc.readyState === 'open' && v.dc.bufferedAmount < 262144) v.dc.send(t); },
   close(id) { const v = this.pcs.get(id); if (v) { try { v.dc && v.dc.close(); v.pc.close(); } catch (e) {} this.pcs.delete(id); } },
   cerrarTodo() { for (const id of [...this.pcs.keys()]) this.close(id); }
@@ -20360,8 +20391,13 @@ function avGun(id, ch) {
   const g = new THREE.Group(), arma = h.gunG; h.k.remove(arma);
   arma.rotation.y = Math.PI; arma.position.set(0, 0.03, 0.02); arma.scale.setScalar(1.0);
   arma.traverse(o => { if (o.isMesh) { o.renderOrder = 0; o.castShadow = true; } });
-  g.add(arma); return g;
+  g.add(arma);
+  // tamaño real: el largo se acerca al del arma de verdad, pero la empuñadura no se aleja mucho del tamaño de la mano
+  g.updateMatrixWorld(true); const L0 = new THREE.Box3().setFromObject(g).getSize(_ag.s).z || 0.45;
+  g.userData.k = clamp((ARMA_LARGO[id] || L0) / L0, 0.8, 1.25); return g;
 }
+// largo de cada arma en la vida real (metros), para que se vea a escala en la mano de los personajes 3D
+const ARMA_LARGO = { paci: 0.34, corto: 0.21, viejo: 0.38, magnum: 0.4, cowboy: 0.36, uzi: 0.3, glock: 0.2, honda: 0.22, cartas: 0.3, mp5: 0.55, minigun: 0.6, escopeta: 1.0, sniper: 1.15, tommy: 0.85, bazuca: 1.1, ballesta: 0.5, tesla: 0.38, jackpot: 0.38 };
 function revolverMini(id) {
   const Md = MODELS[id] || MODELS.paci, [fc, gc] = RV_COL[id] || RV_COL.paci, g = new THREE.Group(), fm = LM(fc, { emissive: 0x141518 }), gm = LM(gc);
   const L = Math.round((Md.L * 1.1 + 0.06) * 100) / 100, r = Math.round((Md.R || 0.011) * 1400) / 1000, cr = id === 'escopeta' || id === 'minigun' ? 0.045 : 0.035;
@@ -20512,9 +20548,9 @@ function avAgarre(I, g, s, av) {
   up.addScaledVector(d, -up.dot(d)).normalize(); const x = _ag.x.crossVectors(up, d);
   _ag.m.makeBasis(x, up, d); const qW = _ag.q.setFromRotationMatrix(_ag.m);
   g.parent.getWorldQuaternion(_ag.pq); g.quaternion.copy(_ag.pq.invert().multiply(qW));
-  g.parent.getWorldScale(_ag.s); g.scale.setScalar(1.05 / (_ag.s.x || 1)); const k = 1.05;   // tamaño real en la mano del modelo 3D
+  const k = 1.05 * (g.userData.k || 1); g.parent.getWorldScale(_ag.s); g.scale.setScalar(k / (_ag.s.x || 1));   // tamaño real en la mano del modelo 3D
   // la palma está un poco más allá de la muñeca; ahí va el centro de la empuñadura (medido en el modelo del arma)
-  const palma = _ag.h.addScaledVector(d, 0.05).addScaledVector(up, -0.045), grip = _ag.grip.set(0, -0.05 * k, -0.04 * k).applyQuaternion(qW);
+  const palma = _ag.h.addScaledVector(d, 0.05).addScaledVector(up, -0.045), grip = _ag.grip.set(0, -0.056 * k, -0.045 * k).applyQuaternion(qW);
   palma.sub(grip); g.parent.worldToLocal(palma); g.position.copy(palma);
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
@@ -20899,7 +20935,7 @@ function menu3dPoseMano(I, P, ch) {
   I.m.updateMatrixWorld(true);
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
   if (!P.arma || !B.R_Hand) return;
-  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(0.95); M3.scene.add(g); M3.armas.push(g);
+  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g);
   const hp = wp(B.R_Hand), d = dir(P.Rg || P.R[1]); g.position.copy(hp).addScaledVector(d, 0.03);
   g.up.copy(Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); g.lookAt(hp.clone().add(d)); g.translateY(-0.06);
 }
@@ -21636,7 +21672,7 @@ document.addEventListener('pointerlockerror', lockFailed);
 window.addEventListener('keydown', e => {
   if (e.repeat && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) { input.keys[e.code] = true; return; }
   input.keys[e.code] = true;
-  if (state === 'menu' && e.code === 'Enter' && document.activeElement && document.activeElement.tagName !== 'BUTTON') { const sv = store.get(SAVE_KEY, null); startGame(sv); return; }
+  if (state === 'menu' && e.code === 'Enter' && !$('#menu').hidden && !['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes((document.activeElement || {}).tagName)) { const sv = store.get(SAVE_KEY, null); startGame(sv); return; }
   if (state === 'perks' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) { const p = perkChoices[+e.code.slice(5) - 1]; if (p) choosePerk(p); return; }
   if (e.code === 'KeyM') { settings.vol = settings.vol > 0 ? 0 : 0.8; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); hint(settings.vol ? 'Sonido activado' : 'Sonido apagado', 1200); }
   if (state === 'pause' && (e.code === 'Escape' || e.code === 'KeyP')) { if (performance.now() - pausedAt > 400) resume(); return; }
