@@ -416,6 +416,9 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .top-me{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--bone-dim)}
 #top-nick{flex:1;min-width:0;min-height:44px;padding:0 10px;font:600 16px var(--hud);background:rgba(0,0,0,.4);color:var(--bone);border:1px solid rgba(236,226,203,.4)}
 @media (min-width:1180px){#top-box{position:fixed;top:16px;right:16px;width:270px;margin:0;z-index:6}}
+#btn-ach.ach-nuevo{position:relative;border-color:#ffc840;color:#ffe08a}
+#btn-ach.ach-nuevo::after{content:'\2605';position:absolute;top:-11px;right:-9px;font-size:22px;line-height:1;color:#ffc840;text-shadow:0 0 6px #ff9a00,0 1px 2px #000;animation:achStar 1.6s ease-in-out infinite}
+@keyframes achStar{50%{transform:scale(1.25) rotate(12deg)}}
 #fichas,#altar-f{font-size:17px;color:#e8dcc0}
 #char-list{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 #char-list img{-webkit-user-drag:none;pointer-events:none}
@@ -19601,7 +19604,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 96';
+const GAME_BUILD = '15-oct-2026 · 97';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20541,7 +20544,7 @@ function avGun(id, ch) {
   g.add(arma);
   // tamaño real: el largo se acerca al del arma de verdad, pero la empuñadura no se aleja mucho del tamaño de la mano
   g.updateMatrixWorld(true); const L0 = new THREE.Box3().setFromObject(g).getSize(_ag.s).z || 0.45;
-  g.userData.k = clamp((ARMA_LARGO[id] || L0) / L0, 0.8, 1.25); return g;
+  g.userData.k = clamp((ARMA_LARGO[id] || L0) / L0, 0.7, 1.25); return g;
 }
 // largo de cada arma en la vida real (metros), para que se vea a escala en la mano de los personajes 3D
 const ARMA_LARGO = { paci: 0.34, corto: 0.21, viejo: 0.38, magnum: 0.4, cowboy: 0.36, uzi: 0.3, glock: 0.2, honda: 0.22, cartas: 0.3, mp5: 0.55, minigun: 0.6, escopeta: 1.0, sniper: 1.15, tommy: 0.85, bazuca: 1.1, ballesta: 0.5, tesla: 0.38, jackpot: 0.38 };
@@ -21009,8 +21012,15 @@ const DIFF_KEYS = Object.keys(DIFF);
 const DF = () => DIFF[game && game.diff] || DIFF.normal;
 // Precios de la tienda: +10 % por zona (y +15 % en Calavera 6)
 const shopP = n => Math.round(n * ST.shopX * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (zmodOn('shop') || 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
+// estrella dorada en el botón de Logros cuando hay logros nuevos que todavía no viste
+function logroEstrella() {
+  const b = $('#btn-ach'); if (!b) return;
+  const nuevos = Object.keys(META.ach || {}).filter(k => !(META.achVisto || {})[k]).length;
+  b.classList.toggle('ach-nuevo', nuevos > 0); b.title = nuevos ? `${nuevos} ${nuevos === 1 ? 'logro nuevo' : 'logros nuevos'}` : '';
+}
 function renderMeta() {
   { const tn = $('#top-nick'); if (tn && document.activeElement !== tn) tn.value = myNick(); if (matchMedia('(min-width:1180px)').matches) $('#top-box').open = true; loadTop(); }
+  logroEstrella();
   $('#fichas').innerHTML = `${ico('skull')} ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
   renderCarousel(0);
   META.skull = clamp(META.skull | 0, 0, META.skullMax | 0);
@@ -21069,9 +21079,9 @@ function menu3dCaja() {
 const MENU_POSE = {
   johnny: { base: 'wait', R: [[0.55, 0.45, -0.35], [-0.35, -0.35, 0.85]], Rg: [-0.6, 0, 0.8], head: [0.18, 0, 0.15], arma: true },
   armando: { base: 'look_around', R: [[0.35, 0.25, -1], [0.25, -1, 0.2]], L: [[0.35, -0.25, -1], [0.25, 1, 0.3]], Rg: [0.2, -1, 0.1], head: [0, 0.12, 0], arma: true },
-  lilith: { base: 'look_around', R: [[0.4, -0.05, -1], [0.6, -0.8, 0.12]], L: [[0.45, 0.15, -1], [0.7, -0.15, 0.12]], head: [0.12, 0.1, 0] },
-  carlos: { base: 'look_around', R: [[0.35, 0.25, -1], [0.25, -1, 0.2]], L: [[0.35, -0.25, -1], [0.25, 1, 0.3]], head: [0, 0.08, 0] },
-  francois: { base: 'look_around', R: [[0.3, 0.55, -0.75], [0.3, -0.15, 1]], Rg: [0.15, 0, 1], L: [[0.45, -0.1, -0.6], [0.3, 0.9, 0.4]], arma: true }
+  lilith: { base: 'look_around', R: [[0.05, 0.15, -1], [0.1, 0.12, -1]], L: [[0.15, -0.4, -0.9], [0.35, -0.45, 0.8]] },   // un brazo colgando, la otra mano en alto con la palma arriba
+  carlos: { base: 'look_around', R: [[-0.3, 0.12, -1], [-0.55, -0.8, 0.05]], L: [[-0.3, -0.12, -1], [-0.55, 0.8, 0.05]], head: [0, 0.05, -0.15] },   // en descanso: manos atrás
+  francois: { base: 'look_around', R: [[0.35, 0.15, -0.9], [0.4, -0.1, 0.9]], Rg: [0.1, 0, 1], L: [[0.35, -0.1, -0.9], [0.45, 0.7, 0.5]], arma: true }
 };
 function menu3dPoseMano(I, P, ch) {
   for (const k in I.acts) I.acts[k].stop();
@@ -21765,7 +21775,7 @@ document.querySelectorAll('.diff-row button').forEach(b => b.addEventListener('c
 $('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
 $('#top-nick').addEventListener('change', e => { const v = e.target.value.trim().slice(0, 12); if (v) store.set('sb_nick', v); e.target.value = myNick(); loadTop(true); });
 $('#top-box').addEventListener('toggle', e => { if (e.target.open) loadTop(); });
-$('#btn-ach').addEventListener('click', () => { checkAch(); renderAch(); show('ach-s'); });
+$('#btn-ach').addEventListener('click', () => { checkAch(); renderAch(); show('ach-s'); META.achVisto = Object.assign({}, META.ach); saveMeta(); logroEstrella(); });
 $('#btn-ach-back').addEventListener('click', () => { renderMeta(); show('menu'); });
 $('#btn-altar').addEventListener('click', () => { renderAltar.said = 0; renderAltar(); show('altar'); });
 $('#btn-altar-back').addEventListener('click', () => { renderMeta(); show('menu'); });
