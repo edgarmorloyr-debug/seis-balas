@@ -956,7 +956,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="cfg-sec" data-s="sonido"><div class="set" id="cfg-son"></div><div class="mic-test"><button class="btn2" id="btn-mictest" type="button">Probar micrófono</button><i class="mic-lvl" aria-hidden="true"><s id="mic-lvl"></s></i><span class="note" id="mic-msg">Habla y mira si la barra se mueve.</span></div></div>
       <div class="cfg-sec set" data-s="graficos" hidden></div>
       <div class="cfg-sec" data-s="controles" hidden><div class="set" id="cfg-ctrl"></div><p class="tag cfg-st">Teclado</p><p class="note">Toca una tecla para cambiarla y luego pulsa la nueva (Esc para cancelar).</p><div id="cfg-keys"></div><button class="btn2" id="btn-keys-reset" type="button">Restablecer teclas</button></div>
-      <div class="cfg-sec set" data-s="idioma" hidden><label for="idioma">Idioma</label><select id="idioma"><option value="es">Español</option><option value="en" disabled>English (próximamente)</option></select></div></div>
+      <div class="cfg-sec set" data-s="idioma" hidden><label for="idioma">Idioma</label><select id="idioma"><option value="es">Español</option><option value="en">English</option></select></div></div>
       <button class="btn" id="btn-config-back">Volver</button>
     </div>
   </div>
@@ -1256,6 +1256,33 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
+// Idioma: el juego está escrito en español; en inglés, cada texto que aparece en pantalla se cambia por su traducción (lang/en.json)
+const LANG = store.get('sb_lang', 'es') === 'en' ? 'en' : 'es';
+const I18N = { d: null, p: [] };
+function i18nTxt(t) {
+  if (!I18N.d || !t || t.length < 2 || !/[A-Za-zÁÉÍÓÚáéíóúñ¡¿]/.test(t)) return null;
+  const a = t.trim(), en = I18N.d.get(a);
+  if (en != null) return en === a ? null : t.replace(a, () => en);
+  const tr = x => { const r = i18nTxt(x); return r == null ? x : r; };
+  for (const [re, rp] of I18N.p) { const m = a.match(re); if (m) { const r = rp.replace(/\$(\$|\d)/g, (_, i) => i === '$' ? '$' : tr(m[+i] || '')); return t.replace(a, () => r); } }   // los huecos también se traducen
+  if (a.includes(' · ')) { const ps = a.split(' · '), r = ps.map(tr).join(' · '); if (r !== a) return t.replace(a, () => r); }   // frases unidas con «·»: cada parte por separado
+  return null;
+}
+function i18nNodo(n) {
+  if (n.nodeType === 3) { const r = i18nTxt(n.data); if (r != null && r !== n.data) n.data = r; return; }
+  if (n.nodeType !== 1 || n.tagName === 'SCRIPT' || n.tagName === 'STYLE') return;
+  for (const at of ['title', 'aria-label', 'placeholder']) { const v = n.getAttribute(at); if (v) { const r = i18nTxt(v); if (r != null) n.setAttribute(at, r); } }
+  for (const c of n.childNodes) i18nNodo(c);
+}
+if (LANG === 'en') {
+  document.documentElement.lang = 'en';
+  fetch('lang/en.json?v=1').then(r => r.json()).then(j => {
+    I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
+    i18nNodo(document.body);
+    new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
+      .observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label', 'placeholder'] });
+  }).catch(() => {});
+}
 const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
@@ -13678,9 +13705,14 @@ const ALLY = {
   franco: { name: 'La Francotiradora', short: 'La Francotiradora', al: 'a la Francotiradora', desc: 'Rifle de cerrojo: dispara lento, pero casi nunca falla y a menudo da en la cabeza.', price: 65, hp: 90, shirt: 0x5a4a3a, pants: 0x2a2723, hat: null, gun: 'rifle', cd: [2.6, 3.2], dmg: 70, acc: 0.92, head: 0.5, range: 40 },
   dinamitero: { name: 'El Dinamitero', short: 'El Dinamitero', al: 'al Dinamitero', desc: 'Lanza cartuchos de dinamita a los zombis: daño en área cada pocos segundos.', price: 60, hp: 100, shirt: 0x8a3a22, pants: 0x2e4a6e, hat: null, gun: 'dynamite', cd: [4, 5], dmg: 90, aoe: 3.2, range: 16 },
   ayudante: { name: 'Ayudante del sheriff', short: 'Un ayudante', al: 'a un ayudante', desc: 'Lo llama el Sheriff con su habilidad. Dispara con su revólver: daño y velocidad moderados.', price: 0, hp: 120, shirt: 0x8a6a3a, pants: 0x3a3027, hat: 'cowboy', gun: 'pistol', cd: [0.95, 1.35], dmg: 28, acc: 0.68, head: 0.18, hab: true },
+  // las maids del Maid Café: pelean contigo en el café y, desde ese momento, se pueden contratar
+  maid_rubia: { name: 'Alice, la maid', short: 'Alice', al: 'a Alice', desc: 'Maid del café con pistola: dispara rápido y casi no falla.', price: 60, hp: 100, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [0.75, 1.05], dmg: 22, acc: 0.74, head: 0.2, maid: 1 },
+  maid_rosa: { name: 'Sakura, la maid', short: 'Sakura', al: 'a Sakura', desc: 'Maid del café con pistola: la más veloz, dispara sin parar.', price: 60, hp: 95, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [0.55, 0.85], dmg: 16, acc: 0.66, head: 0.15, maid: 1 },
+  maid_plata: { name: 'Yuki, la maid', short: 'Yuki', al: 'a Yuki', desc: 'Maid del café con pistola: lenta pero certera, apunta a la cabeza.', price: 65, hp: 100, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [1.05, 1.4], dmg: 32, acc: 0.82, head: 0.35, maid: 1 },
   carnicero: { name: 'El Carnicero', short: 'El Carnicero', al: 'al Carnicero', desc: 'Pelea cuerpo a cuerpo con un machete. Aguanta mucho y los zombis lo prefieren a él.', price: 50, hp: 220, shirt: 0xb0a090, pants: 0x3a3027, hat: null, gun: 'machete', cd: [0.8, 1.1], dmg: 45, melee: true, bait: true, range: 14 }
 };
 const ALLY_KEYS = Object.keys(ALLY), ALLY_POOL = ALLY_KEYS.filter(k => k !== 'cop' && !ALLY[k].hab);
+const allyOk = k => isOpen('a:' + k) && (!ALLY[k].maid || !!META.maids);   // las maids se pueden contratar después de pelear con ellas en el Maid Café
 const ALLY_MAX = 6, ALLY_EACH = 3;
 // Nivel 2 y 3 de cada ayudante: más daño, más vida y más curación; el Contador da más oro y el Recargador fabrica más seguido.
 const allyMul = lv => 1 + 0.3 * ((lv || 1) - 1), allyHpMul = lv => 1 + 0.25 * ((lv || 1) - 1);
@@ -16819,9 +16851,22 @@ function waveSupplies(n) {
   if (S('waveAmmo') && n > 1) { for (let k = 0; k < S('waveAmmo'); k++) game.box.push('normal'); feed(`Saco de balas: +${S('waveAmmo')}`, 'gold'); }
   colSacar();
   if (world.idx === 23 && !Net.client) policiasDeGuardia();
+  else if (world.idx === MAID_IDX && !Net.client) maidsDelCafe();
   else for (let i = cops.length - 1; i >= 0; i--) if (cops[i].indep && !cops[i].radio) removeCop(i);   // fuera de la comisaría no hay guardia
 }
 // En la Estación de Policía, cada oleada hay 2 policías de guardia: pelean por su cuenta (no te siguen) y van a la mitad de velocidad
+const MAID_IDX = 30, MAIDS = ['maid_rubia', 'maid_rosa', 'maid_plata'];
+// Maid Café: las 3 maids pelean con pistola a tu lado en cada oleada; la primera vez quedan disponibles para contratar
+function maidsDelCafe() {
+  const spots = world.maidSpots || [];
+  MAIDS.forEach((k, i) => {
+    if (cops.some(c => c.kind === k && c.indep && !c.radio && !c.dead)) return;
+    const c = spawnCop(k, null, 1, 0); c.indep = true; c.temp = 1; c.ronda = null;
+    const p = spots[i] || [(world.start || { x: 0 }).x + (i - 1) * 2, (world.start || { z: 0 }).z + 3]; c.root.position.set(p[0], 0, p[1]); resolve(c.root.position, 0.35);
+  });
+  if (!META.maids) { META.maids = 1; saveMeta(); banner('Las maids del café', 'Pelean contigo. Desde ahora puedes contratarlas en la tienda.', 3600); }
+  else feed('Las maids del café pelean contigo', 'blue');
+}
 function policiasDeGuardia() {
   const vivos = cops.filter(c => c.indep && !c.radio && !c.dead).length;
   for (let i = vivos; i < 2; i++) {
@@ -17208,7 +17253,7 @@ const EVENTS = [
     { t: 'Oro doble la próxima oleada', s: 'Los zombis vienen un 30 % más rápido', global: true, go() { game.nextMod = Object.assign(game.nextMod || {}, { gold: 2, speed: 1.3 }); return 'La próxima oleada huele a oro… y a sangre.'; } }] },
   { who: 'Melquíades, el Buhonero', ic: 'backpack', say: 'Tengo de todo, forastero. Bueno… casi de todo.', opts: [
     { t: 'Bala misteriosa', s: '60 $ · una bala especial al azar (puede ser ultra rara)', cost: 60, can: () => game.box.includes('normal'), go() { const k = randomBullet(), i = game.box.indexOf('normal'); game.box[i] = k; return `Te tocó: ${BULLETS[k].name}`; } },
-    { t: 'Un ayudante al azar', s: '80 $ · se une a ti ahora', cost: 80, can: () => copsAlive() < ALLY_MAX, go() { const pool = ALLY_POOL.filter(k => canHire(k) && isOpen('a:' + k)); if (!pool.length) return 'No había nadie libre.'; const k = pick(pool); if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1, game.allyGun[k] | 0]); else spawnCop(k); renderChips(); return `${ALLY[k].short} se une a ti`; } },
+    { t: 'Un ayudante al azar', s: '80 $ · se une a ti ahora', cost: 80, can: () => copsAlive() < ALLY_MAX, go() { const pool = ALLY_POOL.filter(k => canHire(k) && allyOk(k)); if (!pool.length) return 'No había nadie libre.'; const k = pick(pool); if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1, game.allyGun[k] | 0]); else spawnCop(k); renderChips(); return `${ALLY[k].short} se une a ti`; } },
     { t: 'Dos barriles de pólvora', s: '12 $', cost: 12, can: () => game.powder < 8, go() { game.powder += 2; return '+2 barriles de pólvora'; } }] },
   { who: 'Madame Zafira, la gitana', ic: 'orb', say: 'Déjame leer tu mano… veo oro, y veo muertos. Muchos muertos.', opts: [
     { t: 'Triple de oro la próxima oleada', s: 'Pero vienen el doble de zombis', global: true, go() { game.nextMod = Object.assign(game.nextMod || {}, { gold: 3, count: 2 }); return 'Que la suerte te acompañe.'; } },
@@ -17303,7 +17348,7 @@ function rollOffers() {
 }
 function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null;
   // si algo falla al dibujar la tienda, igual se abre (con lo que se pudo dibujar) y queda anotado el error
-  try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(k => isOpen('a:' + k))).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
+  try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(allyOk)).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
   show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
 // Ficha corta del arma para elegir personaje: daño, cadencia, recarga, puntería y tambor
 // Ficha del personaje en neón (estilo del póster de Ejército de los muertos). 'H' = tragamonedas (en uso); 'I' = letrero (guardado)
@@ -19918,7 +19963,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 124';
+const GAME_BUILD = '15-oct-2026 · 125';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20900,8 +20945,9 @@ function setAvGun(av, p) {
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
 const P3D = { cache: {}, esperan: {}, v: 2 };   // v2: personajes de Mixamo con dedos
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
-const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante' };
-const NPC3D_FILES = new Set(['cop', 'swat', 'bill', 'ayudante', 'maid_rubia', 'maid_rosa', 'maid_plata']);
+const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante', maid_rubia: 'maid_rubia', maid_rosa: 'maid_rosa', maid_plata: 'maid_plata',
+  pistolero: 'pistolero', pandillero: 'pandillero', carlos: 'granjero', rebeca: 'rebeca', ursula: 'ursula', contador: 'contador', recargador: 'recargador', franco: 'franco', dinamitero: 'dinamitero', carnicero: 'carnicero' };
+const NPC3D_FILES = new Set(Object.values(NPC3D));
 // algunos modelos traen vértices unidos a un hueso lejano (al moverse se estiran como una espina): se sueltan de ese hueso
 function p3dSanear(m) {
   const v = new THREE.Vector3(); let n = 0;
@@ -22119,6 +22165,7 @@ function pause() {
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
 function toMenu() {
+  if (I18N.pend) { location.reload(); return; }
   tutoStop(); $('#tuto-end').hidden = true;
   if (game && game.deOn) deadEye(false);
   netLeave();
@@ -22467,6 +22514,8 @@ $('#btn-config').addEventListener('click', cfgAbrir);
 $('#btn-config-back').addEventListener('click', cfgCerrar);
 $('#btn-keys-reset').addEventListener('click', () => { keyMap = {}; store.set('sb_keys', keyMap); teclaEspera = null; teclasRefrescar(); });
 teclasRefrescar();
+$('#idioma').value = LANG;
+$('#idioma').addEventListener('change', e => { store.set('sb_lang', e.target.value); if (!game || state === 'menu') location.reload(); else { I18N.pend = 1; $('#pause-note').textContent = 'El idioma cambia al volver al menú.'; } });
 $('#btn-google').addEventListener('click', () => Cuenta.google());
 setInterval(() => Cuenta.step(1), 1000);
 window.addEventListener('pagehide', () => { if (Cuenta.t > 0) Cuenta.push(true); });
