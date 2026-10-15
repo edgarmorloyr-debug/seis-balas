@@ -19311,7 +19311,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 88';
+const GAME_BUILD = '15-oct-2026 · 89';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -19328,7 +19328,7 @@ const Net = {
     if (this.client && game && game.phase === 'wait' && this.started && performance.now() - (this.rdyT || 0) > 2000) { this.rdyT = performance.now(); this.evq.push(['ready', game.wave]); }
     this.flush();
     const now = performance.now();
-    for (const [id, p] of this.peers) if (now - p.seen > 20000) { removeRemote(p); Voice.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
+    for (const [id, p] of this.peers) if (now - p.seen > 20000) { removeRemote(p); Voice.close(id); Directo.close(id); this.peers.delete(id); if (state !== 'menu') feed(`${p.name} se desconectó`, 'red'); else renderLobby(); }
     netStatus(now);
     if (this.client && this.started && game && state !== 'over') {
       const gap = now - this.lastHost;
@@ -19344,7 +19344,8 @@ const Net = {
     if (this.evq.length) { m.ev = this.evq; this.evq = []; }
     if (this.host && this.started && game) m.s = snapshot();
     if (Voice.on) m.v = Voice.sending() || settings.voice === 'ptt' ? 1 : 2;
-    try { this.tr.send(m); } catch (e) {}
+    m.q = this.seq = (this.seq || 0) + 1;
+    try { if (Directo.todos()) Directo.send(m); else this.tr.send(m); } catch (e) {}
     this.lastP = { x: player.pos.x, z: player.pos.z, yaw: player.yaw };
   },
   recv(m) {
@@ -19352,24 +19353,27 @@ const Net = {
     let p = this.peers.get(m.id); const fresh = !p;
     if (!p) { p = { id: m.id, name: m.n || 'Vaquero', idx: this.nextIdx++, seen: 0, pos: null, down: false, ready: 0 }; this.peers.set(m.id, p); if (state !== 'menu' && game) feed(`${p.name} se unió`, 'gold'); }
     p.seen = performance.now(); p.name = m.n || p.name;
+    const viejo = m.q && p.lastQ && m.q <= p.lastQ; if (m.q && !viejo) p.lastQ = m.q;   // llegó tarde por el otro camino: solo se usan sus eventos
+    Directo.check(p);
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; p.vmute = m.v === 2; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
+    if (m.p && !viejo) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
-    if (m.s && this.client) applySnapshot(m.s);
+    if (m.s && this.client && !viejo) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
   }
 };
 // Cada cuánto se manda un mensaje: rápido en la pelea, más lento cuando no pasa nada (así el cupo de mensajes de Supabase rinde mucho más)
 function netInterval() {
   const playing = game && state !== 'menu', fight = playing && (game.phase === 'fight' || game.phase === 'horde' || game.phase === 'count') && (state === 'play' || state === 'dying');
-  if (Net.host) return fight || Net.evq.length ? 0.14 : playing ? 0.25 : 0.5;
-  if (Net.evq.length) return 0.09;
+  const d = Directo.todos() ? 0.5 : 1;   // conexión directa: sin cupo de mensajes de Supabase, el doble de seguido
+  if (Net.host) return (fight || Net.evq.length ? 0.14 : playing ? 0.25 : 0.5) * d;
+  if (Net.evq.length) return 0.09 * d;
   if (!playing) return 0.5;
   if (!fight) return 0.25;
   const L = Net.lastP, moved = !L || Math.hypot(player.pos.x - L.x, player.pos.z - L.z) > 0.05 || Math.abs(player.yaw - L.yaw) > 0.03;
-  return moved ? 0.1 : 0.3;   // quieto: ~3 por segundo
+  return (moved ? 0.1 : 0.3) * d;   // quieto: ~3 por segundo
 }
 function netIn(m) { if (m && m.va) Voice.relayIn(m); else Net.recv(m); }
 function localTransport(room) {
@@ -19508,6 +19512,41 @@ function mulawEnc(v) { const S = v < 0 ? 0x80 : 0; let x = Math.min(32635, Math.
 function mulawDec(u) { u = ~u & 0xff; const S = u & 0x80, e = (u >> 4) & 7, m = u & 0x0f, x = (((m << 3) + 132) << e) - 132; return S ? -x : x; }
 function b64FromU8(u) { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
 function u8FromB64(b) { const s = atob(b), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+// ---- Conexión directa entre jugadores (WebRTC, canal de datos): los mensajes del juego van de un jugador a otro sin pasar por Supabase.
+// Usa los mismos servidores que el chat de voz (STUN y, si la red no deja conectar directo, el TURN de /api/turn). Si no conecta, todo sigue por Supabase.
+const Directo = {
+  pcs: new Map(), ice: null,
+  ok() { return typeof RTCPeerConnection !== 'undefined' && Net.on && !Net.local; },
+  async servidores() { if (!this.ice) { this.ice = ICE; this.ice = await voiceIceServers(); } return this.ice; },
+  check(p) { if (!this.ok() || this.pcs.has(p.id) || !(Net.id < p.id)) return; this.llamar(p); },   // ofrece el de id menor (sin choques)
+  mk(p) {
+    const pc = new RTCPeerConnection({ iceServers: this.ice || ICE }), v = { pc, dc: null, pend: [], t: performance.now(), abierto: false };
+    pc.onicecandidate = e => { if (e.candidate) Net.ev(['dc', p.id, { c: e.candidate.toJSON() }]); };
+    pc.ondatachannel = e => this.canal(v, e.channel);
+    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') v.abierto = false; };
+    this.pcs.set(p.id, v); return v;
+  },
+  canal(v, dc) { v.dc = dc; dc.onopen = () => { v.abierto = true; }; dc.onclose = () => { v.abierto = false; }; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; },
+  async llamar(p) {
+    try { await this.servidores(); const v = this.mk(p); this.canal(v, v.pc.createDataChannel('juego', { ordered: true }));
+      await v.pc.setLocalDescription(await v.pc.createOffer()); Net.ev(['dc', p.id, { o: v.pc.localDescription.toJSON() }]); Net.flush(); } catch (e) {}
+  },
+  async signal(p, d) {
+    if (!this.ok()) return;
+    try {
+      let v = this.pcs.get(p.id);
+      if (d.o) { await this.servidores(); if (v) this.close(p.id); v = this.mk(p); await v.pc.setRemoteDescription(d.o); for (const c of v.pend.splice(0)) await v.pc.addIceCandidate(c).catch(() => {});
+        await v.pc.setLocalDescription(await v.pc.createAnswer()); Net.ev(['dc', p.id, { a: v.pc.localDescription.toJSON() }]); Net.flush(); }
+      else if (d.a && v) { if (v.pc.signalingState === 'have-local-offer') await v.pc.setRemoteDescription(d.a); for (const c of v.pend.splice(0)) await v.pc.addIceCandidate(c).catch(() => {}); }
+      else if (d.c && v) { if (v.pc.remoteDescription) await v.pc.addIceCandidate(d.c).catch(() => {}); else v.pend.push(d.c); }
+    } catch (e) {}
+  },
+  // todos los compañeros con el canal abierto (si falta uno, se manda por Supabase, que llega a todos)
+  todos() { if (!Net.on || !Net.peers.size) return false; for (const id of Net.peers.keys()) { const v = this.pcs.get(id); if (!v || !v.abierto || !v.dc || v.dc.readyState !== 'open') return false; } return true; },
+  send(m) { const t = JSON.stringify(m); for (const v of this.pcs.values()) if (v.abierto && v.dc.readyState === 'open' && v.dc.bufferedAmount < 262144) v.dc.send(t); },
+  close(id) { const v = this.pcs.get(id); if (v) { try { v.dc && v.dc.close(); v.pc.close(); } catch (e) {} this.pcs.delete(id); } },
+  cerrarTodo() { for (const id of [...this.pcs.keys()]) this.close(id); }
+};
 let voiceIce = null;
 async function voiceIceServers() {
   if (voiceIce && performance.now() - voiceIce.t < 30 * 60e3) return voiceIce.s;
@@ -19739,7 +19778,7 @@ function voiceStep(dt) {
 window.addEventListener('pointerdown', () => { if (Voice.ctx && Voice.ctx.state !== 'running') Voice.ctx.resume().catch(() => {}); }, true);
 syncVoiceSel();
 function netLeave() {
-  Voice.disable();
+  Voice.disable(); Directo.cerrarTodo();
   if (Net.tr) { try { Net.tr.close(); } catch (e) {} }
   Net.tr = null; Net.on = false; Net.host = false; Net.client = false; Net.started = false; Net.waiting = false; Net.evq = [];
   for (const p of Net.peers.values()) removeRemote(p);
@@ -19797,7 +19836,7 @@ let bjT = 0;
 function pingTick(dt) {
   if (Net.host && game && game.bj && (bjT -= dt) <= 0) { bjT = 2; if (game.phase === 'room' || game.phase === 'wait' || game.phase === 'exit') Net.ev(['bjs', game.bj]); }   // la mesa de blackjack, para quien llega tarde
   if (!Net.on || !Net.client || !game) return;
-  if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); }
+  if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); Net.flush(); }   // el ping sale al instante: mide la red, no la espera
 }
 // esquina del inventario: cuadros por segundo (siempre) y ping (solo en grupo)
 const fpsM = { t: 0, n: 0, v: null };
@@ -19822,7 +19861,8 @@ function pingHud() {
 function jugadoresHud() {
   const box = $('#inv-jug'); if (!box) return;
   box.hidden = !(Net.on && game); if (box.hidden) return;
-  const con = v => v == null || v < 0 ? ['…', 'medio'] : v === 0 ? ['Anfitrión', 'ok'] : [`${v} ms`, v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'];
+  const via = Directo.todos() ? ' · directa' : ' · por servidor';
+  const con = v => v == null || v < 0 ? ['…', 'medio'] : v === 0 ? ['Anfitrión' + via, 'ok'] : [`${v} ms${via}`, v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'];
   const fila = (n, yo, ping, k, m, o) => { const [t, c] = con(ping); return `<tr${yo ? ' class="yo"' : ''}><td>${escH(n)}${yo ? ' (tú)' : ''}</td><td class="${c}">${t}</td><td>${k | 0}</td><td>${m | 0}</td><td>$ ${o | 0}</td></tr>`; };
   let rows = fila(Net.name || myNick(), true, Net.host ? 0 : Net.ping, game.misK, game.muertes, game.gold);
   for (const p of Net.peers.values()) rows += fila(p.name || 'Vaquero', false, p.ping, p.misK, p.muertes, p.oro);
@@ -19860,6 +19900,7 @@ function netEvent(p, e) {
     const a = new THREE.Vector3(e[1], e[2], e[3]), b = new THREE.Vector3(e[4], e[5], e[6]); addTracer(a, b, e[7], 1.2); for (let i = 0; i < 4; i++) PA.add(a.x, a.y, a.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.08, 0.06, 1, 0.8, 0.4, 1, 0, 2, 0, 0); Sfx.shotAt(p && (MODEL_ORDER[p.model] || (CHARS[p.char] && CHARS[p.char].gun)), panOf(a), volOf(a, 1.3)); return; }
   if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; Net.diff = DIFF_KEYS[e[2] | 0] || 'normal'; netStartAsClient(); } return; }
   if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
+  if (t === 'dc') { if (e[1] === Net.id) Directo.signal(p, e[2]); return; }
   if (t === 'vinv') return;
   if (t === 'chat') { chatAdd(p.name, String(e[1] || '').slice(0, 80)); Sfx.holster(); return; }
   if (t === 'rev') { if (e[1] === Net.id && player.down && game && game.downT > 0 && canRevive()) { const k = revN(); game.revWv = game.wave; game.revN = k + 1; revive(0.3 - 0.1 * k); if (e[2] > 0) player.hp = Math.min(player.maxHp, player.hp + e[2]); banner('¡Te levantaron!', `${p.name} te puso de pie con ${30 - 10 * k} % de vida · ${REV_MAX - k - 1 > 0 ? `te pueden levantar ${REV_MAX - k - 1} ${REV_MAX - k - 1 === 1 ? 'vez' : 'veces'} más en esta oleada` : 'ya no te pueden levantar más en esta oleada'}`, 2600); Sfx.heart(); Net.ev(['up']); } }
@@ -19867,7 +19908,7 @@ function netEvent(p, e) {
   else if (t === 'up') { p.down = false; p.rv = false; }
   if (t === 'rev' || t === 'revp' || t === 'up') return;
   // habilidades y llaves: los dos lados las escuchan (el anfitrión también recibe las de los invitados)
-  if (t === 'pi') { if (Net.host) Net.ev(['po', p.id, e[1]]); return; }
+  if (t === 'pi') { if (Net.host) { Net.ev(['po', p.id, e[1]]); Net.flush(); } return; }
   if (t === 'anim') { if (p && p.av && p.av.p3d) p3dUna(p.av.p3d, e[1] === 'hab' ? 'cheer' : e[1]); return; }
   if (t === 'bjv') { if (Net.host && game && game.bj) bjAccion(p.id, e[1], e[2]); return; }
   if (t === 'bjs') { if (!Net.host && game && e[1]) { game.bj = e[1]; bjLocal(); } return; }
