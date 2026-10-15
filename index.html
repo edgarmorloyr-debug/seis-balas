@@ -19651,7 +19651,7 @@ function buildShopRoom() {
   const used = game ? game.roomUsed || {} : {};
   ['cards', 'devil', 'shop'].forEach((k, i) => {
     const x = (i - 1) * 5, D = ROOM_DOORS[k], on = game && game.roomDoors && game.roomDoors.includes(k);
-    doorAt(x, -HZ + 0.05, 0, D.col, D.css, on ? D.name : 'Cerrada', on ? D.sub : 'Hoy no abre', on && !used[k]);
+    doorAt(x, -HZ + 0.05, 0, D.col, D.css, on ? D.name : 'Cerrada', on ? (k === 'shop' ? D.sub : `${D.sub} · 1 ficha`) : 'Hoy no abre', on && !used[k]);
     if (on) R.objs.push({ kind: 'door', door: k, x, z: -HZ + 0.9, r: 0.9, auto: true });
   });
   // Salida: una puerta, o las tres puertas de color del camino al terminar un lugar
@@ -19747,6 +19747,10 @@ function useObj(o) {
     useCur = null; showUse(null);
     if (o.kind === 'slot') playSlot(o); else playWheel(o);
   } else if (o.kind === 'door') {
+    if (o.door !== 'shop') {   // Madame Zafira y El Diablo cobran 1 ficha de póker por entrar (la tienda de balas es gratis)
+      if (!((game.poker | 0) > 0)) { o.wait = true; hint(`${ROOM_DOORS[o.door].name} cobra 1 ficha de póker por entrar y no tienes`, 2200); Sfx.err(); return; }
+      game.poker--; Sfx.coin(); feed(`Pagaste 1 ficha de póker · te quedan ${game.poker}`, 'gold'); renderChips();
+    }
     game.roomUsed[o.door] = (o.door !== 'shop'); if (o.door !== 'shop') o.used = true;
     game.lastDoor = { x: o.x, z: o.z + 1.8 }; Sfx.door(true);
     input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
@@ -19823,7 +19827,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 113';
+const GAME_BUILD = '15-oct-2026 · 114';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
