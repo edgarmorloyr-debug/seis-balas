@@ -37,3 +37,27 @@ al morir reproduce la animación `fall` de Tripo.
 El dueño eligió "HOTD más grotesco".
 
 Costo total hasta el 15-oct-2026: unos 185 créditos de API de Tripo.
+
+## Los 6 personajes en 3D (15-oct-2026)
+
+Hechos con Tripo a partir de los dibujos de cuerpo completo (que salieron de los retratos del juego).
+En la carpeta `personajes/<nombre>/` hay cuatro archivos:
+
+| Archivo | Qué es |
+|---|---|
+| `<nombre>_cuerpo.png` | El dibujo de cuerpo completo que se usó |
+| `<nombre>_modelo.glb` | El modelo 3D con texturas (sin esqueleto) |
+| `<nombre>_animado.glb` | Con esqueleto (biped v1.0) y 3 animaciones: quieto, caminar y correr |
+| `<nombre>_vista.png` | La vista previa de Tripo |
+
+Nombres: sheriff (El Sheriff), johnny (Johnny R.), armando (Don Velorio), lilith (Lilith), francois (Françoise), carlos (Geronimo).
+
+Tareas de Tripo (modelo · esqueleto · animaciones):
+- sheriff: 1c984cc0-491c-4cb3-9d20-cd74e48df20c · 7a6e4264-7e0a-4e30-aa1a-4a0e692cfb00 · f321acf6-1f34-427b-bae3-c89f62df2088
+- johnny: f27d49e0-d2d6-43f3-bbae-f4355303a5a5 · be90f9af-6f51-4fdc-bcfc-367ebf2fac82 · afe4267b-9a23-4e94-88ba-3cfabdb4f4aa
+- armando: e374a98d-1657-4775-ba40-05102e1b6484 · d6bdbbfe-24f7-4197-99c9-7b39bd491f09 · fe7f1c34-90fa-4114-bbd8-283e66b3c90d
+- lilith: 850a3ad7-fdb7-4ba7-9a3d-d1ce513259e1 · 8c72bcd4-89d1-4479-89ba-465a2e8a1add · 36bae54f-e4a6-4ff5-84d7-e4c005352ec5
+- francois: 0611189e-c835-4c2a-8a9e-f9e7d2e2c9bc · a8db12f4-d21d-414a-9925-15bbf5f29dec · 0c0587ff-7c29-49e0-af31-30de2646b8d1
+- carlos: f1f4a9a3-5878-4319-8049-ee797d30b166 · 7fe6d30b-3d4c-4144-b32c-60fa652d6d91 · e266af27-92e9-4d09-82c3-0a0efafe022e
+
+Para el juego hará falta una versión ligera de cada uno (como la del zombi: unas 8.000 caras y texturas de 1K).
