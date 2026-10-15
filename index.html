@@ -419,7 +419,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .car-side span{line-height:1.2;text-align:center}
 .car-side.lock img{filter:grayscale(1) brightness(.3)}
 .car-main{min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:8px;background:rgba(0,0,0,.45);border:2px solid #ffd060;box-shadow:0 0 18px rgba(255,208,96,.25)}
-.car-main .ch-pw{width:100%}
+.car-main .ch-pw{width:100%;aspect-ratio:1}
 .car-main .ch-pic{width:100%;display:block;border:1px solid rgba(214,165,75,.4)}
 .car-main b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--bone)}
 .car-main .ch-gun{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 6px;color:#ffd060;font-weight:700;font-size:14px}
@@ -13957,9 +13957,19 @@ function hurtPlayer(amount, src, opt = {}) {
   if (player.hp <= 0 && game.char === 'armando' && !game.veloUsed) { game.veloUsed = 1; player.hp = Math.round(player.maxHp * 0.3); banner('¡Don Velorio se levanta!', 'Su única segunda vida de la partida', 2400); Sfx.heart(); return; }
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
+const YO3 = { inst: null, t: 0 };
+function muerte3d() {
+  if (!game || !CHARS[game.char]) return;
+  p3dCargar(game.char, C => {
+    if (state !== 'dying' || YO3.inst) return;
+    const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
+    I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, 'fall', 0.05); for (const h of hands) h.root.visible = false;
+  });
+}
+function muerte3dFin() { if (YO3.inst) { scene.remove(YO3.inst.g); YO3.inst = null; } }
 function die() {
   if (Net.on) { game.muertes = (game.muertes | 0) + 1; player.down = true; player.hp = 0; player.roll = 0.22; Sfx.death(); Net.ev(['down']); game.downT = DOWN_T; game.revP = 0; const can = canRevive(); banner('Caíste', can ? `Sigues disparando desde el suelo (−70 % de daño). Un compañero puede levantarte: ${DOWN_T} s` : `Ya te levantaron ${REV_MAX} veces en esta oleada: dispara desde el suelo hasta que termine`, 3200); gs.aiming = false; input.fireHeld = false; return; }
-  state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); gs.aiming = false; input.fireHeld = false; }
+  state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); gs.aiming = false; input.fireHeld = false; muerte3d(); }
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
   const rows = [['Oleada', game.wave], ['Lugar', MAPS[world.idx].name.replace(/^(El|La|Las|Los) /, '')], ['Zombis', game.kills], ['A la cabeza', game.heads], ['Puntería', acc + ' %'], ['Oro ganado', game.goldTotal + ' $'], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`]];
@@ -13973,6 +13983,7 @@ function statsRows() {
 }
 function saveBest() { const best = store.get('sbB_best', null), isRec = !best || game.wave > best.wave || (game.wave === best.wave && game.kills > best.kills); if (isRec) { store.set('sbB_best', { wave: game.wave, kills: game.kills, gold: game.goldTotal }); game.newRec = true; } return isRec || !!game.newRec; }
 function gameOver() {
+  muerte3dFin();
   if (tuto) { toMenu(); return; }
   checkUnlocks();
   $('#over .title').textContent = game && game.sinLlave ? 'Sin llaves no hay salida' : game && game.outAmmo ? 'Te quedaste sin balas' : 'Te comieron';
@@ -17216,6 +17227,11 @@ function updateCamera(dt) {
   camera.position.set(player.pos.x + rand(-1, 1) * sh * 0.08, player.pos.y + (player.down ? 0.35 : 1.65) + by + rand(-1, 1) * sh * 0.06, player.pos.z + rand(-1, 1) * sh * 0.08);
   gs.fovKick = (gs.fovKick || 0) * Math.exp(-13 * dt); player.rollKick = (player.rollKick || 0) * Math.exp(-11 * dt);
   camera.rotation.set(player.pitch + player.recoil + rand(-1, 1) * sh * 0.02, player.yaw, player.roll + player.rollKick + Math.sin(player.bob * 0.5) * 0.008 * bobAmt);
+  if (YO3.inst && state === 'dying') {   // cámara en tercera persona: se aleja y gira despacio alrededor de tu personaje que cae
+    const I = YO3.inst; YO3.t += dt; I.mix.update(dt); const a = player.yaw + YO3.t * 0.35, d = 2.2 + Math.min(1.6, YO3.t * 0.9), c = I.g.position;
+    camera.position.set(c.x + Math.sin(a) * d, 1.2 + Math.min(1.4, YO3.t * 0.7), c.z + Math.cos(a) * d); camera.lookAt(c.x, 0.5, c.z);
+    for (const h of hands) h.root.visible = false;
+  } else if (YO3.inst) muerte3dFin();
   const fov = (game && game.dual ? lerp(75, 66, gs.aim) : lerp(75, 56, gs.aim)) + (gs.fovKick || 0);
   if (Math.abs(fov - lastFov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); lastFov = fov; updateScale(); }
 }
@@ -19152,7 +19168,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 76';
+const GAME_BUILD = '15-oct-2026 · 77';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20404,7 +20420,29 @@ function renderCarousel(dir) {
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Partida nueva' : `${ico('lock')} Bloqueado`;
+  menu3d(id);
 }
+// En el menú, el personaje elegido aparece en 3D girando sobre su tarjeta (si el modelo no carga, queda el retrato)
+const M3 = { r: null, scene: null, cam: null, inst: null, ch: null, on: false };
+function menu3d(id) {
+  const pw = document.querySelector('#char-list .car-main .ch-pw'); if (!pw) return;
+  if (!THREE.GLTFLoader || !CHARS[id]) { if (M3.r) M3.r.domElement.style.opacity = '0'; return; }
+  if (!M3.r) {
+    try { M3.r = new THREE.WebGLRenderer({ alpha: true, antialias: true }); } catch (e) { return; }
+    M3.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); M3.r.outputEncoding = renderer.outputEncoding;
+    Object.assign(M3.r.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', transition: 'opacity .3s', opacity: '0' });
+    M3.scene = new THREE.Scene(); M3.scene.add(new THREE.HemisphereLight(0xfff2e0, 0x2a1a10, 1.05)); const dl = new THREE.DirectionalLight(0xffe0b0, 0.9); dl.position.set(2, 3, 4); M3.scene.add(dl); const rim = new THREE.DirectionalLight(0x80a0ff, 0.5); rim.position.set(-3, 2, -3); M3.scene.add(rim);
+    M3.cam = new THREE.PerspectiveCamera(28, 1, 0.1, 50); M3.cam.position.set(0, 1.05, 4.6); M3.cam.lookAt(0, 0.92, 0);
+  }
+  pw.appendChild(M3.r.domElement);
+  const w = pw.clientWidth || 200, h = pw.clientHeight || w; M3.r.setSize(w, h, false); M3.cam.aspect = w / h; M3.cam.updateProjectionMatrix();
+  if (M3.ch !== id) {
+    M3.ch = id; if (M3.inst) { M3.scene.remove(M3.inst.m); M3.inst = null; } M3.r.domElement.style.opacity = '0';
+    p3dCargar(id, C => { if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro; I.giro = new THREE.Group(); I.giro.add(I.m); M3.scene.add(I.giro); M3.inst = I; I.m = I.giro; p3dAnim(I, 'idle', 0); I.varR = 2.5; menu3dPon(); });
+  } else menu3dPon();
+  if (!M3.on) { M3.on = true; let tl = performance.now(); const loop = () => { if (!M3.r.domElement.isConnected) { M3.on = false; return; } requestAnimationFrame(loop); const t = performance.now(), dt = Math.min(0.05, (t - tl) / 1000); tl = t; if (state !== 'menu' || $('#menu').hidden) return; const I = M3.inst; if (I) { I.giro.rotation.y += dt * 0.5; I.unaR = (I.unaR || 0) - dt; I.varR -= dt; if (I.una && I.unaR <= 0) { I.una = null; p3dAnim(I, 'idle'); } if (I.varR <= 0) { I.varR = rand(5, 9); p3dUna(I, pick(['look_around', 'cheer', 'scratch', 'victory_celebration']), 0.35); } I.mix.update(dt); } M3.r.render(M3.scene, M3.cam); }; loop(); }
+}
+function menu3dPon() { const img = document.querySelector('#char-list .car-main .ch-pic'); if (M3.inst) { M3.r.domElement.style.opacity = '1'; if (img) img.style.opacity = '0.12'; } }
 function carMove(d) {
   const n = CAR_IDS.length; carI = (carI + d + n) % n;
   const id = CAR_IDS[carI]; if (id === 'azar') { META.azar = 1; saveMeta(); } else if (charOpen(id)) { META.char = id; META.azar = 0; saveMeta(); }
