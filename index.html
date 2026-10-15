@@ -996,6 +996,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script src="lib/SkeletonUtils.js"></script>
 <script>
 (() => {
 'use strict';
@@ -16598,7 +16600,44 @@ function buildZombie(type) {
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
+  if (type === 'walker' && Z3D.m) z3dPoner(z);
   return z;
+}
+/* ===== Zombi común en 3D (modelo hecho con Tripo, estilo House of the Dead) =====
+   Se carga aparte; mientras no llegue (o si falla), el zombi común sigue siendo el de bloques.
+   El cuerpo de bloques queda invisible pero sigue recibiendo los tiros (cabeza, cuerpo, piernas). */
+const Z3D = { m: null, clips: null, h: 1, minY: 0, list: [] };
+if (THREE.GLTFLoader && THREE.SkeletonUtils) new THREE.GLTFLoader().load('modelos/zombi_comun.glb', g => {
+  const m = g.scene, b = new THREE.Box3().setFromObject(m);
+  Z3D.h = b.max.y - b.min.y; Z3D.minY = b.min.y;
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
+  Z3D.m = m; Z3D.clips = g.animations;
+}, undefined, () => {});
+function z3dPoner(z) {
+  z.root.traverse(o => { if (o.isMesh) o.visible = false; });
+  const m = THREE.SkeletonUtils.clone(Z3D.m), k = 1.78 * z.s / Z3D.h;
+  m.scale.setScalar(k); m.position.y = -Z3D.minY * k; m.rotation.y = -Math.PI / 2;   // el modelo mira hacia +x; el zombi, hacia +z
+  z.root.add(m);
+  const mix = new THREE.AnimationMixer(m), acts = {};
+  for (const c of Z3D.clips) acts[c.name] = mix.clipAction(c);
+  if (acts.walk) { acts.walk.time = Math.random() * 2; acts.walk.play(); }
+  z.z3d = { m, mix, acts, cur: 'walk' }; Z3D.list.push(z);
+}
+// cada cuadro: caminar, golpear (box_01), recibir un golpe y caer al morir
+function z3dStep(dt) {
+  for (let i = Z3D.list.length - 1; i >= 0; i--) {
+    const z = Z3D.list[i], A = z.z3d;
+    if (!z.root.parent) { A.mix.stopAllAction(); Z3D.list.splice(i, 1); continue; }
+    let want = 'walk';
+    if (z.dead) want = 'fall'; else if (z.windup > 0 || z.swing > 0) want = 'box_01'; else if (z.stagger > 0.2) want = 'hit_to_body_01';
+    if (want !== A.cur && A.acts[want]) {
+      const nx = A.acts[want], pv = A.acts[A.cur];
+      nx.reset(); nx.setLoop(want === 'fall' ? THREE.LoopOnce : THREE.LoopRepeat); nx.clampWhenFinished = true; nx.play();
+      if (pv) pv.crossFadeTo(nx, 0.2, false); A.cur = want;
+    }
+    if (A.acts.walk) A.acts.walk.timeScale = clamp((z.speed || 1) / 1.3, 0.5, 1.4);
+    A.mix.update(dt);
+  }
 }
 /* ===== Zombis nuevos: caballeros con variantes, conjurador, esqueletos, zombi de oro y enfermera ===== */
 // probabilidades de cada variante del caballero (se suman a 1 dentro de cada grupo)
@@ -22148,7 +22187,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '14-oct-2026 · 56';
+const GAME_BUILD = '15-oct-2026 · 57';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -23962,6 +24001,7 @@ function frame() {
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
+  if (Z3D.list.length && (state === 'play' || state === 'dying' || state === 'menu')) z3dStep(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
