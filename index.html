@@ -22480,12 +22480,13 @@ function enterRoom() {
 // El Herrero (desbloqueo): yunque con fragua; afila el revólver una vez por visita
 const forgePrice = () => shopP(40 + 20 * (game.forge | 0));
 /* ===== Blackjack en equipo (evento de la Trastienda, 5 %) =====
-   Todos se sientan para empezar. Se vota la apuesta (mínimo 80 $), y en cada mano se vota pedir o plantarse. Juegan UNA mano entre todos
+   Todos se sientan para empezar. Se vota la apuesta de la mesa (mínimo 100 $), que se paga a partes iguales entre los presentes, y en cada mano se vota pedir o plantarse. Juegan UNA mano entre todos
    contra la banca; si ganan, cada uno cobra su parte y se vota otra mano o retirarse. Al perder una mano, la mesa se cierra.
    En grupo manda el anfitrión: los demás le envían sus votos y él reparte las cartas. */
-const BJ = { prob: 0.05, apuestas: [80, 150, 300], palos: ['♠', '♥', '♦', '♣'], rangos: ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] };
+const BJ = { prob: 0.05, apuestas: [100, 150, 300], palos: ['♠', '♥', '♦', '♣'], rangos: ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] };
 const bjYo = () => Net.on ? Net.id : 'yo';
 const bjJugadores = () => [bjYo()].concat(Net.on ? [...Net.peers.keys()] : []);
+const bjParte = a => Math.ceil(a / bjJugadores().length);   // lo que pone cada jugador: la apuesta se divide por igual entre los presentes
 const bjNombre = id => id === bjYo() ? 'Tú' : ((Net.peers.get(id) || {}).name || 'Vaquero');
 function bjSale(semilla) {   // la mesa sale igual para todo el grupo: depende de la sala y la oleada
   if (!Net.on) return Math.random() < BJ.prob;
@@ -22499,9 +22500,9 @@ function bjNueva() { return { f: 'sentarse', sent: {}, votos: {}, apuesta: 0, ma
 function bjAccion(id, k, v) {
   const B = game.bj; if (!B) return;
   const todos = bjJugadores(), sentados = () => todos.every(j => B.sent[j]);
-  if (k === 'sit' && B.f === 'sentarse') { B.sent[id] = 1; if (sentados()) { B.f = 'apuesta'; B.votos = {}; B.msg = 'Voten la apuesta inicial (cada uno pone lo mismo).'; } }
+  if (k === 'sit' && B.f === 'sentarse') { B.sent[id] = 1; if (sentados()) { B.f = 'apuesta'; B.votos = {}; B.msg = todos.length > 1 ? `Voten la apuesta de la mesa: se divide por igual entre los ${todos.length}.` : 'Elige la apuesta.'; } }
   else if (k === 'up' && B.f === 'sentarse') delete B.sent[id];
-  else if (k === 'bet' && B.f === 'apuesta' && BJ.apuestas.includes(v)) { B.votos[id] = v; if (todos.every(j => B.votos[j])) { const c = {}; for (const j of todos) c[B.votos[j]] = (c[B.votos[j]] | 0) + 1; B.apuesta = +Object.keys(c).sort((a, b) => c[b] - c[a] || a - b)[0]; bjRepartir(B); } }
+  else if (k === 'bet' && B.f === 'apuesta' && BJ.apuestas.includes(v)) { B.votos[id] = v; if (todos.every(j => B.votos[j])) { const c = {}; for (const j of todos) c[B.votos[j]] = (c[B.votos[j]] | 0) + 1; B.apuesta = +Object.keys(c).sort((a, b) => c[b] - c[a] || a - b)[0]; B.parte = Math.ceil(B.apuesta / todos.length); bjRepartir(B); } }
   else if (k === 'act' && B.f === 'jugada' && (v === 'pedir' || v === 'plantarse')) {
     B.votos[id] = v;
     if (todos.every(j => B.votos[j])) {
@@ -22516,12 +22517,12 @@ function bjAccion(id, k, v) {
   }
   bjEnviar();
 }
-function bjRepartir(B) { B.n++; B.mano = [bjCarta(), bjCarta()]; B.banca = [bjCarta(), bjCarta()]; B.f = 'jugada'; B.votos = {}; B.res = ''; const t = bjValor(B.mano); if (t === 21) bjBanca(B); else B.msg = `Mano ${B.n} · apuesta ${B.apuesta} $ cada uno. Llevan ${t}: ¿piden o se plantan?`; }
+function bjRepartir(B) { B.n++; B.mano = [bjCarta(), bjCarta()]; B.banca = [bjCarta(), bjCarta()]; B.f = 'jugada'; B.votos = {}; B.res = ''; const t = bjValor(B.mano); if (t === 21) bjBanca(B); else B.msg = `Mano ${B.n} · apuesta ${B.apuesta} $${B.parte !== B.apuesta ? ` (${B.parte} $ cada uno)` : ''}. Llevan ${t}: ¿piden o se plantan?`; }
 function bjBanca(B) {
   while (bjValor(B.banca) < 17) B.banca.push(bjCarta());
   const t = bjValor(B.mano), b = bjValor(B.banca), nat = t === 21 && B.mano.length === 2;
-  if (b > 21 || t > b) bjFin(B, nat ? 'natural' : 'gana', nat ? '¡Blackjack! Cada uno cobra 2,5 veces su apuesta.' : `¡Ganan! ${t} contra ${b > 21 ? 'la banca pasada' : b}. Cada uno cobra el doble.`);
-  else if (t === b) bjFin(B, 'empate', `Empate a ${t}: cada uno recupera su apuesta.`);
+  if (b > 21 || t > b) bjFin(B, nat ? 'natural' : 'gana', nat ? '¡Blackjack! La mesa cobra 2,5 veces la apuesta y se reparte por igual.' : `¡Ganan! ${t} contra ${b > 21 ? 'la banca pasada' : b}. La mesa cobra el doble y se reparte por igual.`);
+  else if (t === b) bjFin(B, 'empate', `Empate a ${t}: cada uno recupera lo que puso.`);
   else bjFin(B, 'pierde', `La banca gana: ${b} contra ${t}. La mesa se cierra.`);
 }
 function bjFin(B, res, msg) { B.res = res; B.msg = msg; B.f = res === 'pierde' ? 'fin' : 'resultado'; B.votos = {}; }
@@ -22530,8 +22531,8 @@ function bjEnviar() { if (Net.host) Net.ev(['bjs', game.bj]); bjLocal(); }
 function bjLocal() {
   const B = game.bj; if (!B) return; game.bjPag = game.bjPag || {};
   if (B.n && B.sent[bjYo()]) {
-    const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; game.gold -= B.apuesta; Sfx.coin(); }
-    const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const g = B.res === 'natural' ? Math.floor(B.apuesta * 2.5) : B.res === 'gana' ? B.apuesta * 2 : B.res === 'empate' ? B.apuesta : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); }
+    const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; game.gold -= (B.parte || B.apuesta); Sfx.coin(); }
+    const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const pt = B.parte || B.apuesta, g = B.res === 'natural' ? Math.floor(pt * 2.5) : B.res === 'gana' ? pt * 2 : B.res === 'empate' ? pt : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); }
   }
   if (state === 'bj') renderBj();
 }
@@ -22539,7 +22540,7 @@ function bjMandar(k, v) { if (Net.client) Net.ev(['bjv', k, v]); else bjAccion(b
 function abrirBj() {
   if (!game.bj) { hint('La mesa todavía se está preparando…', 1200); return; }
   if (game.bj.f === 'fin') { hint('La mesa ya se cerró en esta visita', 1400); return; }
-  if (game.gold < BJ.apuestas[0]) { hint(`Para sentarte necesitas al menos ${BJ.apuestas[0]} $`, 1600); Sfx.err(); return; }
+  if (game.gold < bjParte(BJ.apuestas[0])) { hint(`Para sentarte necesitas al menos ${bjParte(BJ.apuestas[0])} $`, 1600); Sfx.err(); return; }
   state = 'bj'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
   if (!game.bj.sent[bjYo()]) bjMandar('sit');
   show('bj-s'); renderBj();
@@ -22559,9 +22560,9 @@ function renderBj() {
   const bt = $('#bj-btns'); bt.innerHTML = ''; const yo = B.votos[bjYo()];
   const btn = (txt, cls, fn, dis) => { const b = document.createElement('button'); b.className = cls; b.textContent = txt; b.disabled = !!dis; b.addEventListener('click', fn); bt.appendChild(b); };
   if (B.f === 'sentarse') btn('Levantarme', 'btn2', cerrarBj);
-  else if (B.f === 'apuesta') { const ok = BJ.apuestas.filter(a => a <= game.gold); BJ.apuestas.forEach((a, i) => btn(`${a} $`, i === 0 ? 'btn' : 'btn2', () => bjMandar('bet', a), !!yo || !ok.includes(a))); }
+  else if (B.f === 'apuesta') { const ok = BJ.apuestas.filter(a => bjParte(a) <= game.gold); BJ.apuestas.forEach((a, i) => btn(bjJugadores().length > 1 ? `${a} $ · ${bjParte(a)} $ c/u` : `${a} $`, i === 0 ? 'btn' : 'btn2', () => bjMandar('bet', a), !!yo || !ok.includes(a))); }
   else if (B.f === 'jugada') { btn('Pedir carta', 'btn', () => bjMandar('act', 'pedir'), !!yo); btn('Plantarse', 'btn2', () => bjMandar('act', 'plantarse'), !!yo); }
-  else if (B.f === 'resultado') { btn('Otra mano', 'btn', () => bjMandar('next', 'otra'), !!yo || game.gold < B.apuesta); btn('Retirarse', 'btn2', () => bjMandar('next', 'retirarse'), !!yo); }
+  else if (B.f === 'resultado') { btn('Otra mano', 'btn', () => bjMandar('next', 'otra'), !!yo || game.gold < (B.parte || B.apuesta)); btn('Retirarse', 'btn2', () => bjMandar('next', 'retirarse'), !!yo); }
   else btn('Volver a la Trastienda', 'btn', cerrarBj);
 }
 function buildBlackjack(x, z) {
@@ -23054,7 +23055,7 @@ function useLabel(o) {
   if (o.kind === 'item') { const I = ITEMS[o.it.id], p = itemPrice(o.it.id); return { key: 'i' + o.it.id + game.gold, t: I.name, r: `<span class="rar-${I.rar + 1}">${IRAR[I.rar].name}</span>`, d: I.desc, b: game.gold >= p ? `Comprar · ${p} $` : `Faltan ${p - game.gold} $`, ok: game.gold >= p }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
-  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; return { key: 'bj' + (B ? B.f : '') + (game.gold >= BJ.apuestas[0]), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold >= BJ.apuestas[0] ? 'Sentarse' : `Necesitas ${BJ.apuestas[0]} $`, ok: !cerr && game.gold >= BJ.apuestas[0] }; }
+  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold >= mn ? 'Sentarse' : `Necesitas ${mn} $`, ok: !cerr && game.gold >= mn }; }
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), ok = game.gold >= pr; return { key: 'fg' + game.gold, t: 'El Herrero', r: '', d: `Afila tu revólver: +10 % de daño para toda la partida (llevas +${(game.forge | 0) * 10} %). Una vez por visita.`, b: ok ? `Afilar · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
@@ -23195,7 +23196,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 72';
+const GAME_BUILD = '15-oct-2026 · 73';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
