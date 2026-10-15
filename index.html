@@ -19911,7 +19911,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 121';
+const GAME_BUILD = '15-oct-2026 · 122';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20891,7 +20891,7 @@ function setAvGun(av, p) {
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
-const P3D = { cache: {}, esperan: {}, v: 1 };
+const P3D = { cache: {}, esperan: {}, v: 2 };   // v2: personajes de Mixamo con dedos
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
 const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante' };
 const NPC3D_FILES = new Set(['cop', 'swat', 'bill', 'ayudante', 'maid_rubia', 'maid_rosa', 'maid_plata']);
@@ -21013,7 +21013,14 @@ function avatar3dPaso(av, p, spd, dt) {
 }
 // el arma se agarra de verdad: la empuñadura dentro de la palma y el cañón siguiendo al antebrazo (el modelo no tiene dedos que se cierren)
 const _ag = { h: new THREE.Vector3(), f: new THREE.Vector3(), d: new THREE.Vector3(), up: new THREE.Vector3(), x: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), pq: new THREE.Quaternion(), s: new THREE.Vector3(), grip: new THREE.Vector3() };
+// los modelos con dedos (Mixamo) cierran la mano sobre la empuñadura; los de Tripo no tienen dedos y no pasa nada
+const PUNO = { 1: 1.0, 2: 1.25, 3: 0.9 };
+function p3dPuno(I, s) {
+  const F = I.dedos || (I.dedos = Object.keys(I.B).filter(n => /^[LR]_(Index|Middle|Ring|Pinky)[123]$/.test(n)));
+  for (const n of F) if (n[0] === s) { const b = I.B[n]; b.rotateX(PUNO[n.slice(-1)]); b.updateMatrixWorld(true); }
+}
 function avAgarre(I, g, s, av) {
+  p3dPuno(I, s);
   const h = I.B[s + '_Hand'], fa = I.B[s + '_Forearm']; if (!h || !fa || !g.parent) return;
   h.getWorldPosition(_ag.h); fa.getWorldPosition(_ag.f); const d = _ag.d.copy(_ag.h).sub(_ag.f).normalize();
   const up = _ag.up.set(0, 1, 0); if (Math.abs(d.dot(up)) > 0.85) { up.set(Math.sin(av.root.rotation.y), 0, Math.cos(av.root.rotation.y)); }
@@ -21453,6 +21460,7 @@ function menu3dPoseMano(I, P, ch) {
   g.quaternion.copy(q);
   const palma = hw.addScaledVector(brazo, 0.06).addScaledVector(up, -0.02), grip = new THREE.Vector3(0, -0.056 * k, -0.045 * k).applyQuaternion(q);
   g.position.copy(palma.sub(grip));
+  p3dPuno(I, 'R');
 }
 function menu3dPose(I, id) {
   if (MENU_POSE[id]) { menu3dPoseMano(I, MENU_POSE[id], id); return; }
