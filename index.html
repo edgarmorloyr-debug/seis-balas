@@ -321,6 +321,11 @@ a.link{color:#ffd060}
 .title.sm{font-size:clamp(34px,8vw,60px)}
 .tag{font-size:18px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);margin:0;text-wrap:balance}
 .acct{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font-size:15px;color:var(--bone-dim)}
+#menu .acct{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:6;margin:0;padding:8px 12px;border-radius:10px;background:rgba(14,9,6,.88);border:1px solid rgba(214,165,75,.45);box-shadow:0 4px 14px rgba(0,0,0,.5)}
+#menu .acct:empty{display:none}
+#menu .acct>span.inv{display:none}
+#menu .acct .btn2{min-height:44px;padding:0 14px}
+#menu .card{padding-bottom:84px}
 .acct img{width:28px;height:28px;border-radius:50%}
 .acct b{color:var(--bone)}
 .acct .btn2{min-height:44px;font-size:14px;padding:0 14px}
@@ -781,8 +786,6 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="row"><button class="btn" id="btn-continue" hidden>Continuar</button><button class="btn" id="btn-start">Partida nueva</button><button class="btn2" id="btn-coop">Jugar en grupo</button></div>
       <div class="diff-row" role="radiogroup" aria-label="Dificultad"><button class="btn2" role="radio" data-d="normal">Normal</button><button class="btn2" role="radio" data-d="dificil">Difícil</button><button class="btn2 apoc" role="radio" data-d="apoc">Apocalipsis</button></div>
       <p class="note" id="diff-desc"></p>
-      <div class="skull-row"><span>Nivel Calavera</span><button class="btn2 sq" id="sk-minus" aria-label="Bajar nivel">−</button><b id="sk-n">0</b><button class="btn2 sq" id="sk-plus" aria-label="Subir nivel">+</button></div>
-      <p class="note" id="sk-desc"></p>
     </div>
     <div class="how-wrap"><details id="how" class="how"><summary>Cómo jugar</summary><div class="how-in">
       <p class="note" id="save-note" hidden>Tu partida se guarda sola al empezar cada oleada, en este navegador.</p>
@@ -19111,6 +19114,27 @@ function buildRamen(x, z, left) {
   world.anims.push((dt, t) => { platos.forEach((h, i) => { h.rotation.y = t * 0.6 + i; }); if (Math.random() < dt * 6) PA.add(humo.x + rand(-0.1, 0.1), humo.y, humo.z + rand(-0.1, 0.1), rand(-0.1, 0.1), rand(0.4, 0.8), rand(-0.1, 0.1), rand(0.8, 1.4), 0.12, 0.9, 0.9, 0.9, 0.5, -0.2, 0.3, 0, 0); });
   const o = { kind: 'ramen', x: x + (left ? 1.3 : -1.3), z, r: 1.4, platos }; return o;
 }
+function openCaja() {
+  state = 'items'; if (document.pointerLockElement) document.exitPointerLock(); input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  const box = $('#items-opts'); box.classList.add('radio-opts');
+  $('#items-hd').innerHTML = ico('chip'); $('#items-t').textContent = 'Caja registradora';
+  const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
+  const draw = () => {
+    box.innerHTML = ''; const f = META.fichas | 0;
+    $('#items-say').textContent = `«¿Fichas de calavera? Aquí valen lo mismo que una de póker.» Una por una. Tienes ${f} de calavera y ${game.poker | 0} de póker.`;
+    for (const [n, txt] of [[1, 'Cambiar 1'], [5, 'Cambiar 5'], [f, `Cambiar todas (${f})`]]) {
+      if (n === f && (f === 1 || f === 5)) continue;
+      const b = document.createElement('button'); b.className = 'perk item r0'; b.disabled = !n || f < n;
+      b.innerHTML = `<span class="relic-ic">${ico('skull')}</span><em>Cambio 1 por 1</em><b>${txt}</b><span>${n} ${n === 1 ? 'ficha' : 'fichas'} de calavera → ${n} de póker</span>`;
+      b.addEventListener('click', () => { const k = Math.min(n, META.fichas | 0); if (state !== 'items' || !k) return; META.fichas -= k; game.poker = (game.poker | 0) + k; saveMeta(); Sfx.coin(); feed(`Cambiaste ${k} ${k === 1 ? 'ficha' : 'fichas'} de calavera por póker`, 'gold'); renderChips(); draw(); });
+      box.appendChild(b);
+    }
+  };
+  draw();
+  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
+  $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
+  show('items-s'); Sfx.open(); setTimeout(() => { const b = box.querySelector('button:not([disabled])'); if (b) b.focus(); }, 50);
+}
 function openRamen(o) {
   state = 'items'; if (document.pointerLockElement) document.exitPointerLock(); input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
   const box = $('#items-opts'); box.classList.add('radio-opts');
@@ -19421,6 +19445,7 @@ function buildShopRoom() {
   shopRoomDecor(HX, HZ, H);
   const R = world.room = { objs: [] };
   R.objs.push(buildGata(5.25, -3.2));
+  R.objs.push({ kind: 'caja', x: 6.95, z: -2.1, r: 0.9 });   // la caja registradora del mostrador
   // Pedestales con los objetos a la venta
   (game ? game.roomItems || [] : []).forEach((it, i) => {
     const x = (i - 1) * 3.4, z = -1.4, I = ITEMS[it.id];
@@ -19482,6 +19507,7 @@ function useLabel(o) {
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
+  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia tus fichas de calavera por fichas de póker, una por una. Tienes ${f} de calavera y ${game.poker | 0} de póker.`, b: f ? 'Cambiar fichas' : 'Sin fichas de calavera', ok: f > 0 }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de póker (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de póker (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
@@ -19535,6 +19561,9 @@ function useObj(o) {
     useCur = null; showUse(null); openHerrero(o);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
+  } else if (o.kind === 'caja') {
+    if (!(META.fichas > 0)) { hint('No tienes fichas de calavera: se ganan al terminar cada partida', 1800); Sfx.err(); return; }
+    useCur = null; showUse(null); openCaja();
   } else if (o.kind === 'ramen') {
     useCur = null; showUse(null); openRamen(o);
   } else if (o.kind === 'taller') {
@@ -19623,7 +19652,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 99';
+const GAME_BUILD = '15-oct-2026 · 100';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21042,13 +21071,10 @@ function renderMeta() {
   logroEstrella();
   $('#fichas').innerHTML = `${ico('skull')} ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
   renderCarousel(0);
-  META.skull = clamp(META.skull | 0, 0, META.skullMax | 0);
-  $('#sk-n').textContent = META.skull;
+  META.skull = 0;   // ya no hay niveles Calavera: las fichas extra vienen de jugar en Difícil o Apocalipsis
   if (!DIFF[META.diff]) META.diff = 'normal';
   document.querySelectorAll('.diff-row button').forEach(b => b.setAttribute('aria-checked', b.dataset.d === META.diff ? 'true' : 'false'));
   $('#diff-desc').textContent = DIFF[META.diff].d;
-  $('#sk-minus').disabled = META.skull <= 0; $('#sk-plus').disabled = META.skull >= META.skullMax;
-  $('#sk-desc').textContent = META.skullMax ? (META.skull ? `Activo: ${SKULLS.slice(0, META.skull).join(' · ')}. Ganas un ${META.skull * 25} % más de fichas.` : 'Sin dificultad extra.') : `Gana una partida (las ${LAST_WAVE} oleadas) para desbloquear el nivel Calavera 1.`;
 }
 // Elección de personaje en carrusel: se desliza a la izquierda o a la derecha (como en Isaac)
 const CHAR_IDS = Object.keys(CHARS);
@@ -21765,7 +21791,7 @@ $('#btn-tu-play').addEventListener('click', () => { tutoStop(); startGame(); });
 $('#btn-tu-again').addEventListener('click', () => { tutoStop(); tutoStart(); });
 $('#btn-tu-menu').addEventListener('click', () => toMenu());
 function startGame(sv) {
-  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: charElegido(), skull: Net.client ? (Net.skull | 0) : META.skull, diff: Net.client ? (Net.diff || 'normal') : META.diff });
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : META.diff });
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
@@ -21790,9 +21816,7 @@ function toMenu() {
   updateBest(); setTimeout(() => ($('#btn-continue').hidden ? $('#btn-start') : $('#btn-continue')).focus(), 30);
 }
 $('#btn-start').addEventListener('click', () => startGame());
-$('#sk-minus').addEventListener('click', () => { META.skull = Math.max(0, META.skull - 1); saveMeta(); renderMeta(); });
 document.querySelectorAll('.diff-row button').forEach(b => b.addEventListener('click', () => { META.diff = b.dataset.d; saveMeta(); renderMeta(); }));
-$('#sk-plus').addEventListener('click', () => { META.skull = Math.min(META.skullMax, META.skull + 1); saveMeta(); renderMeta(); });
 $('#top-nick').addEventListener('change', e => { const v = e.target.value.trim().slice(0, 12); if (v) store.set('sb_nick', v); e.target.value = myNick(); loadTop(true); });
 $('#top-box').addEventListener('toggle', e => { if (e.target.open) loadTop(); });
 $('#btn-ach').addEventListener('click', () => { checkAch(); renderAch(); show('ach-s'); META.achVisto = Object.assign({}, META.ach); saveMeta(); logroEstrella(); });
@@ -22044,7 +22068,7 @@ const Cuenta = {
 function renderAcct() {
   const el = $('#acct'); if (!el) return;
   if (Cuenta.user) { const p = Cuenta.pic(); el.innerHTML = `${p ? `<img src="${p.replace(/"/g, '')}" alt="" referrerpolicy="no-referrer">` : ''}<span>Conectado como <b></b></span><button class="btn2" id="btn-out">Salir</button>`; el.querySelector('b').textContent = Cuenta.name(); $('#btn-out').onclick = () => Cuenta.out(); }
-  else { el.innerHTML = `<span>Juegas como invitado</span><button class="btn2" id="btn-in">Entrar con Google</button>`; $('#btn-in').onclick = () => Cuenta.google(); }
+  else { el.innerHTML = `<span class="inv">Juegas como invitado</span><button class="btn2" id="btn-in">Entrar con Google</button>`; $('#btn-in').onclick = () => Cuenta.google(); }
 }
 $('#btn-guest').addEventListener('click', () => { store.set('sb_login', 'guest'); show('menu'); });
 $('#btn-google').addEventListener('click', () => Cuenta.google());
