@@ -13689,7 +13689,7 @@ function allyLook(c, D) {
   }
 }
 // Mantiene las armas apuntando al frente aunque el brazo se mueva.
-function levelGuns() { for (const c of cops) if (c.guns) for (const g of c.guns) g.rotation.x = -g.parent.parent.rotation.x; }
+function levelGuns() { for (const c of cops) if (c.guns && !c.p3d) for (const g of c.guns) g.rotation.x = -g.parent.parent.rotation.x; }
 const AT = {
   swat: canvasTex(128, 64, g => { g.fillStyle = '#16191e'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#f2f2f2'; g.font = 'bold 36px sans-serif'; g.textAlign = 'center'; g.fillText('SWAT', 64, 46); }),
   police: canvasTex(128, 64, g => { g.fillStyle = '#1a2440'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#ffd860'; g.font = 'bold 25px sans-serif'; g.textAlign = 'center'; g.fillText('POLICÍA', 64, 42); }),
@@ -13765,7 +13765,7 @@ function spawnCop(kind = 'cop', owner = null, lv = 0, glv) {
   const c = buildAlly(kind, lv, owner), root = c.root;
   setGunTier(c, glv !== undefined ? glv : (!owner || owner === Net.id) && game && game.allyGun ? game.allyGun[kind] | 0 : 0);
   const a = rand(0, TAU); root.position.set(player.pos.x + Math.cos(a) * 2.5, 0, player.pos.z + Math.sin(a) * 2.5); resolve(root.position, 0.35);
-  scene.add(root); c.id = ++copUid; cops.push(c);
+  scene.add(root); c.id = ++copUid; cops.push(c); ally3d(c);
   if (kind === 'ayudante') c.temp = 1;   // no se guarda entre partidas; se queda hasta que cae
   return c;
 }
@@ -18035,7 +18035,9 @@ function updateCops(dt) {
     if (c.ouchT > 0) c.ouchT -= dt;
     if (c.dead) {
       c.deadT += dt; c.eatT -= dt; eatenFx(c, dt);
-      const ft = clamp(c.deadT / 0.6, 0, 1); c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft;
+      const ft = clamp(c.deadT / 0.6, 0, 1);
+      if (c.p3d) { if (c.p3d.cur !== 'fall') p3dUna(c.p3d, 'fall'); c.p3d.mix.update(dt); }   // el modelo 3D se cae con su animación
+      else { c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; }
       if (c.deadT < 6 && Math.random() < 0.15) P.add(pos.x + rand(-0.4, 0.4), 0.2, pos.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.05, 0.42, 0.02, 0.02, 1, 9.8, 0.3, 0, 1);
       if (c.deadT > 8.5) {
         if (state === 'play' && game.phase === 'fight') { spawnZombie(c.npc || (c.kind && c.kind !== 'cop') ? 'walker' : 'copz', pos.x, pos.z, game.wave, true); game.alive++; feed(c.npc ? 'Se levantó… como zombi' : `${(c.D || ALLY.cop).short} se levantó… como zombi`, 'red'); }
@@ -18091,6 +18093,7 @@ function updateCops(dt) {
     c.aim = damp(c.aim, c.tgt ? 1 : 0, 8, dt);
     if (c.swing > 0) c.swing -= dt;
     c.armRG.rotation.x = c.swing > 0 ? -2.6 + (0.25 - c.swing) * 10 : lerp(sw * 0.4, -1.5, c.aim); c.armLG.rotation.x = lerp(-sw * 0.4, -1.3, c.aim); c.armLG.rotation.z = lerp(-0.05, 0.5, c.aim);
+    if (c.p3d) ally3dPaso(c, spd, dt);
     c.cd -= dt;
     if (c.burst > 0) { c.burstT -= dt; if (c.burstT <= 0) { c.burst--; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; if (c.tgt && !c.tgt.dead && state === 'play') allyFire(c, c.tgt, D); } }
     if (c.tgt && c.cd <= 0 && Math.abs(dy) < 0.4 && state === 'play') copShoot(c, c.tgt);
@@ -18122,6 +18125,7 @@ function copShoot(c, z) {
 }
 function allyFire(c, z, D, muz) {
   const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c) * (c.dmgX || 1);
+  if (c.p3d) c.p3d.kick = 1;
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
   const d = _mp.distanceTo(_tmp), dir = _tmp.clone().sub(_mp).normalize();
   const type = D.deck && game.box.length ? pick(game.box) : 'normal', B = BULLETS[type] || BULLETS.normal;
@@ -19875,7 +19879,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 115';
+const GAME_BUILD = '15-oct-2026 · 116';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20856,6 +20860,9 @@ function setAvGun(av, p) {
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
 const P3D = { cache: {}, esperan: {}, v: 1 };
+// ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
+const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante' };
+const NPC3D_FILES = new Set(['cop', 'swat', 'bill', 'ayudante', 'maid_rubia', 'maid_rosa', 'maid_plata']);
 // algunos modelos traen vértices unidos a un hueso lejano (al moverse se estiran como una espina): se sueltan de ese hueso
 function p3dSanear(m) {
   const v = new THREE.Vector3(); let n = 0;
@@ -20891,17 +20898,18 @@ function p3dSanear(m) {
   return n;
 }
 function p3dCargar(ch, cb) {
-  if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !CHARS[ch]) return;
+  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : null;
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !dir) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
-  new THREE.GLTFLoader().load(`modelos/personajes/${ch}.glb?v=${P3D.v}`, g => {
+  new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
     const C = { m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
-    fetch(`modelos/personajes/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : []).then(list => {
+    fetch(`modelos/${dir}/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : []).then(list => {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {}).finally(listo);
   }, undefined, () => {});
@@ -20984,6 +20992,34 @@ function avAgarre(I, g, s, av) {
   // la palma está un poco más allá de la muñeca; ahí va el centro de la empuñadura (medido en el modelo del arma)
   const palma = _ag.h.addScaledVector(d, 0.05).addScaledVector(up, -0.045), grip = _ag.grip.set(0, -0.056 * k, -0.045 * k).applyQuaternion(qW);
   palma.sub(grip); g.parent.worldToLocal(palma); g.position.copy(palma);
+}
+// policía, SWAT, soldado y ayudante del sheriff con su modelo 3D: el muñeco de bloques se vuelve invisible y el arma pasa a la mano del modelo
+function ally3d(c) {
+  const f = NPC3D[c.kind]; if (!f) return;
+  p3dCargar(f, C => {
+    if (!c.root.parent || c.p3d || c.dead) return;
+    const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro; c.body.add(I.m); c.p3d = I;
+    const deArma = new Set(); for (const g of c.guns || []) g.traverse(o => deArma.add(o));
+    c.body.traverse(o => { if (o.isMesh && !deArma.has(o) && !I.m.getObjectById(o.id)) o.material = P3D.invisible; });
+    p3dAnim(I, 'idle', 0);
+  });
+}
+function ally3dPaso(c, spd, dt) {
+  const I = c.p3d;
+  if (c.hpAntes != null && c.hp < c.hpAntes - 3 && spd < 0.3) p3dUna(I, 'hurt');
+  c.hpAntes = c.hp;
+  if (I.una && I.unaR > 0 && spd < 0.3) I.unaR -= dt;
+  else { I.una = null; p3dAnim(I, spd > 0.3 ? (spd > 3.6 ? 'run' : 'walk') : 'idle'); }
+  if (I.cur === 'walk') I.acts.walk.timeScale = clamp(spd / 1.7, 0.6, 1.5); else if (I.cur === 'run') I.acts.run.timeScale = clamp(spd / 4.5, 0.7, 1.4);
+  I.mix.update(dt); c.root.updateMatrixWorld(true);
+  // apunta con el arma mientras tiene un zombi en la mira, con retroceso en cada disparo
+  if (c.aim > 0.5 && c.D.gun !== 'machete') {
+    p3dApunta(I, 'R_Upperarm', c.armRG, -1); p3dApunta(I, 'R_Forearm', c.armRG, -1);
+    if (c.D.dual) { p3dApunta(I, 'L_Upperarm', c.armLG, -1); p3dApunta(I, 'L_Forearm', c.armLG, -1); }
+    if (I.kick > 0.01) { const b = I.B.R_Forearm; if (b) { b.rotateX(-0.4 * I.kick); b.updateMatrixWorld(true); } }
+  }
+  I.kick = (I.kick || 0) * Math.exp(-14 * dt);
+  (c.guns || []).forEach((g, i) => avAgarre(I, g, i === 0 ? 'R' : 'L', c));
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
 // ---- Movimiento fluido de los compañeros: se guardan las posiciones que llegan y se muestra al compañero un instante «en el pasado»,
