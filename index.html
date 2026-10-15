@@ -17236,13 +17236,14 @@ function buildZombie(type) {
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
-  if (type === 'walker' && Z3D.m) z3dPoner(z);
+  if (type === 'walker' && Z3D.nyx && PRUEBA3D && Math.random() < 0.25) z3dFlota(z);
+  else if (type === 'walker' && Z3D.m) z3dPoner(z);
   return z;
 }
 /* ===== Zombi común en 3D (modelo hecho con Tripo, estilo House of the Dead) =====
    Se carga aparte; mientras no llegue (o si falla), el zombi común sigue siendo el de bloques.
    El cuerpo de bloques queda invisible pero sigue recibiendo los tiros (cabeza, cuerpo, piernas). */
-const Z3D = { m: null, clips: null, h: 1, minY: 0, list: [] };
+const Z3D = { m: null, clips: null, h: 1, minY: 0, list: [], nyx: null, flot: [] };
 const PRUEBA3D = /[?&]prueba3d\b/.test(location.search);
 if (THREE.GLTFLoader && THREE.SkeletonUtils) new THREE.GLTFLoader().load('modelos/zombi_comun.glb', g => {
   const m = g.scene, b = new THREE.Box3().setFromObject(m);
@@ -17250,6 +17251,26 @@ if (THREE.GLTFLoader && THREE.SkeletonUtils) new THREE.GLTFLoader().load('modelo
   m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
   Z3D.m = m; Z3D.clips = g.animations;
 }, undefined, () => {});
+// Solo en el enlace de prueba: Nyxara, la arcángel (modelo sin esqueleto: flota, se mece y se desliza)
+if (PRUEBA3D && THREE.GLTFLoader) new THREE.GLTFLoader().load('modelos/nyxara.glb', g => {
+  const m = g.scene, b = new THREE.Box3().setFromObject(m);
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }); } });
+  Z3D.nyx = { m, h: b.max.y - b.min.y, minY: b.min.y };
+}, undefined, () => {});
+function z3dFlota(z) {
+  z.root.traverse(o => { if (o.isMesh) o.visible = false; });
+  const N = Z3D.nyx, m = N.m.clone(), k = 2.3 * z.s / N.h, piv = new THREE.Group();
+  m.scale.setScalar(k); m.position.y = -N.minY * k; piv.add(m); z.root.add(piv);
+  z.z3f = { piv, t: Math.random() * 9, hund: 0 }; Z3D.flot.push(z);
+}
+function z3dFlotaStep(dt) {
+  for (let i = Z3D.flot.length - 1; i >= 0; i--) {
+    const z = Z3D.flot[i], F = z.z3f; F.t += dt;
+    if (!z.root.parent) { Z3D.flot.splice(i, 1); continue; }
+    if (z.dead) { F.hund = Math.min(1, F.hund + dt * 0.6); F.piv.position.y = 0.3 - F.hund * 2.6; F.piv.rotation.z = F.hund * 0.5; F.piv.rotation.y += dt * 2 * (1 - F.hund); continue; }
+    F.piv.position.y = 0.3 + Math.sin(F.t * 1.6) * 0.12; F.piv.rotation.z = Math.sin(F.t * 0.9) * 0.05; F.piv.rotation.x = Math.sin(F.t * 1.3) * 0.04;
+  }
+}
 function z3dPoner(z) {
   z.root.traverse(o => { if (o.isMesh) o.visible = false; });
   const m = THREE.SkeletonUtils.clone(Z3D.m), k = 1.78 / Z3D.h;   // va dentro del cuerpo de bloques: hereda su escala, su balanceo y su caída
@@ -17277,10 +17298,27 @@ function z3dApunta(A, n, part, sign) {
   b.updateMatrixWorld(true);
 }
 function z3dEsconde(A, n, si) { const b = A.B[n]; if (b) b.scale.setScalar(si ? 0.001 : 1); }
-function z3dStep() {
+// Al morir deja de copiar al de bloques (que cae como una tabla) y hace la caída de verdad que Tripo hizo para este cuerpo
+function z3dMuere(z, A) {
+  A.muerto = true;
+  const clip = Z3D.clips && Z3D.clips.find(c => c.name === 'fall'); if (!clip) return;
+  z.fall.quaternion.identity(); z.fall.position.y = 0; z.root.updateMatrixWorld(true);
+  z.root.attach(A.m);                                                    // ya no sigue la tabla que se inclina
+  for (const [b, q] of A.rest) { b.quaternion.copy(q); b.scale.setScalar(1); }
+  A.mix = new THREE.AnimationMixer(A.m); const ac = A.mix.clipAction(clip);
+  ac.setLoop(THREE.LoopOnce); ac.clampWhenFinished = true; ac.timeScale = 1.35; ac.play();
+}
+function z3dStep(dt) {
   for (let i = Z3D.list.length - 1; i >= 0; i--) {
     const z = Z3D.list[i], A = z.z3d;
     if (!z.root.parent) { Z3D.list.splice(i, 1); continue; }
+    if (z.dead && !A.muerto) z3dMuere(z, A);
+    if (A.muerto) {
+      if (A.mix) { z.fall.quaternion.identity(); z.fall.position.y = 0; A.mix.update(dt); }
+      else { z.root.updateMatrixWorld(true); z3dApunta(A, 'Spine01', z.torsoG, 1); }
+      z3dEsconde(A, 'Head', z.head && z.head.parent !== z.neck);
+      continue;
+    }
     z.root.updateMatrixWorld(true);
     const aL = A.arm.L, aR = A.arm.R, lL = A.leg.L, lR = A.leg.R;
     z3dApunta(A, 'Spine01', z.torsoG, 1);
@@ -22853,7 +22891,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 59';
+const GAME_BUILD = '15-oct-2026 · 60';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -24670,7 +24708,7 @@ function frame() {
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
-  if (Z3D.list.length && (state === 'play' || state === 'dying' || state === 'menu')) z3dStep();
+  if ((Z3D.list.length || Z3D.flot.length) && (state === 'play' || state === 'dying' || state === 'menu')) { z3dStep(dt); z3dFlotaStep(dt); }
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
