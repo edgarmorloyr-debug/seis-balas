@@ -18067,7 +18067,7 @@ function maxAlive() { return Math.min(8 + diffW(game.wave) * 2, IS_TOUCH ? 16 : 
 
 function hurtPlayer(amount, src, opt = {}) {
   if (tuto) return;
-  if ((state !== 'play' && !(Net.on && state === 'pause')) || player.down) return;
+  if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (!opt.tick && S('shieldWave') && (game.shieldW || 0) < S('shieldWave')) { game.shieldW = (game.shieldW || 0) + 1; feed('La tapa de barril paró el golpe', 'blue'); Sfx.clang(0); return; }
   amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
@@ -18447,10 +18447,10 @@ function castBullet(o, d, ctx) {
       if (h.model === 'corto' && wlv('corto') >= 3 && hh.distance < 6) dd *= 1.6;
       dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
       let crit = false; if (Math.random() < 0.08 * lv('crit') + S('critC') / 100 + (h.model === sigGun() ? 0.1 * sigLv('grabado') : 0)) { dd *= 3 + S('critX'); crit = true; }
-      const hpBefore = z.hp;
+      const hpBefore = z.hp; z.cLast = 0;
       const killed = damageZombie(z, dd, { part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : t });
       if (killed) ctx.kills++; else itemOnHit(z, hh.point, d, dd);
-      if (hpBefore > 0) hitNum(z, Math.max(0, hpBefore - Math.max(0, z.hp)), dd / m.dmg, part === 'head', crit, killed, hh.point);
+      if (hpBefore > 0) hitNum(z, Math.max(0, hpBefore - Math.max(0, z.hp)) || (z.net ? z.cLast : 0), dd / m.dmg, part === 'head', crit, killed, hh.point);
       if (h.model === 'viejo' && wlv('viejo') >= 3 && !killed) z.stagger = Math.max(z.stagger, 1);
       if (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15 && !killed) { z.burn = 3; z.burnDps = 20; }
       onHitZombie(z, hh.point, d, ctx, killed);
@@ -18678,7 +18678,7 @@ function damageZombie(z, amount, info) {
       return false;
     }
   }
-  if (z.mini && z.mSh > 0) { amount *= MINI_AB.shield.k; if (info.bullet && !info.ally) { hitmarker('armor'); if (info.point) sparks(info.point, 4, null); } }
+  if (z.mini && z.mSh > 0) { if (!z.net) amount *= MINI_AB.shield.k; if (info.bullet && !info.ally) { hitmarker('armor'); if (info.point) sparks(info.point, 4, null); } }
   if (z.mini && z.mini.coins && info.bullet && !info.ally && !z.net && Math.random() < 0.12) makePickup('gold', z.root.position.x + rand(-1, 1), z.root.position.z + rand(-1, 1), 3);
   if (Net.client && z.net && z.B && z.B.cHit && z.B.cHit(z, amount, info) < 0) { if (info.bullet && !info.ally) { hitmarker('armor'); if (info.point) sparks(info.point, 4, null); } return false; }
   if (Net.client && z.net) return clientDamage(z, amount, info);
@@ -18699,7 +18699,7 @@ function damageZombie(z, amount, info) {
     if (z.shieldHp <= 0) { const sh = z.shield; z.shield = null; dropHit(z, sh); detach(sh, new THREE.Vector3((info.dir ? info.dir.x : 0) * 3, rand(2, 4), (info.dir ? info.dir.z : 0) * 3)); if (!info.ally) feed('¡Escudo roto!', 'blue'); }
     info.part = 'body';
   }
-  if (info.bullet && !info.ally && lv('execute') && z.type !== 'abom' && z.boss == null && z.hp - amount < z.maxHp * 0.1 * lv('execute')) amount = z.hp + 1;
+  { const exe = info.remote ? info.exe | 0 : info.ally ? 0 : lv('execute'); if (info.bullet && exe && z.type !== 'abom' && z.boss == null && z.hp - amount < z.maxHp * 0.1 * exe) amount = z.hp + 1; }
   z.hp -= amount; z.flash = 0.1;
   const head = info.part === 'head';
   if (info.bullet && info.point) {
@@ -18756,11 +18756,12 @@ function killZombie(z, info) {
   if (head && info.bullet && (!info.ally || info.remote)) {
     if (!info.remote) game.heads++;
     z.head.getWorldPosition(_tmp);
-    if (lv('boom') && !info.remote) {
+    const boomLv = info.remote ? info.boom | 0 : lv('boom');
+    if (boomLv) {
       z.head.visible = false; dropHit(z, z.head); z.headless = true;
       for (let i = 0; i < 40; i++) P.add(_tmp.x, _tmp.y, _tmp.z, rand(-5, 5), rand(0, 6), rand(-5, 5), rand(1, 3), rand(0.05, 0.12), rand(0.3, 0.5), 0.02, 0.02, 1, 9.8, 0.5, 0, 1);
       Sfx.boom(); const c = _tmp.clone();
-      for (const o of zombies) { if (o === z || o.dead) continue; const d = Math.hypot(o.root.position.x - c.x, o.root.position.z - c.z); if (d < 3.4) { o.stagger = 0.6; damageZombie(o, 75 * lv('boom') * (1 - d / 3.4 * 0.5), { part: 'body', dir: null }); } }
+      for (const o of zombies) { if (o === z || o.dead) continue; const d = Math.hypot(o.root.position.x - c.x, o.root.position.z - c.z); if (d < 3.4) { o.stagger = 0.6; damageZombie(o, 75 * boomLv * (1 - d / 3.4 * 0.5), info.remote ? { part: 'body', dir: null, remote: true, ally: true, by: info.by } : { part: 'body', dir: null }); } }
     } else if (!z.def.quad && info.dir) { dropHit(z, z.head); z.headless = true; detach(z.head, new THREE.Vector3(info.dir.x * rand(3, 5), rand(3, 5.5), info.dir.z * rand(3, 5))); }
     if (!z.def.quad) z.neckSpurt = 1.3;
     if (lv('vamp') && !info.remote) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp'));
@@ -18840,12 +18841,15 @@ function reloadStep(dt) {
 function banditShoot(z, dist) {
   z.head.getWorldPosition(_tmp); const from = _tmp.clone(); from.y -= 0.2;
   const tc = z.tk === 'c' && z.tobj && !z.tobj.dead ? z.tobj : null;
-  const tgt = tc ? tc.root.position.clone().setY(1.2) : player.pos.clone().setY(player.pos.y + 1.3);
+  const peer = !tc && z.pid && z.pid !== Net.id && Net.host ? Net.peers.get(z.pid) : null;
+  const tgt = tc ? tc.root.position.clone().setY(1.2) : peer && peer.pos ? new THREE.Vector3(peer.pos.x, (peer.y || 0) + 1.3, peer.pos.z) : player.pos.clone().setY(player.pos.y + 1.3);
   const moveF = Math.hypot(player.vx, player.vz) > 6 ? 0.65 : 1, p = clamp(0.8 - dist * 0.03, 0.2, 0.75) * (tc ? 1 : moveF);
   const hit = Math.random() < p, end = tgt.clone();
   if (!hit) { end.x += rand(-1.6, 1.6); end.y += rand(-0.6, 0.9); end.z += rand(-1.6, 1.6); }
   else if (tc) hurtCop(tc, z.dmg * 1.3);
   else if (!z.pid || z.pid === Net.id) hurtPlayer(z.dmg, z.root.position, {});
+  else if (peer) Net.ev(['hurt', z.pid, r2(z.dmg), r2(z.root.position.x), r2(z.root.position.z), 0, 0, 0]);
+  if (Net.host) Net.ev(['zsh', r2(from.x), r2(from.y), r2(from.z), r2(end.x), r2(end.y), r2(end.z)]);
   addTracer(from, end, 0xffd090, 1.2); Sfx.pistol(panOf(from), volOf(from, 0.9));
   for (let i = 0; i < 6; i++) PA.add(from.x, from.y, from.z, rand(-1, 1), rand(-0.5, 1), rand(-1, 1), 0.15, 0.08, 1, 0.8, 0.3, 1, 0, 2, 0, 0);
 }
@@ -20100,7 +20104,7 @@ function applyMini(z, idx, net) {
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
     banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}`, 4200);
     Sfx.roar(panOf(z.root.position), 1.8); player.shake = Math.min(1, player.shake + 0.3);
-  }
+  } else if (game && state === 'play' && !z.dead) { banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); Sfx.roar(panOf(z.root.position), 1.8); }
 }
 // La IA del minijefe (solo la calcula el anfitrión o quien juega solo). Devuelve cuánto cambia su velocidad.
 function miniTick(z, dt, pos, dist, canAttack) {
@@ -20114,10 +20118,11 @@ function miniTick(z, dt, pos, dist, canAttack) {
       break;
     case 'blink':
       if (z.mT2 <= 0 && canAttack && dist > 3 && dist < 26) { z.mT2 = A.cd + rand(-1, 1);
-        for (let t = 0; t < 12; t++) { const a = player.yaw + Math.PI + rand(-1.6, 1.6), r = rand(2.6, 4), x = player.pos.x - Math.sin(a) * r, zz = player.pos.z - Math.cos(a) * r;
+        const T_ = z.tk === 'p' && z.pid && z.pid !== Net.id ? Net.peers.get(z.pid) : null, tp_ = T_ && T_.pos ? T_.pos : player.pos, ty_ = T_ && T_.pos ? (T_.yaw || 0) : player.yaw;
+        for (let t = 0; t < 12; t++) { const a = ty_ + Math.PI + rand(-1.6, 1.6), r = rand(2.6, 4), x = tp_.x - Math.sin(a) * r, zz = tp_.z - Math.cos(a) * r;
           if (!insideArena(x, zz, 0.8) || pointBlocked(x, zz, 0.6)) continue;
           smokePuff(pos.clone().setY(1), new THREE.Vector3(0, 1, 0), 10, 2); pos.x = x; pos.z = zz; smokePuff(pos.clone().setY(1), new THREE.Vector3(0, 1, 0), 10, 2);
-          z.atkCd = Math.max(z.atkCd, 0.5); Sfx.whoosh(panOf(pos)); feed(`¡${M.name} apareció cerca de ti!`, 'red'); break; } }
+          z.atkCd = Math.max(z.atkCd, 0.5); Sfx.whoosh(panOf(pos)); if (!T_) feed(`¡${M.name} apareció cerca de ti!`, 'red'); break; } }
       break;
     case 'frenzy': k = 1 + 1.3 * (1 - Math.max(0, z.hp) / z.maxHp); break;
     case 'charge':
@@ -20129,7 +20134,7 @@ function miniTick(z, dt, pos, dist, canAttack) {
           for (let i = 0; i < 40; i++) { const a = i / 40 * TAU; P.add(c.x, 0.1, c.z, Math.cos(a) * 7, rand(1, 3), Math.sin(a) * 7, 0.8, 0.12, 0.45, 0.38, 0.3, 1, 9.8, 1.5, 0, 0); }
           Sfx.thud(panOf(c)); player.shake = Math.min(1, player.shake + 0.5);
           const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd < A.r) hurtPlayer(z.dmg * (1.2 - pd / A.r * 0.6), c, { knock: 10 }); netHurtArea(c, A.r, z.dmg * 0.9, 10, 0); } }
-      else if (z.mT2 <= 0 && canAttack && dist < A.r * 0.8) { z.mT2 = A.cd; z.mQ = A.wind; hint('¡Va a golpear el suelo! Aléjate', 1200); }
+      else if (z.mT2 <= 0 && canAttack && dist < A.r * 0.8) { z.mT2 = A.cd; z.mQ = A.wind; hint('¡Va a golpear el suelo! Aléjate', 1200); if (Net.host) Net.ev(['mhint', '¡Va a golpear el suelo! Aléjate', 1200]); }
       break;
     case 'heal':
       if (z.mT2 <= 0) { z.mT2 = A.cd; for (const o of zombies) { if (o.dead || o === z) continue; if (Math.hypot(o.root.position.x - pos.x, o.root.position.z - pos.z) < A.r && o.hp < o.maxHp) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * A.pct); o.torso.getWorldPosition(_zp); for (let i = 0; i < 4; i++) PA.add(_zp.x, _zp.y, _zp.z, rand(-0.5, 0.5), rand(0.8, 1.6), rand(-0.5, 0.5), 0.7, 0.1, 0.3, 1, 0.4, 1, -0.5, 0.5, 0, 0); } } z.hp = Math.min(z.maxHp, z.hp + z.maxHp * 0.008); }
@@ -21513,7 +21518,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0]); tryGrabPeer(z, z.pid); } }
+          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0, r2(reach + 0.4 + z.r)]); tryGrabPeer(z, z.pid); } }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -21807,7 +21812,7 @@ function updatePickups(dt) {
     { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (lv('magpie') && pdd < 5) || (rl('iman') && pdd < 8)) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
-      if (Net.client && p.net) Net.ev(['pk', p.id]);
+      if (Net.client && p.net) { Net.ev(['pk', p.id]); Net.gone.set(p.id, performance.now()); }
       if (p.type === 'health') { const h = Math.min(35, player.maxHp - player.hp); player.hp += h; feed(`Vida +${Math.round(h)}`, 'red'); }
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
       else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; game.box.push(k); Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
@@ -21919,7 +21924,7 @@ function updatePlay(dt) {
   if (game.killcamT > 0) game.killcamT -= dt;
   game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
-  if (state === 'play' || state === 'pause') {
+  if (state === 'play' || state === 'pause' || state === 'inv') {
     game.time += dt;
     if (rl('calavera') && !game.deOn) game.de = Math.min(100, game.de + 1.5 * dt);
     if (rl('escapulario') && !player.down) player.hp = Math.min(player.maxHp, player.hp + dt);
@@ -21942,7 +21947,7 @@ function updatePlay(dt) {
   chase.copy(player.pos);
   if (!Net.client) { updateFlow(dt, player.pos.x, player.pos.z); if (Net.host) netFlows(dt); }
   updateGun(dt); updateCamera(dt);
-  updateZombies(wdt, state === 'play' || state === 'pause');
+  updateZombies(wdt, state === 'play' || state === 'pause' || state === 'inv');
   bossFx(wdt);
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
   updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateStumps(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
@@ -22213,11 +22218,11 @@ function itemDmg() {
   return m;
 }
 function itemOnHit(z, pt, d, dd) {
-  const sc = effSc();
-  if (S('burnC') && Math.random() < S('burnC') / 100) { z.burn = 3; z.burnDps = 20 * sc; }
-  if (S('freezeC') && Math.random() < S('freezeC') / 100) freeze(z, 1.5);
-  if (S('poisonC') && Math.random() < S('poisonC') / 100) { z.poison = 5; z.poisonDps = 18 * sc; }
-  if (S('knock') && Math.random() < S('knock') / 100) { z.kbx = d.x * 9; z.kbz = d.z * 9; z.stagger = Math.max(z.stagger, 0.8); }
+  const sc = effSc(), tell = (k, v) => { if (Net.client && z.net) Net.ev(['zfx', z.id, k, r2(d.x), r2(d.z), v || 0]); };   // en grupo el zombi real está en el teléfono del anfitrión
+  if (S('burnC') && Math.random() < S('burnC') / 100) { z.burn = 3; z.burnDps = 20 * sc; tell('burn', 20 * sc); }
+  if (S('freezeC') && Math.random() < S('freezeC') / 100) { freeze(z, 1.5); tell('freeze'); }
+  if (S('poisonC') && Math.random() < S('poisonC') / 100) { z.poison = 5; z.poisonDps = 18 * sc; tell('poison', 18 * sc); }
+  if (S('knock') && Math.random() < S('knock') / 100) { z.kbx = d.x * 9; z.kbz = d.z * 9; z.stagger = Math.max(z.stagger, 0.8); tell('knock'); }
   if (S('chainC') && Math.random() < S('chainC') / 100) teslaChain(z, pt, d, dd * 0.5, 3);
 }
 const RANDOM_FX = ['fria', 'mula', 'sangre', 'acida', 'saltarina', 'frita', 'serpiente', 'rayo', 'racimo', 'taladro', 'vampira', 'dorada'];
@@ -22940,11 +22945,11 @@ const ZTYPES = Object.keys(ZDEF);
 const flowMap = new Map();
 const Net = {
   on: false, host: false, client: false, started: false, waiting: false, tr: null, room: '', name: '',
-  id: Math.random().toString(36).slice(2, 9), peers: new Map(), evq: [], acc: 0, hostId: null, lastHost: 0, nextIdx: 1,
+  id: Math.random().toString(36).slice(2, 9), peers: new Map(), gone: new Map(), evq: [], acc: 0, hostId: null, lastHost: 0, nextIdx: 1,
   ev(e) { if (this.on) this.evq.push(e); },
   tick(dt) {
     if (!this.on || !this.tr) return;
-    this.acc += dt; if (this.acc < (this.host ? 0.14 : this.evq.length ? 0.09 : 0.2)) return; this.acc = 0;
+    this.acc += dt; if (this.acc < (this.host ? 0.14 : this.evq.length ? 0.09 : game && state === 'play' && game.phase === 'fight' ? 0.1 : 0.2)) return; this.acc = 0;
     if (this.client && game && game.phase === 'wait' && this.started && performance.now() - (this.rdyT || 0) > 2000) { this.rdyT = performance.now(); this.evq.push(['ready', game.wave]); }
     this.flush();
     const now = performance.now();
@@ -23313,7 +23318,7 @@ function netLeave() {
   if (Net.tr) { try { Net.tr.close(); } catch (e) {} }
   Net.tr = null; Net.on = false; Net.host = false; Net.client = false; Net.started = false; Net.waiting = false; Net.evq = [];
   for (const p of Net.peers.values()) removeRemote(p);
-  Net.peers.clear(); flowMap.clear();
+  Net.peers.clear(); flowMap.clear(); Net.gone.clear();
 }
 // ---- Sala ----
 const nickOf = () => ($('#nick').value.trim() || 'Vaquero').slice(0, 12);
@@ -23383,10 +23388,12 @@ function netEvent(p, e) {
   const t = e[0];
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
+  if (t === 'mhint') { if (!Net.host && game && state === 'play') hint(String(e[1]).slice(0, 80), e[2] | 0 || 1500); return; }
   if (t === 'devil') { if (game && !Net.host) game.devilVoteWave = e[1]; return; }
   if (t === 'mfx') { mapFxIn(e); return; }
+  if (t === 'zsh') { if (!Net.host && game) { const a = new THREE.Vector3(e[1], e[2], e[3]); addTracer(a, new THREE.Vector3(e[4], e[5], e[6]), 0xffd090, 1.2); Sfx.pistol(panOf(a), volOf(a, 0.9)); } return; }
   if (t === 'zp') { if (!Net.host && game && state !== 'menu') { const m = e[1] ? axeModel() : new THREE.Mesh(acidGeo, acidMat); m.position.set(e[2], e[3], e[4]); if (e[1]) { m.scale.setScalar(1.4); m.rotation.y = Math.atan2(e[5], e[7]); } scene.add(m); const a = { m, v: new THREE.Vector3(e[5], e[6], e[7]), life: 4, axe: !!e[1], rep: true }; acids.push(a); projHit(a, e[1] ? 0.5 : 0.42); } return; }
-  if (t === 'grab') { if (e[1] === Net.id && game && state === 'play' && !player.grab && !player.down) { const z = zombies.find(q => q.id === e[2] && !q.dead); if (z) startGrab(z); else game.pendGrab = { id: e[2], t: 1.5 }; } return; }
+  if (t === 'grab') { if (e[1] === Net.id && game && state === 'play' && !player.grab && !player.down) { const z = zombies.find(q => q.id === e[2] && !q.dead); if (z && performance.now() - (game.dodgeT || 0) < 400) { Net.ev(['ungrab', z.id, 0]); return; } if (z) startGrab(z); else game.pendGrab = { id: e[2], t: 1.5 }; } return; }
   if (t === 'ungrab') { if (Net.host && game) { const z = zombies.find(q => q.id === e[1]); if (z) { z.grabbing = false; z.grabT = null; if (e[2] && !z.dead) { z.stagger = Math.max(z.stagger, 1.4); z.atkCd = Math.max(z.atkCd, 1.2); } } } return; }
   if (t === 'dv') { if (Net.host && game && e[2] === game.wave) devilVote(p.id, e[1]); return; }
   if (t === 'dvCount') { if (!Net.host && game) devilShowCount(e[1]); return; }
@@ -23415,6 +23422,7 @@ function netEvent(p, e) {
   if (t === 'llv') { llvRed(p, e); return; }
   if (Net.host) {
     if (t === 'd') applyRemoteDamage(p.id, e);
+    else if (t === 'zfx') { const z = zombies.find(q => q.id === e[1] && !q.dead); if (z) { if (e[2] === 'burn') { z.burn = Math.max(z.burn, 3); z.burnDps = Math.max(z.burnDps || 0, e[5] || 18); } else if (e[2] === 'freeze') freeze(z, 1.5); else if (e[2] === 'poison') { z.poison = 5; z.poisonDps = Math.max(z.poisonDps || 0, e[5] || 18); } else if (e[2] === 'knock') { z.kbx = e[3] * 9; z.kbz = e[4] * 9; z.stagger = Math.max(z.stagger, 0.8); } } }
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
     else if (t === 'pk') { const i = pickups.findIndex(q => q.id === e[1]); if (i >= 0) { scene.remove(pickups[i].g); pickups.splice(i, 1); } }
     else if (t === 'cop' && e[4]) { const k = ALLY[e[1]] ? e[1] : 'cop'; spawnCop(k, p.id, 1, 0).temp = 1; renderChips(); }
@@ -23430,7 +23438,7 @@ function netEvent(p, e) {
   if (!Net.client || !game) return;
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
 
-  if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); }
+  if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0) && !(e[7] > 0 && Math.hypot(player.pos.x - e[3], player.pos.z - e[4]) > e[7] + HURT_SLACK)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); else if (e[1] === Net.id && e[7] > 0 && game) game.dodgeT = performance.now(); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
@@ -23447,9 +23455,10 @@ function spawnFx(kind, p, real) {
   if (real && Net.host) Net.ev(['fxv', kind, r2(p.x), r2(p.y), r2(p.z)]);
   if (kind === 'w') addWell(p); else if (kind === 'b') addWell(p, true); else if (kind === 't') addTrap(p.x, p.z); else if (kind === 'a') makePuddle(p.x, p.z, 2, 5, true); else if (kind === 's') strikes.push({ x: p.x, z: p.z, t: 0.7 });
 }
+const HURT_SLACK = 1.2;   // metros de margen por el retraso de la red: si el golpe llega y ya estás más lejos, lo esquivaste
 function netHurtArea(c, r, dmg, knock, acid) {
   if (!Net.host) return;
-  for (const pr of Net.peers.values()) { if (!pr.pos || pr.down) continue; const d = Math.hypot(pr.pos.x - c.x, pr.pos.z - c.z); if (d < r) Net.ev(['hurt', pr.id, r2(dmg * (1 - d / r * 0.5)), r2(c.x), r2(c.z), knock, acid]); }
+  for (const pr of Net.peers.values()) { if (!pr.pos || pr.down) continue; const d = Math.hypot(pr.pos.x - c.x, pr.pos.z - c.z); if (d < r) Net.ev(['hurt', pr.id, r2(dmg * (1 - d / r * 0.5)), r2(c.x), r2(c.z), knock, acid, r2(r)]); }
 }
 function anyPeerNear(pos, r) { if (!Net.host) return false; for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(pr.pos.x - pos.x, pr.pos.z - pos.z) < r) return true; return false; }
 function nearestPlayer(p) {
@@ -23481,7 +23490,7 @@ function applyRemoteDamage(from, e) {
   const z = zombies.find(q => q.id === e[1]); if (!z || z.dead) return;
   const dir = new THREE.Vector3(e[5], 0, e[6]); if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1); dir.normalize();
   const [pt, lk] = String(e[3]).split(':'), lo = lk && /^(arm|leg)[LR]$/.test(lk) ? z[lk] : undefined;
-  const killed = damageZombie(z, e[2], { part: pt, obj: lo, dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true });
+  const killed = damageZombie(z, e[2], { part: pt, obj: lo, dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true, exe: e[8] | 0, boom: e[9] | 0 });
   const t = e[4], sc = effSc();
   if (t === 'fria' && !killed) freeze(z, 2);
   else if (t === 'mula' && !killed) { z.kbx = dir.x * 10; z.kbz = dir.z * 10; z.stagger = Math.max(z.stagger, 1.2); }
@@ -23491,18 +23500,19 @@ function applyRemoteDamage(from, e) {
   else if (t === 'trebol' && killed) makePickup(pick(['health', 'deadeye', 'bag', 'powder']), z.root.position.x, z.root.position.z, 3);
   else if ((t === 'dragon' || t === 'burn') && !killed) { z.burn = t === 'dragon' ? 4 : 3; z.burnDps = 25 * sc; }
   else if (t === 'stun' && !killed) z.stagger = Math.max(z.stagger, 1);
+  if (e[10] && !killed) { z.burn = Math.max(z.burn, 3); z.burnDps = Math.max(z.burnDps || 0, 18 * e[10]); }   // perk «Balas incendiarias» del compañero
 }
 // ---- Estado del mundo (anfitrión → grupo) ----
 function snapshot() {
   return {
-    w: game.wave, ph: game.phase, l: game.toSpawn + Math.max(0, game.alive), ct: r2(game.countT), mp: world.idx,
-    z: zombies.map(z => [z.id, ZTYPES.indexOf(z.type), r2(z.root.position.x), r2(z.root.position.z), r2(z.yaw), r2(z.root.position.y), (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | lostBits(z), Math.max(0, Math.round(z.hp / z.maxHp * 100)), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1, z.mini ? z.miniIdx : -1]),
+    w: game.wave, ph: game.phase, l: game.toSpawn + Math.max(0, game.alive), ct: r2(game.countT), mp: world.idx, t: Math.round(performance.now()),
+    z: zombies.map(z => [z.id, ZTYPES.indexOf(z.type), r2(z.root.position.x), r2(z.root.position.z), r2(z.yaw), r2(z.root.position.y), (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | (z.mSh > 0 ? 1024 : 0) | lostBits(z), Math.max(0, Math.round(z.hp / z.maxHp * 100)), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1, z.mini ? z.miniIdx : -1]),
     c: cops.map(c => [c.id, c.npc ? 1 : 0, r2(c.root.position.x), r2(c.root.position.z), r2(c.yaw), c.dead ? 1 : 0, Math.max(0, Math.round(c.hp / c.maxHp * 100)), c.npc ? Math.ceil(c.rt) : 0, c.tgt ? 1 : 0, ALLY_KEYS.indexOf(c.kind || 'cop'), c.owner || Net.id, c.lv || 1]),
     pk: pickups.map(p => [p.id, p.type, r2(p.g.position.x), r2(p.g.position.z), p.amount || 0])
   };
 }
 function applySnapshot(s) {
-  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic' || state === 'doors' || state === 'route' || state === 'cards' || state === 'items' || state === 'inv') return;
+  if (!game || state === 'menu' || state === 'trans' || state === 'shop' || state === 'perks' || state === 'rescue' || state === 'event' || state === 'relic' || state === 'doors' || state === 'route' || state === 'cards' || state === 'items' || (state === 'inv' && !Net.on)) return;
   game.toSpawn = s.l; game.alive = 0; game.countT = s.ct;
   // si se perdió el aviso de «oleada terminada», lo recupera con el siguiente envío del anfitrión
   if (game.phase === 'fight' && game.fightWave === s.w && (s.mp === ROOM_IDX || ['cleared', 'room', 'wait', 'exit'].includes(s.ph))) { netEvent({ id: Net.hostId, name: '' }, ['clear', s.w]); return; }
@@ -23533,11 +23543,11 @@ function applySnapshot(s) {
       if (a[11] >= 0) applyMini(z, a[11], true);
     }
     z.bst = a[9] | 0;
-    { const tn = performance.now(), dts = z.nt ? Math.max(0.05, (tn - z.nt) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; } else { z.vx = z.vz = 0; } z.nt = tn; }
+    { const tn = performance.now(), ht = s.t || tn, dts = z.nht ? Math.max(0.05, (ht - z.nht) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; if (z.vx * z.vx + z.vz * z.vz > 196) z.vx = z.vz = 0; } else { z.vx = z.vz = 0; } z.nt = tn; z.nht = ht; }
     z.nx = a[2]; z.nz = a[3]; z.nyaw = a[4]; z.ny = a[5];
     if (a[6] & 960) syncLost(z, a[6]);
-    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0;
-    if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0 || (z.B && z.B.final)) z.hp = hp; }
+    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0; z.mSh = a[6] & 1024 ? 1 : 0;
+    if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0 || (z.B && z.B.final) || z.boss != null || z.mini || z.elite || performance.now() - (z.cHitT || 0) > 700) z.hp = hp; }
     if ((a[6] & 1) && !z.dead) proxyDie(z, null);
   }
   // solo se da por muerto si falta en 3 envíos seguidos (un envío perdido no lo hace desaparecer)
@@ -23554,6 +23564,7 @@ function applySnapshot(s) {
   const ps = new Set();
   for (const a of s.pk) {
     ps.add(a[0]);
+    const gt = Net.gone.get(a[0]); if (gt) { if (performance.now() - gt > 1500) { Net.ev(['pk', a[0]]); Net.gone.set(a[0], performance.now()); } continue; }   // ya lo recogiste: el anfitrión aún no se enteró (si se perdió el aviso, se repite)
     if (!pickups.some(q => q.id === a[0])) { makePickup(a[1], a[2], a[3], a[4]); const q = pickups[pickups.length - 1]; q.id = a[0]; q.net = true; }
   }
   for (let i = pickups.length - 1; i >= 0; i--) if (pickups[i].net && !ps.has(pickups[i].id)) { scene.remove(pickups[i].g); pickups.splice(i, 1); }
@@ -23563,7 +23574,7 @@ function clientDamage(z, amount, info) {
   if (mapFx > 0) { z.flash = 0.1; return false; }
   const pan = panOf(z.root.position), head = info.part === 'head';
   const lk = info.part === 'limb' && info.obj ? limbKey(z, info.obj) : null;
-  Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '']);
+  Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '', info.bullet && !info.ally ? lv('execute') : 0, info.bullet && !info.ally ? lv('boom') : 0, info.bullet && !info.ally ? lv('fire') : 0]);
   let a = amount;
   if (info.part === 'helmet' && z.helmet) { a *= 0.12; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   else if (info.part === 'vest') a *= 0.5;
@@ -23573,6 +23584,7 @@ function clientDamage(z, amount, info) {
   if (info.bullet && info.point) { bloodBurst(info.point, info.dir || _up, head ? 16 : 9, head); Sfx.hit(head, pan); }
   // jefes, minijefes y élite: su vida real solo la sabe el anfitrión, así que en este teléfono nunca se dan por muertos antes de tiempo
   const sure = z.boss == null && !z.mini && !z.elite;
+  z.cHitT = performance.now(); z.cLast = a;
   if (sure) z.hp -= a;
   if (info.part !== 'helmet' && info.part !== 'vest') goreHit(z, info, a, true);
   if (z.hp > 0 || !sure) hitReact(z, info, a);
@@ -23583,6 +23595,7 @@ function clientDamage(z, amount, info) {
 function proxyDie(z, info) {
   z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.frozen = 0;
   z.fallDir = info && info.dir ? ((info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw)) > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
+  if (!z.def.quad && z.fall && z.torsoG) startRagdoll(z, info || { part: 'body' });
   if (z.saw && z.saw.parent) { detach(z.saw, new THREE.Vector3(rand(-1.5, 1.5), rand(2, 3.5), rand(-1.5, 1.5)), 8); z.saw = null; }
   const p = z.root.position; addSplat(p.x, p.z, rand(0.5, 0.9) * z.s);
   if (z.def.big) Sfx.thud(panOf(p)); else Sfx.splat(panOf(p), volOf(p, 0.6));
@@ -23594,6 +23607,7 @@ function proxyStep(z, dt) {
   if (z.nx === undefined) { z.nx = pos.x; z.nz = pos.z; z.ny = pos.y; z.nyaw = z.yaw; }
   const lead = z.nt && !z.dead ? Math.min(0.22, (performance.now() - z.nt) / 1000) : 0, tx = z.nx + (z.vx || 0) * lead, tz = z.nz + (z.vz || 0) * lead;
   pos.x += (tx - pos.x) * k; pos.z += (tz - pos.z) * k; pos.y += (z.ny - pos.y) * k;
+  if (!player.down) { const px = pos.x - player.pos.x, pz = pos.z - player.pos.z, pd = Math.hypot(px, pz), rr = z.r + 0.45; if (pd < rr && pd > 0.001) { pos.x = player.pos.x + px / pd * rr; pos.z = player.pos.z + pz / pd * rr; } }
   let dy = z.nyaw - z.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; z.yaw += dy * k; z.root.rotation.y = z.yaw;
   const spd = Math.hypot(pos.x - ox, pos.z - oz) / Math.max(dt, 1e-3), moving = spd > 0.25;
   z.phase += dt * (moving ? spd : 0.3) * 3 / z.s; const sw = Math.sin(z.phase);
@@ -24771,13 +24785,13 @@ function frame() {
   if (hitStop > 0) { hitStop -= Math.min(rawDt, 0.05); dt *= 0.12; }
   autoRes(Math.min(rawDt, 0.25));
   tAll += dt;
-  if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
+  if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
-  Net.tick(dt); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
+  Net.tick(Math.min(rawDt, 0.25)); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
   renderer.render(scene, camera);
