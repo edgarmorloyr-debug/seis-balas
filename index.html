@@ -13755,7 +13755,7 @@ const PERKS = [
 ];
 const lv = id => (game && game.perks[id]) || 0;
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
-const copsAlive = () => cops.filter(c => !c.dead && !c.npc && c.kind !== 'ayudante').length;
+const copsAlive = () => cops.filter(c => !c.dead && !c.npc && !c.radio && c.kind !== 'ayudante').length;
 const HELP = [
   { id: 'powder', name: 'Barril de pólvora', desc: 'Fabrica una caja nueva de 50 balas cuando se acaba la tuya. Sin pólvora, la caja sale de balas malas: la mitad de daño y sin efectos.', price: () => 10, can: () => game.powder < 9, why: 'Ya tienes 9' },
   { id: 'med', name: 'Botiquín', desc: 'Recuperas 60 de vida ahora mismo.', price: () => 15, can: () => player.hp < player.maxHp, why: 'Tienes la vida llena' },
@@ -14279,7 +14279,7 @@ function habDash(H) {
   gs.fovKick = Math.max(gs.fovKick || 0, 9); Sfx.whoosh(0); feed(`${H.name} · quedan ${Math.floor(game.hab / H.carga)}`, 'blue');
 }
 // Sheriff · Ayudante del sheriff (hasta 6 a la vez)
-const misAyudantes = () => cops.filter(c => c.kind === 'ayudante' && !c.dead && (!c.owner || c.owner === Net.id || Net.client)).length;
+const misAyudantes = () => cops.filter(c => c.kind === 'ayudante' && !c.dead && !c.radio && (!c.owner || c.owner === Net.id || Net.client)).length;
 function habAyudante(H) {
   if (Net.client) Net.ev(['cop', 'ayudante', 1, 0, 1]); else spawnCop('ayudante', null, 1, 0);
   banner(H.name, `Ayudantes: ${misAyudantes() + (Net.client ? 1 : 0)} de ${H.max}`, 1500, 'star'); Sfx.bell();
@@ -16508,11 +16508,11 @@ function waveSupplies(n) {
   if (S('waveAmmo') && n > 1) { for (let k = 0; k < S('waveAmmo'); k++) game.box.push('normal'); feed(`Saco de balas: +${S('waveAmmo')}`, 'gold'); }
   colSacar();
   if (world.idx === 23 && !Net.client) policiasDeGuardia();
-  else for (let i = cops.length - 1; i >= 0; i--) if (cops[i].indep) removeCop(i);   // fuera de la comisaría no hay guardia
+  else for (let i = cops.length - 1; i >= 0; i--) if (cops[i].indep && !cops[i].radio) removeCop(i);   // fuera de la comisaría no hay guardia
 }
 // En la Estación de Policía, cada oleada hay 2 policías de guardia: pelean por su cuenta (no te siguen) y van a la mitad de velocidad
 function policiasDeGuardia() {
-  const vivos = cops.filter(c => c.indep && !c.dead).length;
+  const vivos = cops.filter(c => c.indep && !c.radio && !c.dead).length;
   for (let i = vivos; i < 2; i++) {
     const c = spawnCop('cop', null, 1, 0); c.indep = true; c.temp = 1; c.speed *= 0.5; c.ronda = null;
     const a = rand(0, TAU), b = world.start || { x: 0, z: 0 }; c.root.position.set(b.x + Math.cos(a) * 4, 0, b.z + Math.sin(a) * 4); resolve(c.root.position, 0.35);
@@ -17779,6 +17779,12 @@ function updateCops(dt) {
     }
     if (D.melee && c.tgt) { const tx = c.tgt.root.position.x - pos.x, tz = c.tgt.root.position.z - pos.z, td_ = Math.hypot(tx, tz) || 1; if (td_ > 1.1) { if (lineClear(pos.x, pos.z, c.tgt.root.position.x, c.tgt.root.position.z, 0.3)) { mx = tx / td_; mz = tz / td_; } else if (flowDir(pos.x, pos.z, 0.35)) { mx = FD.x; mz = FD.z; } spd = c.speed; } threat = null; }
     else if (threat) { mx = pos.x - threat.root.position.x; mz = pos.z - threat.root.position.z; const l = Math.hypot(mx, mz) || 1; mx /= l; mz /= l; spd = c.speed * 0.8; }
+    else if (c.radio) { if (!(c.tgt && Math.hypot(c.tgt.root.position.x - pos.x, c.tgt.root.position.z - pos.z) < 9)) {   // escuadra de la radio: va a buscar zombis por su cuenta (con uno a tiro, se planta y dispara)
+      if ((c.huntT = (c.huntT || 0) - dt) <= 0) { c.huntT = rand(0.6, 1); let bd = 1e9; c.hunt = null; for (const z of zombies) { if (z.dead || z.state === 'rise') continue; const d = Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z); if (d < bd) { bd = d; c.hunt = z; } } }
+      const g = c.hunt && !c.hunt.dead ? c.hunt.root.position : c.ronda;
+      if (!g || (!c.hunt && Math.hypot(g.x - pos.x, g.z - pos.z) < 1.5)) { const sp = pick(world.spawns.length ? world.spawns : [{ x: 0, z: 0 }]); c.ronda = { x: sp.x + rand(-4, 4), z: sp.z + rand(-4, 4) }; }
+      else if (flowDirTo(pos, g)) { mx = FD.x; mz = FD.z; spd = c.speed; }
+    } }
     else if (c.indep) {   // policía de guardia: hace su ronda por la comisaría, sin seguirte
       if (!c.ronda || Math.hypot(c.ronda.x - pos.x, c.ronda.z - pos.z) < 1.5 || (c.rondaT -= dt) <= 0) { const sp = pick(world.spawns.length ? world.spawns : [{ x: 0, z: 0 }]), b = world.start || { x: 0, z: 0 }; c.ronda = { x: (sp.x + b.x) / 2 + rand(-3, 3), z: (sp.z + b.z) / 2 + rand(-3, 3) }; c.rondaT = rand(6, 12); }
       if (flowDirTo(pos, c.ronda)) { mx = FD.x; mz = FD.z; spd = c.speed; }
@@ -17829,7 +17835,7 @@ function copShoot(c, z) {
   if (D.burst) { c.burst = D.burst - 1; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; }
 }
 function allyFire(c, z, D, muz) {
-  const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c);
+  const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c) * (c.dmgX || 1);
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
   const d = _mp.distanceTo(_tmp), dir = _tmp.clone().sub(_mp).normalize();
   const type = D.deck && game.box.length ? pick(game.box) : 'normal', B = BULLETS[type] || BULLETS.normal;
@@ -18953,7 +18959,7 @@ function openHerrero(o) {
   $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
   show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button:not([disabled])'); if (f) f.focus(); }, 50);
 }
-// Radio de rescate (a veces): pides un ayudante, de todos los del juego, solo para la próxima oleada
+// Radio de rescate (a veces): por 1 ficha de póker llamas a una escuadra de 3 para la próxima oleada
 function buildRadio(x, z, used) {
   const P = Grp(x, z, Math.PI / 2), q = { p: P }, wood = lam(0x5a3a20), dk = lam(0x2a2a24), olive = lam(0x4a5a32, { emissive: 0x0a0e04 });
   M(bx(1.0, 0.08, 0.7), wood, 0, 0.82, 0, q); for (const [a, b] of [[-0.42, -0.28], [0.42, -0.28], [-0.42, 0.28], [0.42, 0.28]]) M(bx(0.07, 0.8, 0.07), wood, a, 0.4, b, q);
@@ -18966,22 +18972,43 @@ function buildRadio(x, z, used) {
   if (!used) world.anims.push((dt, t) => { led.material.color.setHex(Math.floor(t * 2.5) % 2 ? 0x40ff60 : 0x104010); });
   return { kind: 'radio', x: x + 1.0, z, r: 1.1, used };
 }
+// Escuadras de la radio: 3 por llamada, pelean solas (no te siguen), a la mitad de velocidad y con más daño
+const RADIO_SQ = [
+  { id: 'swat', k: 'swat', ic: 'shield', name: 'Equipo SWAT', desc: '3 SWAT con MP5 y chaleco: ráfagas rápidas y aguantan mucho.' },
+  { id: 'policia', k: 'cop', ic: 'badge', name: 'Policía', desc: '3 oficiales con pistola. Disparan seguido y cubren mucho terreno.' },
+  { id: 'ejercito', k: 'bill', ic: 'medal', name: 'Ejército', desc: '3 soldados con fusil M16 en ráfagas de 3 balas.' },
+  { id: 'contador', k: 'contador', ic: 'bag', name: 'Contadores', desc: '3 contadores: no pelean, pero al terminar la oleada cada uno te paga oro, y cada zombi que matas te da más.' },
+  { id: 'medico', k: 'ursula', ic: 'medic', name: 'Médicos', desc: '3 médicos que curan a quien tengan cerca y disparan con pistola.' },
+  { id: 'ayudante', k: 'ayudante', ic: 'hat', name: 'Ayudantes del sheriff', desc: '3 ayudantes con revólver: daño y puntería moderados.' }
+];
+const RADIO_N = 3, RADIO_VEL = 0.5, RADIO_DANO = 1.6;
+function radioSquad(id, owner = null) {
+  const Q = RADIO_SQ.find(x => x.id === id); if (!Q) return;
+  const b = owner && Net.peers.get(owner) && Net.peers.get(owner).pos || player.pos, a0 = rand(0, TAU);
+  for (let i = 0; i < RADIO_N; i++) {
+    const c = spawnCop(Q.k, owner, 1, 0); c.temp = 1; c.radio = 1; c.indep = true; c.speed *= RADIO_VEL; c.dmgX = RADIO_DANO;
+    const a = a0 + i * TAU / RADIO_N; c.root.position.set(b.x + Math.cos(a) * 3, 0, b.z + Math.sin(a) * 3); resolve(c.root.position, 0.35);
+    c.ronda = { x: b.x + Math.cos(a) * 14, z: b.z + Math.sin(a) * 14 }; c.huntT = rand(1.5, 3);   // al llegar se separan, cada uno hacia un lado
+  }
+}
 function openRadio(o) {
   state = 'items'; if (document.pointerLockElement) document.exitPointerLock(); input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
   const box = $('#items-opts'); box.innerHTML = ''; box.classList.add('radio-opts');
   $('#items-hd').innerHTML = ico('heli'); $('#items-t').textContent = 'Radio de rescate';
-  $('#items-say').textContent = '«Aquí base, te escuchamos. ¿A quién mandamos?» Llega al empezar la próxima oleada y se va al terminarla.';
+  const f = game.poker | 0;
+  $('#items-say').textContent = `«Aquí base, te escuchamos. ¿A quién mandamos?» Llegan 3 al empezar la próxima oleada, pelean por su cuenta y se van al terminarla. Cuesta 1 ficha de póker (tienes ${f}).`;
   const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
-  for (const k of ALLY_KEYS) {
-    if (ALLY[k].hab) continue;
-    const D = ALLY[k], [ic, role] = ALLY_IC[k] || ['star', ''], b = document.createElement('button'); b.className = 'perk item r0';
-    b.innerHTML = `<span class="relic-ic">${ico(ic)}</span><em>${role}</em><b>${D.name}</b><span>${D.desc}</span>`;
-    b.addEventListener('click', () => { if (state !== 'items') return; game.radioAlly = k; game.roomUsed.radio = 1; o.used = true; Sfx.bell(); feed(`${D.short} llegará en la próxima oleada`, 'blue'); close(); });
+  if (!game.radioOfertas || game.radioOfertas.w !== game.wave) game.radioOfertas = { w: game.wave, ids: RADIO_SQ.map(x => x.id).sort(() => Math.random() - 0.5).slice(0, 2) };
+  for (const id of game.radioOfertas.ids) {
+    const Q = RADIO_SQ.find(x => x.id === id), b = document.createElement('button'); b.className = 'perk item r1';
+    b.disabled = f < 1;
+    b.innerHTML = `<span class="relic-ic">${ico(Q.ic)}</span><em>3 refuerzos</em><b>${Q.name}</b><span>${Q.desc}</span><span class="tl-p">${f > 0 ? 'Llamar · 1 ficha' : 'Sin fichas de póker'}</span>`;
+    b.addEventListener('click', () => { if (state !== 'items' || (game.poker | 0) < 1 || o.used) return; game.poker--; game.radioAlly = id; game.roomUsed.radio = 1; o.used = true; Sfx.bell(); feed(`${Q.name}: llegan en la próxima oleada`, 'blue'); close(); });
     box.appendChild(b);
   }
   $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Ahora no';
   $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
-  show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus(); }, 50);
+  show('items-s'); Sfx.open(); setTimeout(() => { const b = box.querySelector('button:not([disabled])'); if (b) b.focus(); }, 50);
 }
 // Eventos raros al empezar una oleada (los decide el anfitrión; la gallina, cada jugador)
 const WAVE_EVENTS = [
@@ -19054,20 +19081,20 @@ function updateChicken(dt) {
 }
 // llegan al empezar la oleada y se van al terminarla
 function radioArrive(n) {
-  const k = game.radioAlly; if (!k || !ALLY[k]) return; game.radioAlly = null; game.radioK = k; game.radioW = n;
-  if (Net.client) Net.ev(['cop', k, 1, 0, 1]); else spawnCop(k, null, 1, 0).temp = 1;
-  setTimeout(() => { if (game && game.radioW === n) { banner('¡Llegaron los refuerzos!', `${ALLY[k].name} pelea contigo esta oleada`, 2600, 'heli'); Sfx.bell(); } }, 2500);
+  const Q = RADIO_SQ.find(x => x.id === game.radioAlly); game.radioAlly = null; if (!Q) return; game.radioK = Q.id; game.radioW = n;
+  if (Net.client) Net.ev(['rsq', Q.id]); else radioSquad(Q.id);
+  setTimeout(() => { if (game && game.radioW === n) { banner('¡Llegaron los refuerzos!', `${Q.name}: 3 pelean por su cuenta esta oleada`, 2600, 'heli'); Sfx.bell(); } }, 2500);
 }
 function radioLeave() {
   if (!game.radioK || game.radioW !== game.wave) return; const k = game.radioK; game.radioK = null; game.radioW = 0;
   if (Net.client) Net.ev(['tdis']); else dropTemp(Net.id);
-  feed(`${ALLY[k].short} vuelve a la base`, 'blue');
+  const Q = RADIO_SQ.find(x => x.id === k); feed(`${Q ? Q.name : 'Los refuerzos'}: vuelven a la base`, 'blue');
 }
 // quita solo los refuerzos de la radio (nunca a un ayudante contratado)
 // hacia un punto: en línea recta si no hay nada en medio
 function flowDirTo(pos, t) { const dx = t.x - pos.x, dz = t.z - pos.z, d = Math.hypot(dx, dz) || 1; if (d < 0.3) return false; FD.x = dx / d; FD.z = dz / d; if (!lineClear(pos.x, pos.z, t.x, t.z, 0.35)) { FD.x = rand(-1, 1) * 0.3 + dx / d; FD.z = rand(-1, 1) * 0.3 + dz / d; const l = Math.hypot(FD.x, FD.z) || 1; FD.x /= l; FD.z /= l; } return true; }
 function dropTemp(owner) {
-  for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (c.temp && !c.npc && !c.indep && c.kind !== 'ayudante' && (c.owner || Net.id) === owner) { if (!c.dead) bfxSpawn('puff', c.root.position.x, c.root.position.z); removeCop(i); } }
+  for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (c.temp && !c.npc && (c.radio || (!c.indep && c.kind !== 'ayudante')) && (c.owner || Net.id) === owner) { if (!c.dead) bfxSpawn('puff', c.root.position.x, c.root.position.z); removeCop(i); } }
 }
 const SLOT_SYM = ['seven', 'bar', 'cherry', 'gem', 'bell'];
 function drawSlotSym(g, k, cx, cy, sz) {
@@ -19260,7 +19287,7 @@ function useLabel(o) {
   if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
-  if (o.kind === 'radio') return { key: 'ra', t: 'Radio de rescate', r: '', d: 'Pide refuerzos: elige un ayudante que pelea a tu lado solo durante la próxima oleada.', b: 'Llamar', ok: true };
+  if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de póker (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
   if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Tres iguales: un objeto al azar. Dos iguales: 12 $. Casi siempre no sale nada: es para divertirse. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de póker', ok }; }
   if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada. Se juega con 1 ficha de póker (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de póker', ok }; }
   if (o.kind === 'reroll') { const rp = Math.ceil(game.rerollP * (ST.rerollX || 1)); return { key: 'rr' + rp + game.gold, t: 'Campanita', r: '', d: 'Cambia los objetos que no compraste.', b: game.gold >= rp ? `Cambiar · ${rp} $` : `Faltan ${rp - game.gold} $`, ok: game.gold >= rp }; }
@@ -19397,7 +19424,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 92';
+const GAME_BUILD = '15-oct-2026 · 93';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20006,6 +20033,7 @@ function netEvent(p, e) {
     else if (t === 'zfx') { const z = zombies.find(q => q.id === e[1] && !q.dead); if (z) { if (e[2] === 'burn') { z.burn = Math.max(z.burn, 3); z.burnDps = Math.max(z.burnDps || 0, e[5] || 18); } else if (e[2] === 'freeze') freeze(z, 1.5); else if (e[2] === 'poison') { z.poison = 5; z.poisonDps = Math.max(z.poisonDps || 0, e[5] || 18); } else if (e[2] === 'knock') { z.kbx = e[3] * 9; z.kbz = e[4] * 9; z.stagger = Math.max(z.stagger, 0.8); } } }
     else if (t === 'fx') spawnFx(e[1], { x: e[2], y: e[3], z: e[4] }, true);
     else if (t === 'pk') { const i = pickups.findIndex(q => q.id === e[1]); if (i >= 0) { scene.remove(pickups[i].g); pickups.splice(i, 1); } }
+    else if (t === 'rsq') { radioSquad(e[1], p.id); renderChips(); }
     else if (t === 'cop' && e[4]) { const k = ALLY[e[1]] ? e[1] : 'cop'; spawnCop(k, p.id, 1, 0).temp = 1; renderChips(); }
     else if (t === 'tdis') dropTemp(p.id);
     else if (t === 'cop') { const k = ALLY[e[1]] ? e[1] : 'cop'; if (canHire(k)) { spawnCop(k, p.id, e[2] || 1, e[3] | 0); feed(`${p.name} contrató ${ALLY[k].al}`, 'blue'); renderChips(); } }
@@ -20109,7 +20137,7 @@ function snapshot() {
   return {
     w: game.wave, ph: game.phase, l: game.toSpawn + Math.max(0, game.alive), ct: r2(game.countT), mp: world.idx, t: Math.round(performance.now()),
     sv: 2, z: zombies.map(zSnap),
-    c: cops.map(c => [c.id, c.npc ? 1 : 0, r2(c.root.position.x), r2(c.root.position.z), r2(c.yaw), c.dead ? 1 : 0, Math.max(0, Math.round(c.hp / c.maxHp * 100)), c.npc ? Math.ceil(c.rt) : 0, c.tgt ? 1 : 0, ALLY_KEYS.indexOf(c.kind || 'cop'), c.owner || Net.id, c.lv || 1]),
+    c: cops.map(c => [c.id, c.npc ? 1 : 0, r2(c.root.position.x), r2(c.root.position.z), r2(c.yaw), c.dead ? 1 : 0, Math.max(0, Math.round(c.hp / c.maxHp * 100)), c.npc ? Math.ceil(c.rt) : 0, c.tgt ? 1 : 0, ALLY_KEYS.indexOf(c.kind || 'cop'), c.owner || Net.id, c.lv || 1, c.radio ? 1 : 0]),
     pk: pickups.map(p => [p.id, p.type, r2(p.g.position.x), r2(p.g.position.z), p.amount || 0])
   };
 }
@@ -20160,7 +20188,7 @@ function applySnapshot(s) {
     cs.add(a[0]);
     let c = cops.find(q => q.id === a[0] && q.net);
     if (!c) c = makeCopProxy(a[0], a[1], a[2], a[3], a[9]);
-    c.nx = a[2]; c.nz = a[3]; c.nyaw = a[4]; c.owner = a[10]; c.lv = a[11]; c.hp = a[6]; c.maxHp = 100; c.rt = a[7]; c.aimF = a[8];
+    c.nx = a[2]; c.nz = a[3]; c.nyaw = a[4]; c.owner = a[10]; c.lv = a[11]; c.radio = !!a[12]; c.hp = a[6]; c.maxHp = 100; c.rt = a[7]; c.aimF = a[8];
     if (a[5] && !c.dead) { c.dead = true; c.deadT = 0; }
   }
   for (let i = cops.length - 1; i >= 0; i--) if (cops[i].net && !cs.has(cops[i].id)) removeCop(i);
@@ -20844,8 +20872,6 @@ function renderCarousel(dir) {
 // En el menú, el personaje elegido aparece en 3D de cuerpo completo, quieto y con su propia pose:
 // en pantallas anchas, en la franja libre a la izquierda de la tarjeta; en las angostas, sobre su retrato
 const M3 = { r: null, scene: null, cam: null, inst: null, ch: null, on: false, lado: false };
-const MENU_POSE = {};   // todos con la misma pose (la de Françoise)
-const MENU_POSE_TODOS = ['look_around', 0.3];
 function menu3dCaja() {
   const card = document.querySelector('#menu .card'), lado = $('#m3d-lado'); if (!card || !lado) return null;
   const r = card.getBoundingClientRect(), libre = r.left - 24;
@@ -20853,7 +20879,32 @@ function menu3dCaja() {
   lado.hidden = true; return null;   // en el teléfono no hay espacio: solo el retrato
 }
 // Pose del menú (pedido del dueño): sencilla, sin arma, piernas rectas y las dos manos en el cinturón
+// Poses elegidas por el dueño (15-oct-2026) para la selección; los demás quedan con las manos en el cinturón.
+// R/L: hacia dónde apunta [brazo, antebrazo] (adelante, al lado, arriba); Rg: hacia dónde mira el arma; arma: si la lleva en la mano
+const MENU_POSE = {
+  johnny: { base: 'wait', R: [[0.55, 0.45, -0.35], [-0.35, -0.35, 0.85]], Rg: [-0.6, 0, 0.8], head: [0.18, 0, 0.15], arma: true },
+  armando: { base: 'look_around', R: [[0.35, 0.25, -1], [0.25, -1, 0.2]], L: [[0.35, -0.25, -1], [0.25, 1, 0.3]], Rg: [0.2, -1, 0.1], head: [0, 0.12, 0], arma: true },
+  lilith: { base: 'look_around', R: [[0.4, 0.35, -0.5], [0.15, -0.4, 1]], head: [0.22, 0.12, 0] }
+};
+function menu3dPoseMano(I, P, ch) {
+  for (const k in I.acts) I.acts[k].stop();
+  const a = I.acts[P.base] || I.acts.idle; a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * 0.3; I.mix.update(0);
+  I.m.updateMatrixWorld(true);
+  const B = I.B, wp = b => b.getWorldPosition(new THREE.Vector3());
+  const U = new THREE.Vector3(0, 1, 0), F = new THREE.Vector3(1, 0, 0).applyQuaternion(I.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(), R = new THREE.Vector3().crossVectors(F, U).normalize();
+  const dir = v => F.clone().multiplyScalar(v[0]).add(R.clone().multiplyScalar(v[1])).add(U.clone().multiplyScalar(v[2])).normalize();
+  const apunta = (bn, cn, v) => { const b = B[bn], c = B[cn]; if (!b || !c) return; I.m.updateMatrixWorld(true); const cur = wp(c).sub(wp(b)).normalize(), q = new THREE.Quaternion().setFromUnitVectors(cur, dir(v)), bw = b.getWorldQuaternion(new THREE.Quaternion()), pw = b.parent.getWorldQuaternion(new THREE.Quaternion()); b.quaternion.copy(pw.invert().multiply(q.multiply(bw))); b.updateMatrixWorld(true); };
+  for (const s of ['R', 'L']) { const A = P[s]; if (!A) continue; apunta(s + '_Upperarm', s + '_Forearm', A[0]); apunta(s + '_Forearm', s + '_Hand', A[1]); }
+  if (P.head && B.Head) { B.Head.rotateZ(P.head[0] || 0); B.Head.rotateX(P.head[1] || 0); B.Head.rotateY(P.head[2] || 0); }
+  I.m.updateMatrixWorld(true);
+  for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
+  if (!P.arma || !B.R_Hand) return;
+  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(0.95); M3.scene.add(g); M3.armas.push(g);
+  const hp = wp(B.R_Hand), d = dir(P.Rg || P.R[1]); g.position.copy(hp).addScaledVector(d, 0.03);
+  g.up.copy(Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); g.lookAt(hp.clone().add(d)); g.translateY(-0.06);
+}
 function menu3dPose(I, id) {
+  if (MENU_POSE[id]) { menu3dPoseMano(I, MENU_POSE[id], id); return; }
   for (const k in I.acts) I.acts[k].stop();
   const fija = (n, f) => { const a = I.acts[n] || I.acts.idle; a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0); };
   const B = I.B, brazos = Object.keys(B).filter(n => /^[LR]_(Clavicle|Upperarm|Forearm|Hand)/.test(n));
