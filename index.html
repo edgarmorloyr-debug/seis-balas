@@ -651,6 +651,11 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .mic-lvl{display:block;height:14px;border-radius:7px;background:#1a0d22;border:1px solid rgba(155,77,255,.5);overflow:hidden}.mic-lvl s{display:block;height:100%;width:0;background:linear-gradient(90deg,#22e8ff,#ff2bd6);box-shadow:0 0 8px #ff2bd6;transition:width .06s}
 .cfg-st{font-size:14px;margin:12px 0 4px;color:#5ff0ff}
 #cfg-keys{margin:0;max-height:38vh;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.altar-cat{grid-column:1/-1;border:1px solid rgba(155,77,255,.45);border-radius:10px;margin:8px 0;padding:0 10px;background:rgba(10,4,18,.6)}
+.altar-cat>summary{display:flex;justify-content:space-between;align-items:center;min-height:48px;cursor:pointer;font-size:15px;color:#f3e9d6}
+.altar-cat>summary span{color:#ffe55c;font-size:14px}
+.altar-cat[open]{padding-bottom:10px}
+.altar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
 .tk-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:#f3e9d6}
 .tk-b{min-width:96px;min-height:40px;padding:0 10px;font-size:14px;letter-spacing:.02em}
 .tk-b.esp{border-color:#ff2bd6!important;color:#ff6be4!important}
@@ -20109,7 +20114,7 @@ function doFuse(a, b) {
 // Objetos al azar según la rareza
 function randItem(maxRar = 2, exclude = []) {
   const W = S('rareShop') ? [40, 40, 20] : [IRAR[0].w, IRAR[1].w, IRAR[2].w];
-  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !itemBloq(id) && !(ITEMS[id].once && game.items && game.items[id]));
+  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !itemBloq(id) && isOpen('i:' + id) && !(ITEMS[id].once && game.items && game.items[id]));
   if (!pool.length) return null;
   let t = 0; pool.forEach(id => t += W[ITEMS[id].rar]); let r = Math.random() * t;
   for (const id of pool) if ((r -= W[ITEMS[id].rar]) < 0) return id;
@@ -20617,7 +20622,7 @@ const COMIDAS = [
 ];
 function ramenOferta() {
   const tot = RAMEN.peso.reduce((a, b) => a + b, 0), ids = [];
-  for (let k = 0; k < 40 && ids.length < 2; k++) { let r = Math.random() * tot, rar = 0; while (r >= RAMEN.peso[rar]) { r -= RAMEN.peso[rar]; rar++; } const C = pick(COMIDAS.filter(c => c.rar === rar)); if (C && !ids.includes(C.id)) ids.push(C.id); }
+  for (let k = 0; k < 40 && ids.length < 2; k++) { let r = Math.random() * tot, rar = 0; while (r >= RAMEN.peso[rar]) { r -= RAMEN.peso[rar]; rar++; } const C = pick(COMIDAS.filter(c => c.rar === rar && isOpen('c:' + c.id))); if (C && !ids.includes(C.id)) ids.push(C.id); }
   return { ids, comido: [] };
 }
 // cada plato en 3D (unos 25 cm), para el mostrador del puesto
@@ -20772,7 +20777,7 @@ function openRadio(o) {
   const f = game.poker | 0;
   $('#items-say').textContent = `«Aquí base, te escuchamos. ¿A quién mandamos?» Llegan 3 al empezar la próxima oleada, pelean por su cuenta y se van al terminarla. Cuesta 1 ficha de póker (tienes ${f}).`;
   const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
-  if (!game.radioOfertas || game.radioOfertas.w !== game.wave) game.radioOfertas = { w: game.wave, ids: RADIO_SQ.map(x => x.id).sort(() => Math.random() - 0.5).slice(0, 2) };
+  if (!game.radioOfertas || game.radioOfertas.w !== game.wave) game.radioOfertas = { w: game.wave, ids: RADIO_SQ.map(x => x.id).filter(id => isOpen('r:' + id)).sort(() => Math.random() - 0.5).slice(0, 2) };
   for (const id of game.radioOfertas.ids) {
     const Q = RADIO_SQ.find(x => x.id === id), b = document.createElement('button'); b.className = 'perk item r1';
     b.disabled = f < 1;
@@ -21228,7 +21233,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 130';
+const GAME_BUILD = '15-oct-2026 · 131';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22648,14 +22653,14 @@ function checkAch(dt) {
   let any = false;
   for (const A of ACH) {
     if (A.run && game) { const v = A.run(); if (v > (META.ab[A.id] | 0)) { META.ab[A.id] = v; any = true; } }
-    if (!META.ach[A.id] && achVal(A) >= A.n) { META.ach[A.id] = Date.now(); any = true; achQ.push(A); }
+    if (!META.ach[A.id] && achVal(A) >= A.n) { META.ach[A.id] = Date.now(); META.fichas = (META.fichas | 0) + 1; any = true; achQ.push(A); }   // cada logro nuevo da 1 ficha de calavera
   }
   if (any) saveMeta();
   achShow();
 }
 function achShow() {
   if (achBusy || !achQ.length) return; const A = achQ.shift(), el_ = $('#ach-toast'); if (!el_) return;
-  achBusy = true; const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; el_.innerHTML = `<i>${ico(A.ic)}</i><div><small>¡Logro conseguido!</small><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-prem">Nuevo objeto desbloqueado: <b>${it.name}</b></span>` : ''}</div>`; el_.hidden = false;
+  achBusy = true; const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; el_.innerHTML = `<i>${ico(A.ic)}</i><div><small>¡Logro conseguido! · +1 ficha de calavera</small><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-prem">Nuevo objeto desbloqueado: <b>${it.name}</b></span>` : ''}</div>`; el_.hidden = false;
   el_.classList.remove('on'); void el_.offsetWidth; el_.classList.add('on'); Sfx.coin(); setTimeout(() => Sfx.bell(), 120);
   setTimeout(() => { el_.classList.remove('on'); setTimeout(() => { el_.hidden = true; achBusy = false; achShow(); }, 400); }, 4600);
 }
@@ -22673,6 +22678,22 @@ const UNLOCKS = [
   { k: 't:radio', name: 'Radio con buena señal', what: 'La radio de rescate sale el doble de seguido', cost: 3 },
   { k: 't:herrero', name: 'El Herrero', what: 'A veces aparece en la Trastienda: te ofrece 3 trabajos para tus armas (daño, cadencia, puntería o daño contra jefes) y eliges uno', cost: 5 }
 ];
+// Tienda calavera (pedido del dueño, 15-oct-2026): el 40 % del contenido de la tienda se desbloquea con fichas de calavera, con precio según la rareza.
+// Se eligen siempre los mismos (los más raros primero), así todos los jugadores ven la misma lista.
+{
+  const hash = s => { let h = 7; for (const c of String(s.id || s)) h = (h * 31 + c.charCodeAt(0)) % 100003; return h; };
+  const elige = (ids, rar, frac) => ids.slice().sort((a, b) => rar(b) - rar(a) || hash(a) - hash(b)).slice(0, Math.round(ids.length * frac));
+  const ya = new Set(UNLOCKS.map(u => u.k));
+  const add = (k, name, what, cost, cat) => { if (!ya.has(k)) { UNLOCKS.push({ k, name, what, cost, cat }); ya.add(k); } };
+  { const libres = ITEM_IDS.filter(id => !ITEM_ACH[id]); for (const id of elige(libres, id => ITEMS[id].rar, Math.min(1, ITEM_IDS.length * 0.4 / libres.length))) add('i:' + id, ITEMS[id].name, ITEMS[id].desc || 'Objeto', [2, 3, 5][ITEMS[id].rar] || 3, 'obj'); }
+  const BS = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0 && !BULLETS[k].fused && !BULLETS[k].secreta);
+  for (const id of elige(BS, k => BULLETS[k].rar, 0.4)) add('b:' + id, BULLETS[id].name, BULLETS[id].desc || 'Bala especial', [0, 2, 3, 5, 8][BULLETS[id].rar] || 3, 'bala');
+  for (const u of UNLOCKS) if (u.k.startsWith('b:')) u.cat = 'bala';
+  for (const C of elige(COMIDAS, c => c.rar, 0.4)) add('c:' + C.id, C.name, C.desc || 'Plato del puesto de ramen', 2 + (C.rar | 0), 'comida');
+  for (const id of ['swat', 'ejercito', 'medico']) { const Q = RADIO_SQ.find(x => x.id === id); if (Q) add('r:' + id, Q.name, Q.desc, 4, 'radio'); }
+  for (const k of elige(ALLY_POOL.filter(k => !ALLY[k].maid), k => ALLY[k].price, 0.4)) add('a:' + k, ALLY[k].name, ALLY[k].desc, ALLY[k].price >= 65 ? 5 : ALLY[k].price >= 50 ? 4 : 3, 'ayud');
+  for (const u of UNLOCKS) if (!u.cat) u.cat = u.k.startsWith('a:') ? 'ayud' : 'mejora';
+}
 const unl = k => !!META.un[k];
 const isOpen = k => { const u = UNLOCKS.find(x => x.k === k); return !u || !!META.un[k]; };
 const SKULLS = ['Los jefes tienen +25 % de vida', 'Los zombis élite tienen un 25 % más de vida', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
@@ -22872,19 +22893,29 @@ function renderAltar() {
   $('#altar-f').innerHTML = `${ico('skull')} ${META.fichas} fichas de calavera`;
   if (!renderAltar.said) { renderAltar.said = 1; $('#altar-npc').textContent = npcLine('catrina', META.fichas ? null : 'none'); }
   const L = $('#altar-list'); L.innerHTML = '';
-  { const nu = UNLOCKS.filter(u => META.un[u.k]).length, h = document.createElement('div'); h.className = 'altar-sec'; h.innerHTML = `<b>Mejoras con fichas de calavera</b><span>${nu} de ${UNLOCKS.length} compradas · las fichas se ganan al terminar cada partida</span>`; L.appendChild(h); }
-  for (const u of UNLOCKS) {
-    const own = !!META.un[u.k], d = document.createElement('div'); d.className = 'item';
-    d.innerHTML = `<div class="item-top"><b>${u.name}</b><span class="own">${u.what}</span></div><div class="row"></div>`;
-    const b = document.createElement('button'); b.className = own ? 'btn2' : 'buy'; b.disabled = own || META.fichas < u.cost;
-    b.textContent = own ? 'Desbloqueado' : META.fichas >= u.cost ? `Desbloquear · ${u.cost} fichas` : `Te faltan ${u.cost - META.fichas} fichas`;
-    b.addEventListener('click', () => { if (own || META.fichas < u.cost) return; META.fichas -= u.cost; META.un[u.k] = 1; saveMeta(); Sfx.win(); renderAltar(); });
-    d.querySelector('.row').appendChild(b); L.appendChild(d);
+  { const nu = UNLOCKS.filter(u => META.un[u.k]).length, h = document.createElement('div'); h.className = 'altar-sec'; h.innerHTML = `<b>Mejoras con fichas de calavera</b><span>${nu} de ${UNLOCKS.length} compradas · las fichas se ganan al terminar cada partida, con cada logro nuevo (+1) y en la primera partida del día (+3)</span>`; L.appendChild(h); }
+  const CATS = [['mejora', 'Mejoras de la Trastienda'], ['obj', 'Objetos de la tienda'], ['bala', 'Balas especiales'], ['comida', 'Platos del puesto de ramen'], ['radio', 'Escuadras de la radio'], ['ayud', 'Ayudantes para contratar']];
+  renderAltar.abiertas = renderAltar.abiertas || new Set(['mejora']);
+  for (const [cat, tit] of CATS) {
+    const us = UNLOCKS.filter(u => u.cat === cat); if (!us.length) continue;
+    const det = document.createElement('details'); det.className = 'altar-cat'; det.open = renderAltar.abiertas.has(cat);
+    det.addEventListener('toggle', () => { if (det.open) renderAltar.abiertas.add(cat); else renderAltar.abiertas.delete(cat); });
+    det.innerHTML = `<summary><b>${tit}</b><span>${us.filter(u => META.un[u.k]).length} de ${us.length}</span></summary><div class="altar-grid"></div>`; const grid = det.querySelector('.altar-grid');
+    for (const u of us.sort((a, b) => !!META.un[a.k] - !!META.un[b.k] || a.cost - b.cost)) {
+      const own = !!META.un[u.k], d = document.createElement('div'); d.className = 'item';
+      d.innerHTML = `<div class="item-top"><b>${u.name}</b><span class="own">${u.what}</span></div><div class="row"></div>`;
+      const b = document.createElement('button'); b.className = own ? 'btn2' : 'buy'; b.disabled = own || META.fichas < u.cost;
+      b.textContent = own ? 'Desbloqueado' : META.fichas >= u.cost ? `Desbloquear · ${u.cost} fichas` : `Te faltan ${u.cost - META.fichas} fichas`;
+      b.addEventListener('click', () => { if (own || META.fichas < u.cost) return; META.fichas -= u.cost; META.un[u.k] = 1; saveMeta(); Sfx.win(); renderAltar(); });
+      d.querySelector('.row').appendChild(b); grid.appendChild(d);
+    }
+    L.appendChild(det);
   }
 }
 function awardFichas(win) {
   if (!game || game.awarded) return 0; game.awarded = true;
-  const n = Math.round((zoneOf(game.wave) + (game.bossKills || 0) + (win ? 5 : 0)) * (1 + 0.25 * (game.skull | 0)) * DF().fichas);
+  let n = Math.round((zoneOf(game.wave) + (game.bossKills || 0) + (win ? 5 : 0)) * (1 + 0.25 * (game.skull | 0)) * DF().fichas);
+  { const hoy = new Date().toDateString(); if (META.diaFicha !== hoy && (game.wave | 0) >= 3) { META.diaFicha = hoy; n += 3; game.fichaDia = 3; } }   // primera partida del día (desde la oleada 3): +3
   META.fichas += n; if (win && (game.skull | 0) >= (META.skullMax | 0) && META.skullMax < SKULLS.length) { META.skullMax++; game.newSkull = META.skullMax; }
   saveMeta(); game.fichasWon = n; return n;
 }
