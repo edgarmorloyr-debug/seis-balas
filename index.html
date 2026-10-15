@@ -239,6 +239,7 @@ body{font-family:var(--hud);font-size:16px}
 #b-hab.ready{border-color:#c88aff;box-shadow:0 0 14px rgba(200,140,255,.8)}
 #b-hab.on{border-color:#fff;background:rgba(170,110,255,.7)}
 #b-swap{right:calc(196px + env(safe-area-inset-right,0px));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
+#inv-s .card{position:relative}#inv-ping{position:absolute;top:12px;right:14px;font-size:14px;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:8px;background:rgba(0,0,0,.35);border:1px solid currentColor}#inv-ping.ok{color:#7ad87a}#inv-ping.medio{color:#e8c040}#inv-ping.malo{color:#ff6a5a}
 #istrip{display:flex;align-items:flex-start;gap:6px;margin-top:6px;pointer-events:auto;max-width:min(46vw,440px)}
 .ibtn{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:10px;border:2px solid rgba(214,165,75,.7);background:rgba(20,12,6,.8);color:#ffd060;cursor:pointer}
 #iicons{display:flex;flex-wrap:wrap;gap:4px}
@@ -906,6 +907,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   </div>
   <div class="overlay" id="inv-s" hidden>
     <div class="card wide">
+      <span id="inv-ping" hidden></span>
       <h2 class="title sm">Inventario</h2>
       <p class="tag" id="inv-sum"></p>
       <h3 class="sec">Objetos</h3>
@@ -22900,7 +22902,8 @@ function openItemPick(mode) {
 function openInv() {
   if (!game || state !== 'play') return;
   state = 'inv'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
-  renderInv(); show('inv-s'); setTimeout(() => $('#btn-inv-close').focus(), 30);
+  if (tuto) tuto.inv = true;
+  renderInv(); pingHud(); show('inv-s'); setTimeout(() => $('#btn-inv-close').focus(), 30);
 }
 function closeInv() { if (state !== 'inv') return; show(null); state = 'play'; requestLock(); canvas.focus(); }
 function renderInv() {
@@ -22928,7 +22931,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 65';
+const GAME_BUILD = '15-oct-2026 · 66';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22971,7 +22974,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; p.vmute = m.v === 2; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; }
+    if (m.p) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -23357,6 +23360,25 @@ function netStartAsClient() {
   player.pos.x += 1.6 * (1 + (Net.id.charCodeAt(0) % 3)); resolve(player.pos, 0.4);
 }
 // ---- Eventos ----
+// Aviso suave cuando un compañero cae (y cuando vuelve): una línea en el registro y un sonido bajo. Le llega a todos.
+// Ping: el invitado manda la hora cada 2 s, el anfitrión la devuelve y se mide la ida y vuelta
+let pingT = 0;
+function pingTick(dt) {
+  if (!Net.on || !Net.client || !game) return;
+  if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); }
+}
+function pingHud() {
+  const e = $('#inv-ping'); if (!e) return;
+  e.hidden = !Net.on;
+  if (!Net.on) return;
+  if (Net.host) { e.textContent = 'Anfitrión'; e.className = 'ok'; return; }
+  const v = Net.ping; e.textContent = v == null ? 'Ping …' : `Ping ${v} ms`; e.className = v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo';
+}
+function avisoCaido(p) {
+  if (!game || state === 'menu' || !p) return;
+  if (p.down && !p._cayo) { p._cayo = true; feed(`${p.name || 'Un compañero'} cayó · quédate ${REV_T} s a su lado para levantarlo`, 'red'); Sfx.holster(); }
+  else if (!p.down && p._cayo) { p._cayo = false; feed(`${p.name || 'Un compañero'} volvió a la pelea`, 'gold'); }
+}
 function netEvent(p, e) {
   const t = e[0];
   if (t === 'horde') { startHorde(true); return; }
@@ -23387,6 +23409,8 @@ function netEvent(p, e) {
   else if (t === 'up') { p.down = false; p.rv = false; }
   if (t === 'rev' || t === 'revp' || t === 'up') return;
   // habilidades y llaves: los dos lados las escuchan (el anfitrión también recibe las de los invitados)
+  if (t === 'pi') { if (Net.host) Net.ev(['po', p.id, e[1]]); return; }
+  if (t === 'po') { if (e[1] === Net.id) { Net.ping = Math.max(1, Math.round(performance.now() - e[2])); if (state === 'inv') pingHud(); } return; }
   if (t === 'ab') { if (game) habRed(p, e); return; }
   if (t === 'llv') { llvRed(p, e); return; }
   if (Net.host) {
@@ -23400,7 +23424,7 @@ function netEvent(p, e) {
     else if (t === 'agun') setAllyGun(p.id, e[1], e[2]);
     else if (t === 'adis') { if (dismissAlly(p.id, e[1])) feed(`${p.name} despidió ${ALLY[e[1]] ? ALLY[e[1]].al : 'a un ayudante'}`, 'blue'); }
     else if (t === 'ready') p.ready = e[1];
-    else if (t === 'down') { p.down = true; feed(`${p.name} cayó: acércate y quédate a su lado ${REV_T} s para levantarlo`, 'red'); }
+    else if (t === 'down') { p.down = true; avisoCaido(p); }
     return;
   }
   if (!Net.client || !game) return;
@@ -24464,7 +24488,11 @@ const TU_STEPS = [
     title: () => `${CHARS[game.char].ab || 'Tu habilidad'} · ${CHARS[game.char].name}`,
     txt: () => TU_ABIL[game.char] || CHARS[game.char].desc,
     keys: () => `Tus tres trucos: la mira (precisión), ${IS_TOUCH ? 'ABANICAR' : 'la F'} (rapidez) y ${IS_TOUCH ? 'OJO MUERTO' : 'la Q'} (tiempo lento). La habilidad de tu vaquero va sola.` },
-  { n: 7, t: 'La Trastienda', info: 6,
+  { n: 7, t: 'Tu inventario', imp: true, hl: ['#box-n', '#iicons'],
+    txt: () => (IS_TOUCH ? `Toca ${tuB('BALAS EN LA CAJA')} (o los íconos de tus objetos)` : `Pulsa ${tuB('Tab')} (o la ${tuB('I')})`) + ': se abre tu inventario. Ahí ves tus objetos y qué hace cada uno, las balas especiales de tu caja y puedes fusionarlas. Ábrelo y vuelve al juego.',
+    keys: () => IS_TOUCH ? 'Inventario: toca BALAS EN LA CAJA' : 'Inventario: Tab o I',
+    step() { const ok = tuto.inv && state === 'play'; return { p: ok ? 'Inventario visto' : tuto.inv ? 'Vuelve al juego' : (IS_TOUCH ? 'Toca BALAS EN LA CAJA' : 'Pulsa Tab'), done: ok }; } },
+  { n: 8, t: 'La Trastienda', info: 6,
     txt: () => 'Al terminar cada oleada pasas a la Trastienda: gasta tu oro en Apocalipsis Delivery (balas, armas y ayudantes) y vuelve a la pelea.',
     keys: () => '' }
 ];
@@ -24749,7 +24777,7 @@ function frame() {
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
-  Net.tick(dt); updateRemotes(dt); levelGuns(); Music.update();
+  Net.tick(dt); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
   renderer.render(scene, camera);
