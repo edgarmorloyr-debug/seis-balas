@@ -998,8 +998,6 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="lib/GLTFLoader.js"></script>
-<script src="lib/SkeletonUtils.js"></script>
 <script>
 (() => {
 'use strict';
@@ -9291,12 +9289,12 @@ function cemGrande(K) {
   // la cabaña de la bruja, con su caldero (la puerta mira al camino)
   {
     const g = Grp(-68, 12, Math.PI / 2), hw = 2.6, hd = 2.1, hh = 2.5, logM = lam(0x3a2a1c), rf = lam(0x24201a);
-    for (const [x1, z1, x2, z2] of [[-hw, -hd, hw, -hd], [-hw, hd, -0.7, hd], [0.7, hd, hw, hd], [-hw, -hd, -hw, hd], [hw, -hd, hw, hd]]) {
+    for (const [x1, z1, x2, z2] of [[-hw, -hd, hw, -hd], [-hw, hd, -1.0, hd], [1.0, hd, hw, hd], [-hw, -hd, -hw, hd], [hw, -hd, hw, hd]]) {
       const along = Math.abs(x2 - x1) > Math.abs(z2 - z1), len = Math.hypot(x2 - x1, z2 - z1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
       M(along ? bx(len, hh, 0.25) : bx(0.25, hh, len), logM, cx, hh / 2, cz, { p: g, solid: true });
       const P = lw(g, cx, cz); addBox(P.x, P.z, along ? len / 2 : 0.13, along ? 0.13 : len / 2, g.rotation.y);
     }
-    M(bx(1.4, 0.5, 0.25), logM, 0, 2.25, hd, { p: g });
+    M(bx(2.0, 0.5, 0.25), logM, 0, 2.25, hd, { p: g });
     M(roofGeo(2 * hw + 1, 1.8, 2 * hd + 0.8), rf, 0, hh, -hd - 0.4, { p: g, solid: true });
     M(bx(0.6, 1.6, 0.6), lam(0x3a3632), hw - 0.6, hh + 1.0, -1, { p: g });
     const cP = lw(g, -0.9, -0.7);
@@ -16573,7 +16571,7 @@ function buildNav() {
     const x = nav.ox + (i + 0.5) * nav.cs, z = nav.oz + (j + 0.5) * nav.cs;
     nav.blk[j * nav.nx + i] = (!insideArena(x, z, 0.35) || pointBlocked(x, z, 0.42)) ? 1 : 0;
   }
-  nav.tx = 1e9; nav.maxD = world.big ? 95 : 1e9;
+  nav.tx = 1e9; nav.maxD = 1e9;   // la ruta cubre todo el mapa: ningún zombi se queda atorado aunque el jugador esté en la otra punta
 }
 function hPush(n, k) { let i = nav.hs++; const N = nav.hN, K = nav.hK; while (i > 0) { const p = (i - 1) >> 1; if (K[p] <= k) break; N[i] = N[p]; K[i] = K[p]; i = p; } N[i] = n; K[i] = k; }
 let hPopK = 0;
@@ -16588,8 +16586,12 @@ function cellOf(x, z) { const i = clamp(Math.floor((x - nav.ox) / nav.cs), 0, na
 function computeFlow(tx, tz) {
   const { nx, nz, blk, dist } = nav; dist.fill(1e9); nav.hs = 0;
   let s = cellOf(tx, tz);
-  if (blk[s]) { let best = -1, bd = 1e9; const si = s % nx, sj = (s / nx) | 0; for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) { const i = si + di, j = sj + dj; if (i < 0 || j < 0 || i >= nx || j >= nz) continue; const m = j * nx + i; if (!blk[m] && di * di + dj * dj < bd) { bd = di * di + dj * dj; best = m; } } if (best < 0) return; s = best; }
-  dist[s] = 0; hPush(s, 0);
+  if (blk[s]) {
+    // el jugador está en un umbral o pegado a un muro: la ruta sale de todos los huecos libres cercanos (a los dos lados de una puerta)
+    const si = s % nx, sj = (s / nx) | 0; let any = false;
+    for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) { const i = si + di, j = sj + dj; if (i < 0 || j < 0 || i >= nx || j >= nz) continue; const m = j * nx + i; if (blk[m]) continue; const k = Math.hypot(di, dj); if (k < dist[m]) { dist[m] = k; hPush(m, k); any = true; } }
+    if (!any) return;
+  } else { dist[s] = 0; hPush(s, 0); }
   while (nav.hs > 0) {
     const n = hPop(), k = hPopK; if (k > dist[n]) continue; if (k > nav.maxD) break;
     const i = n % nx, j = (n / nx) | 0;
@@ -17364,80 +17366,7 @@ function buildZombie(type) {
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
-  if (type === 'walker' && Z3D.m) z3dPoner(z);
   return z;
-}
-/* ===== Zombi común en 3D (modelo hecho con Tripo, estilo House of the Dead) =====
-   Se carga aparte; mientras no llegue (o si falla), el zombi común sigue siendo el de bloques.
-   El cuerpo de bloques queda invisible pero sigue recibiendo los tiros (cabeza, cuerpo, piernas). */
-const Z3D = { m: null, clips: null, h: 1, minY: 0, list: [] };
-if (THREE.GLTFLoader && THREE.SkeletonUtils) new THREE.GLTFLoader().load('modelos/zombi_comun.glb', g => {
-  const m = g.scene, b = new THREE.Box3().setFromObject(m);
-  Z3D.h = b.max.y - b.min.y; Z3D.minY = b.min.y;
-  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
-  Z3D.m = m; Z3D.clips = g.animations;
-}, undefined, () => {});
-function z3dPoner(z) {
-  z.root.traverse(o => { if (o.isMesh) o.visible = false; });
-  const m = THREE.SkeletonUtils.clone(Z3D.m), k = 1.78 / Z3D.h;   // va dentro del cuerpo de bloques: hereda su escala, su balanceo y su caída
-  m.scale.setScalar(k); m.position.y = -Z3D.minY * k; m.rotation.y = -Math.PI / 2;   // el modelo mira hacia +x; el zombi, hacia +z
-  z.body.add(m);
-  const B = {}; m.traverse(o => { if (o.isBone) B[o.name] = o; });
-  const rest = new Map(); for (const n in B) rest.set(B[n], B[n].quaternion.clone());
-  // de qué lado queda cada brazo y pierna (se compara con el de bloques, que tiene el izquierdo en -x)
-  z.body.updateMatrixWorld(true);
-  const lado = n => { const v = new THREE.Vector3(); B[n].getWorldPosition(v); z.body.worldToLocal(v); return v.x; };
-  const LA = lado('L_Upperarm') < 0, LL = lado('L_Thigh') < 0;
-  z.z3d = { m, B, rest, arm: LA ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' }, leg: LL ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' } };
-  Z3D.list.push(z);
-}
-// Cada cuadro, cada hueso del modelo apunta hacia donde apunta la pieza del zombi de bloques (que sigue moviéndose invisible):
-// así camina, golpea, agarra, se tambalea y cae exactamente igual que antes.
-const _zq = new THREE.Quaternion(), _zq2 = new THREE.Quaternion(), _zv = new THREE.Vector3(), _zd = new THREE.Vector3(), _zy = new THREE.Vector3(0, 1, 0);
-function z3dApunta(A, n, part, sign) {
-  const b = A.B[n]; if (!b || !part) return;
-  b.quaternion.copy(A.rest.get(b)); b.updateMatrixWorld(true);
-  part.getWorldQuaternion(_zq); _zd.set(0, sign, 0).applyQuaternion(_zq);                   // hacia dónde apunta la pieza vieja
-  b.getWorldQuaternion(_zq2); _zv.copy(_zy).applyQuaternion(_zq2);                         // hacia dónde apunta el hueso ahora
-  _zq.setFromUnitVectors(_zv, _zd).multiply(_zq2);                                          // giro en el mundo
-  b.parent.getWorldQuaternion(_zq2); b.quaternion.copy(_zq2.invert().multiply(_zq));        // pasado al hueso
-  b.updateMatrixWorld(true);
-}
-function z3dEsconde(A, n, si) { const b = A.B[n]; if (b) b.scale.setScalar(si ? 0.001 : 1); }
-// Al morir deja de copiar al de bloques (que cae como una tabla) y hace la caída de verdad que Tripo hizo para este cuerpo
-function z3dMuere(z, A) {
-  A.muerto = true;
-  const clip = Z3D.clips && Z3D.clips.find(c => c.name === 'fall'); if (!clip) return;
-  z.fall.quaternion.identity(); z.fall.position.y = 0; z.root.updateMatrixWorld(true);
-  z.root.attach(A.m);                                                    // ya no sigue la tabla que se inclina
-  for (const [b, q] of A.rest) { b.quaternion.copy(q); b.scale.setScalar(1); }
-  A.mix = new THREE.AnimationMixer(A.m); const ac = A.mix.clipAction(clip);
-  ac.setLoop(THREE.LoopOnce); ac.clampWhenFinished = true; ac.timeScale = 1.35; ac.play();
-}
-function z3dStep(dt) {
-  for (let i = Z3D.list.length - 1; i >= 0; i--) {
-    const z = Z3D.list[i], A = z.z3d;
-    if (!z.root.parent) { Z3D.list.splice(i, 1); continue; }
-    if (z.dead && !A.muerto) z3dMuere(z, A);
-    if (A.muerto) {
-      if (A.mix) { z.fall.quaternion.identity(); z.fall.position.y = 0; A.mix.update(dt); }
-      else { z.root.updateMatrixWorld(true); z3dApunta(A, 'Spine01', z.torsoG, 1); }
-      z3dEsconde(A, 'Head', z.head && z.head.parent !== z.neck);
-      continue;
-    }
-    z.root.updateMatrixWorld(true);
-    const aL = A.arm.L, aR = A.arm.R, lL = A.leg.L, lR = A.leg.R;
-    z3dApunta(A, 'Spine01', z.torsoG, 1);
-    z3dApunta(A, 'NeckTwist01', z.neck, 1);
-    z3dApunta(A, aL + 'Upperarm', z.armLG, -1); z3dApunta(A, aL + 'Forearm', z.armLG, -1);
-    z3dApunta(A, aR + 'Upperarm', z.armRG, -1); z3dApunta(A, aR + 'Forearm', z.armRG, -1);
-    z3dApunta(A, lL + 'Thigh', z.legL, -1); z3dApunta(A, lL + 'Calf', z.legL, -1);
-    z3dApunta(A, lR + 'Thigh', z.legR, -1); z3dApunta(A, lR + 'Calf', z.legR, -1);
-    // si al de bloques le volaron una parte, al modelo también le desaparece
-    z3dEsconde(A, 'Head', z.head && z.head.parent !== z.neck);
-    z3dEsconde(A, aL + 'Upperarm', z.armL && z.armL.parent !== z.armLG); z3dEsconde(A, aR + 'Upperarm', z.armR && z.armR.parent !== z.armRG);
-    z3dEsconde(A, lL + 'Thigh', z.legL && z.legL.parent !== z.body); z3dEsconde(A, lR + 'Thigh', z.legR && z.legR.parent !== z.body);
-  }
 }
 
 /* ===== Zombis nuevos: caballeros con variantes, conjurador, esqueletos, zombi de oro y enfermera ===== */
@@ -17506,8 +17435,10 @@ function conjurar(z, dt) {
 }
 function spawnPoint(far) {
   if (world.big && typeof llvJugadores === 'function') {
-    // mapa grande: lejos de todos, pero a no más de ~30 m de alguno, para que la horda llegue
-    const ps = llvJugadores(), near = world.spawns.filter(g => { let mn = 1e9; for (const p of ps) mn = Math.min(mn, Math.hypot(g.x - p.x, g.z - p.z)); return mn > far && mn < far + 30; });
+    // mapa grande: lejos de todos; casi siempre a menos de ~30 m de alguno (para que la horda llegue),
+    // pero 1 de cada 3 sale de más lejos (castillo, catacumbas, bosque, tumbas de afuera) y viene caminando
+    const ps = llvJugadores(), lejos = Math.random() < 0.35 ? 60 : 30;
+    const near = world.spawns.filter(g => { let mn = 1e9; for (const p of ps) mn = Math.min(mn, Math.hypot(g.x - p.x, g.z - p.z)); return mn > far && mn < far + lejos; });
     if (near.length) { const g = pick(near); return { x: g.x + rand(-0.4, 0.4), z: g.z + rand(-0.4, 0.4), rise: g.rise }; }
   }
   const opts = world.spawns.filter(g => Math.hypot(g.x - player.pos.x, g.z - player.pos.z) > far);
@@ -22996,7 +22927,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 62';
+const GAME_BUILD = '15-oct-2026 · 64';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -24813,7 +24744,6 @@ function frame() {
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && state === 'pause' && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
-  if (Z3D.list.length && (state === 'play' || state === 'dying' || state === 'menu')) z3dStep(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
