@@ -19311,7 +19311,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 87';
+const GAME_BUILD = '15-oct-2026 · 88';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20345,7 +20345,21 @@ function avatar3dPaso(av, p, spd, dt) {
   // al hablar por el chat de voz mueve la cabeza (el modelo no tiene boca que se abra)
   if (I.B.Head && typeof Voice !== 'undefined' && Voice.on && Voice.talkingPeer(p.id)) { I.B.Head.rotateX(Math.sin(now / 95) * 0.07); I.B.Head.rotateZ(Math.sin(now / 160) * 0.05); I.B.Head.updateMatrixWorld(true); }
   // el revólver va en la mano del modelo (no en la del muñeco de bloques, que es más largo)
-  av.guns.forEach((g, i) => { const h = I.B[i === 0 ? 'R_Hand' : 'L_Hand']; if (!h || !g.parent) return; h.getWorldPosition(_pv); g.parent.worldToLocal(_pv); g.position.copy(_pv); });
+  av.guns.forEach((g, i) => avAgarre(I, g, i === 0 ? 'R' : 'L', av));
+}
+// el arma se agarra de verdad: la empuñadura dentro de la palma y el cañón siguiendo al antebrazo (el modelo no tiene dedos que se cierren)
+const _ag = { h: new THREE.Vector3(), f: new THREE.Vector3(), d: new THREE.Vector3(), up: new THREE.Vector3(), x: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), pq: new THREE.Quaternion(), s: new THREE.Vector3(), grip: new THREE.Vector3() };
+function avAgarre(I, g, s, av) {
+  const h = I.B[s + '_Hand'], fa = I.B[s + '_Forearm']; if (!h || !fa || !g.parent) return;
+  h.getWorldPosition(_ag.h); fa.getWorldPosition(_ag.f); const d = _ag.d.copy(_ag.h).sub(_ag.f).normalize();
+  const up = _ag.up.set(0, 1, 0); if (Math.abs(d.dot(up)) > 0.85) { up.set(Math.sin(av.root.rotation.y), 0, Math.cos(av.root.rotation.y)); }
+  up.addScaledVector(d, -up.dot(d)).normalize(); const x = _ag.x.crossVectors(up, d);
+  _ag.m.makeBasis(x, up, d); const qW = _ag.q.setFromRotationMatrix(_ag.m);
+  g.parent.getWorldQuaternion(_ag.pq); g.quaternion.copy(_ag.pq.invert().multiply(qW));
+  g.parent.getWorldScale(_ag.s); g.scale.setScalar(1.05 / (_ag.s.x || 1)); const k = 1.05;   // tamaño real en la mano del modelo 3D
+  // la palma está un poco más allá de la muñeca; ahí va el centro de la empuñadura (medido en el modelo del arma)
+  const palma = _ag.h.addScaledVector(d, 0.05).addScaledVector(up, -0.045), grip = _ag.grip.set(0, -0.05 * k, -0.04 * k).applyQuaternion(qW);
+  palma.sub(grip); g.parent.worldToLocal(palma); g.position.copy(palma);
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
 function updateRemotes(dt) {
@@ -20663,9 +20677,32 @@ function menu3dCaja() {
   if (libre >= 200 && innerWidth > innerHeight) { lado.style.width = Math.min(460, libre) + 'px'; lado.hidden = false; return lado; }
   lado.hidden = true; return null;   // en el teléfono no hay espacio: solo el retrato
 }
+// Pose del menú (elegida por el dueño: la «3 del Sheriff» para todos): piernas rectas, arma en alto junto a la cara y la otra mano en el cinturón.
+// Geronimo levanta sus dos revólveres.
 function menu3dPose(I, id) {
-  const [clip, f] = MENU_POSE[id] || MENU_POSE_TODOS, a = I.acts[clip] || I.acts.idle; if (!a) return;
-  a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0);
+  for (const k in I.acts) I.acts[k].stop();
+  const fija = (n, f) => { const a = I.acts[n] || I.acts.idle; a.reset().setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.play(); a.paused = true; a.time = a.getClip().duration * f; I.mix.update(0); a.stop(); };
+  const B = I.B, brazoL = Object.keys(B).filter(n => /^L_(Clavicle|Upperarm|Forearm|Hand)/.test(n));
+  const mano = I.acts.wait ? (fija('wait', 0.3), brazoL.map(n => [n, B[n].quaternion.clone()])) : [];   // la mano en el cinturón sale de la pose «wait»
+  const base = I.acts.idle || I.acts[Object.keys(I.acts)[0]]; base.reset().setLoop(THREE.LoopOnce, 1); base.clampWhenFinished = true; base.play(); base.paused = true; base.time = base.getClip().duration * 0.3; I.mix.update(0);
+  const dual = id === 'carlos';
+  if (!dual) for (const [n, q] of mano) B[n].quaternion.copy(q);
+  I.m.updateMatrixWorld(true);
+  const wp = b => b.getWorldPosition(new THREE.Vector3()), U = new THREE.Vector3(0, 1, 0);
+  const F = new THREE.Vector3(1, 0, 0).applyQuaternion(I.m.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize(), R = new THREE.Vector3().crossVectors(F, U).normalize();
+  const dir = v => F.clone().multiplyScalar(v[0]).add(R.clone().multiplyScalar(v[1])).add(U.clone().multiplyScalar(v[2])).normalize();
+  const apunta = (bn, cn, v) => { const b = B[bn], c = B[cn]; if (!b || !c) return; I.m.updateMatrixWorld(true); const q = new THREE.Quaternion().setFromUnitVectors(wp(c).sub(wp(b)).normalize(), dir(v)), bw = b.getWorldQuaternion(new THREE.Quaternion()), pw = b.parent.getWorldQuaternion(new THREE.Quaternion()); b.quaternion.copy(pw.invert().multiply(q.multiply(bw))); b.updateMatrixWorld(true); };
+  const lados = dual ? [['R', 1], ['L', -1]] : [['R', 1]];
+  for (const [s, k] of lados) { apunta(s + '_Upperarm', s + '_Forearm', k > 0 ? [0.25, 0.6, -0.6] : [0.45, -0.3, -0.6]); apunta(s + '_Forearm', s + '_Hand', [0.15, -0.05 * k, 1]); }
+  I.m.updateMatrixWorld(true);
+  for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
+  const C = CHARS[id] || CHARS.sheriff, gun = id === 'azar' ? 'paci' : C.gun;
+  for (const [s, k] of lados) {
+    const g = avGun(gun, id); g.scale.setScalar(id === 'francois' ? 0.8 : dual ? 0.85 : 0.95);
+    if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404 }); g.traverse(o => { if (o.isMesh) o.material = negro; }); }
+    const hp = wp(B[s + '_Hand']), d = dir([0.15, 0, 1]); g.position.copy(hp).addScaledVector(d, 0.03); g.up.copy(F); g.lookAt(hp.clone().add(d)); g.translateY(-0.06);
+    M3.scene.add(g); M3.armas.push(g);
+  }
 }
 function menu3d(id) {
   const caja = menu3dCaja();
@@ -20694,7 +20731,7 @@ function menu3d(id) {
   const dist = Math.max(1.12 / Math.tan(THREE.MathUtils.degToRad(14)), 0.62 / Math.tan(THREE.MathUtils.degToRad(14)) / M3.cam.aspect);
   M3.cam.position.set(0, 0.95, dist); M3.cam.lookAt(0, 0.92, 0); M3.cam.updateProjectionMatrix();
   if (M3.ch !== id) {
-    M3.ch = id; if (M3.inst) { M3.scene.remove(M3.inst.m); M3.inst = null; } M3.r.domElement.style.opacity = '0';
+    M3.ch = id; if (M3.inst) { M3.scene.remove(M3.inst.m); M3.inst = null; } for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = []; M3.r.domElement.style.opacity = '0';
     p3dCargar(id === 'azar' ? 'sheriff' : id, C => {
       if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I;
       if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404, skinning: true }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
