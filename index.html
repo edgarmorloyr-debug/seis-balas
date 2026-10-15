@@ -455,7 +455,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #menu .car-side .ch-pw img{max-height:17vh;object-fit:cover}
 #menu .nH .win{padding:6px}
 @media (max-height:760px){#menu .nH .nf-ic{width:22px;height:22px}#menu .nH .big{font-size:30px}}
-#inicio #top-box{width:100%}
+#inicio #top-box{width:100%;box-sizing:border-box;margin-top:4px}
 @media (min-width:761px) and (max-height:860px){
  #menu{padding-top:8px;padding-bottom:8px}
  #menu>.card{gap:6px;padding-top:10px;padding-bottom:10px}
@@ -1019,7 +1019,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <h2 class="title sm">Pausa</h2>
       <div class="set">
         <label for="sens">Sensibilidad</label><input id="sens" type="range" min="0.3" max="2.5" step="0.05">
-        <label for="vol">Volumen</label><input id="vol" type="range" min="0" max="1" step="0.05">
+        <label for="vol">Volumen de efectos</label><input id="vol" type="range" min="0" max="1" step="0.05">
+        <label for="mvol">Volumen de música</label><input id="mvol" type="range" min="0" max="1" step="0.05">
         <label for="music">Música</label><select id="music">
           <option value="map">Según el mapa</option>
           <option value="0">Cementerio · órgano</option>
@@ -1209,7 +1210,7 @@ const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
 if (IS_TOUCH) app.classList.add('touch');
-const settings = { gfx: store.get('sb_gfx', null), voice: ['off', 'open', 'ptt'].includes(store.get('sb_voice', 'off')) ? store.get('sb_voice', 'off') : 'off', vvol: +store.get('sb_vvol', 1), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), music: store.get('sb_music', 'map') };
+const settings = { gfx: store.get('sb_gfx', null), voice: ['off', 'open', 'ptt'].includes(store.get('sb_voice', 'off')) ? store.get('sb_voice', 'off') : 'off', vvol: +store.get('sb_vvol', 1), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), mvol: +store.get('sb_mvol', 0.8), music: store.get('sb_music', 'map') };
 if (typeof THREE === 'undefined') { $('#loading').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga.'; return; }
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
@@ -19812,7 +19813,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 109';
+const GAME_BUILD = '15-oct-2026 · 110';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -20989,7 +20990,7 @@ const Music = (() => {
   function init() {
     if (ctx) return;
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
-    master = ctx.createGain(); master.gain.value = settings.vol * 0.55; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = settings.mvol * 0.55; master.connect(ctx.destination);
     bus = ctx.createGain(); bus.connect(master);
     const rev = ctx.createConvolver(), len = ctx.sampleRate * 2.6, ib = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
@@ -21966,7 +21967,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel();
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel();
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -22023,7 +22024,8 @@ for (const id of ['#box-grid', '#box-list']) { const e_ = $(id); e_.addEventList
 document.querySelectorAll('.sh-tab').forEach(b => b.addEventListener('click', () => { if (!game) return; game.shopOpen = null; shopTab(b.dataset.t); Sfx.holster(); }));
 $('#btn-reroll').addEventListener('click', () => { const rrp = Math.ceil(game.reroll * (ST.rerollX || 1)); if (state !== 'shop' || game.gold < rrp) return; game.gold -= rrp; game.reroll += 3; rollOffers(); Sfx.dice(); renderShop(); });
 $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; store.set('sb_sens', settings.sens); });
-$('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); });
+$('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); });
+$('#mvol').addEventListener('input', e => { settings.mvol = +e.target.value; store.set('sb_mvol', settings.mvol); Music.setVol(settings.mvol); });
 // Pantalla completa: en PC y Android usa la del navegador; el iPhone no la permite en páginas, así que explica cómo lograrla.
 const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
 function fsLabel() { $('#btn-fs').textContent = fsEl() ? 'Salir de pantalla completa' : 'Pantalla completa'; }
@@ -22051,7 +22053,7 @@ window.addEventListener('keydown', e => {
   input.keys[e.code] = true;
   if (state === 'menu' && e.code === 'Enter' && !$('#menu').hidden && !['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes((document.activeElement || {}).tagName)) { const sv = store.get(SAVE_KEY, null); startGame(sv); return; }
   if (state === 'perks' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) { const p = perkChoices[+e.code.slice(5) - 1]; if (p) choosePerk(p); return; }
-  if (e.code === 'KeyM') { settings.vol = settings.vol > 0 ? 0 : 0.8; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol); hint(settings.vol ? 'Sonido activado' : 'Sonido apagado', 1200); }
+  if (e.code === 'KeyM') { settings.vol = settings.vol > 0 ? 0 : 0.8; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol); Music.setVol(settings.vol ? settings.mvol : 0); hint(settings.vol ? 'Sonido activado' : 'Sonido apagado', 1200); }
   if (state === 'pause' && (e.code === 'Escape' || e.code === 'KeyP')) { if (performance.now() - pausedAt > 400) resume(); return; }
   if (state === 'inv' && ['KeyI', 'Tab', 'Escape'].includes(e.code)) { e.preventDefault(); closeInv(); return; }
   if (state !== 'play') return;
@@ -22250,7 +22252,7 @@ $('#btn-altar-ini').addEventListener('click', () => { volverA = 'inicio'; $('#bt
 $('#btn-ach').addEventListener('click', () => { if (!$('#inicio').hidden) volverA = 'inicio'; }, true);
 $('#btn-como-back').addEventListener('click', () => show('inicio'));
 // Configuración: los mismos controles de la pausa, repartidos en pestañas; al volver regresan a la pausa en su orden
-const CFG_SEC = { vol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', sens: 'controles' };
+const CFG_SEC = { vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', sens: 'controles' };
 let cfgOrden = null;
 function cfgAbrir() {
   const set = $('#pause .set'); if (!set) return; cfgOrden = [...set.children];
