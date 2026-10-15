@@ -434,6 +434,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #btn-ach.ach-nuevo{position:relative;border-color:#ffc840;color:#ffe08a}
 #btn-ach.ach-nuevo::after{content:'\2605';position:absolute;top:-11px;right:-9px;font-size:22px;line-height:1;color:#ffc840;text-shadow:0 0 6px #ff9a00,0 1px 2px #000;animation:achStar 1.6s ease-in-out infinite}
 @keyframes achStar{50%{transform:scale(1.25) rotate(12deg)}}
+.rastro{position:fixed;left:0;top:0;width:28px;height:28px;z-index:15;pointer-events:none;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 4l17 8-17 8 4-8z' fill='%23ff3b3b' stroke='%23fff' stroke-width='1.2'/></svg>");filter:drop-shadow(0 0 6px #ff2020);animation:rastroP 1s ease-in-out infinite}
+@keyframes rastroP{50%{opacity:.55}}
 #fichas,#altar-f{font-size:17px;color:#e8dcc0}
 #char-list{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 #char-list img{-webkit-user-drag:none;pointer-events:none}
@@ -455,10 +457,14 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #menu .car-side .ch-pw img{max-height:17vh;object-fit:cover}
 #menu .nH .win{padding:6px}
 @media (max-height:760px){#menu .nH .nf-ic{width:22px;height:22px}#menu .nH .big{font-size:30px}}
-#inicio #top-box{width:100%;box-sizing:border-box;margin-top:4px}
+@media (max-width:1179px){#inicio #top-box{width:100%;box-sizing:border-box;margin-top:4px}}
 .ini-btns .btn2{width:100%;min-height:50px}
 #inicio .acct-ini{width:100%}#inicio .acct-ini .btn2{width:100%;min-height:50px}#inicio .acct-ini>span.inv{display:none}
 #inicio .acct-ini{display:flex;flex-direction:column;align-items:center;gap:6px}#inicio .acct-ini img{width:32px;height:32px;border-radius:50%}
+@media (min-width:1180px){
+ #inicio .acct-ini{position:fixed;top:16px;left:16px;width:280px;z-index:6;padding:10px;border-radius:12px;background:rgba(8,4,15,.9);border:1px solid rgba(255,43,214,.55);box-shadow:0 0 12px rgba(255,43,214,.35)}
+ #inicio .acct-ini + .ini-nota{position:fixed;top:92px;left:16px;width:280px;text-align:left;margin:0}
+}
 #inicio .acct-ini:not(:has(.acct-in)) ~ .ini-nota{display:none}
 .ini-nota{margin:-4px 0 0;font-size:14px}
 #inicio .acct-ini .gbtn{gap:10px}
@@ -898,6 +904,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <p class="tag">Tu revólver y zombis sin fin.</p>
       <div class="best" id="best-line">Todavía no tienes récord</div>
       <div class="col ini-btns"><button class="btn" id="btn-jugar">Jugar</button><button class="btn2" id="btn-altar-ini">Tienda calavera</button><button class="btn2" id="btn-ach-ini">Logros</button><button class="btn2" id="btn-config">Configuración</button><button class="btn2" id="btn-how-ini">Cómo jugar</button><div class="acct acct-ini" data-largo="1"></div><p class="note ini-nota">Inicia sesión para guardar tu progreso en la nube.</p></div>
+      <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><p class="note" id="top-mine"></p><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
     </div>
   </div>
 
@@ -934,7 +941,6 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
         <div id="char-list"></div>
       </div>
       <div class="row"><button class="btn" id="btn-start">Empezar</button></div>
-      <details id="top-box"><summary>Top mejores jugadores</summary><ol id="top-list"></ol><p class="note" id="top-mine"></p><div class="top-me"><label for="top-nick">Tu nombre</label><input id="top-nick" type="text" maxlength="12" autocomplete="off"></div></details>
     </div>
     <div class="how-wrap"><details id="how" class="how"><summary>Cómo jugar</summary><div class="how-in">
       <p class="note" id="save-note" hidden>Tu partida se guarda sola al empezar cada oleada, en este navegador.</p>
@@ -16183,6 +16189,48 @@ function bossClear() {
   $('#dark').style.opacity = 0; $('#bossbar').hidden = true;
 }
 let bossShots = 0, darkFlash = 0;
+// Zombis perdidos: si uno pasa mucho rato lejos sin acercarse, reaparece cerca (fuera de la vista) para no tener que salir a buscarlo.
+// Con pocos zombis vivos el plazo es más corto. Lo decide el anfitrión o el jugador solo.
+const REZAGO = { lejos: 22, plazo: 15, plazoPocos: 6, pocos: 3 };
+let rezT = 0;
+function rezagados(dt) {
+  if (!game || Net.client || game.phase !== 'fight' || state !== 'play' || (rezT -= dt) > 0) return; rezT = 1;
+  const ps = typeof llvJugadores === 'function' ? llvJugadores() : [player.pos], vivos = zombies.filter(z => !z.dead && !z.net);
+  const plazo = game.toSpawn === 0 && vivos.length <= REZAGO.pocos ? REZAGO.plazoPocos : REZAGO.plazo;
+  for (const z of vivos) {
+    if (z.boss != null || z.state === 'rise' || z.tuto) continue;
+    const p = z.root.position; let d = 1e9, cerca = null; for (const q of ps) { const e = Math.hypot(q.x - p.x, q.z - p.z); if (e < d) { d = e; cerca = q; } }
+    if (d < REZAGO.lejos) { z.rezT = 0; z.rezD = d; continue; }
+    if (z.rezD == null || d < z.rezD - 2) { z.rezD = d; z.rezT = 0; continue; }   // se está acercando: lo dejamos venir
+    if ((z.rezT = (z.rezT || 0) + 1) < plazo) continue;
+    let dest = null; const ops = world.spawns.filter(g => { const e = Math.hypot(g.x - cerca.x, g.z - cerca.z); return e > 10 && e < 22; });
+    if (ops.length) { const g = pick(ops); dest = { x: g.x, z: g.z }; }
+    for (let k = 0; k < 20 && !dest; k++) { const a = rand(0, TAU), r = rand(12, 18), x = cerca.x + Math.cos(a) * r, zz = cerca.z + Math.sin(a) * r; if (insideArena(x, zz, 1) && !pointBlocked(x, zz, 0.5)) dest = { x, z: zz }; }
+    if (!dest) continue;
+    p.x = dest.x; p.z = dest.z; z.lastX = p.x; z.lastZ = p.z; z.rezT = 0; z.rezD = null; z.tgtT = 0;
+    if (typeof dirtBurst === 'function') dirtBurst(p.x, 0.1, p.z, 10, 1.4);
+  }
+}
+// Cuando quedan pocos zombis, flechas rojas en el borde de la pantalla señalan dónde están
+const RASTRO = { max: 3 };
+let rastroEls = null;
+function rastroZombis() {
+  if (!rastroEls) { rastroEls = []; for (let i = 0; i < RASTRO.max; i++) { const d = document.createElement('div'); d.className = 'rastro'; d.hidden = true; document.body.appendChild(d); rastroEls.push(d); } }
+  const on = game && state === 'play' && game.phase === 'fight' && (game.toSpawn | 0) === 0;
+  const vivos = on ? zombies.filter(z => !z.dead && z.state !== 'rise') : [];
+  if (!on || vivos.length > RASTRO.max) { for (const d of rastroEls) d.hidden = true; return; }
+  const W = innerWidth, H = innerHeight, v = new THREE.Vector3();
+  rastroEls.forEach((d, i) => {
+    const z = vivos[i]; if (!z) { d.hidden = true; return; }
+    v.copy(z.root.position); v.y += 1.6; v.project(camera);
+    let x = v.x, y = v.y; const detras = v.z > 1; if (detras) { x = -x; y = -y; }
+    const dentro = !detras && Math.abs(x) < 0.92 && Math.abs(y) < 0.88;
+    if (dentro) { d.hidden = true; return; }   // a la vista: no hace falta flecha
+    const k = 0.9 / Math.max(Math.abs(x), Math.abs(y), 0.001); x *= k; y *= k;
+    const px = (x * 0.5 + 0.5) * W, py = (-y * 0.5 + 0.5) * H, ang = Math.atan2(-y, x);
+    d.hidden = false; d.style.transform = `translate(${px - 14}px,${py - 14}px) rotate(${ang}rad)`;
+  });
+}
 function bossFx(dt) {
   zeroStep(dt);
   player.webT = Math.max(0, (player.webT || 0) - dt); player.frostT = Math.max(0, (player.frostT || 0) - dt);
@@ -18313,7 +18361,7 @@ function updatePlay(dt) {
   if (!Net.client) { updateFlow(dt, player.pos.x, player.pos.z); if (Net.host) netFlows(dt); }
   updateGun(dt); updateCamera(dt);
   updateZombies(wdt, state === 'play' || state === 'pause' || state === 'inv'); zombieLod(dt);
-  bossFx(wdt);
+  bossFx(wdt); rezagados(dt); rastroZombis();
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
   updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateStumps(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
   P.update(wdt); PA.update(wdt);
@@ -19827,7 +19875,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 114';
+const GAME_BUILD = '15-oct-2026 · 115';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
