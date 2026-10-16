@@ -43,6 +43,10 @@ body{font-family:var(--hud);font-size:16px}
 #fx-gold{box-shadow:inset 0 0 90px rgba(214,165,75,.5);opacity:0;transition:opacity .3s}
 #dmgdir{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 .arc{position:absolute;left:-150px;top:-150px;width:300px;height:300px;border-radius:50%;border-top:7px solid rgba(220,20,20,.9);filter:drop-shadow(0 0 6px rgba(255,0,0,.6));transition:opacity .9s ease-out}
+/* marcas de golpe en la pantalla (al estilo The House of the Dead): una forma distinta según lo que te pegó */
+#golpes{position:absolute;inset:0;pointer-events:none;overflow:hidden;contain:strict}
+#golpes .golpe{position:absolute;left:0;top:0;opacity:0;pointer-events:none;will-change:opacity,transform}
+#golpes .golpe svg{display:block;width:100%;height:100%;overflow:visible}
 
 #click-hint{position:absolute;left:50%;top:calc(50% + 48px);transform:translateX(-50%);z-index:4;padding:8px 14px;border-radius:8px;background:rgba(18,12,8,.82);border:1px solid var(--gold);color:var(--bone);font:600 16px var(--hud);letter-spacing:.04em;pointer-events:none;white-space:nowrap}
 #xh{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
@@ -1145,6 +1149,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="fx" id="fx-low"></div>
   <div class="fx" id="fx-dmg"></div>
   <div class="fx" id="fx-acid"></div>
+  <div id="golpes" aria-hidden="true"></div>
   <div class="fx" id="fx-de"></div>
   <div class="fx" id="fx-gold"></div>
   <div class="fx" id="fx-flash"></div>
@@ -1644,6 +1649,48 @@ const Sfx = (() => {
     return true;
   }
   let lastShot = null; const smpErr = [];
+  // un trozo de un sonido grabado (desde «off» segundos, «dur» segundos) con otro tono y filtros, y su envolvente propia
+  function smpCut(name, o) {
+    const b = SMP[name]; if (!ctx || !b) return false;
+    const t = ctx.currentTime + (o.delay || 0), s = ctx.createBufferSource(), g = ctx.createGain(), r = o.rate || 1, dur = o.dur, off = Math.min(o.off || 0, Math.max(0, b.duration - 0.12));
+    s.buffer = b; s.playbackRate.value = r; let n = s;
+    if (o.hp) { const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = o.hp; n.connect(f); n = f; }
+    if (o.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; n.connect(f); n = f; }
+    const v = Math.max(0.0002, o.vol == null ? 1 : o.vol);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012); g.gain.setValueAtTime(v, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    n.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.15 : o.wet)); s.start(t, off, dur * r + 0.05); s.stop(t + dur + 0.05);
+    return true;
+  }
+  // Voz sintetizada para quejidos: cuerdas vocales (diente de sierra con su curva de tono) y tres formantes de la vocal
+  // vow: 'a' («¡ah!»), 'u' («¡uh!»), 'm' («mmf», con la boca cerrada)
+  const VOCAL = { a: [1, 1, 1], u: [0.72, 0.8, 0.95], m: [0.45, 0.62, 0.9] };
+  function voz(c, dest, t, V, vow, dur, vol) {
+    const f0 = V.f * rand(0.95, 1.06), o = c.createOscillator(), o2 = c.createOscillator(), src = c.createGain(), sum = c.createGain(), g = c.createGain(), K = VOCAL[vow];
+    o.type = 'sawtooth'; o2.type = 'sawtooth'; o2.detune.value = 9;
+    for (const os of [o, o2]) { os.frequency.setValueAtTime(f0 * 0.92, t); os.frequency.linearRampToValueAtTime(f0 * (vow === 'a' ? 1.32 : 1.16), t + dur * 0.2); os.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + dur); os.connect(src); }
+    src.gain.value = 0.5;
+    if (V.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 6.5; lg.gain.value = f0 * 0.05; l.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency); l.start(t); l.stop(t + dur + 0.05); }
+    [[1, 5, 1], [1, 8, 0.55], [1, 10, 0.22]].forEach(([, q, gn], i) => { const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = V.F[i] * K[i] * rand(0.96, 1.04); f.Q.value = q; const fg = c.createGain(); fg.gain.value = gn; src.connect(f); f.connect(fg); fg.connect(sum); });
+    let last = sum; if (vow === 'm') { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; sum.connect(f); last = f; }
+    // aire: un soplo de ruido sobre el segundo formante
+    const nb = c.createBuffer(1, Math.ceil(c.sampleRate * (dur + 0.1)), c.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const ns = c.createBufferSource(), nf = c.createBiquadFilter(), ng = c.createGain(); ns.buffer = nb; nf.type = 'bandpass'; nf.frequency.value = V.F[1]; nf.Q.value = 1.2; ng.gain.value = vow === 'm' ? 0.05 : 0.12; ns.connect(nf); nf.connect(ng); ng.connect(g);
+    last.connect(g); g.connect(dest);
+    const v = Math.max(0.0002, vol * 3.2);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.018); g.gain.setValueAtTime(v, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o2.start(t); ns.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05); ns.stop(t + dur + 0.05);
+  }
+  // Quejidos de dolor por personaje: su grito de muerte (en otro tono y en trozos) y su voz sintetizada.
+  // f: tono de la voz (Hz) · F: formantes · corto / fuerte: [desde, duración, velocidad] del trozo de su grito · g: ganancia del grito (los más bajos suben)
+  const VOZ = {
+    sheriff: { s: 'grito_sheriff', f: 116, F: [640, 1100, 2450], corto: [0.1, 0.3, 0.97], fuerte: [0.02, 0.62, 0.86], lp: 3800, g: 1.5 },
+    johnny: { s: 'grito_johnny', f: 140, F: [690, 1230, 2600], corto: [0.03, 0.24, 1.07], fuerte: [0, 0.5, 0.9], lp: 5200 },
+    armando: { s: 'grito_velorio', f: 100, F: [560, 980, 2300], vib: 1, corto: [0.32, 0.3, 1.02], fuerte: [0.95, 0.7, 0.88], lp: 3200 },
+    carlos: { s: 'grito_geronimo', f: 94, F: [600, 1020, 2350], corto: [0.28, 0.3, 1.0], fuerte: [0.16, 0.68, 0.9], lp: 3600 },
+    francois: { s: 'grito_francois', f: 232, F: [830, 1430, 2900], corto: [0.2, 0.26, 1.05], fuerte: [0.16, 0.62, 0.96], lp: 6500, g: 1.6 },
+    lilith: { s: 'grito_francois', f: 204, F: [760, 1290, 2750], corto: [0.42, 0.26, 0.9], fuerte: [0.3, 0.56, 0.84], lp: 4200, hp: 380, g: 1.7 }
+  };
+  const dolT = {}, dolU = {};
   const smpOf = (pre, n, o) => smp(pre + Math.floor(Math.random() * n), o);
   const MODELS_AUTO = new Set(['uzi', 'minigun', 'mp5']);
   // Disparos grabados que eligió el dueño, uno por revólver de cada personaje (el resto, sintetizado)
@@ -1923,6 +1970,21 @@ const Sfx = (() => {
     },
     // grito al morir: uno distinto por personaje (elegidos por el dueño)
     grito(ch, pan = 0, vol = 1) { const n = { sheriff: 'grito_sheriff', johnny: 'grito_johnny', armando: 'grito_velorio', carlos: 'grito_geronimo', francois: 'grito_francois', lilith: 'grito_francois' }[ch]; return !!n && smp(n, { vol: 0.95 * vol, pan, wet: 0.3 }); },
+    // quejido al recibir un golpe: 4 por personaje (mmf, ¡uh!, un trozo de su grito y, si el golpe es fuerte, el trozo largo con un «¡ah!» encima).
+    // pw: fuerza del golpe (0 = daño continuo como fuego o gas; 1 = golpe grande) · quien: 'yo' o el id del compañero (cada uno con su espera)
+    dolor(ch, pw = 0.5, pan = 0, vol = 1, quien = 'yo') {
+      if (!ctx) return 0; const V = VOZ[ch] || VOZ.sheriff, now = ctx.currentTime;
+      if (now < (dolT[quien] || 0)) return 0;
+      let v; if (pw <= 0.05) v = 1; else if (pw >= 0.6) v = 4; else { v = Math.random() < 0.5 ? 2 : 3; if (v === dolU[quien]) v = 5 - v; }
+      dolU[quien] = v; dolT[quien] = now + (v === 1 ? 2.2 : v === 4 ? 1.1 : 0.75);
+      const b = () => bus(pan, 0.15);
+      if (v === 1) voz(ctx, b(), now, V, 'm', rand(0.2, 0.26), 0.22 * vol);
+      else if (v === 2) voz(ctx, b(), now, V, 'u', rand(0.17, 0.24), 0.5 * vol);
+      else if (v === 3) { const [o, d, r] = V.corto; if (!smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.75 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp })) voz(ctx, b(), now, V, 'a', 0.26, 0.5 * vol); }
+      else { const [o, d, r] = V.fuerte; const ok = smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.85 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, wet: 0.25 }); voz(ctx, b(), now, V, 'a', ok ? 0.34 : 0.48, (ok ? 0.28 : 0.55) * vol); }
+      return v;
+    },
+    _voz: voz, _voces: VOZ,
     // bala contra el hacha que lleva en la mano el Hachero
     hacha(pan) { if (!smp('hacha_golpe', { vol: 0.9, pan, rate: rand(0.94, 1.08), wet: 0.3 })) this.clang(pan); },
     // bala contra un hacha en el aire: rebote de película de vaqueros
@@ -16226,7 +16288,7 @@ function buildBackrooms() {
         LURE.eatT = 0; lever.rotation.x = 0.6; boomT = 0.4; Sfx.zap(panOf(cp)); Sfx.boom(); player.shake = Math.min(1, player.shake + 0.25);
         for (let i = 0; i < (FAST() ? 30 : 70); i++) PA.add(TXp, 1.5, TZp, rand(-6, 6), rand(0, 5), rand(-6, 6), rand(0.2, 0.6), rand(0.03, 0.07), 0.7, 0.85, 1, 1, 9.8, 1, 0, 0);
         for (const z of zombies) { if (z.tobj === LURE) z.tgtT = 0; if (z.dead) continue; const d = Math.hypot(z.root.position.x - TXp, z.root.position.z - TZp); if (d < 6.5) { z.stagger = Math.max(z.stagger || 0, 1.5); damageZombie(z, 170 * (1 - d / 13), { part: 'body', dir: null }); hp.set(z.root.position.x, 1.2, z.root.position.z); sparks(hp, 8, null); } }
-        const pd = Math.hypot(player.pos.x - TXp, player.pos.z - TZp); if (pd < 4) hurtPlayer(12, cp, { knock: 5 });
+        const pd = Math.hypot(player.pos.x - TXp, player.pos.z - TZp); if (pd < 4) hurtPlayer(12, cp, { knock: 5, k: 'burn' });
         feed('¡El transformador revienta!', 'gold');
       }
     });
@@ -18142,7 +18204,7 @@ function buildMoon() {
         EN.tick -= dt;
         if (EN.tick <= 0) { EN.tick = 0.4;
           for (const z of zombies) { if (z.dead || z.net || z.state === 'rise') continue; const p = z.root.position, d = Math.hypot(p.x - PX, p.z - PZ); if (d > rr + 0.4) continue; const k = 1 / (d || 1); z.burn = Math.max(z.burn || 0, 3); z.burnDps = Math.max(z.burnDps || 0, 25); z.kbx = (p.x - PX) * k * 5; z.kbz = (p.z - PZ) * k * 5; z.stagger = Math.max(z.stagger || 0, 0.6); damageZombie(z, 45, { part: 'body', dir: null }); }
-          if (EN.pT <= 0 && Math.hypot(player.pos.x - PX, player.pos.z - PZ) < rr + 0.3) { EN.pT = 1; hurtPlayer(8, { x: PX, z: PZ }, { knock: 7 }); }
+          if (EN.pT <= 0 && Math.hypot(player.pos.x - PX, player.pos.z - PZ) < rr + 0.3) { EN.pT = 1; hurtPlayer(8, { x: PX, z: PZ }, { knock: 7, k: 'burn' }); }
         }
         EN.pT -= dt;
       }
@@ -19839,6 +19901,129 @@ function dmgArc(src) {
   const a = document.createElement('div'); a.className = 'arc'; a.style.transform = `rotate(${Math.atan2(dx * rx + dz * rz, dx * fx_ + dz * fz)}rad)`; el.dmgdir.appendChild(a);
   requestAnimationFrame(() => { a.style.opacity = 0; }); setTimeout(() => a.remove(), 950);
 }
+// Marcas de golpe en la pantalla (al estilo The House of the Dead): se quedan unos 2,5 s y se desvanecen.
+// Cada origen tiene su propia forma (no solo su color): mancha (golpe), arañazos (garras), mordida, corte limpio (hacha, cuchillo, espada),
+// desgarro dentado (motosierra), agujero de bala con grietas, quemadura con hollín (fuego y explosiones) y salpicadura de ácido que chorrea.
+const GOLPE = { max: 4, dura: 1.7, fade: 0.9, tickCada: 1.1 };
+const Golpes = (() => {
+  let box = null, pool = [], ult = {}, n = 0;
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const pt = p => f1(p[0]) + ' ' + f1(p[1]);
+  // contorno suave e irregular (spike: probabilidad de una punta, como las salpicaduras)
+  function blob(k, r0, r1, cx = 0, cy = 0, spike = 0) {
+    const P = []; for (let i = 0; i < k; i++) { const a = (i + rand(-0.25, 0.25)) / k * TAU; let r = rand(r0, r1); if (spike && Math.random() < spike) r *= rand(1.25, 1.6); P.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    let d = 'M' + pt(mid(P[k - 1], P[0])); for (let i = 0; i < k; i++) d += 'Q' + pt(P[i]) + ' ' + pt(mid(P[i], P[(i + 1) % k])); return d + 'Z';
+  }
+  // trazo que se afina en las puntas siguiendo una curva (arañazos y cortes)
+  function tajo(x0, y0, x1, y1, bend, w, pw = 0.7, jag = 0) {
+    const L = [], R = [], N = 18, dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    for (let i = 0; i <= N; i++) { const t = i / N, b = Math.sin(t * Math.PI) * bend, cx = x0 + dx * t + nx * b, cy = y0 + dy * t + ny * b, h = w / 2 * Math.pow(Math.sin(t * Math.PI), pw) + 0.15;
+      const j1 = jag ? (i % 2 ? 1 : -0.4) * jag * rand(0.5, 1.2) * Math.min(1, h) : 0, j2 = jag ? (i % 2 ? -0.4 : 1) * jag * rand(0.5, 1.2) * Math.min(1, h) : 0;
+      L.push([cx + nx * (h + j1), cy + ny * (h + j1)]); R.push([cx - nx * (h + j2), cy - ny * (h + j2)]); }
+    return 'M' + L.map(pt).join('L') + 'L' + R.reverse().map(pt).join('L') + 'Z';
+  }
+  const gotas = (k, r0, r1, s0, s1, fill) => { let h = ''; for (let i = 0; i < k; i++) { const a = rand(0, TAU), r = rand(r0, r1); h += `<circle cx="${f1(Math.cos(a) * r)}" cy="${f1(Math.sin(a) * r)}" r="${f1(rand(s0, s1))}" fill="${fill}"/>`; } return h; };
+  // chorreones que caen siempre hacia abajo de la pantalla aunque la marca esté girada
+  function chorros(k, rot, x0, x1, y, l0, l1, w, col) {
+    const ux = Math.sin(rot), uy = Math.cos(rot); let h = '';
+    for (let i = 0; i < k; i++) { const sx = rand(x0, x1), sy = y + rand(-2, 2), L = rand(l0, l1), ex = sx + ux * L, ey = sy + uy * L;
+      h += `<path d="M${f1(sx)} ${f1(sy)}L${f1(ex)} ${f1(ey)}" stroke="${col}" stroke-width="${f1(w * rand(0.7, 1.1))}" stroke-linecap="round"/><circle cx="${f1(ex)}" cy="${f1(ey)}" r="${f1(w * rand(0.7, 0.95))}" fill="${col}"/>`; }
+    return h;
+  }
+  const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<radialGradient id="gpB"><stop offset="0" stop-color="#2a0103"/><stop offset=".55" stop-color="#5a0507"/><stop offset=".86" stop-color="#8e0f0f"/><stop offset="1" stop-color="#b3191a" stop-opacity=".75"/></radialGradient>
+<radialGradient id="gpM"><stop offset="0" stop-color="#3a0306" stop-opacity=".0"/><stop offset=".55" stop-color="#4a050a" stop-opacity=".35"/><stop offset=".8" stop-color="#6a0a10" stop-opacity=".55"/><stop offset="1" stop-color="#6a0a10" stop-opacity="0"/></radialGradient>
+<radialGradient id="gpS"><stop offset="0" stop-color="#050302"/><stop offset=".5" stop-color="#1a0f07" stop-opacity=".95"/><stop offset=".8" stop-color="#4a2a10" stop-opacity=".85"/><stop offset="1" stop-color="#8a4a14" stop-opacity=".55"/></radialGradient>
+<radialGradient id="gpA"><stop offset="0" stop-color="#e6f27a"/><stop offset=".6" stop-color="#b6d834"/><stop offset="1" stop-color="#6e9414" stop-opacity=".85"/></radialGradient>
+<radialGradient id="gpH"><stop offset="0" stop-color="#000"/><stop offset=".65" stop-color="#140404"/><stop offset="1" stop-color="#5a0c0a"/></radialGradient>
+</defs></svg>`;
+  const ORILLA = 'stroke="rgba(0,0,0,.55)" stroke-width="1.4" stroke-linejoin="round"';
+  const FORMA = {
+    // golpe seco (puñetazo, mazazo, empujón): mancha de sangre con forma de silueta y moretón en el centro
+    blunt() { let sat = ''; for (let i = 0; i < 3; i++) { const a = rand(0, TAU), r = rand(31, 40); sat += `<path d="${blob(7, 2.5, 5.5, Math.cos(a) * r, Math.sin(a) * r)}" fill="#7a0b0c" ${ORILLA}/>`; }
+      return `${sat}<path d="${blob(24, 17, 26, 0, 0, 0.42)}" fill="url(#gpB)" ${ORILLA}/><path d="${blob(10, 6, 12, rand(-3, 3), rand(-3, 3), 0.3)}" fill="#1e0002" opacity=".7"/>${gotas(8, 30, 48, 1.2, 3.2, '#7a0b0c')}`; },
+    // garras: 3 o 4 arañazos paralelos y curvos
+    claw(rot) { const k = Math.random() < 0.5 ? 3 : 4, sp = rand(10, 13), bend = rand(-7, 7); let h = '';
+      for (let i = 0; i < k; i++) { const x = (i - (k - 1) / 2) * sp, y0 = rand(-40, -32) + Math.abs(x) * 0.25, y1 = rand(32, 40) - Math.abs(x) * 0.25, w = rand(5, 7);
+        h += `<path d="${tajo(x - 6, y0, x + 6, y1, bend, w)}" fill="#a3121a" ${ORILLA}/><path d="${tajo(x - 6, y0 + 4, x + 6, y1 - 4, bend, w * 0.42)}" fill="#2a0002"/>`; }
+      return h + chorros(2, rot, -sp, sp, 26, 6, 13, 2.2, '#8a0d12'); },
+    // mordida: dos arcos de dientes (arriba y abajo) sobre un moretón en forma de anillo
+    bite() { let h = `<ellipse rx="40" ry="31" fill="url(#gpM)"/>`;
+      const diente = (a, ry, top) => { const x = Math.cos(a) * 33, y = Math.sin(a) * ry, can = Math.abs(Math.cos(a)) > 0.62 && Math.abs(Math.cos(a)) < 0.85, s = (can ? 2.1 : rand(1.45, 1.7)), deg = a * 180 / Math.PI + 90 + (top ? 0 : 180);
+        return `<g transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(deg)}) scale(${f1(s)})"><path d="M-3.6 -2.5Q0 -6.8 3.6 -2.5L1.4 4.6Q0 6.4 -1.4 4.6Z" fill="#a3121a" ${ORILLA}/><path d="M-1.6 -2Q0 -4.2 1.6 -2L.6 2.6Q0 3.6 -.6 2.6Z" fill="#200002"/></g>`; };
+      for (let i = 0; i < 7; i++) { const a = Math.PI + (i + 0.5) / 7 * Math.PI + rand(-0.06, 0.06); h += diente(a, 25, true); }
+      for (let i = 0; i < 6; i++) { const a = (i + 0.5) / 6 * Math.PI + rand(-0.06, 0.06); h += diente(a, 22, false); }
+      return h + gotas(5, 38, 48, 1.2, 2.6, '#7a0b0c'); },
+    // corte de hacha, cuchillo o espada: un solo tajo limpio en diagonal que gotea
+    cut(rot) { const w = rand(8.5, 11); return `<path d="${tajo(-48, -3, 48, 3, rand(-4, 4), w, 0.55)}" fill="#c01b1f" ${ORILLA}/><path d="${tajo(-40, -2.4, 40, 2.4, 0, w * 0.32, 0.6)}" fill="#2a0002"/>${chorros(3, rot, -24, 24, 3, 7, 18, 2.4, '#9a0f14')}`; },
+    // motosierra: desgarro ancho de bordes dentados con trozos y salpicaduras
+    saw(rot) { const w = rand(17, 21); return `<path d="${tajo(-49, rand(-6, 6), 49, rand(-6, 6), rand(-5, 5), w, 0.45, 5.5)}" fill="#a3121a" ${ORILLA}/><path d="${tajo(-40, 0, 40, 0, 0, w * 0.45, 0.5, 3)}" fill="#240002"/>${gotas(12, 14, 46, 1.2, 3.4, '#8a0d12')}${chorros(4, rot, -30, 30, w * 0.4, 6, 20, 2.6, '#8a0d12')}`; },
+    // bala: agujero pequeño con grietas como en un vidrio (gris claro con borde oscuro: se lee sobre cualquier fondo)
+    bullet() { let c = '', r = '';
+      const n_ = 7 + (Math.random() * 3 | 0);
+      for (let i = 0; i < n_; i++) { let a = (i + rand(-0.3, 0.3)) / n_ * TAU, x = Math.cos(a) * 6, y = Math.sin(a) * 6, d = `M${f1(x)} ${f1(y)}`; const L = rand(22, 44), seg = 3;
+        for (let s = 1; s <= seg; s++) { a += rand(-0.3, 0.3); const rr = 6 + L * s / seg; d += `L${f1(Math.cos(a) * rr)} ${f1(Math.sin(a) * rr)}`; } c += d; }
+      for (let i = 0; i < 3; i++) { const R = rand(13, 24), a0 = rand(0, TAU), a1 = a0 + rand(0.6, 1.3); r += `M${f1(Math.cos(a0) * R)} ${f1(Math.sin(a0) * R)}A${f1(R)} ${f1(R)} 0 0 1 ${f1(Math.cos(a1) * R)} ${f1(Math.sin(a1) * R)}`; }
+      return `<path d="${c}${r}" fill="none" stroke="rgba(0,0,0,.6)" stroke-width="2.6" stroke-linejoin="round"/><path d="${c}${r}" fill="none" stroke="rgba(236,236,226,.9)" stroke-width="1.1" stroke-linejoin="round"/>${gotas(6, 9, 18, 0.8, 2, '#8a0d12')}<circle r="8.5" fill="#8e1012" opacity=".9"/><circle r="6.5" fill="url(#gpH)" stroke="rgba(236,236,226,.7)" stroke-width=".8"/>`; },
+    // fuego y explosiones: quemadura con hollín, borde chamuscado y brasas
+    burn() { const o = blob(20, 19, 31, 0, 0, 0.45); let b = '';
+      for (let i = 0; i < 9; i++) { const a = rand(0, TAU), r = rand(16, 36); b += `<circle cx="${f1(Math.cos(a) * r)}" cy="${f1(Math.sin(a) * r)}" r="${f1(rand(0.9, 2.1))}" fill="${Math.random() < 0.5 ? '#ff8a1c' : '#ffc24a'}"/>`; }
+      return `<path d="${o}" fill="url(#gpS)" stroke="rgba(255,130,40,.35)" stroke-width="3.2"/><path d="${o}" fill="none" stroke="rgba(255,170,70,.75)" stroke-width="1"/><path d="${blob(11, 7, 13)}" fill="#040201" opacity=".85"/>${b}`; },
+    // ácido y escupitajos: salpicadura verde amarilla que chorrea hacia abajo, con burbujas
+    acid(rot) { let bb = ''; for (let i = 0; i < 5; i++) { const a = rand(0, TAU), r = rand(4, 16); bb += `<circle cx="${f1(Math.cos(a) * r)}" cy="${f1(Math.sin(a) * r)}" r="${f1(rand(1.4, 3))}" fill="none" stroke="#f4fbb0" stroke-width=".9" opacity=".85"/>`; }
+      return `${chorros(4, rot, -15, 15, 8, 12, 32, 3.4, '#9cc22a')}<path d="${blob(14, 15, 23, 0, 0, 0.3)}" fill="url(#gpA)" stroke="rgba(30,40,0,.6)" stroke-width="1.4"/>${bb}${gotas(5, 28, 40, 1.4, 3, '#a8cc30')}`; }
+  };
+  const ESCALA = { bullet: 0.62, bite: 0.9, cut: 1.05, saw: 1.12 };
+  function caja() {
+    if (box) return box; box = document.getElementById('golpes'); if (!box) return null;
+    box.insertAdjacentHTML('beforeend', DEFS);
+    for (let i = 0; i < GOLPE.max; i++) { const d = document.createElement('div'); d.className = 'golpe'; box.appendChild(d); pool.push({ d, t: 0, to: 0 }); }
+    return box;
+  }
+  // amount: daño recibido · src: de dónde vino (x, z) o null · k: tipo de marca · tick: daño continuo (fuego, gas)
+  function marca(k, amount, src, tick) {
+    if (!FORMA[k] || !caja()) return;
+    const now = performance.now();
+    if (tick) { if (now - (ult[k] || 0) < GOLPE.tickCada * 1000) return; }
+    ult[k] = now;
+    const W = box.clientWidth || innerWidth, H = box.clientHeight || innerHeight, m = Math.min(W, H);
+    // el más viejo se recicla (como mucho 4 a la vez)
+    const it = pool.reduce((a, b) => (a.t <= b.t ? a : b)); it.t = now + (++n) * 1e-3;
+    let ang;
+    if (src && player) { const dx = src.x - player.pos.x, dz = src.z - player.pos.z, fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
+      ang = Math.atan2(dx * rx + dz * rz, dx * fx_ + dz * fz) + rand(-0.45, 0.45); }
+    else ang = rand(0, TAU);
+    const S = Math.round(clamp(m * 0.44, 130, 270) * (0.72 + 0.55 * clamp(amount / 30, 0, 1)) * (ESCALA[k] || 1) * (tick ? 0.75 : 1));
+    const ux = Math.sin(ang), uy = -Math.cos(ang);
+    let x = W / 2 + ux * W * rand(0.2, 0.32), y = H / 2 + uy * H * rand(0.18, 0.3);
+    // nunca encima de la mira: lo empuja hacia fuera si queda cerca del centro
+    const minD = S * 0.5 + m * 0.07, dc = Math.hypot(x - W / 2, y - H / 2);
+    if (dc < minD) { const vx = (x - W / 2) / (dc || 1) || ux, vy = (y - H / 2) / (dc || 1) || uy; x = W / 2 + vx * minD; y = H / 2 + vy * minD; }
+    x = clamp(x, S * 0.22, W - S * 0.22); y = clamp(y, S * 0.22, H - S * 0.22);
+    const rot = ['cut'].includes(k) ? (Math.random() < 0.5 ? -1 : 1) * rand(0.45, 0.85) : k === 'acid' || k === 'claw' ? rand(-0.45, 0.45) : rand(-Math.PI, Math.PI);
+    const d = it.d; clearTimeout(it.to);
+    d.innerHTML = `<svg viewBox="-50 -50 100 100">${FORMA[k](rot)}</svg>`; d.dataset.k = k;
+    d.style.width = d.style.height = S + 'px';
+    const tf = sc => `translate(${Math.round(x - S / 2)}px,${Math.round(y - S / 2)}px) rotate(${rot.toFixed(3)}rad) scale(${sc})`;
+    d.style.transition = 'none'; d.style.opacity = '1'; d.style.transform = tf(REDUCED ? 1 : 1.18);
+    void d.offsetWidth;
+    if (!REDUCED) { d.style.transition = 'transform .16s ease-out'; d.style.transform = tf(1); }
+    it.to = setTimeout(() => { d.style.transition = `opacity ${GOLPE.fade}s ease-in`; d.style.opacity = '0'; it.to = setTimeout(() => { it.t = 0; }, GOLPE.fade * 1000); }, GOLPE.dura * 1000);
+  }
+  function limpiar() { for (const it of pool) { clearTimeout(it.to); it.t = 0; it.d.style.transition = 'none'; it.d.style.opacity = '0'; } ult = {}; }
+  return { marca, limpiar };
+})();
+// qué marca deja cada zombi al pegar con la mano (o con lo que lleve)
+function golpeDe(z) {
+  const t = z.type;
+  if (t === 'saw') return 'saw';
+  if (t === 'dog') return 'bite';
+  if (t === 'axer' || t === 'enfermera' || t === 'knight') return 'cut';
+  if (t === 'caballero') return z.cabArma && z.cabArma !== 'nada' ? 'cut' : 'blunt';
+  if (z.boss != null || t === 'brute' || t === 'abom' || t === 'boss' || t === 'armored' || t === 'copz' || t === 'bandit' || t === 'bloater') return 'blunt';
+  return 'claw';
+}
 const fx = { dmg: 0, acid: 0, flash: 0 };
 function addGold(n, silent) {
   if (n > 0 && lv('midas')) n = Math.round(n * (1 + 0.15 * lv('midas')));
@@ -19908,6 +20093,7 @@ function saveGame() {
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
+  Golpes.limpiar();
   Net.waiting = false;
   player.grab = null; { const gb = document.getElementById('grab'); if (gb) gb.hidden = true; }
   if (!sv && !tuto) META.st.runs = (META.st.runs | 0) + 1;
@@ -20028,6 +20214,8 @@ function hurtPlayer(amount, src, opt = {}) {
   if (opt.acid) fx.acid = Math.min(1, fx.acid + (opt.tick ? 0.05 : 0.9));
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
   if (!opt.tick || Math.random() < 0.1) Sfx.hurt();
+  { const k = opt.k === undefined ? (opt.acid ? 'acid' : opt.tick ? 'burn' : 'blunt') : opt.k; if (k) Golpes.marca(k, amount, src, !!opt.tick); }
+  if (player.hp > 0) Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo');   // quejido de dolor de tu personaje (al morir suena su grito)
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
   if (!opt.tick && lv('thorns')) for (const o of zombies) { if (o.dead) continue; if (Math.hypot(o.root.position.x - player.pos.x, o.root.position.z - player.pos.z) < 2.5) damageZombie(o, 40 * lv('thorns'), { part: 'body', dir: null, ally: true }); }
   if (player.hp <= 0 && rl('biblia') && game.bibleWave !== game.wave) { game.bibleWave = game.wave; player.hp = 1; banner('La Biblia te salvó', 'La bala se quedó en sus páginas', 2000); return; }
@@ -20069,7 +20257,7 @@ function statsRows() {
 }
 function saveBest() { const best = store.get('sbB_best', null), isRec = !best || game.wave > best.wave || (game.wave === best.wave && game.kills > best.kills); if (isRec) { store.set('sbB_best', { wave: game.wave, kills: game.kills, gold: game.goldTotal }); game.newRec = true; } return isRec || !!game.newRec; }
 function gameOver() {
-  muerte3dFin();
+  muerte3dFin(); Golpes.limpiar();
   if (tuto) { toMenu(); return; }
   checkUnlocks();
   $('#over .title').textContent = game && game.sinLlave ? 'Sin llaves no hay salida' : game && game.outAmmo ? 'Te quedaste sin balas' : 'Te comieron';
@@ -20465,7 +20653,7 @@ function shoot(h, fanned, yawOff = 0) {
   if (hasB(type, 'ruleta')) { ctx.roulette = Math.random() < luck(1 / 3, 1.5); if (ctx.roulette) { feed('¡BANG!', 'red'); ctx.col = 0xff2020; } else { Sfx.dry(); feed('Clic… se encasquilló', 'red'); pellets = 0; } }
   if (sigOn(h.model, 'doble') && pellets > 0) pellets *= 2;
   if (hasB(type, 'dragon')) { dragonCone(h, cam); pellets = 0; }
-  if (hasB(type, 'acme')) hurtPlayer(20, null, {});
+  if (hasB(type, 'acme')) hurtPlayer(20, null, { k: 'burn' });
   if (pellets > 0 && S('twinC') && Math.random() < S('twinC') / 100) pellets++;
   if (h.loaded.includes(3)) pellets *= 2;
   const sp = spread() + (fanned ? 0.055 : 0) + (m.pellets ? m.pSpread : pellets > 1 ? 0.025 : 0);
@@ -20600,7 +20788,7 @@ function teslaChain(z, pt, d, dmg, n) {
 }
 function rocketBoom(p, r, dmg) {
   Sfx.boom(); explode(p, r, dmg, 0, false);
-  const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z); if (pd < r * 0.7) hurtPlayer(30 * (1 - pd / (r * 0.7)), p, { knock: 7 });
+  const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z); if (pd < r * 0.7) hurtPlayer(30 * (1 - pd / (r * 0.7)), p, { knock: 7, k: 'burn' });
   for (let i = 0; i < 30; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
 }
 function onHitZombie(z, pt, d, ctx, killed) { const ty = ctx.type; if (typeof ty === 'string' && ty.indexOf('+') > 0) { for (const p of ty.split('+')) { ctx.type = p; onHitZombie1(z, pt, d, ctx, killed); } ctx.type = ty; return; } onHitZombie1(z, pt, d, ctx, killed); }
@@ -20830,7 +21018,7 @@ function explode(c, r, dmgZ, dmgP, green) {
   for (let i = 0; i < 50; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
   for (let i = 0; i < 14; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
   const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z);
-  if (pd < r && dmgP > 0) hurtPlayer(dmgP * (1 - pd / r * 0.6), c, { knock: 6, acid: green });
+  if (pd < r && dmgP > 0) hurtPlayer(dmgP * (1 - pd / r * 0.6), c, { knock: 6, acid: green, k: green ? 'acid' : 'burn' });
   if (dmgP > 0) netHurtArea(c, r, dmgP * 0.7, 6, green ? 1 : 0);
   for (const o of zombies) { if (o.dead) continue; const d = Math.hypot(o.root.position.x - c.x, o.root.position.z - c.z); if (d < r) { o.stagger = 0.6; damageZombie(o, dmgZ * (ST.boomX || 1) * (1 - d / r * 0.5), { part: 'body', dir: null }); } }
   for (const cp of cops) { if (cp.dead) continue; const d = Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z); if (d < r && dmgP > 0) hurtCop(cp, dmgP * 1.2); }
@@ -20960,8 +21148,8 @@ function banditShoot(z, dist) {
   const hit = Math.random() < p, end = tgt.clone();
   if (!hit) { end.x += rand(-1.6, 1.6); end.y += rand(-0.6, 0.9); end.z += rand(-1.6, 1.6); }
   else if (tc) hurtCop(tc, z.dmg * 1.3);
-  else if (!z.pid || z.pid === Net.id) hurtPlayer(z.dmg, z.root.position, {});
-  else if (peer) Net.ev(['hurt', z.pid, r2(z.dmg), r2(z.root.position.x), r2(z.root.position.z), 0, 0, 0]);
+  else if (!z.pid || z.pid === Net.id) hurtPlayer(z.dmg, z.root.position, { k: 'bullet' });
+  else if (peer) Net.ev(['hurt', z.pid, r2(z.dmg), r2(z.root.position.x), r2(z.root.position.z), 0, 0, 0, 'bullet']);
   if (Net.host) Net.ev(['zsh', r2(from.x), r2(from.y), r2(from.z), r2(end.x), r2(end.y), r2(end.z)]);
   addTracer(from, end, 0xffd090, 1.2); Sfx.pistol(panOf(from), volOf(from, 0.9));
   for (let i = 0; i < 6; i++) PA.add(from.x, from.y, from.z, rand(-1, 1), rand(-0.5, 1), rand(-1, 1), 0.15, 0.08, 1, 0.8, 0.3, 1, 0, 2, 0, 0);
@@ -21488,7 +21676,7 @@ function zTeleHit(f, d, me) {
     f.bolt = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xeef4ff, transparent: true, fog: false })); f.bolt.frustumCulled = false; scene.add(f.bolt);
     _zA.set(f.x, 0.2, f.z); sparks(_zA, 24, _up); for (let i = 0; i < 20; i++) PA.add(f.x, 0.3, f.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(0.2, 0.5), rand(0.08, 0.16), 0.8, 0.9, 1, 1, 6, 0.5, 0, 0);
     fx.flash = Math.max(fx.flash, d < 20 ? 0.35 : 0.15); Sfx.thunder(panOf(p)); Sfx.thud(panOf(p));
-    if (me && d < f.r) hurtPlayer(f.dmg * (1 - d / f.r * 0.3), p, { knock: 6 });
+    if (me && d < f.r) hurtPlayer(f.dmg * (1 - d / f.r * 0.3), p, { knock: 6, k: 'burn' });
     if (!Net.client) envHit(f.x, f.z, f.r, 0.03, 1.5, 'Rayo', false);
   } else {
     for (let i = 0; i < 24; i++) P.add(f.x, 0.2, f.z, rand(-2, 2), rand(3, 7), rand(-2, 2), 1, 0.12, 0.4, 0.05, 0.08, 1, 9.8, 0.5, 0, 0);
@@ -21765,7 +21953,7 @@ function tankBoom(T, real) {
   for (let i = 0; i < 60; i++) PA.add(T.x, 1, T.z, rand(-6, 6), rand(1, 7), rand(-6, 6), rand(0.5, 1.2), rand(0.15, 0.4), 1, rand(0.4, 0.7), 0.1, 1, 3, 1.5, 0.4, 0);
   for (let i = 0; i < 20; i++) P.add(T.x + rand(-1, 1), rand(0.5, 2.5), T.z + rand(-1, 1), rand(-1, 1), rand(1, 2.5), rand(-1, 1), rand(2, 3.5), 1, 0.12, 0.12, 0.13, 0.55, -0.15, 0.5, 1.2, 0);
   Sfx.boom(); const d = Math.hypot(player.pos.x - T.x, player.pos.z - T.z); fx.flash = Math.max(fx.flash, d < 15 ? 0.3 : 0.1); player.shake = Math.min(1, player.shake + Math.max(0, 0.8 - d * 0.04));
-  if (!player.down && d < 5.5) hurtPlayer(35 * (1 - d / 5.5 * 0.6), T, { knock: 9 });
+  if (!player.down && d < 5.5) hurtPlayer(35 * (1 - d / 5.5 * 0.6), T, { knock: 9, k: 'burn' });
   if (real) envHit(T.x, T.z, 5.5, 0.035, 2.5, 'Bombona', false);
 }
 function heliCall() {
@@ -22078,7 +22266,7 @@ function tgStep(f, dt, me) {
   player.shake = Math.min(1, player.shake + Math.max(0, 0.5 - Math.hypot(px - cx, pz - cz) * 0.03));
   if (fx === 'fire') BFX.push({ k: 'fire', x: f.x, z: f.z, t: 4 });
   if (fx === 'goo') { const m = new THREE.Mesh(bfxWebGeo, new THREE.MeshBasicMaterial({ color: 0x8a2a4a, transparent: true, opacity: 0.5, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.scale.setScalar((f.r || 2) / 2.2); m.position.set(f.x, 0.05, f.z); scene.add(m); BFX.push({ k: 'web', m, x: f.x, z: f.z, t: 6 }); }
-  if (me && hit && f.dmg > 0) hurtPlayer(f.dmg, { x: f.k === 'tga' ? f.x : cx, z: f.k === 'tga' ? f.z : cz }, { knock: 9 });
+  if (me && hit && f.dmg > 0) hurtPlayer(f.dmg, { x: f.k === 'tga' ? f.x : cx, z: f.k === 'tga' ? f.z : cz }, { knock: 9, k: fx === 'fire' || fx === 'boom' ? 'burn' : fx === 'goo' ? 'acid' : 'blunt' });
 }
 // Salto o embestida del jefe hacia un punto marcado (lo mueve el anfitrión; los demás lo ven por la posición)
 function bLeap(z, x, zz, wait, dur) { z.lp = { x0: z.root.position.x, z0: z.root.position.z, x1: x, z1: zz, t: -wait, dur }; }
@@ -22114,7 +22302,7 @@ function bfxSpawn(kind, ...a) {
     const [x1, z1, x2, z2, pid] = a, A = new THREE.Vector3(x1, 1.8, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
     BFX.push({ k: kind, m: bfxBeam(A, Bv, 0x9aa0a8), t: 0.35 }); Sfx.whoosh(panOf(A));
     const sx = x2 - x1, sz = z2 - z1, sL = sx * sx + sz * sz || 1, sk = clamp(((player.pos.x - x1) * sx + (player.pos.z - z1) * sz) / sL, 0, 1), enLinea = Math.hypot(player.pos.x - (x1 + sx * sk), player.pos.z - (z1 + sz * sk)) < 1.3;
-    if (me && enLinea && (pid === Net.id || !Net.on)) { const dx = player.pos.x - x1, dz = player.pos.z - z1, d = Math.hypot(dx, dz) || 1; hurtPlayer(12, { x: player.pos.x + dx / d, z: player.pos.z + dz / d }, { knock: Math.min(22, d * 1.4) }); feed('¡Te engancharon!', 'red'); }
+    if (me && enLinea && (pid === Net.id || !Net.on)) { const dx = player.pos.x - x1, dz = player.pos.z - z1, d = Math.hypot(dx, dz) || 1; hurtPlayer(12, { x: player.pos.x + dx / d, z: player.pos.z + dz / d }, { knock: Math.min(22, d * 1.4), k: 'cut' }); feed('¡Te engancharon!', 'red'); }
   } else if (kind === 'laser') {
     const [x1, z1, x2, z2, dmg] = a, A = new THREE.Vector3(x1, 2.0, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
     BFX.push({ k: kind, m: bfxBeam(A, Bv, 0xff1010, 0.75), t: 1.1, A, B: Bv, dmg });
@@ -22125,7 +22313,7 @@ function bfxSpawn(kind, ...a) {
   } else if (kind === 'mshot') {
     const [x1, y1, z1, x2, y2, z2, pid, dmg] = a, A = new THREE.Vector3(x1, y1, z1), Bv = new THREE.Vector3(x2, y2, z2);
     addTracer(A, Bv, 0xd0e0ff, 1.6); Sfx.pistol(panOf(A), volOf(A, 1));
-    if (me && dmg > 0 && (pid === Net.id || !Net.on)) hurtPlayer(dmg, { x: x1, z: z1 });
+    if (me && dmg > 0 && (pid === Net.id || !Net.on)) hurtPlayer(dmg, { x: x1, z: z1 }, { k: 'bullet' });
   }
 }
 function bossClear() {
@@ -22184,16 +22372,16 @@ function bossFx(dt) {
   for (let i = BFX.length - 1; i >= 0; i--) {
     const f = BFX[i]; f.t -= dt; const d = Math.hypot(player.pos.x - (f.x || 0), player.pos.z - (f.z || 0)), me = !player.down && state === 'play'; if (f.zk) zfxStep(f, dt, d, me);
     if (f.tg) { tgStep(f, dt, me); if (f.t <= 0) BFX.splice(i, 1); continue; }
-    if (f.k === 'bomb') { f.m.material.emissive.setHex(Math.floor(f.t * 8) % 2 ? 0xff2000 : 0x300000); if (f.t <= 0) { for (let k = 0; k < 40; k++) P.add(f.x, 0.4, f.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.4), rand(0.15, 0.35), 1, 0.5, 0.15, 1, 2, 2.5, 0.5, 0); Sfx.boom(); if (me && d < 3.2) hurtPlayer(35 * (1 - d / 3.2 * 0.5), f, { knock: 8 }); } }
+    if (f.k === 'bomb') { f.m.material.emissive.setHex(Math.floor(f.t * 8) % 2 ? 0xff2000 : 0x300000); if (f.t <= 0) { for (let k = 0; k < 40; k++) P.add(f.x, 0.4, f.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.4), rand(0.15, 0.35), 1, 0.5, 0.15, 1, 2, 2.5, 0.5, 0); Sfx.boom(); if (me && d < 3.2) hurtPlayer(35 * (1 - d / 3.2 * 0.5), f, { knock: 8, k: 'burn' }); } }
     else if (f.k === 'fire') { if (Math.random() < 0.7) PA.add(f.x + rand(-0.5, 0.5), 0.1, f.z + rand(-0.5, 0.5), rand(-0.2, 0.2), rand(1, 2.2), rand(-0.2, 0.2), rand(0.3, 0.6), rand(0.2, 0.35), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.2, 0); if (me && d < 1.1) hurtPlayer(16 * dt, f, { tick: true }); }
     else if (f.k === 'gas') {
       for (let k = 0; k < 2; k++) P.add(f.x + rand(-2.6, 2.6), rand(0.2, 1.6), f.z + rand(-2.6, 2.6), rand(-0.3, 0.3), rand(0, 0.3), rand(-0.3, 0.3), rand(1, 1.8), 0.9, 0.35, 0.75, 0.2, 0.35, -0.1, 1, 0.4, 0);
-      f.tk -= dt; if (me && d < 3 && f.tk <= 0) { f.tk = 1; const loss = Math.min(4, Math.max(0, player.maxHp - 60)); if (loss) { player.maxHp -= loss; game.plague = (game.plague || 0) + loss; } player.hp = Math.min(player.hp, player.maxHp); hurtPlayer(5, f); feed('La plaga te quita vida máxima', 'red'); }
+      f.tk -= dt; if (me && d < 3 && f.tk <= 0) { f.tk = 1; const loss = Math.min(4, Math.max(0, player.maxHp - 60)); if (loss) { player.maxHp -= loss; game.plague = (game.plague || 0) + loss; } player.hp = Math.min(player.hp, player.maxHp); hurtPlayer(5, f, { k: 'acid' }); feed('La plaga te quita vida máxima', 'red'); }
     }
     else if (f.k === 'drop') { const e = 1 - Math.max(0, f.t) / f.d; f.m.position.set(f.a[0] + (f.x - f.a[0]) * e, 9 * (1 - e * e) + 0.4, f.a[1] + (f.z - f.a[1]) * e); f.m.rotation.x += dt * 8; if (f.t <= 0) { dirtBurst(f.x, 0.05, f.z, 18, 3); Sfx.thud(panOf(f)); } }
     else if (f.k === 'tent') { f.m.material.opacity = 0.25 + 0.25 * Math.sin(f.t * 25); if (f.t <= 0) { for (let k = 0; k < 24; k++) P.add(f.x, 0.2, f.z, rand(-2, 2), rand(3, 7), rand(-2, 2), 1, 0.12, 0.4, 0.05, 0.08, 1, 9.8, 0.5, 0, 0); bloodBurst(new THREE.Vector3(f.x, 0.3, f.z), new THREE.Vector3(0, 1, 0), 14, true); Sfx.thud(panOf(f)); Sfx.splat(panOf(f), volOf(f, 1)); if (me && d < 2.2) hurtPlayer(f.dmg, f, { knock: 9 }); } }
     else if (f.k === 'web') { f.m.material.opacity = 0.45 * Math.min(1, f.t); if (me && d < 2.2) player.webT = 0.25; }
-    else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < 1.4 && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4 }); } }
+    else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < 1.4 && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4, k: 'bullet' }); } }
     if (f.t <= 0) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } BFX.splice(i, 1); }
   }
   // aspecto de los jefes (también en los teléfonos del grupo)
@@ -22478,7 +22666,7 @@ function miniFx(z, dt) {
   const p = z.root.position, d = player.down ? 99 : Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
   if (M.ab === 'aura' || M.ab === 'frost') {
     if (Math.random() < 0.6) { const a = rand(0, TAU), r = rand(0.5, A.r); PA.add(p.x + Math.cos(a) * r, 0.15, p.z + Math.sin(a) * r, 0, rand(0.6, 1.4), 0, 0.8, 0.12, c[0], c[1], c[2], 0.8, -0.4, 0.5, 0, 0); }
-    if (d < A.r && state === 'play') { hurtPlayer(A.dps * dt, p, { tick: true }); if (M.ab === 'frost') player.frostT = 0.3; }
+    if (d < A.r && state === 'play') { hurtPlayer(A.dps * dt, p, { tick: true, k: M.ab === 'frost' ? '' : 'burn' }); if (M.ab === 'frost') player.frostT = 0.3; }
   }
   if (M.ab === 'ghost') z.body.visible = d < A.r || (z.t % 3) < 0.25;
   if (z.mShieldM) z.mShieldM.visible = z.mSh > 0;
@@ -22539,10 +22727,10 @@ function grabStep(dt) {
   const z = g.z;
   if (z.dead || player.down || state === 'dying' || state === 'over') { grabEnd(false); return; }
   if (state !== 'play') return;
-  g.t -= dt; hurtPlayer(GRAB.dps * dt, null, { tick: true });
+  g.t -= dt; hurtPlayer(GRAB.dps * dt, null, { tick: true, k: '' });
   const want = Math.atan2(-(z.root.position.x - player.pos.x), -(z.root.position.z - player.pos.z)); let dy = want - player.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; player.yaw += dy * Math.min(1, dt * 5);
   $('#grab-b').style.width = Math.min(100, g.n / g.need * 100).toFixed(0) + '%';
-  if (g.t <= 0) { grabEnd(false); if (!z.dead) { hurtPlayer(z.dmg * GRAB.bite, z.root.position); feed('¡Te mordió!', 'red'); } }
+  if (g.t <= 0) { grabEnd(false); if (!z.dead) { hurtPlayer(z.dmg * GRAB.bite, z.root.position, { k: 'bite' }); feed('¡Te mordió!', 'red'); } }
 }
 // Muñeco de trapo: al morir, el disparo lo empuja, se tambalea, cae hacia donde lo empujaron y sus brazos quedan sueltos
 const RAG = { push: 1.6, tip: 2.2, grav: 9, spin: 2.2, fric: 6, air: 1.2 };
@@ -23937,7 +24125,7 @@ function updateZombies(dt, canAttack) {
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
           } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
-          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0 }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0, r2(reach + 0.4 + z.r)]); tryGrabPeer(z, z.pid); } }
+          else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0, k: golpeDe(z) }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0, r2(reach + 0.4 + z.r), golpeDe(z)]); tryGrabPeer(z, z.pid); } }
         }
         z.atkCd = z.def.big ? 1.6 : 1.05; z.swing = 0.25; if (z.type === 'brute') z.charge = 0;
       }
@@ -24219,7 +24407,7 @@ function updateAcid(dt) {
     if (a.axe) a.m.rotation.x -= dt * 16;
     if (!a.axe) PA.add(p.x, p.y, p.z, rand(-0.2, 0.2), rand(-0.2, 0.2), rand(-0.2, 0.2), 0.35, 0.12, 0.45, 1, 0.2, 0.8, 0, 2, -0.2, 0);
     if (state === 'play' && Math.hypot(p.x - player.pos.x, p.z - player.pos.z) < 0.6 && p.y > player.pos.y && p.y < player.pos.y + 1.9) {
-      if (a.axe) { hurtPlayer(18 * (1 + (game.wave - 1) * 0.04), p, { knock: 3 }); Sfx.clang(0); } else { hurtPlayer(12 * (1 + (game.wave - 1) * 0.04), p, { acid: true }); Sfx.sizzle(); } scene.remove(a.m); acids.splice(i, 1); continue;
+      if (a.axe) { hurtPlayer(18 * (1 + (game.wave - 1) * 0.04), p, { knock: 3, k: 'cut' }); Sfx.clang(0); } else { hurtPlayer(12 * (1 + (game.wave - 1) * 0.04), p, { acid: true }); Sfx.sizzle(); } scene.remove(a.m); acids.splice(i, 1); continue;
     }
     // en grupo, cada jugador recibe su propia copia del ácido o del hacha y se calcula el golpe en su teléfono
     let hitCop = null; if (!a.rep) for (const c of cops) if (!c.dead && Math.hypot(p.x - c.root.position.x, p.z - c.root.position.z) < 0.6 && p.y < 1.9) hitCop = c;
@@ -26030,7 +26218,7 @@ const Net = {
     if (m.h) { this.hostId = m.id; this.lastHost = p.seen; }
     p.voice = !!m.v; p.vmute = m.v === 2; if (p.voice) Voice.check(p); else if (Voice.pcs.has(p.id)) Voice.close(p.id);
     if (!this.host && m.h && m.st && !this.started && state === 'menu' && fresh && !(m.ev && m.ev.some(e => e[0] === 'start'))) { $('#lobby-msg').textContent = 'Esa sala ya está jugando. Pídele al anfitrión que cree otra.'; netLeave(); return; }
-    if (m.p && !viejo) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; histPos(p, a, m.t); p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
+    if (m.p && !viejo) { const a = m.p; if (!p.pos) p.pos = { x: a[0], z: a[2] }; p.pos.x = a[0]; p.pos.z = a[2]; p.y = a[1]; p.yaw = a[3]; histPos(p, a, m.t); p.pitch = a[4]; p.model = a[5]; p.dual = !!a[6]; const hpA = p.hp; p.hp = a[7]; p.down = !!a[8]; avisoCaido(p); if (a[9] != null && a[9] >= 0) p.char = CHAR_KEYS[a[9]]; if (game && hpA != null && a[7] < hpA - 3 && a[7] > 0 && !p.down && p.char && (state === 'play' || state === 'pause' || state === 'inv')) Sfx.dolor(p.char, (hpA - a[7]) / 25, panOf(p.pos), volOf(p.pos, 1), p.id); if (a[10] != null) { p.drum = a[10]; p.box = a[11]; } p.wait = !!a[12]; p.rv = !!a[13]; if (a[14] != null) { p.ping = a[14]; p.misK = a[15]; p.muertes = a[16]; p.oro = a[17]; } }
     if (m.ev) for (const e of m.ev) netEvent(p, e);
     if (m.s && this.client && !viejo) applySnapshot(m.s);
     if (state === 'menu') renderLobby();
@@ -26651,7 +26839,7 @@ function netEvent(p, e) {
   if (!Net.client || !game) return;
   if (t === 'heal') { if (e[1] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + e[2]); return; }
 
-  if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0) && !(e[7] > 0 && Math.hypot(player.pos.x - e[3], player.pos.z - e[4]) > e[7] + HURT_SLACK)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6] }); else if (e[1] === Net.id && e[7] > 0 && game) game.dodgeT = performance.now(); }
+  if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0) && !(e[7] > 0 && Math.hypot(player.pos.x - e[3], player.pos.z - e[4]) > e[7] + HURT_SLACK)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6], k: typeof e[8] === 'string' && /^(blunt|claw|bite|cut|saw|bullet|burn|acid)$/.test(e[8]) ? e[8] : undefined }); else if (e[1] === Net.id && e[7] > 0 && game) game.dodgeT = performance.now(); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); colGuardar(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
@@ -28459,6 +28647,7 @@ function pause() {
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
 function toMenu() {
+  Golpes.limpiar();
   if (I18N.pend) { location.reload(); return; }
   tutoStop(); $('#tuto-end').hidden = true;
   if (game && game.deOn) deadEye(false);
