@@ -25487,14 +25487,14 @@ function updateMenu(dt) {
 // Fondo del menú (pedido del dueño, 16-oct-2026): cada cierto tiempo cambia a otro mapa terminado, con un fundido a negro
 let menuMapT = 0, menuMapCambia = false;
 function menuFondo(dt) {
-  if (menuMapCambia || $('#inicio').hidden && $('#modo').hidden) return;
+  if (menuMapCambia || $('#inicio').hidden) { if (!menuMapCambia) menuMapT = 0; return; }   // solo en el menú principal: si ya elegiste partida, el fondo no cambia
   if ((menuMapT += dt) < 28) return;
   menuMapT = 0; menuMapCambia = true;
   const lista = MAPS.map((m, i) => i).filter(i => i !== ROOM_IDX && i !== 9 && !MAP_WIP.has(i)), sig = lista[(lista.indexOf(world.idx) + 1) % lista.length];
   for (const id of ['fade-s', 'fade-t', 'fade-d']) $('#' + id).textContent = '';
   el.fade.classList.add('on');
   setTimeout(() => {
-    if (state === 'menu' && !game) { try { clearActors(); buildMap(sig); } catch (e) {} }
+    if (state === 'menu' && !game && !$('#inicio').hidden) { try { clearActors(); buildMap(sig); } catch (e) {} }
     el.fade.classList.remove('on'); menuMapCambia = false;
   }, 900);
 }
@@ -27087,7 +27087,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 171';
+const GAME_BUILD = '15-oct-2026 · 172';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -28446,7 +28446,8 @@ const Music = (() => {
 
 /* ===================== PANTALLAS ===================== */
 const showTrail = [];
-function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if ((id === 'menu' || id === 'inicio') && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['inicio', 'modo', 'config', 'como', 'menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'bj-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); if (id) { const o = $('#' + id); if (o) { o.classList.remove('entra'); void o.offsetWidth; o.classList.add('entra'); clearTimeout(o.__entraT); o.__entraT = setTimeout(() => o.classList.remove('entra'), 950); } } }
+function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if ((id === 'menu' || id === 'inicio') && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['inicio', 'modo', 'config', 'como', 'menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'bj-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); if (id !== 'inicio' && typeof menuMapCambia !== 'undefined' && menuMapCambia) el.fade.classList.remove('on');   // si sales del menú durante el fundido, se corta al instante
+  if (id) { const o = $('#' + id); if (o) { o.classList.remove('entra'); void o.offsetWidth; o.classList.add('entra'); clearTimeout(o.__entraT); o.__entraT = setTimeout(() => o.classList.remove('entra'), 950); } } }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
