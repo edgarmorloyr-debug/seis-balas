@@ -1135,7 +1135,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   .mcard .st{padding:4px 8px}
   .mcard .items{--iis:36px}
 }
-@media (prefers-reduced-motion:reduce){.ini-brasas,.ini-pc,.ini-big.b-play,#inicio .ini-logo .neon-t{animation:none!important}.ini-brasas{display:none}}
+.ini-pc.gira img,.ini-pc.gira b{animation:iniGira .7s ease-in-out}@keyframes iniGira{0%{transform:rotateY(0)}50%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
+@media (prefers-reduced-motion:reduce){.ini-pc.gira img,.ini-pc.gira b{animation:none}.ini-brasas,.ini-pc,.ini-big.b-play,#inicio .ini-logo .neon-t{animation:none!important}.ini-brasas{display:none}}
 #login .login-col{gap:10px}.login-prov{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.login-prov .btn2{min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;font-size:14px;letter-spacing:.04em;min-width:0;width:auto}.login-prov svg{width:22px;height:22px;flex:none}
 .login-mail{display:flex;flex-direction:column;gap:8px}.login-mail input{min-height:48px;font-size:16px;padding:0 12px;border-radius:10px;border:2px solid #4a3628;background:#1d140f;color:#f6ead7}.login-mrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}.login-mrow .btn,.login-mrow .btn2{min-height:48px}
 @media (max-height:500px){#login .card{padding:10px 18px}#login .title{font-size:30px;margin:0}#login .tag{display:none}#login .note{font-size:14px;margin-top:6px}.login-mail{display:grid;grid-template-columns:1fr 1fr}.login-mail .login-mrow{grid-column:1/-1}#login .card:has(.login-mail:not([hidden])) .note{display:none}}
@@ -25339,15 +25340,42 @@ function updatePlay(dt) {
 }
 function updateMenu(dt) {
   menuT += dt;
-  const a = menuT * 0.06;
-  camera.position.set(Math.cos(a) * 15, 3.6 + Math.sin(menuT * 0.3) * 0.4, Math.sin(a) * 15);
-  camera.lookAt(0, 1.2, 0);
+  const a = menuT * 0.06, S0 = world.idx === 0 ? { x: 0, z: 0 } : world.start || { x: 0, z: 0 };
+  if (world.idx === 0) { camera.position.set(Math.cos(a) * 15, 3.6 + Math.sin(menuT * 0.3) * 0.4, Math.sin(a) * 15); camera.lookAt(0, 1.2, 0); }
+  else { camera.position.set(S0.x, 2.8 + Math.sin(menuT * 0.3) * 0.2, S0.z); camera.lookAt(S0.x + Math.cos(a) * 10, 1.6, S0.z + Math.sin(a) * 10); }   // en los otros mapas la cámara gira en el punto de inicio (siempre al aire libre)
   hands.forEach(h => h.root.visible = false);
-  chase.set(Math.cos(menuT * 0.12) * 5, 0, Math.sin(menuT * 0.12) * 5);
+  chase.set(S0.x + Math.cos(menuT * 0.12) * 5, 0, S0.z + Math.sin(menuT * 0.12) * 5);
   updateFlow(dt, chase.x, chase.z);
   const aliveN = zombies.filter(z => !z.dead).length;
-  if (aliveN < 10 && Math.random() < dt * 0.8) { const ang = rand(0, TAU), r = rand(14, 26), t = pick(['walker', 'walker', 'walker', 'crawler', 'runner', 'spitter', 'dog', 'screamer', 'armored', 'brute']); spawnZombie(t, Math.cos(ang) * r, Math.sin(ang) * r, 1); }
+  if (aliveN < 10 && Math.random() < dt * 0.8) { const ang = rand(0, TAU), r = rand(14, 26), t = pick(['walker', 'walker', 'walker', 'crawler', 'runner', 'spitter', 'dog', 'screamer', 'armored', 'brute']); spawnZombie(t, S0.x + Math.cos(ang) * r, S0.z + Math.sin(ang) * r, 1); }
   updateZombies(dt, false); updateDebris(dt); P.update(dt); PA.update(dt);
+  menuFondo(dt);
+}
+// Fondo del menú (pedido del dueño, 16-oct-2026): cada cierto tiempo cambia a otro mapa terminado, con un fundido a negro
+let menuMapT = 0, menuMapCambia = false;
+function menuFondo(dt) {
+  if (menuMapCambia || $('#inicio').hidden && $('#modo').hidden) return;
+  if ((menuMapT += dt) < 28) return;
+  menuMapT = 0; menuMapCambia = true;
+  const lista = MAPS.map((m, i) => i).filter(i => i !== ROOM_IDX && i !== 9 && !MAP_WIP.has(i)), sig = lista[(lista.indexOf(world.idx) + 1) % lista.length];
+  for (const id of ['fade-s', 'fade-t', 'fade-d']) $('#' + id).textContent = '';
+  el.fade.classList.add('on');
+  setTimeout(() => {
+    if (state === 'menu' && !game) { try { clearActors(); buildMap(sig); } catch (e) {} }
+    el.fade.classList.remove('on'); menuMapCambia = false;
+  }, 900);
+}
+// Retratos del menú: cada pocos segundos una de las dos tarjetas gira y muestra a otro personaje
+{
+  const vis = ['sheriff', 'lilith'];
+  let lado = 0;
+  setInterval(() => {
+    if (state !== 'menu' || $('#inicio').hidden || document.hidden) return;
+    const card = $('#inicio .ini-pc.' + (lado ? 'r' : 'l')); if (!card) return;
+    const libres = Object.keys(CHARS).filter(k => !vis.includes(k)), k = libres[Math.floor(Math.random() * libres.length)];
+    card.classList.remove('gira'); void card.offsetWidth; card.classList.add('gira');
+    setTimeout(() => { const im = card.querySelector('img'), b = card.querySelector('b'); if (im) im.src = 'img/' + k + '.webp'; if (b) b.textContent = CHARS[k].name; vis[lado] = k; lado = 1 - lado; }, 350);
+  }, 4500);
 }
 
 /* ===================== GOLPES QUE SE SIENTEN: números de daño, combo y pausa de impacto ===================== */
