@@ -1230,6 +1230,20 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #altar .fcal svg,.arb-pop .btn .fcal svg,#fichas .fcal svg{width:86%;height:86%}.arb-pop .btn .fcal{font-size:22px}
 @keyframes fcalBrilla{50%{box-shadow:0 0 .55em .18em rgba(214,120,255,1),0 0 1.3em .35em rgba(234,162,58,.6)}}
 @media (prefers-reduced-motion:reduce){.fcal{animation:none}}
+/* Animaciones de botones y pantallas (pedido del dueño, 16-oct-2026) */
+button{transition:scale .14s ease,translate .18s ease,filter .18s ease,box-shadow .18s ease}
+button:active:not(:disabled){scale:.94}
+@media (hover:hover) and (pointer:fine){.btn:not(:disabled):hover,.btn2:not(:disabled):hover{translate:0 -2px;filter:brightness(1.08)}.ini-card:hover{translate:0 -10px;filter:brightness(1.06)}.ini-chip:hover{scale:1.05}}
+button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRebote{0%{scale:.92}60%{scale:1.04}100%{scale:1}}
+.ini-chip.pulsa{animation:fichaGira .5s cubic-bezier(.3,1.3,.5,1)}@keyframes fichaGira{0%{rotate:0deg;scale:.92}100%{rotate:360deg;scale:1}}
+.ini-card.pulsa{animation:cartaToque .38s ease-out}@keyframes cartaToque{0%{translate:0 0}40%{translate:0 -16px}100%{translate:0 0}}
+.overlay.entra{animation:ovEntra .25s ease-out}@keyframes ovEntra{0%{opacity:0}100%{opacity:1}}
+.overlay.entra>.card{animation:cardEntra .32s cubic-bezier(.2,1.1,.4,1)}@keyframes cardEntra{0%{opacity:0;translate:0 18px;scale:.97}100%{opacity:1;translate:0 0;scale:1}}
+#inicio.entra .ini-card{animation:reparte .5s cubic-bezier(.2,1.1,.4,1) both}#inicio.entra .ini-card:nth-of-type(2){animation-delay:.06s}#inicio.entra .ini-card:nth-of-type(3){animation-delay:.12s}#inicio.entra .ini-card:nth-of-type(4){animation-delay:.18s}
+@keyframes reparte{0%{opacity:0;translate:0 60px;rotate:-12deg}100%{opacity:1;translate:0 0;rotate:0deg}}
+#inicio.entra .ini-chip{animation:fichaEntra .55s .25s cubic-bezier(.2,1.3,.4,1) both}@keyframes fichaEntra{0%{opacity:0;scale:.3;rotate:-180deg}100%{opacity:1;scale:1;rotate:0deg}}
+#modo.entra .poster,#modo.entra .deck,#modo.entra #btn-nueva{animation:reparte .45s cubic-bezier(.2,1.1,.4,1) both}#modo.entra .poster{animation-delay:.08s}
+@media (prefers-reduced-motion:reduce){button.pulsa,.ini-chip.pulsa,.ini-card.pulsa,.overlay.entra,.overlay.entra>.card,#inicio.entra .ini-card,#inicio.entra .ini-chip,#modo.entra .poster,#modo.entra #btn-nueva{animation:none}button{transition:none}}
 </style>
 </head>
 <body>
@@ -2056,6 +2070,10 @@ const Sfx = (() => {
     silbato(pan, vol = 1) { for (const [d, L] of [[0, 0.45], [0.55, 1.1]]) { tone({ type: 'square', f0: 622, f1: 600, dur: L, vol: 0.045 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'square', f0: 784, f1: 760, dur: L, vol: 0.035 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'triangle', f0: 932, f1: 900, dur: L, vol: 0.03 * vol, pan, delay: d, wet: 0.55 }); } burst({ ftype: 'bandpass', f0: 2400, q: 3, dur: 1.6, vol: 0.06 * vol, pan, wet: 0.4 }); },   // silbato del trenecito: dos pitidos de vapor
     megafono(pan, vol = 1) { tone({ type: 'triangle', f0: 784, dur: 0.7, vol: 0.12 * vol, pan, wet: 0.6 }); tone({ type: 'triangle', f0: 622, dur: 0.9, vol: 0.12 * vol, pan, delay: 0.45, wet: 0.6 }); for (let i = 0; i < 9; i++) burst({ ftype: 'bandpass', f0: rand(500, 1300), q: 4, dur: rand(0.08, 0.16), vol: 0.07 * vol, pan, delay: 1.3 + i * 0.13, wet: 0.5 }); },   // altavoz: «din, don» y una voz que ya no se entiende
     alarma(pan, vol = 1) { for (let i = 0; i < 8; i++) tone({ type: 'square', f0: i % 2 ? 1320 : 880, dur: 0.2, vol: 0.05 * vol, pan, delay: i * 0.24, wet: 0.5 }); },   // alarma de coche: dos notas que se alternan
+    carta() { if (smp('card_place', { vol: 0.5, rate: rand(0.95, 1.1), wet: 0.1 })) return; this.ui(); },   // botón-carta del menú
+    carta2() { smp('card_slide', { vol: 0.22, rate: rand(1.1, 1.3), wet: 0.05 }); },   // pasar por encima de una carta
+    fichaJ() { if (smp('chips', { vol: 0.55, rate: rand(0.95, 1.05), wet: 0.15 })) return; this.coin(); },   // la ficha de JUGAR
+    atras() { tone({ type: 'triangle', f0: 620, f1: 380, dur: 0.07, vol: 0.06, wet: 0.08 }); },   // volver / cerrar
     ui() { tone({ type: 'triangle', f0: 880, f1: 560, dur: 0.05, vol: 0.07, wet: 0.08 }); tone({ type: 'sine', f0: 2400, dur: 0.02, vol: 0.025, delay: 0.004, wet: 0.05 }); },   // toque de botón: madera suave
     canje() { this.cash(); [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.35, vol: 0.12, delay: 0.08 + i * 0.07, wet: 0.6 })); [2093, 2637].forEach((f, i) => tone({ f0: f, dur: 0.9, vol: 0.04, delay: 0.38 + i * 0.05, wet: 0.9, attack: 0.004 })); },   // canjear una mejora
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
@@ -27069,7 +27087,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 170';
+const GAME_BUILD = '15-oct-2026 · 171';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -28428,7 +28446,7 @@ const Music = (() => {
 
 /* ===================== PANTALLAS ===================== */
 const showTrail = [];
-function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if ((id === 'menu' || id === 'inicio') && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['inicio', 'modo', 'config', 'como', 'menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'bj-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); }
+function show(id) { showTrail.push(`${id || 'nada'}(${state}${game ? ',' + game.phase : ''})`); if (showTrail.length > 6) showTrail.shift(); if (id) releaseInput(); if ((id === 'menu' || id === 'inicio') && typeof renderMeta === 'function') try { renderMeta(); } catch (e) {} ['inicio', 'modo', 'config', 'como', 'menu', 'lobby', 'pause', 'perks', 'shop', 'win', 'over', 'rescue-s', 'event-s', 'altar', 'relic-s', 'doors-s', 'cards-s', 'items-s', 'inv-s', 'bj-s', 'tuto-end', 'ach-s', 'login'].forEach(k => $('#' + k).hidden = k !== id); if (id) { const o = $('#' + id); if (o) { o.classList.remove('entra'); void o.offsetWidth; o.classList.add('entra'); clearTimeout(o.__entraT); o.__entraT = setTimeout(() => o.classList.remove('entra'), 950); } } }
 let lockFails = 0, pausedAt = 0;
 // El navegador solo presta el ratón tras un clic del jugador. Si lo pidió el juego solo (por ejemplo al empezar
 // una partida en grupo) y se lo negaron, no cuenta como fallo: aparece «Haz clic para apuntar».
@@ -29902,7 +29920,10 @@ function renderAcct() {
     else { el.innerHTML = `<span class="inv">Juegas como invitado</span><button class="btn2 gbtn acct-in"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="gl">Iniciar sesión</span></button>`; el.querySelector('.acct-in').onclick = () => { $('#login-mail').hidden = true; show('login'); }; }
   });
 }
-document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (!b || b.disabled || b.hasAttribute('data-nosnd') || state === 'play') return; try { Sfx.ui(); } catch (er) {} }, true);   // sonido suave al tocar cualquier botón de los menús
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (!b || b.disabled || b.hasAttribute('data-nosnd') || state === 'play') return;
+  try { if (b.classList.contains('ini-card')) Sfx.carta(); else if (b.classList.contains('ini-chip') || b.id === 'btn-nueva' || b.id === 'btn-continue') Sfx.fichaJ(); else if (/back|volver|cerrar/i.test(b.id) || /^\s*(volver|cerrar|atrás)\s*$/i.test(b.textContent)) Sfx.atras(); else Sfx.ui(); } catch (er) {}
+  b.classList.remove('pulsa'); void b.offsetWidth; b.classList.add('pulsa'); setTimeout(() => b.classList.remove('pulsa'), 380); }, true);   // sonido y pequeño rebote al tocar cualquier botón de los menús
+document.addEventListener('pointerover', e => { const b = e.target.closest && e.target.closest('.ini-card'); if (!b || b === document.__cartaHover || !matchMedia('(hover:hover)').matches) return; document.__cartaHover = b; try { Sfx.carta2(); } catch (er) {} }, true);   // sonido suave al tocar cualquier botón de los menús
 $('#btn-guest').addEventListener('click', () => { store.set('sb_login', 'guest'); show('inicio'); });
 $('#btn-discord').addEventListener('click', () => Cuenta.oauth('discord', 'Discord'));
 $('#btn-mail').addEventListener('click', () => { const f = $('#login-mail'); f.hidden = !f.hidden; if (!f.hidden) $('#lm-correo').focus(); });
