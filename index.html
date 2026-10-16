@@ -436,8 +436,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .top-me{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--bone-dim)}
 #top-nick{flex:1;min-width:0;min-height:44px;padding:0 10px;font:600 16px var(--hud);background:rgba(0,0,0,.4);color:var(--bone);border:1px solid rgba(236,226,203,.4)}
 @media (min-width:1180px){#top-box{position:fixed;top:16px;right:16px;width:270px;margin:0;z-index:6}}
-#btn-ach.ach-nuevo,#inicio #btn-ach-ini.ach-nuevo{position:relative;border-color:#ffc840;color:#ffe08a}
-#btn-ach.ach-nuevo::after,#inicio #btn-ach-ini.ach-nuevo::after{content:'\2605';position:absolute;top:-11px;right:-9px;font-size:22px;line-height:1;color:#ffc840;text-shadow:0 0 6px #ff9a00,0 1px 2px #000;animation:achStar 1.6s ease-in-out infinite}
+#btn-ach.ach-nuevo,#inicio #btn-ach-ini.ach-nuevo,#btn-altar.ach-nuevo,#inicio #btn-altar-ini.ach-nuevo{position:relative;border-color:#ffc840;color:#ffe08a}
+#btn-ach.ach-nuevo::after,#inicio #btn-ach-ini.ach-nuevo::after,#btn-altar.ach-nuevo::after,#inicio #btn-altar-ini.ach-nuevo::after{content:'\2605';position:absolute;top:-11px;right:-9px;font-size:22px;line-height:1;color:#ffc840;text-shadow:0 0 6px #ff9a00,0 1px 2px #000;animation:achStar 1.6s ease-in-out infinite}
 @keyframes achStar{50%{transform:scale(1.25) rotate(12deg)}}
 .rastro{position:fixed;left:0;top:0;width:28px;height:28px;z-index:15;pointer-events:none;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 4l17 8-17 8 4-8z' fill='%23ff3b3b' stroke='%23fff' stroke-width='1.2'/></svg>");filter:drop-shadow(0 0 6px #ff2020);animation:rastroP 1s ease-in-out infinite}
 @keyframes rastroP{50%{opacity:.55}}
@@ -863,6 +863,13 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 @media (prefers-reduced-motion:reduce){.msg{animation-duration:2s}#banner{transition:none}}
 
 /* ===== Tema «Feria del oeste» (16-oct-2026): cálido y colorido sin cansar la vista ===== */
+#menu .car-stage{grid-template-columns:auto .8fr 1.6fr .8fr auto!important;gap:10px}
+#menu .car-stage .car-nav{align-self:center;width:46px;min-height:64px;height:64px;font-size:30px;padding:0}
+#menu .car-main .ch-pw{width:min(100%,52vh)!important}
+#menu .car-side .ch-pw{width:min(100%,24vh)!important}
+#menu .car-bar{justify-content:center}
+#menu .car-top{margin-top:8px}
+@media (max-width:560px){#menu .car-stage{grid-template-columns:auto .6fr 1.8fr .6fr auto!important;gap:4px}#menu .car-stage .car-nav{width:38px}}
 .btn{border-radius:10px}
 .btn2{border:2px solid rgba(69,184,170,.7);color:#d8f2ee;border-radius:10px;background:rgba(69,184,170,.07)}
 .btn2:hover{background:rgba(69,184,170,.16)}
@@ -20924,12 +20931,21 @@ function openCaja() {
   const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
   const draw = () => {
     box.innerHTML = ''; const f = META.fichas | 0;
-    $('#items-say').textContent = `«¿Fichas de calavera? Aquí valen lo mismo que una de póker.» Una por una. Tienes ${f} de calavera y ${game.poker | 0} de póker.`;
-    for (const [n, txt] of [[1, 'Cambiar 1'], [5, 'Cambiar 5'], [f, `Cambiar todas (${f})`]]) {
-      if (n === f && (f === 1 || f === 5)) continue;
-      const b = document.createElement('button'); b.className = 'perk item r0'; b.disabled = !n || f < n;
-      b.innerHTML = `<span class="relic-ic">${ico('skull')}</span><em>Cambio 1 por 1</em><b>${txt}</b><span>${n} ${n === 1 ? 'ficha' : 'fichas'} de calavera → ${n} de póker</span>`;
-      b.addEventListener('click', () => { const k = Math.min(n, META.fichas | 0); if (state !== 'items' || !k) return; META.fichas -= k; game.poker = (game.poker | 0) + k; saveMeta(); Sfx.coin(); feed(`Cambiaste ${k} ${k === 1 ? 'ficha' : 'fichas'} de calavera por póker`, 'gold'); renderChips(); draw(); });
+    const P = game.poker | 0;
+    $('#items-say').textContent = `«Cada ficha de calavera vale 3 de póker, y 3 de póker te dan una de calavera para la tienda de afuera.» Tienes ${f} de calavera y ${P} de póker.`;
+    const opc = [[1, 'Cambiar 1 calavera', 1], [f, `Cambiar todas (${f})`, 1], [3, 'Cambiar 3 de póker', -1], [P - P % 3, `Cambiar todas las de póker (${P - P % 3})`, -1]];
+    for (const [n, txt, dir] of opc) {
+      if (dir > 0 && n === f && f === 1) continue; if (dir < 0 && n === P - P % 3 && n === 3) continue;
+      const b = document.createElement('button'); b.className = 'perk item r0';
+      b.disabled = dir > 0 ? (!n || f < n) : (n < 3 || P < n);
+      b.innerHTML = dir > 0 ? `<span class="relic-ic">${ico('skull')}</span><em>1 calavera = 3 de póker</em><b>${txt}</b><span>${n} de calavera → ${n * 3} de póker</span>`
+        : `<span class="relic-ic">${ico('chip')}</span><em>3 de póker = 1 calavera</em><b>${txt}</b><span>${n} de póker → ${Math.floor(n / 3)} de calavera</span>`;
+      b.addEventListener('click', () => {
+        if (state !== 'items') return;
+        if (dir > 0) { const k = Math.min(n, META.fichas | 0); if (!k) return; META.fichas -= k; game.poker = (game.poker | 0) + k * 3; feed(`Cambiaste ${k} de calavera por ${k * 3} de póker`, 'gold'); }
+        else { const k = Math.floor(Math.min(n, game.poker | 0) / 3); if (!k) return; game.poker -= k * 3; META.fichas = (META.fichas | 0) + k; feed(`Cambiaste ${k * 3} de póker por ${k} de calavera`, 'gold'); }
+        saveMeta(); Sfx.coin(); renderChips(); draw();
+      });
       box.appendChild(b);
     }
   };
@@ -21315,7 +21331,7 @@ function useLabel(o) {
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
   if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
-  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia tus fichas de calavera por fichas de póker, una por una. Tienes ${f} de calavera y ${game.poker | 0} de póker.`, b: f ? 'Cambiar fichas' : 'Sin fichas de calavera', ok: f > 0 }; }
+  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `1 ficha de calavera = 3 de póker, y 3 de póker = 1 de calavera (para la tienda de afuera). Tienes ${f} de calavera y ${game.poker | 0} de póker.`, b: f || (game.poker | 0) >= 3 ? 'Cambiar fichas' : 'Sin fichas para cambiar', ok: f > 0 || (game.poker | 0) >= 3 }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de póker (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de póker (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
@@ -21371,7 +21387,7 @@ function useObj(o) {
   } else if (o.kind === 'tiro') {
     tiroStart(o);
   } else if (o.kind === 'caja') {
-    if (!(META.fichas > 0)) { hint('No tienes fichas de calavera: se ganan al terminar cada partida', 1800); Sfx.err(); return; }
+    if (!(META.fichas > 0) && (game.poker | 0) < 3) { hint('Necesitas 1 ficha de calavera o 3 de póker para cambiar', 1800); Sfx.err(); return; }
     useCur = null; showUse(null); openCaja();
   } else if (o.kind === 'ramen') {
     useCur = null; showUse(null); openRamen(o);
@@ -21465,7 +21481,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 151';
+const GAME_BUILD = '15-oct-2026 · 152';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22954,7 +22970,7 @@ const ARBOL = [
   { k: 'gallina', ic: 'star', name: 'Gallina dorada', d: 'La gallina dorada aparece más seguido.', paso: 0.002 },
   { k: 'ficha', ic: 'chip', name: 'Fichas de póker', d: 'Los zombis sueltan fichas de póker más seguido.', paso: 0.004 }
 ];
-const ARBOL_MAX = 5, ARBOL_COSTO = [2, 3, 5, 8, 12];
+const ARBOL_MAX = 5, ARBOL_COSTO = [1, 1, 1, 1, 1];   // cada nivel del árbol cuesta 1 ficha (pedido del dueño, 16-oct-2026)
 const arb = k => Math.min(ARBOL_MAX, ((META.arbol || {})[k]) | 0);
 const arbP = k => { const A = ARBOL.find(x => x.k === k); return A ? arb(k) * A.paso : 0; };
 const UNLOCKS = [
@@ -22995,7 +23011,12 @@ const DF = () => DIFF[game && game.diff] || DIFF.normal;
 // Precios de la tienda: +10 % por zona (y +15 % en Calavera 6)
 const shopP = n => Math.round(n * ST.shopX * (sk(6) ? 1.15 : 1) * (rl('reloj') ? 0.8 : 1) * (zmodOn('shop') || 1) * (1 + 0.1 * (game ? zoneOf(Math.max(1, game.wave)) : 0)));
 // estrella dorada en el botón de Logros cuando hay logros nuevos que todavía no viste
+function altarPuede() {
+  const f = META.fichas | 0; if (!f) return false;
+  return ARBOL.some(A => arb(A.k) < ARBOL_MAX && f >= ARBOL_COSTO[arb(A.k)]) || UNLOCKS.some(u => !META.un[u.k] && f >= u.cost);
+}
 function logroEstrella() {
+  { const ok = altarPuede(); for (const b of document.querySelectorAll('#btn-altar, #btn-altar-ini')) { b.classList.toggle('ach-nuevo', ok); b.title = ok ? 'Tienes fichas para comprar algo' : ''; } }
   const nuevos = Object.keys(META.ach || {}).filter(k => !(META.achVisto || {})[k]).length;
   for (const b of document.querySelectorAll('#btn-ach, #btn-ach-ini')) { b.classList.toggle('ach-nuevo', nuevos > 0); b.title = nuevos ? `${nuevos} ${nuevos === 1 ? 'logro nuevo' : 'logros nuevos'}` : ''; }
 }
@@ -23033,23 +23054,23 @@ function renderCarousel(dir) {
   const id = CAR_IDS[carI], azar = id === 'azar', C = azar ? null : CHARS[id], open = carOpen(id), side = k => CAR_IDS[(carI + k + n) % n];
   const sideCard = k => { const sid = side(k), so = carOpen(sid); return `<button class="car-side ${so ? '' : 'lock'}" data-d="${k}" aria-label="${carName(sid)}"><div class="ch-pw"><img alt="" src="${charPic(sid)}">${so ? '' : `<i class="ch-lock">${ico('lock')}</i>`}</div><span>${carName(sid)}</span></button>`; };
   if (azar) {
-    cl.innerHTML = `<div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}"><div class="nH ch-ficha azar"><div class="win c"><span class="lb gc">PASIVA</span>${NEON_IC.estrella('#45b8aa')}<span class="big gc">?</span></div><div class="win r"><span class="lb gr">VIDA</span>${NEON_IC.corazon('#ff3b5c')}<span class="big gr">?</span></div><div class="win y"><span class="lb gy">ULTIMATE</span>${NEON_IC.calavera('#ffe03a')}<span class="big gy">?</span></div></div></div>
-    <div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}">${sideCard(-1)}
-    <div class="car-main"><div class="ch-pw"><img class="ch-pic" alt="" src="${charPic('azar')}"></div><b>Al azar</b><span class="ch-gun">Arma sorpresa</span></div>${sideCard(1)}</div>
+    cl.innerHTML = `<div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button>${sideCard(-1)}
+    <div class="car-main"><div class="ch-pw"><img class="ch-pic" alt="" src="${charPic('azar')}"></div><b>Al azar</b><span class="ch-gun">Arma sorpresa</span></div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
+    <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}"><div class="nH ch-ficha azar"><div class="win c"><span class="lb gc">PASIVA</span>${NEON_IC.estrella('#45b8aa')}<span class="big gc">?</span></div><div class="win r"><span class="lb gr">VIDA</span>${NEON_IC.corazon('#ff3b5c')}<span class="big gr">?</span></div><div class="win y"><span class="lb gy">ULTIMATE</span>${NEON_IC.calavera('#ffe03a')}<span class="big gy">?</span></div></div></div>
     <div class="car-info"><span class="ch-desc">Al empezar sale uno de los personajes al azar. ¿Quién te tocará?</span></div>
-    <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
+    <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
     cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
     const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Empezar'; menu3d('azar'); requestAnimationFrame(fichaAjustar); return;
   }
-  cl.innerHTML = `<div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}${fichaPj(id)}</div>
-  <div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}">${sideCard(-1)}
+  cl.innerHTML = `<div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button>${sideCard(-1)}
     <div class="car-main ${open ? '' : 'lock'}">
       <div class="ch-pw"><img class="ch-pic" alt="" src="${charPic(id)}">${open ? '' : `<i class="ch-lock">${ico('lock')}</i>`}</div>
       <b>${C.name}</b>
       <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>
-    </div>${sideCard(1)}</div>
+    </div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
+  <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}${fichaPj(id)}</div>
     <div class="car-info">${gunStats(C.gun)}</div>
-    <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
+    <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Empezar' : `${ico('lock')} Bloqueado`;
   menu3d(id); requestAnimationFrame(fichaAjustar);
@@ -23185,6 +23206,7 @@ function submitRun(final) {
   fetch(SUPA.url + '/rest/v1/sb_ranking', { method: 'POST', headers: Object.assign(TOP_H(), { Prefer: 'return=minimal' }), body: JSON.stringify(body) }).then(() => { topT = -1e9; }).catch(() => {});
 }
 function renderAltar() {
+  logroEstrella();
   $('#altar-f').innerHTML = `${ico('skull')} ${META.fichas} fichas de calavera`;
   if (!renderAltar.said) { renderAltar.said = 1; $('#altar-npc').textContent = npcLine('catrina', META.fichas ? null : 'none'); }
   const L = $('#altar-list'); L.innerHTML = '';
@@ -23199,7 +23221,7 @@ function renderAltar() {
       const pct = x => (Math.round(x * 1000) / 10).toString().replace('.', ',') + ' %';
       d.innerHTML = `<div class="item-top"><b>${ico(A.ic)} ${A.name}</b><span class="own">${A.d}</span></div><div class="arb-pips">${Array.from({ length: ARBOL_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div><span class="arb-v">${lv ? `Ahora: +${pct(lv * A.paso)}` : 'Sin mejorar'}${max ? '' : ` · siguiente: +${pct((lv + 1) * A.paso)}`}</span><div class="row"></div>`;
       const b = document.createElement('button'); b.className = max ? 'btn2' : 'buy'; b.disabled = max || META.fichas < cost;
-      b.textContent = max ? 'Nivel máximo' : META.fichas >= cost ? `Nivel ${lv + 1} · ${cost} fichas` : `Te faltan ${cost - META.fichas} fichas`;
+      b.textContent = max ? 'Nivel máximo' : META.fichas >= cost ? `Nivel ${lv + 1} · ${cost} ${cost === 1 ? 'ficha' : 'fichas'}` : `Te faltan ${cost - META.fichas} ${cost - META.fichas === 1 ? 'ficha' : 'fichas'}`;
       b.addEventListener('click', () => { if (max || META.fichas < cost) return; META.fichas -= cost; META.arbol = META.arbol || {}; META.arbol[A.k] = lv + 1; saveMeta(); Sfx.win(); renderAltar(); });
       d.querySelector('.row').appendChild(b); grid.appendChild(d);
     }
