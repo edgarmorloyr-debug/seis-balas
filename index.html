@@ -17584,28 +17584,31 @@ function bfxBeam(a, b, col, op = 0.9) {
 // ---- Avisos en el suelo (jefes): el rojo se va llenando y al completarse golpea. Se ven igual en todos los teléfonos ----
 const TG = { col: 0xff3a2a, fill: 0.32, line: 0.85 };
 const tgRingGeo = new THREE.RingGeometry(0.93, 1, 40), tgDiskGeo = new THREE.CircleGeometry(1, 40), tgRectGeo = new THREE.PlaneGeometry(1, 1);
-const tgMat = op => new THREE.MeshBasicMaterial({ color: TG.col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, fog: false });
+const tgMat = op => new THREE.MeshBasicMaterial({ color: TG.col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, fog: false, depthTest: false });   // siempre visible encima del suelo y los caminos
 const tgLobGeo = new THREE.SphereGeometry(0.42, 12, 10);
 function tgSpawn(kind, a) {
   if (kind === 'tgc') {   // círculo: x, z, radio, tiempo, daño, efecto
-    const [x, z, r, t, dmg, fx] = a, g = new THREE.Group(); g.position.set(x, 0.06, z); g.rotation.x = -Math.PI / 2;
+    const [x, z, r, t, dmg, fx] = a, g = new THREE.Group(); g.position.set(x, 0.16, z); g.rotation.x = -Math.PI / 2;
     const ring = new THREE.Mesh(tgRingGeo, tgMat(TG.line)); ring.scale.setScalar(r); g.add(ring);
     const fill = new THREE.Mesh(tgDiskGeo, tgMat(TG.fill)); fill.scale.setScalar(0.01); g.add(fill); scene.add(g);
+    g.traverse(o => { if (o.isMesh) o.renderOrder = 3; });
     BFX.push({ k: kind, tg: 1, g, fill, x, z, r, t, T: t, dmg, fx }); return true;
   }
   if (kind === 'tgl') {   // franja: de (x1,z1) a (x2,z2), ancho, tiempo, daño, efecto
     const [x1, z1, x2, z2, w, t, dmg, fx] = a, len = Math.hypot(x2 - x1, z2 - z1) || 0.1, ang = Math.atan2(x2 - x1, z2 - z1), g = new THREE.Group();
-    g.position.set(x1, 0.06, z1); g.rotation.y = ang;
+    g.position.set(x1, 0.16, z1); g.rotation.y = ang;
     const bord = new THREE.Mesh(tgRectGeo, tgMat(TG.fill * 0.6)); bord.rotation.x = -Math.PI / 2; bord.scale.set(w, len, 1); bord.position.z = len / 2; g.add(bord);
     const fill = new THREE.Mesh(tgRectGeo, tgMat(TG.fill + 0.15)); fill.rotation.x = -Math.PI / 2; fill.scale.set(w, 0.01, 1); g.add(fill); scene.add(g);
+    g.traverse(o => { if (o.isMesh) o.renderOrder = 3; });
     BFX.push({ k: kind, tg: 1, g, fill, x: x1, z: z1, x2, z2, w, len, t, T: t, dmg, fx }); return true;
   }
   if (kind === 'tga') {   // abanico delante del jefe: x, z, ángulo, radio, medio ancho, tiempo, daño
-    const [x, z, ang, r, half, t, dmg] = a, g = new THREE.Group(); g.position.set(x, 0.06, z);
+    const [x, z, ang, r, half, t, dmg] = a, g = new THREE.Group(); g.position.set(x, 0.16, z);
     const geo = new THREE.CircleGeometry(1, 28, -half, half * 2);   // se abre hacia +x del círculo; se gira para mirar a «ang»
     const bord = new THREE.Mesh(geo, tgMat(TG.fill * 0.6)), fill = new THREE.Mesh(geo, tgMat(TG.fill + 0.15));
     for (const m of [bord, fill]) { m.rotation.x = -Math.PI / 2; g.add(m); } bord.scale.setScalar(r); fill.scale.setScalar(0.01);
     g.rotation.y = ang - Math.PI / 2; scene.add(g);
+    g.traverse(o => { if (o.isMesh) o.renderOrder = 3; });
     BFX.push({ k: kind, tg: 1, g, fill, geo, x, z, ang, r, half, t, T: t, dmg }); return true;
   }
   if (kind === 'lob') {   // algo que vuela en arco hasta donde marca el círculo: desde, hasta, tiempo, tipo
@@ -17953,13 +17956,45 @@ function applyMini(z, idx, net) {
   if (!net) {
     z.maxHp = z.hp = MINI_HP * DF().hp * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
-    banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}`, 4200);
+    banner(`¡Minijefe: ${M.name}!`, MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}${MINI_ATK[M.id] ? ' · ' + MINI_ATK[M.id].d.toLowerCase() : ''}`, 4200);
     Sfx.roar(panOf(z.root.position), 1.8); player.shake = Math.min(1, player.shake + 0.3);
   } else if (game && state === 'play' && !z.dead) { banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); Sfx.roar(panOf(z.root.position), 1.8); }
+}
+// Ataque propio de cada minijefe, con aviso en el suelo (16-oct-2026). Todos distintos y todos se pueden esquivar.
+const MINI_ATK = {
+  1: { cd: 7, d: 'Bandada de cuervos: círculos en fila hacia ti', f(z, P, T, D) { for (let i = 1; i <= 5; i++) { const u = i / 5; bossEv('tgc', P.x + (T.x - P.x) * u * 1.15, P.z + (T.z - P.z) * u * 1.15, 1.5, 0.8 + i * 0.22, D(0.4), 'dust'); } } },
+  7: { cd: 6.5, d: 'Lanza molotovs: donde caen queda ardiendo', f(z, P, T, D) { const pts = [T, bSpot(T.x, T.z, 2, 3.5), bSpot(T.x, T.z, 2, 3.5)].filter(Boolean); pts.forEach((q, i) => { bossEv('tgc', q.x, q.z, 1.9, 1.3 + i * 0.15, D(0.35), 'fire'); bossEv('lob', P.x, P.z, q.x, q.z, 1.3 + i * 0.15, 'fire'); }); } },
+  8: { cd: 8, d: 'Jaula de globos: estallan en las cuatro esquinas', f(z, P, T, D) { for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + Math.PI / 4; bossEv('tgc', T.x + Math.cos(a) * 2.6, T.z + Math.sin(a) * 2.6, 2, 1.5, D(0.5), 'boom'); } bossEv('tgc', T.x, T.z, 1.2, 2.6, D(0.5), 'boom'); } },
+  9: { cd: 5.5, d: 'Táser: una línea rápida y angosta', f(z, P, T, D) { const a = Math.atan2(T.x - P.x, T.z - P.z); bossEv('tgl', P.x, P.z, P.x + Math.sin(a) * 18, P.z + Math.cos(a) * 18, 1.3, 0.75, D(0.55), 'dust'); } },
+  11: { cd: 7, d: 'Salto lunar: cae encima de ti', f(z, P, T, D) { bossEv('tgc', T.x, T.z, 2.8, 1.3, D(0.7), 'slam'); bLeap(z, T.x, T.z, 0.85, 0.45); } },
+  12: { cd: 8, d: 'Grito: aléjate del círculo que lo rodea', f(z, P, T, D) { bossEv('tgc', P.x, P.z, 6.5, 1.5, D(0.6), 'dust'); z.mFrz = 1.5; } },
+  15: { cd: 8, d: 'Lluvia de meteoritos', f(z, P, T, D) { const pts = [T, bSpot(T.x, T.z, 3, 6), bSpot(T.x, T.z, 3, 6)].filter(Boolean); pts.forEach((q, i) => { bossEv('tgc', q.x, q.z, 2.8, 1.6 + i * 0.35, D(0.6), 'rock'); bossEv('lob', q.x, q.z, q.x, q.z, 1.6 + i * 0.35, 'rock'); }); } },
+  18: { cd: 8, d: 'Columnas de luz que te persiguen', f(z) { z.mSeq = { n: 4, t: 0 }; }, seq(z, T, D) { bossEv('tgc', T.x, T.z, 1.8, 0.9, D(0.45), 'dust'); } },
+  19: { cd: 7, d: 'Cañonazos', f(z, P, T, D) { const pts = [T, bSpot(T.x, T.z, 3, 5), bSpot(T.x, T.z, 3, 5)].filter(Boolean); pts.forEach((q, i) => { bossEv('tgc', q.x, q.z, 2.4, 1.4 + i * 0.4, D(0.55), 'boom'); bossEv('lob', P.x, P.z, q.x, q.z, 1.4 + i * 0.4, 'boom'); }); } },
+  20: { cd: 7, d: 'Anillo de hongos: el charco te frena', f(z, P, T, D) { bossEv('tgc', T.x, T.z, 3, 1.4, D(0.3), 'goo'); } },
+  23: { cd: 6.5, d: 'Ráfaga: dos líneas de disparos', f(z, P, T, D) { const a = Math.atan2(T.x - P.x, T.z - P.z), ox = Math.cos(a) * 1.6, oz = -Math.sin(a) * 1.6; for (const s of [-1, 1]) bossEv('tgl', P.x + ox * s, P.z + oz * s, P.x + ox * s + Math.sin(a) * 20, P.z + oz * s + Math.cos(a) * 20, 1.5, 1.0, D(0.5), 'dust'); } },
+  25: { cd: 7, d: 'Embestida de sumo', f(z, P, T, D) { const a = Math.atan2(T.x - P.x, T.z - P.z), L = Math.min(16, Math.hypot(T.x - P.x, T.z - P.z) + 3), ex = P.x + Math.sin(a) * L, ez = P.z + Math.cos(a) * L; bossEv('tgl', P.x, P.z, ex, ez, 2.6, 1.1, D(0.7), 'slam'); const q = bSpot(ex, ez, 0, 1) || { x: ex, z: ez }; bLeap(z, q.x, q.z, 1.1, 0.45); } },
+  27: { cd: 7, d: 'Cruz de láser', f(z, P, T, D) { bossEv('tgl', T.x - 11, T.z, T.x + 11, T.z, 1.6, 1.2, D(0.55), 'dust'); bossEv('tgl', T.x, T.z - 11, T.x, T.z + 11, 1.6, 1.2, D(0.55), 'dust'); } },
+  28: { cd: 6, d: 'Chorro de vapor delante de él', f(z, P, T, D) { bossEv('tga', P.x, P.z, Math.atan2(T.x - P.x, T.z - P.z), 9, 0.38, 1.0, D(0.55)); z.mFrz = 1.0; } },
+  29: { cd: 8, d: 'Ola gigante: franja ancha', f(z, P, T, D) { const a = Math.atan2(T.x - P.x, T.z - P.z); bossEv('tgl', P.x, P.z, P.x + Math.sin(a) * 22, P.z + Math.cos(a) * 22, 6, 1.5, D(0.6), 'dust'); z.mFrz = 1.5; } },
+  30: { cd: 6, d: 'Lluvia de corazones', f(z, P, T, D) { for (let i = 0; i < 6; i++) { const q = i ? bSpot(T.x, T.z, 1, 5) : T; if (q) bossEv('tgc', q.x, q.z, 1.3, 0.9 + i * 0.1, D(0.3), 'boom'); } } }
+};
+for (const k in MINIS) MINIS[k].id = +k;
+function miniAtk(z, dt, pos, dist, canAttack) {
+  const AT = MINI_ATK[z.mini.id]; if (!AT) return null;
+  const L = bLeapStep(z, dt, { pos }); if (L) return 0;
+  if (z.mFrz > 0) { z.mFrz -= dt; return 0; }
+  const T_ = z.tk === 'p' && z.pid && z.pid !== Net.id ? Net.peers.get(z.pid) : null, T = T_ && T_.pos ? { x: T_.pos.x, z: T_.pos.z } : { x: player.pos.x, z: player.pos.z };
+  const D = k => Math.round(z.dmg * k);
+  if (z.mSeq) { z.mSeq.t -= dt; if (z.mSeq.t <= 0) { z.mSeq.t = 0.6; AT.seq(z, T, D); if (--z.mSeq.n <= 0) z.mSeq = null; } }
+  z.mA = (z.mA == null ? AT.cd * 0.6 : z.mA) - dt;
+  if (z.mA <= 0 && canAttack && dist < 24) { z.mA = AT.cd + rand(-0.8, 0.8); AT.f(z, { x: pos.x, z: pos.z }, T, D); }
+  return null;
 }
 // La IA del minijefe (solo la calcula el anfitrión o quien juega solo). Devuelve cuánto cambia su velocidad.
 function miniTick(z, dt, pos, dist, canAttack) {
   const M = z.mini, A = MINI_AB[M.ab]; z.mt += dt; let k = 1;
+  { const r = miniAtk(z, dt, pos, dist, canAttack); if (r === 0) return 0; }
   if (A.cd) z.mT2 -= dt;
   switch (M.ab) {
     case 'summon':
@@ -21481,7 +21516,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 152';
+const GAME_BUILD = '15-oct-2026 · 153';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
