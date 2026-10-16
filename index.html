@@ -21310,7 +21310,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 144';
+const GAME_BUILD = '15-oct-2026 · 145';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21564,8 +21564,23 @@ const Directo = {
     }
   },
   close(id) { const v = this.pcs.get(id); if (v) { try { v.dc && v.dc.close(); v.dr && v.dr.close(); v.pc.close(); } catch (e) {} this.pcs.delete(id); } },
-  cerrarTodo() { for (const id of [...this.pcs.keys()]) this.close(id); }
+  cerrarTodo() { for (const id of [...this.pcs.keys()]) this.close(id); },
+  async medir() {
+    for (const v of this.pcs.values()) {
+      if (!v.abierto) continue;
+      try {
+        const st = await v.pc.getStats(); let par = null; const cand = {};
+        st.forEach(r => { if (r.type === 'transport' && r.selectedCandidatePairId) par = st.get(r.selectedCandidatePairId); if (r.type === 'local-candidate' || r.type === 'remote-candidate') cand[r.id] = r; });
+        if (!par) st.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) par = r; });
+        if (!par) continue;
+        const L = cand[par.localCandidateId] || {}, R = cand[par.remoteCandidateId] || {};
+        v.tipo = L.candidateType === 'relay' || R.candidateType === 'relay' ? 'relay' : L.candidateType === 'host' && R.candidateType === 'host' ? 'host' : 'srflx';
+        v.rtt = par.currentRoundTripTime != null ? Math.round(par.currentRoundTripTime * 1000) : null;
+      } catch (e) {}
+    }
+  }
 };
+setInterval(() => { if (Net.on) Directo.medir(); }, 3000);
 let voiceIce = null;
 async function voiceIceServers() {
   if (voiceIce && performance.now() - voiceIce.t < 30 * 60e3) return voiceIce.s;
@@ -21883,7 +21898,7 @@ function pingHud() {
   if (Net.on) {
     if (Net.host) h += '<b class="ok">Anfitrión</b>';
     else { const v = Net.ping; h += `<b class="${v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'}">${v == null ? 'Ping …' : `Ping ${v} ms`}</b>`; }
-    { const D = Directo.pcs.get(Net.host ? [...Net.peers.keys()][0] : Net.hostId), dir = !!(D && D.abierto && D.dc && D.dc.readyState === 'open'), rap = !!(D && D.dr && D.dr.readyState === 'open'); h += `<b class="${dir ? 'ok' : 'malo'}" title="Por dónde viajan los datos">${dir ? (rap ? 'Conexión directa' : 'Directa (sin carril rápido)') : `Por el servidor · ${D ? D.pc.connectionState + '/' + D.pc.iceConnectionState : 'sin intento'} · ${voiceIce && voiceIce.turn ? 'TURN sí' : 'TURN no'} · ${Directo.fallos | 0} reintentos`}</b>`; }   // para saber si el retraso viene de ir por Supabase
+    { const D = Directo.pcs.get(Net.host ? [...Net.peers.keys()][0] : Net.hostId), dir = !!(D && D.abierto && D.dc && D.dc.readyState === 'open'), rap = !!(D && D.dr && D.dr.readyState === 'open'); h += `<b class="${dir ? 'ok' : 'malo'}" title="Por dónde viajan los datos">${dir ? (rap ? 'Conexión directa' : 'Directa (sin carril rápido)') + (D.tipo ? ` · ${{ host: 'misma red', srflx: 'por internet', relay: 'por servidor de apoyo' }[D.tipo]}${D.rtt != null ? ' · ' + D.rtt + ' ms de red' : ''}` : '') : `Por el servidor · ${D ? D.pc.connectionState + '/' + D.pc.iceConnectionState : 'sin intento'} · ${voiceIce && voiceIce.turn ? 'TURN sí' : 'TURN no'} · ${Directo.fallos | 0} reintentos`}</b>`; }   // para saber si el retraso viene de ir por Supabase
   }
   e.hidden = false; if (e._h !== h) { e._h = h; e.innerHTML = h; }
   jugadoresHud();
