@@ -217,6 +217,10 @@ body{font-family:var(--hud);font-size:16px}
 }
 @media (orientation:portrait) and (max-width:600px){#tuto{top:calc(250px + env(safe-area-inset-top,0px));padding:6px 12px 8px;gap:3px}#tu-t{font-size:19px}#tu-x{font-size:15px}#tu-k{font-size:14px}#tu-p{font-size:14px}}
 @media (max-height:500px) and (orientation:landscape){#tuto{top:calc(96px + env(safe-area-inset-top,0px));width:min(300px,37vw);padding:4px 10px 6px;gap:3px;max-height:calc(100% - 100px);overflow-y:auto}#tuto .tu-lg{display:none}#tu-t{font-size:18px}#tu-x{font-size:15px;line-height:1.25}#tu-k{font-size:14px;line-height:1.25}#tu-p{font-size:14px}}
+#over-rank{font-family:var(--display);font-size:clamp(64px,14vw,104px);line-height:1;text-align:center;text-shadow:0 4px 0 #000;animation:rkPop .55s cubic-bezier(.2,1.6,.4,1) both}
+#over-rank.S{color:#ffd27a;text-shadow:0 4px 0 #000,0 0 26px rgba(255,210,122,.6)}#over-rank.A{color:#7fd6cb}#over-rank.B{color:#eaa23a}#over-rank.C{color:#ef8a73}#over-rank.D{color:#b9ad94}
+#over-rank-d{display:block;text-align:center;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bone-dim);font-size:15px;margin-bottom:6px}
+@keyframes rkPop{0%{transform:scale(2.2);opacity:0}100%{transform:scale(1);opacity:1}}
 #tu-rank{font-family:var(--display);font-size:clamp(72px,16vw,120px);line-height:1;color:var(--gold);text-align:center;text-shadow:0 4px 0 #000,0 0 24px rgba(214,165,75,.45)}
 .tu-rl{display:block;text-align:center;font-size:14px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-dim)}
 #fade{position:absolute;inset:0;z-index:21;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding-inline:16px}
@@ -1238,6 +1242,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   <div class="overlay" id="over" hidden>
     <div class="card">
       <h2 class="title sm">Te comieron</h2>
+      <div class="over-rk"><span class="tu-rl">Rango</span><div id="over-rank">D</div><span id="over-rank-d"></span></div>
       <div class="rec" id="over-rec" hidden>Nuevo récord</div>
       <div class="stats" id="over-stats"></div>
       <div class="cerca" id="over-cerca" hidden></div>
@@ -15627,6 +15632,13 @@ function muerte3dFin() { if (YO3.inst) { scene.remove(YO3.inst.g); YO3.inst = nu
 function die() {
   if (Net.on) { game.muertes = (game.muertes | 0) + 1; player.down = true; player.hp = 0; player.roll = 0.22; Sfx.death(); Sfx.grito(game.char); Net.ev(['down']); game.downT = DOWN_T; game.revP = 0; const can = canRevive(); banner('Caíste', can ? `Sigues disparando desde el suelo (−70 % de daño). Un compañero puede levantarte: ${DOWN_T} s` : `Ya te levantaron ${REV_MAX} veces en esta oleada: dispara desde el suelo hasta que termine`, 3200); gs.aiming = false; input.fireHeld = false; return; }
   state = 'dying'; dyingT = 0; if (game.deOn) deadEye(false); Sfx.death(); Sfx.grito(game.char); gs.aiming = false; input.fireHeld = false; muerte3d(); }
+// Rango de la partida (de la D a la S): mitad por lo lejos que llegaste, un cuarto por puntería y un cuarto por tiros a la cabeza; la dificultad suma
+const RANGOS = [['S', 85, '¡Leyenda del Oeste!'], ['A', 70, 'Pistolero de primera'], ['B', 50, 'Buen tirador'], ['C', 30, 'Todavía verde'], ['D', 0, 'Carne de zombi']];
+function runRank() {
+  const w = Math.max(0, (game.wave | 0) - 1), acc = game.shots ? game.hits / game.shots : 0, head = game.kills ? game.heads / game.kills : 0;
+  const pts = (50 * Math.min(1, w / 20) + 25 * Math.min(1, acc) + 25 * Math.min(1, head / 0.5)) * ({ dificil: 1.1, apoc: 1.2 }[game.diff] || 1);
+  return RANGOS.find(r => pts >= r[1]);
+}
 function statsRows() {
   const acc = game.shots ? Math.round(game.hits / game.shots * 100) : 0, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60);
   const rows = [['Oleada', game.wave], ['Lugar', MAPS[world.idx].name.replace(/^(El|La|Las|Los) /, '')], ['Zombis', game.kills], ['A la cabeza', game.heads], ['Puntería', acc + ' %'], ['Oro ganado', game.goldTotal + ' $'], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`]];
@@ -15651,6 +15663,7 @@ function gameOver() {
   awardFichas(false); submitRun(true);
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
+  { const R = runRank(), rk = $('#over-rank'); rk.textContent = R[0]; rk.className = R[0]; rk.style.animation = 'none'; void rk.offsetWidth; rk.style.animation = ''; $('#over-rank-d').textContent = R[2]; }
   { const c = logroCerca(), el_ = $('#over-cerca'), it = c && ACH_ITEM[c.A.id] && ITEMS[ACH_ITEM[c.A.id]];   // te falta poco: el logro más cercano y su premio
     if (el_) { el_.hidden = !c; if (c) el_.innerHTML = `<small>Te falta poco</small><b>${c.A.name}</b><span>${c.A.d}</span><div class="ach-p"><s style="width:${Math.round(c.r * 100)}%"></s></div><em>${c.A.n > 1 ? c.v.toLocaleString('es') + ' / ' + c.A.n.toLocaleString('es') : 'Pendiente'}${it ? ` · premio: <b>${it.name}</b>` : ''}</em>`; } }
   show('over'); el.hud.hidden = true; $('#touch').hidden = true;
@@ -21320,7 +21333,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 148';
+const GAME_BUILD = '15-oct-2026 · 149';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
