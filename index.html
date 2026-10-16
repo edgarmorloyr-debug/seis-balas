@@ -655,6 +655,8 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .altar-cat>summary{display:flex;justify-content:space-between;align-items:center;min-height:48px;cursor:pointer;font-size:15px;color:#f3e9d6}
 .altar-cat>summary span{color:#ffe55c;font-size:14px}
 .altar-cat[open]{padding-bottom:10px}
+.arb-pips{display:flex;gap:5px;margin:6px 0 2px}.arb-pips i{width:22px;height:8px;border-radius:4px;background:rgba(255,224,58,.15);border:1px solid rgba(255,224,58,.45)}.arb-pips i.on{background:#ffe03a;box-shadow:0 0 6px rgba(255,224,58,.7)}
+.arb-v{display:block;font-size:14px;color:#9be7c4;margin-bottom:6px}.arb-n{margin:0 0 8px;text-align:left}
 .altar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
 .tk-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:#f3e9d6}
 .tk-b{min-width:96px;min-height:40px;padding:0 10px;font-size:14px;letter-spacing:.02em}
@@ -15568,7 +15570,7 @@ function chooseType(n) {
   if (game.waveMod && game.waveMod.only) return pick(game.waveMod.only);
   const mx = k => world.mix[k] || 1;
   // desde la primera oleada: corredores y que se arrastran; y un 5 % de motosierras antes de que salgan solas
-  if (Math.random() < ZN.orop) return 'oro'; // 1 de cada 100: el zombi de oro
+  if (Math.random() < ZN.orop + arbP('oro')) return 'oro'; // 1 de cada 100: el zombi de oro
   if (n < 6 && Math.random() < 0.05) return 'saw';
   if (n < 7 && !Net.on && Math.random() < 0.04) return 'knight';
   const w = [['walker', 10], ['crawler', (2 + n * 0.25) * mx('crawler')], ['runner', (2.5 + n * 0.4) * mx('runner')],
@@ -16412,7 +16414,7 @@ function killZombie(z, info) {
   if (z.boss != null && z.B && z.B.id === 'mass' && zombies.some(o => o !== z && !o.dead && o.B && o.B.id === 'mass')) return;
   if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
   if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
-  if (!tuto && Math.random() < FICHA_P * (ST.fichaX || 1)) makePickup('ficha', p.x + rand(-0.6, 0.6), p.z + rand(-0.6, 0.6), 0);
+  if (!tuto && Math.random() < (FICHA_P + arbP('ficha')) * (ST.fichaX || 1)) makePickup('ficha', p.x + rand(-0.6, 0.6), p.z + rand(-0.6, 0.6), 0);
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (1 + S('luck') / 100) * (rl('trebol') ? 2 : 1) * (game.char === 'johnny' ? 1.8 : 1)) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
     makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, 3);
@@ -20235,10 +20237,10 @@ function prepRoom() {
   const d = Object.keys(ROOM_DOORS).filter(k => Math.random() < (k === 'shop' ? 0.7 : 0.5));
   game.roomDoors = S('puertas') ? Object.keys(ROOM_DOORS) : d; game.roomUsed = {}; game.rerollP = 5;   // Llave del dueño: las tres puertas abiertas
   const cas = unl('t:maquinas') ? 2 : 1;
-  game.lastDoor = null; game.roomSlot = Math.random() < 0.15 * cas; game.roomWheel = Math.random() < 0.10 * cas; game.roomRadio = Math.random() < 0.06 * (unl('t:radio') ? 2 : 1) * (ST.radioX || 1);
+  game.lastDoor = null; game.roomSlot = Math.random() < 0.15 * cas + arbP('slot'); game.roomWheel = Math.random() < 0.10 * cas + arbP('ruleta'); game.roomRadio = Math.random() < arbP('radio') + 0.06 * (unl('t:radio') ? 2 : 1) * (ST.radioX || 1);
   game.roomForge = unl('t:herrero') && Math.random() < 0.45;
-  game.roomRamen = Math.random() < RAMEN.p; game.ramenOfertas = null;
-  game.roomTaller = Math.random() < 0.25;   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
+  game.roomRamen = Math.random() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
+  game.roomTaller = Math.random() < 0.25 + arbP('taller');   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
   game.roomTiro = Math.random() < 0.05;
   game.roomFuse = Math.random() < 0.30; game.fuseUsed = false; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
   game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
@@ -20276,9 +20278,9 @@ const bjJugadores = () => [bjYo()].concat(Net.on ? [...Net.peers.keys()] : []);
 const bjParte = a => Math.ceil(a / bjJugadores().length);   // lo que pone cada jugador: la apuesta se divide por igual entre los presentes
 const bjNombre = id => id === bjYo() ? 'Tú' : ((Net.peers.get(id) || {}).name || 'Vaquero');
 function bjSale(semilla) {   // la mesa sale igual para todo el grupo: depende de la sala y la oleada
-  if (!Net.on) return Math.random() < BJ.prob;
+  if (!Net.on) return Math.random() < BJ.prob + arbP('bj');
   let h = 7; for (const ch of String(Net.room || '') + ':' + game.wave) h = Math.imul(h ^ ch.charCodeAt(0), 0x5bd1e995) >>> 0;
-  return (h % 10000) / 10000 < BJ.prob;
+  return (h % 10000) / 10000 < BJ.prob + (Net.host ? arbP('bj') : 0);
 }
 const bjCarta = () => ({ r: Math.floor(Math.random() * 13), p: Math.floor(Math.random() * 4) });
 function bjValor(m) { let t = 0, a = 0; for (const c of m) { const v = c.r === 0 ? 11 : Math.min(10, c.r + 1); t += v; if (c.r === 0) a++; } while (t > 21 && a) { t -= 10; a--; } return t; }
@@ -20837,7 +20839,7 @@ const WAVE_EVENTS = [
 ];
 function waveEvent(n) {
   game.evW = 0;
-  if (Math.random() < 0.01) setTimeout(() => { if (game && game.wave === n && game.phase === 'fight' && state === 'play') goldenChicken(); }, rand(6000, 22000));
+  if (Math.random() < 0.01 + arbP('gallina')) setTimeout(() => { if (game && game.wave === n && game.phase === 'fight' && state === 'play') goldenChicken(); }, rand(6000, 22000));
   if (Net.client || n < 2) return;
   let r = Math.random(), ev = null;
   for (const E of WAVE_EVENTS) { if (E.k === 'gallina') continue; if (r < E.p) { ev = E.k; break; } r -= E.p; }
@@ -21272,7 +21274,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 134';
+const GAME_BUILD = '15-oct-2026 · 135';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -22719,6 +22721,22 @@ function renderAch() {
   $('#ach-list').innerHTML = ACH.map(A => { const ok = !!META.ach[A.id], v = Math.min(A.n, achVal(A)); const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; return `<div class="ach${ok ? ' ok' : ''}"><i>${ico(A.ic)}</i><div><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-it">${ok ? 'Desbloqueaste' : 'Desbloquea'}: <b>${it.name}</b></span>` : ''}${ok ? '<em>Conseguido</em>' : A.n > 1 ? `<div class="ach-p"><s style="width:${Math.round(v / A.n * 100)}%"></s></div><em class="pr">${v.toLocaleString('es')} / ${A.n.toLocaleString('es')}</em>` : '<em class="pr">Pendiente</em>'}</div></div>`; }).join('');
 }
 const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : p;
+// Árbol de mejoras (Tienda calavera): con fichas de calavera, cada rama sube para siempre la probabilidad de algo bueno.
+// 5 niveles por rama; cada nivel cuesta más. «paso» es lo que suma cada nivel a la probabilidad.
+const ARBOL = [
+  { k: 'slot', ic: 'cards', name: 'Tragamonedas', d: 'La tragamonedas aparece más seguido en la Trastienda.', paso: 0.01 },
+  { k: 'ruleta', ic: 'dice', name: 'Ruleta', d: 'La ruleta aparece más seguido en la Trastienda.', paso: 0.01 },
+  { k: 'radio', ic: 'heli', name: 'Radio de rescate', d: 'La radio aparece más seguido en la Trastienda.', paso: 0.01 },
+  { k: 'taller', ic: 'hammer', name: 'Taller de armas', d: 'El taller aparece más seguido en la Trastienda.', paso: 0.01 },
+  { k: 'ramen', ic: 'heart', name: 'Puesto de ramen', d: 'El puesto de ramen aparece más seguido en la Trastienda.', paso: 0.01 },
+  { k: 'bj', ic: 'cards', name: 'Mesa de blackjack', d: 'La mesa de blackjack aparece más seguido en la Trastienda.', paso: 0.005 },
+  { k: 'oro', ic: 'coins', name: 'Zombi de oro', d: 'El zombi de oro sale más seguido.', paso: 0.002 },
+  { k: 'gallina', ic: 'star', name: 'Gallina dorada', d: 'La gallina dorada aparece más seguido.', paso: 0.002 },
+  { k: 'ficha', ic: 'chip', name: 'Fichas de póker', d: 'Los zombis sueltan fichas de póker más seguido.', paso: 0.004 }
+];
+const ARBOL_MAX = 5, ARBOL_COSTO = [2, 3, 5, 8, 12];
+const arb = k => Math.min(ARBOL_MAX, ((META.arbol || {})[k]) | 0);
+const arbP = k => { const A = ARBOL.find(x => x.k === k); return A ? arb(k) * A.paso : 0; };
 const UNLOCKS = [
   { k: 'b:acme', name: 'Bala ACME', what: 'Bala legendaria', cost: 3 }, { k: 'b:ruleta', name: 'Bala ruleta rusa', what: 'Bala legendaria', cost: 3 },
   { k: 'b:eco', name: 'Bala eco', what: 'Bala legendaria', cost: 4 }, { k: 'b:agujero', name: 'Bala agujero negro', what: 'Bala ultra rara', cost: 6 },
@@ -22951,6 +22969,21 @@ function renderAltar() {
   if (!renderAltar.said) { renderAltar.said = 1; $('#altar-npc').textContent = npcLine('catrina', META.fichas ? null : 'none'); }
   const L = $('#altar-list'); L.innerHTML = '';
   { const nu = UNLOCKS.filter(u => META.un[u.k]).length, h = document.createElement('div'); h.className = 'altar-sec'; h.innerHTML = `<b>Mejoras con fichas de calavera</b><span>${nu} de ${UNLOCKS.length} compradas · las fichas se ganan al terminar cada partida, con cada logro nuevo (+1) y en la primera partida del día (+3)</span>`; L.appendChild(h); }
+  { const det = document.createElement('details'); det.className = 'altar-cat arbol'; det.open = (renderAltar.abiertas || new Set(['arbol'])).has('arbol') || !renderAltar.abiertas;
+    const niveles = ARBOL.reduce((t, A) => t + arb(A.k), 0);
+    det.innerHTML = `<summary><b>Árbol de mejoras</b><span>${niveles} de ${ARBOL.length * ARBOL_MAX} niveles</span></summary><p class="note arb-n">Mejoras permanentes: cada nivel sube un poco la probabilidad, en todas tus partidas.</p><div class="altar-grid"></div>`;
+    det.addEventListener('toggle', () => { renderAltar.abiertas = renderAltar.abiertas || new Set(); if (det.open) renderAltar.abiertas.add('arbol'); else renderAltar.abiertas.delete('arbol'); });
+    const grid = det.querySelector('.altar-grid');
+    for (const A of ARBOL) {
+      const lv = arb(A.k), max = lv >= ARBOL_MAX, cost = ARBOL_COSTO[lv], d = document.createElement('div'); d.className = 'item arb';
+      const pct = x => (Math.round(x * 1000) / 10).toString().replace('.', ',') + ' %';
+      d.innerHTML = `<div class="item-top"><b>${ico(A.ic)} ${A.name}</b><span class="own">${A.d}</span></div><div class="arb-pips">${Array.from({ length: ARBOL_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div><span class="arb-v">${lv ? `Ahora: +${pct(lv * A.paso)}` : 'Sin mejorar'}${max ? '' : ` · siguiente: +${pct((lv + 1) * A.paso)}`}</span><div class="row"></div>`;
+      const b = document.createElement('button'); b.className = max ? 'btn2' : 'buy'; b.disabled = max || META.fichas < cost;
+      b.textContent = max ? 'Nivel máximo' : META.fichas >= cost ? `Nivel ${lv + 1} · ${cost} fichas` : `Te faltan ${cost - META.fichas} fichas`;
+      b.addEventListener('click', () => { if (max || META.fichas < cost) return; META.fichas -= cost; META.arbol = META.arbol || {}; META.arbol[A.k] = lv + 1; saveMeta(); Sfx.win(); renderAltar(); });
+      d.querySelector('.row').appendChild(b); grid.appendChild(d);
+    }
+    L.appendChild(det); }
   const CATS = [['mejora', 'Mejoras de la Trastienda'], ['obj', 'Objetos de la tienda'], ['bala', 'Balas especiales'], ['comida', 'Platos del puesto de ramen'], ['radio', 'Escuadras de la radio'], ['ayud', 'Ayudantes para contratar']];
   renderAltar.abiertas = renderAltar.abiertas || new Set(['mejora']);
   for (const [cat, tit] of CATS) {
