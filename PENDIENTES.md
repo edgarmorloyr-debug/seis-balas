@@ -17,3 +17,8 @@ Lista de lo que falta, para retomar en cualquier sesión. Lo primero de la lista
 
 - **Sin scroll en toda la interfaz** (pedido del dueño, 16-oct-2026): ninguna pantalla del juego debe necesitar desplazarse, ni en teléfono ni en computadora. La Tienda calavera ya cumple.
 - **Menú principal horizontal** inspirado en el de Balatro, con toque propio, cómodo en teléfono (pedido del dueño, 16-oct-2026): primero bocetos.
+
+- **Hecho (16-oct-2026):** menú principal «Cartel de feria» (estilo Balatro con toque propio) y pantalla Jugar con «Nueva partida» / «Continuar partida» (retrato en blanco y negro, oro, llaves, fichas, zombis y objetos); árbol gigante de la Tienda calavera que se arrastra con el dedo; los objetos ya no se venden: salen por 58 logros nuevos (se devolvieron las fichas a quien los había comprado); % del juego completado en Logros; inicio de sesión con Google, Discord o correo, o como invitado; marcas de golpe en pantalla (estilo House of the Dead) y quejidos de dolor por personaje.
+- **Falta del dueño:** activar Discord en Supabase (pasos en el chat) y subir el .zip con las 14 animaciones de Mixamo.
+- **En espera:** voces de la habilidad definitiva con un actor de voz profesional (Johnny «Wooooh», Lilith «mi turno», Sheriff radio, Velorio grito de guerra, Geronimo «vengan con papi / vengan malditos, hora de matar», Françoise whoosh).
+- **Sigue:** sin scroll en todas las pantallas; manos en primera persona por personaje; poses de disparo con las dos manos; animaciones de batalla (con las de Mixamo).
