@@ -20526,7 +20526,15 @@ function updateStrikes(dt) {
   }
 }
 const pickups = []; let pickUid = 0;
-const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c } };
+const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c }, moneda: { color: 0xffffff } };
+// Fichas de dinero (pedido del dueño, 16-oct-2026): las bolsas de oro se cambian por fichas de póker de 5 colores; cada una vale su número en $
+const MONEDAS = [[500, 0x8a3fd0, '#8a3fd0'], [100, 0x26262a, '#26262a'], [25, 0x2fae4a, '#2fae4a'], [5, 0x2f6fe0, '#2f6fe0'], [1, 0xf0ece4, '#f0ece4']];
+const monedaTex = {};
+function caraFicha(v) {   // la cara de la ficha con su valor (o el Joker en la ficha roja de juego)
+  if (monedaTex[v]) return monedaTex[v];
+  const M = MONEDAS.find(m => m[0] === v), col = v === 'joker' ? '#d8242c' : M ? M[2] : '#888';
+  return (monedaTex[v] = canvasTex(128, 128, (g, w) => { g.fillStyle = col; g.beginPath(); g.arc(64, 64, 64, 0, 7); g.fill(); g.fillStyle = v === 1 ? '#c8382c' : '#fff4e0'; for (let i = 0; i < 8; i++) { g.save(); g.translate(64, 64); g.rotate(i * Math.PI / 4); g.fillRect(-8, -64, 16, 18); g.restore(); } g.strokeStyle = v === 1 ? '#c8382c' : '#fff4e0'; g.lineWidth = 4; g.beginPath(); g.arc(64, 64, 40, 0, 7); g.stroke(); g.fillStyle = v === 1 ? '#3a2a20' : '#fff4e0'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (v === 'joker') { g.font = 'bold 44px serif'; g.fillText('J', 64, 60); g.font = 'bold 15px sans-serif'; g.fillText('JOKER', 64, 92); g.beginPath(); g.moveTo(44, 36); g.lineTo(52, 26); g.lineTo(64, 36); g.lineTo(76, 26); g.lineTo(84, 36); g.fill(); } else { g.font = `bold ${v >= 100 ? 34 : 44}px sans-serif`; g.fillText(String(v), 64, 66); } }));
+}
 // Fichas de póker: las suelta 1 de cada 20 zombis; con ellas se juega a la tragamonedas, la ruleta y la garra (no cuestan oro)
 const FICHA_P = 0.08;
 const fichasTxt = n => `${n} ficha${n === 1 ? '' : 's'} de póker`;
@@ -20536,6 +20544,13 @@ function pagaFicha() {
   game.poker--; Sfx.coin(); feed(`Usaste una ficha · te quedan ${game.poker}`, 'gold'); stMas('fichasJug'); return true;
 }
 function makePickup(type, x, z, amount) {
+  if (type === 'bag') {   // una bolsa de oro sale como fichas de dinero que suman lo mismo (de la más grande a la más chica, máximo 7)
+    let rest = Math.max(1, Math.round(amount || 1)); const vs = [];
+    for (const [v] of MONEDAS) while (rest >= v && vs.length < 7) { vs.push(v); rest -= v; }
+    if (rest > 0) vs[vs.length - 1] += rest;
+    vs.forEach((v, i) => { const a = i / vs.length * TAU + Math.random(), r = vs.length > 1 ? 0.5 + Math.random() * 0.4 : 0; makePickup('moneda', x + Math.cos(a) * r, z + Math.sin(a) * r, v); });
+    return;
+  }
   const g = new THREE.Group(); g.position.set(x, 0.6, z);
   const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
   if (type === 'health') { g.add(new THREE.Mesh(bx(0.42, 0.13, 0.13), mat)); g.add(new THREE.Mesh(bx(0.13, 0.42, 0.13), mat)); }
@@ -20543,13 +20558,15 @@ function makePickup(type, x, z, amount) {
   else if (type === 'powder') { const b = new THREE.Mesh(cyl(0.2, 0.2, 0.36, 12), new THREE.MeshLambertMaterial({ color: 0x5a3a20, emissive: 0x1a0e04 })); g.add(b); for (const y of [-0.12, 0.12]) { const r = new THREE.Mesh(cyl(0.21, 0.21, 0.04, 12), mat); r.position.y = y; g.add(r); } }
   else if (type === 'bala') { const b = new THREE.Mesh(cyl(0.07, 0.07, 0.3, 12), mat); g.add(b); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), mat); tip.position.y = 0.23; g.add(tip); const cs = new THREE.Mesh(cyl(0.075, 0.075, 0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd09a3e, emissive: 0x2a1c04 })); cs.position.y = -0.17; g.add(cs); g.scale.setScalar(1.3); }
   else if (type === 'key') { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16), mat); r.position.y = 0.16; g.add(r); const sh = new THREE.Mesh(bx(0.04, 0.32, 0.04), mat); sh.position.y = -0.06; g.add(sh); for (const y of [-0.16, -0.08]) { const t = new THREE.Mesh(bx(0.09, 0.04, 0.04), mat); t.position.set(0.05, y, 0); g.add(t); } }
+  else if (type === 'moneda') { const M = MONEDAS.find(m => m[0] === amount) || MONEDAS[MONEDAS.length - 1], cara = new THREE.MeshLambertMaterial({ map: caraFicha(M[0]), emissive: 0x332a20 }), canto = new THREE.MeshLambertMaterial({ color: M[1], emissive: M[1], emissiveIntensity: 0.25 }); const d = new THREE.Mesh(cyl(0.2, 0.2, 0.05, 24), [canto, cara, cara]); d.rotation.x = Math.PI / 2; g.add(d); }
   else if (type === 'ficha') { const d = new THREE.Group(); d.add(new THREE.Mesh(cyl(0.22, 0.22, 0.06, 20), mat)); const w = new THREE.MeshLambertMaterial({ color: 0xfff4e0, emissive: 0x403830 }); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bx(0.07, 0.065, 0.05), w), a = i / 6 * TAU; m.position.set(Math.cos(a) * 0.19, 0, Math.sin(a) * 0.19); m.rotation.y = -a; d.add(m); } const c = new THREE.Mesh(cyl(0.11, 0.11, 0.07, 16), w); d.add(c); d.rotation.x = Math.PI / 2; g.add(d); g.scale.setScalar(1.25); }
+  if (type === 'ficha') { const jk = new THREE.Mesh(new THREE.CircleGeometry(0.15, 24), new THREE.MeshBasicMaterial({ map: caraFicha('joker') })); jk.rotation.x = -Math.PI / 2; jk.position.y = 0.037; const jk2 = jk.clone(); jk2.rotation.x = Math.PI / 2; jk2.position.y = -0.037; const cont = g.children[g.children.length - 1]; (cont || g).add(jk, jk2); }   // la ficha roja de juego lleva un Joker y brilla mucho
   else if (type === 'bag') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a3a, emissive: 0x2a1a08 })); s.scale.y = 1.1; g.add(s); const k = new THREE.Mesh(cyl(0.08, 0.12, 0.14, 8), mat); k.position.y = 0.32; g.add(k); }
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
-  halo.scale.set(1.3, 1.3, 1); g.add(halo);
+  halo.scale.set(type === 'ficha' ? 2.6 : type === 'moneda' ? 0.9 : 1.3, type === 'ficha' ? 2.6 : type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'ficha') halo.material.opacity = 1; if (type === 'moneda') halo.material.opacity = 0.35; g.add(halo);
   scene.add(g);
-  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -21843,7 +21860,7 @@ function killZombie(z, info) {
   // La Masa: solo el último pedazo cuenta como jefe muerto y suelta el botín (antes cada pedazo daba su bolsa de oro)
   if (z.boss != null && z.B && z.B.id === 'mass' && zombies.some(o => o !== z && !o.dead && o.B && o.B.id === 'mass')) return;
   if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper) { for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; makePickup('bala', p.x + Math.cos(a) * 1.8, p.z + Math.sin(a) * 1.8, BKEYS.indexOf(bossBullet())); } banner('¡Botín del jefe!', 'Soltó 3 balas especiales: recógelas', 2800); } return; }
-  if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge la bolsa de oro: +25 $', 2600); return; }
+  if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge sus fichas: +25 $', 2600); return; }
   if (!tuto && Math.random() < (FICHA_P + arbP('ficha')) * (ST.fichaX || 1)) makePickup('ficha', p.x + rand(-0.6, 0.6), p.z + rand(-0.6, 0.6), 0);
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (1 + S('luck') / 100) * (rl('trebol') ? 2 : 1) * (game.char === 'johnny' ? 1.8 : 1)) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
@@ -23821,7 +23838,7 @@ function updateWave(dt) {
 }
 // Tras un jefe hay unos segundos para recoger su botín; al final, lo que quede vuela hacia ti
 const LOOT_T = 7;
-const isLoot = p => p.type === 'bag' || p.type === 'bala';
+const isLoot = p => p.type === 'bag' || p.type === 'moneda' || p.type === 'bala';
 function lootWait() {
   if (!isMapEnd(game.wave) || !pickups.some(isLoot)) return 2.4;
   hint(`¡Recoge el botín del jefe! Tienes ${LOOT_T} segundos`, 3500);
@@ -25217,6 +25234,7 @@ function updatePickups(dt) {
       else if (p.type === 'key') { game.keys = (game.keys || 0) + 1; Sfx.coin(); feed(`Llave · tienes ${game.keys}`, 'gold'); renderChips(); }
       else if (p.type === 'ficha') { game.poker = (game.poker | 0) + 1; Sfx.coin(); feed(`Ficha de póker · tienes ${game.poker}`, 'gold'); if (S('fichaOro')) addGold(S('fichaOro'), true); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
+      else if (p.type === 'moneda') { addGold(p.amount, true); if (p.amount >= 25) Sfx.cash(); else Sfx.coin(); feed(`Ficha de ${p.amount} $`, 'gold'); }
       else if (p.type === 'powder') { game.powder = Math.min(9, game.powder + 1); feed(`Barril de pólvora · tienes ${game.powder}`, 'gold'); }
       else { game.goldT = Math.min(30, game.goldT + 15); feed('¡Balas doradas! Daño doble', 'gold'); }
       Sfx.pickup(); scene.remove(p.g); pickups.splice(i, 1); continue;
@@ -26970,7 +26988,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 163';
+const GAME_BUILD = '15-oct-2026 · 164';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
