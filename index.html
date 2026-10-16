@@ -1061,7 +1061,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink);
   font:700 clamp(22px,5.4vh,38px)/1 var(--hud);letter-spacing:.14em;text-transform:uppercase;animation:iniChip 7s ease-in-out infinite}
 .ini-chip::before{content:'';position:absolute;inset:16%;border-radius:50%;border:2px dashed rgba(29,18,11,.45)}
-.ini-chip .ico{width:.95em;height:.95em;position:relative}
+.ini-chip .ico{width:2.5em;height:2.5em;position:relative;color:#1d120b;fill:#1d120b;stroke:#1d120b;stroke-width:1;margin:-.62em 0 -.5em .1em}.ini-chip .ico circle{fill:#f4b552;stroke:#f4b552}
 .ini-chip span{position:relative;padding-left:.14em}
 .ini-chip:active{transform:translateY(4px);box-shadow:0 0 0 4px #1d120b,0 3px 0 #8a5a18,0 8px 16px rgba(0,0,0,.5)}
 @keyframes iniChip{0%,86%{transform:rotate(0)}93%{transform:rotate(-10deg)}100%{transform:rotate(0)}}
@@ -1749,11 +1749,11 @@ const Sfx = (() => {
       .catch(e => { if (tries > 0) return new Promise(r => setTimeout(r, 1500)).then(() => get(n, ext, tries - 1)); smpErr.push(n + ' (' + (e && e.message || 'no se pudo leer') + ')'); });
     for (const n of SND) get(n, n.startsWith('shot_') || n.startsWith('rl_') ? '.wav' : '.mp3', 2);
   }
-  let zMudo = false;   // zombis de fondo del menú: sin ningún sonido (pedido del dueño, 16-oct-2026)
+  let zVol = 1;   // zombis de fondo del menú: al 30 % del volumen de la partida (pedido del dueño, 16-oct-2026)
   function smp(name, o = {}) {
-    const b = SMP[name]; if (!ctx || !b || zMudo) return false;
+    const b = SMP[name]; if (!ctx || !b) return false;
     const t = ctx.currentTime + (o.delay || 0), s = ctx.createBufferSource(), g = ctx.createGain();
-    s.buffer = b; s.playbackRate.value = o.rate || 1; g.gain.value = o.vol == null ? 1 : o.vol;
+    s.buffer = b; s.playbackRate.value = o.rate || 1; g.gain.value = (o.vol == null ? 1 : o.vol) * zVol;
     s.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.2 : o.wet)); s.start(t);
     // disparos: el nuevo corta al anterior en un instante, así al disparar seguido no se amontonan
     if (o.echo && echoIn) { const e = ctx.createGain(); e.gain.value = o.echo; g.connect(e); e.connect(echoIn); }
@@ -1844,14 +1844,14 @@ const Sfx = (() => {
     return g;
   }
   function tone({ type = 'sine', f0 = 440, f1 = null, dur = 0.2, vol = 0.3, pan = 0, wet = 0.2, delay = 0, attack = 0.005 }) {
-    if (!ctx || zMudo) return;
+    if (!ctx) return; vol *= zVol;
     const t = ctx.currentTime + delay, o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(bus(pan, wet)); o.start(t); o.stop(t + dur + 0.05);
   }
   function burst({ f0 = 2000, f1 = null, q = 0.7, ftype = 'bandpass', dur = 0.1, vol = 0.3, pan = 0, wet = 0.2, delay = 0, attack = 0.002 }) {
-    if (!ctx || zMudo) return;
+    if (!ctx) return; vol *= zVol;
     const t = ctx.currentTime + delay, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     s.buffer = noise; f.type = ftype; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -1936,7 +1936,7 @@ const Sfx = (() => {
     jingle(k) { return smp('jingle_' + k, { vol: 0.55, wet: 0.25 }); },
     get on() { return !!ctx; },
     setVol(v) { if (out) out.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
-    mudoZ(on) { zMudo = !!on; },   // mientras se mueven los zombis del menú, todo sonido queda en silencio
+    zMenu(on) { zVol = on ? 0.3 : 1; },   // mientras se mueven los zombis del menú, sus sonidos van al 30 %
     setWind(v) { windLevel = v; if (windG) windG.gain.setTargetAtTime(v, ctx.currentTime, 0.5); },
     silen() { if (!ctx) return; burst({ ftype: 'lowpass', f0: 1400, f1: 300, q: 0.7, dur: 0.07, vol: 0.35, wet: 0.05 }); burst({ ftype: 'bandpass', f0: 3200, q: 2, dur: 0.02, vol: 0.12, wet: 0 }); tone({ f0: 110, f1: 60, dur: 0.06, vol: 0.2, wet: 0 }); },
     shot(model, gold, last) {
@@ -2011,7 +2011,6 @@ const Sfx = (() => {
     boom() { tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
     gas(pan) { this.boom(); burst({ ftype: 'highpass', f0: 2500, dur: 1.2, vol: 0.25, pan, wet: 0.4, attack: 0.05 }); },
     groan(pan, vol, pitch = 1, long = false) {
-      try { if (!(game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state))) return; } catch (e) {}   // zombis de fondo en los menús: sin sonido (pedido del dueño, 16-oct-2026)
       if (!ctx || vol < 0.02) return;
       if (long && Math.random() < 0.45 && smpOf('aullido', 5, { vol: Math.min(1, vol * 2), pan, rate: pitch * rand(0.9, 1.1), wet: 0.4 })) return;   // aullidos
       if (!long && Math.random() < 0.12 && smpOf('aullido', 5, { vol: Math.min(1, vol * 1.6), pan, rate: pitch * rand(0.9, 1.1), wet: 0.4 })) return;
@@ -2022,7 +2021,7 @@ const Sfx = (() => {
       const v = ctx.createOscillator(); v.frequency.value = rand(5, 9); const vg = ctx.createGain(); vg.gain.value = base * 0.06; v.connect(vg); vg.connect(o.frequency);
       const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = rand(450, 700) * pitch; f1.Q.value = 4;
       const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = rand(900, 1300) * pitch; f2.Q.value = 6;
-      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * zVol), t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       const b = bus(pan, 0.35); o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(b);
       o.start(t); v.start(t); o.stop(t + dur + 0.05); v.stop(t + dur + 0.05);
     },
@@ -20664,11 +20663,10 @@ function makePickup(type, x, z, amount) {
     const M = MONEDAS.find(m => m[0] === amount) || MONEDAS[MONEDAS.length - 1], claro = M[0] === 1 || M[0] === 5, base = new THREE.MeshLambertMaterial({ color: M[1], emissive: M[1], emissiveIntensity: 0.12 }), w = new THREE.MeshLambertMaterial({ color: claro ? 0xb8452e : 0xfff4e0, emissive: 0x201810 });
     const d = new THREE.Group(); d.add(new THREE.Mesh(cyl(0.22, 0.22, 0.06, 20), base)); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bx(0.07, 0.065, 0.05), w), a = i / 6 * TAU; m.position.set(Math.cos(a) * 0.19, 0, Math.sin(a) * 0.19); m.rotation.y = -a; d.add(m); } const c = new THREE.Mesh(cyl(0.11, 0.11, 0.07, 16), base); d.add(c); d.rotation.x = Math.PI / 2; g.add(d); g.scale.setScalar(1.15); }
   else if (type === 'ficha') { const d = new THREE.Group(); d.add(new THREE.Mesh(cyl(0.22, 0.22, 0.06, 20), mat)); const w = new THREE.MeshLambertMaterial({ color: 0xfff4e0, emissive: 0x403830 }); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bx(0.07, 0.065, 0.05), w), a = i / 6 * TAU; m.position.set(Math.cos(a) * 0.19, 0, Math.sin(a) * 0.19); m.rotation.y = -a; d.add(m); } const c = new THREE.Mesh(cyl(0.11, 0.11, 0.07, 16), w); d.add(c); d.rotation.x = Math.PI / 2; g.add(d); g.scale.setScalar(1.25); }
-  if (type === 'ficha') { const jk = new THREE.Mesh(new THREE.CircleGeometry(0.15, 24), new THREE.MeshBasicMaterial({ map: caraFicha('joker') })); jk.rotation.x = -Math.PI / 2; jk.position.y = 0.037; const jk2 = jk.clone(); jk2.rotation.x = Math.PI / 2; jk2.position.y = -0.037; const cont = g.children[g.children.length - 1]; (cont || g).add(jk, jk2); }   // la ficha roja de juego lleva un Joker y brilla mucho
   else if (type === 'bag') { const s = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: 0x8a6a3a, emissive: 0x2a1a08 })); s.scale.y = 1.1; g.add(s); const k = new THREE.Mesh(cyl(0.08, 0.12, 0.14, 8), mat); k.position.y = 0.32; g.add(k); }
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
-  halo.scale.set(type === 'ficha' ? 2.6 : type === 'moneda' ? 0.9 : 1.3, type === 'ficha' ? 2.6 : type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'ficha') halo.material.opacity = 1; if (type === 'moneda') halo.material.opacity = 0.12; g.add(halo);
+  halo.scale.set(type === 'moneda' ? 0.9 : 1.3, type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'moneda') halo.material.opacity = 0.12; g.add(halo);
   scene.add(g);
   pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
 }
@@ -21907,7 +21905,7 @@ function damageZombie(z, amount, info) {
 }
 function dropHit(z, m) { const i = z.hits.indexOf(m); if (i >= 0) z.hits.splice(i, 1); }
 function panOf(p) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz) || 1; Sfx.setBehind(clamp((dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / d, 0, 1)); return clamp((dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / d, -1, 1); }
-function volOf(p, base = 1) { return base / (1 + Math.hypot(p.x - player.pos.x, p.z - player.pos.z) * 0.18); }
+function volOf(p, base = 1) { const o = state === 'menu' && !game ? camera.position : player.pos; return base / (1 + Math.hypot(p.x - o.x, p.z - o.z) * 0.18); }   // en el menú se oye desde la cámara
 function explode(c, r, dmgZ, dmgP, green) {
   { const pd0 = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd0 < 10) Sfx.deafen(0.9 * (1 - pd0 / 10)); }
   for (let i = 0; i < 50; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
@@ -25487,7 +25485,7 @@ function updateMenu(dt) {
   updateFlow(dt, chase.x, chase.z);
   const aliveN = zombies.filter(z => !z.dead).length;
   if (aliveN < 10 && Math.random() < dt * 0.8) { const ang = rand(0, TAU), r = rand(14, 26), t = pick(['walker', 'walker', 'walker', 'crawler', 'runner', 'spitter', 'dog', 'screamer', 'armored', 'brute']); spawnZombie(t, S0.x + Math.cos(ang) * r, S0.z + Math.sin(ang) * r, 1); }
-  Sfx.mudoZ(true); try { updateZombies(dt, false); updateDebris(dt); P.update(dt); PA.update(dt); } finally { Sfx.mudoZ(false); }   // los zombis del menú no se oyen (pedido del dueño)
+  Sfx.zMenu(true); try { updateZombies(dt, false); updateDebris(dt); P.update(dt); PA.update(dt); } finally { Sfx.zMenu(false); }   // los zombis del menú suenan al 30 % (pedido del dueño)
   menuFondo(dt);
 }
 // Fondo del menú (pedido del dueño, 16-oct-2026): cada cierto tiempo cambia a otro mapa terminado, con un fundido a negro
@@ -29937,7 +29935,14 @@ $('#btn-mail').addEventListener('click', () => { const f = $('#login-mail'); f.h
 $('#login-mail').addEventListener('submit', e => { e.preventDefault(); Cuenta.correo(false); });
 $('#lm-crear').addEventListener('click', () => Cuenta.correo(true));
 // Portada: Jugar lleva a la selección; Configuración muestra los mismos ajustes de la pausa, Cómo jugar y el Tutorial
-{ const des = () => { Sfx.init(); Music.init(); removeEventListener('pointerdown', des, true); removeEventListener('keydown', des, true); }; addEventListener('pointerdown', des, true); addEventListener('keydown', des, true); }   // el navegador solo deja sonar música después del primer toque
+{ const EVS = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];   // el navegador solo deja sonar música después de un toque del jugador
+  // en el teléfono (iPhone y Android) el toque cuenta al levantar el dedo (touchend / click), no al apoyarlo: se intenta en cada toque
+  // hasta que el sonido y la canción ya están sonando; Music.update dentro del toque hace que la canción arranque en ese mismo gesto
+  const des = () => {
+    try { Sfx.init(); Music.init(); if (!Music.estado().pista) Music.update(); } catch (er) {}
+    setTimeout(() => { const e = Music.estado(); if (e.ctx === 'running' && (!e.pista || e.pausa === false)) EVS.forEach(k => removeEventListener(k, des, true)); }, 400);
+  };
+  EVS.forEach(k => addEventListener(k, des, true)); }
 // Menú «Mesa del saloon»: iconos de los botones, brasas que suben, bombillas del letrero y la tarjeta del Top que se cierra al tocar fuera
 for (const e of document.querySelectorAll('#inicio i[data-ic], #modo i[data-ic]')) e.outerHTML = ico(e.dataset.ic);
 if (!REDUCED) { const B = document.querySelector('#inicio .ini-brasas'); for (let i = 0; i < 16; i++) { const s = document.createElement('i'); s.style.left = (Math.random() * 100) + '%'; s.style.animationDuration = (7 + Math.random() * 9) + 's'; s.style.animationDelay = (-Math.random() * 14) + 's'; B.appendChild(s); } }
