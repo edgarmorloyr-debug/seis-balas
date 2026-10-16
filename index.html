@@ -700,6 +700,10 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #menu .car-side span{min-height:1.2em}
 @media (min-width:761px) and (max-height:860px){#menu .car-main .ch-pw{width:min(100%,29vh)}#menu .car-side .ch-pw{width:min(100%,22vh)}}
 #menu .nH.ch-ficha{max-width:none}
+/* los recuadros de pasiva, vida y ultimate tienen siempre el mismo alto: si el texto es largo, se achica la letra (fichaAjustar) */
+#menu .car-top .nH .win{height:var(--fh,124px);overflow:hidden;justify-content:flex-start}
+@media (min-width:761px) and (max-height:860px){#menu .car-top .nH .win{--fh:104px}}
+@media (max-width:560px){#menu .car-top .nH .win{--fh:136px}}
 #menu .ch-stats{max-width:620px}
 #menu .ch-stats div{padding:6px 2px}
 @media (max-width:560px){#menu .car-stage{gap:6px}#menu .car-main .ch-pw{width:min(100%,30vh)}}
@@ -1225,7 +1229,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <div class="rec" id="over-rec" hidden>Nuevo récord</div>
       <div class="stats" id="over-stats"></div>
       <div class="cerca" id="over-cerca" hidden></div>
-      <div class="row"><button class="btn" id="btn-again">Otra vez</button><button class="btn2" id="btn-menu">Menú</button></div>
+      <div class="row"><button class="btn" id="btn-again">Otra vez</button><button class="btn2" id="btn-sala" hidden>Volver a la sala</button><button class="btn2" id="btn-menu">Menú</button></div>
     </div>
   </div>
 
@@ -15099,7 +15103,7 @@ function spawnCop(kind = 'cop', owner = null, lv = 0, glv) {
   setGunTier(c, glv !== undefined ? glv : (!owner || owner === Net.id) && game && game.allyGun ? game.allyGun[kind] | 0 : 0);
   const a = rand(0, TAU); root.position.set(player.pos.x + Math.cos(a) * 2.5, 0, player.pos.z + Math.sin(a) * 2.5); resolve(root.position, 0.35);
   scene.add(root); c.id = ++copUid; cops.push(c); ally3d(c);
-  if (kind === 'ayudante') c.temp = 1;   // no se guarda entre partidas; se queda hasta que cae
+  if (kind === 'ayudante') { c.temp = 1; c.speed *= 0.7; }   // no se guarda entre partidas; se queda hasta que cae · 30 % más lentos (pedido del dueño)
   return c;
 }
 function removeCop(i) { const c = cops[i]; scene.remove(c.root); c.mats.forEach(m => m.dispose()); if (c.beamMat) c.beamMat.dispose(); cops.splice(i, 1); }
@@ -15631,7 +15635,8 @@ function gameOver() {
   $('#over .title').textContent = game && game.sinLlave ? 'Sin llaves no hay salida' : game && game.outAmmo ? 'Te quedaste sin balas' : 'Te comieron';
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock();
   store.set(SAVE_KEY, null);
-  if (Net.on) setTimeout(netLeave, 600);
+  salaPrev = Net.on && Net.room ? { r: Net.room, h: Net.host } : null; $('#btn-sala').hidden = !salaPrev;   // en grupo: «Volver a la sala» los mete otra vez en la misma sala
+  if (Net.on) setTimeout(() => { if (state === 'over') netLeave(); }, 600);
   awardFichas(false); submitRun(true);
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
@@ -16458,7 +16463,7 @@ function reloadStep(dt) {
     let spent = 0;
     for (const h of act) for (let i = 0; i < h.cap; i++) { if (h.loaded[i] === 2) { h.loaded[i] = 0; spent++; } else if (h.loaded[i] === 3) h.loaded[i] = 0; }
     if (spent) { Sfx.shells(); let k = 0; for (const h of act) { h.cylG.getWorldPosition(_mp); const n = Math.min(h.cap, 12); for (let i = 0; i < n && k < spent; i++, k++) ejectCasing(_mp.clone().add(new THREE.Vector3(rand(-0.02, 0.02), rand(-0.03, 0.01), rand(-0.02, 0.02))), h.side ? -1 : 1); } }
-    refreshChambers(); gs.phase = 'insert'; gs.pt = 0.4 / rs;
+    refreshChambers(); gs.phase = 'insert'; gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'insert') {
     const h = game.box.length ? act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] : null;
     if (h) {
@@ -16467,7 +16472,7 @@ function reloadStep(dt) {
       Sfx.insert(); refreshChambers(); h.kick = 0.15;
     }
     const full = !act.some(x => x.loaded.includes(0)) || !game.box.length;
-    if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = 0.4 / rs;
+    if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'close') {
     gs.reloading = false; gs.phase = ''; Sfx.close();
     for (const h of act) h.firstShot = true;
@@ -18912,6 +18917,7 @@ function hostProceed() {
 }
 function travel(ni, w, then) {
   if (game && game.tiro) tiroEnd();
+  { const H = game && habDe(); if (H && game.habT > 0 && H.dur) game.hab = Math.min(100, (game.hab || 0) + (H.carga || 100) * clamp(game.habT / H.dur, 0, 1)); }   // si la ultimate seguía activa al cambiar de lugar, se devuelve la carga que no alcanzó a usarse
   habFin(); useCur = null; showUse(null); // la tarjeta de «Usar» (tragamonedas, ruleta…) no se queda en el mapa nuevo
   if (['shop', 'items', 'cards', 'inv', 'pause', 'bj'].includes(state)) show(null);
   state = 'trans'; const room = ni === ROOM_IDX;
@@ -19105,6 +19111,39 @@ function updateGun(dt) {
     if (h.flash.visible) { h.flash.rotation.z = Math.random() * TAU; const W_ = WFX[h.model], s = rand(0.8, 1.4) * (W_ ? W_.fs : h.model === 'escopeta' ? 1.8 : 1); h.flash.scale.set(s, s, s * (W_ && W_.stretch ? W_.stretch : 1)); }
     h.flashLight.intensity = h.fl > 0 && !(FAST() && h.side) ? 3.2 : 0;
   }
+  manoCarga(dt);
+}
+// Recarga a una mano: la otra mano (con guante) lleva cada bala al tambor abierto y la empuja; entre bala y bala vuelve al cinturón
+const MC = { g: null, bala: null, v: 0 };
+function manoCarga(dt) {
+  if (!MC.g) {
+    const g = new THREE.Group(), add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); g.add(m); return m; };
+    add(bx(0.05, 0.035, 0.07), GM.glove, 0, 0, 0, -0.2);   // palma
+    for (let i = 0; i < 3; i++) add(cyl(0.009, 0.009, 0.045, 8), GM.glove, -0.017 + i * 0.017, 0.012, -0.05, Math.PI / 2 + 0.5);   // dedos que sujetan la bala
+    add(cyl(0.01, 0.01, 0.045, 8), GM.glove, 0.03, 0.004, -0.02, Math.PI / 2, 0, -0.6);   // pulgar
+    add(cyl(0.03, 0.034, 0.06, 12), GM.gloveD, 0, -0.005, 0.06, Math.PI / 2);   // puño del guante
+    add(cyl(0.034, 0.036, 0.12, 12), GM.sleeve, 0, -0.008, 0.14, Math.PI / 2);   // manga
+    MC.bala = new THREE.Group(); g.add(MC.bala); MC.bala.position.set(0, 0.03, -0.075);
+    { const c = new THREE.Mesh(cyl(0.0075, 0.0075, 0.03, 10), GM.brassF || GM.glove); c.rotation.x = Math.PI / 2; MC.bala.add(c); const p = new THREE.Mesh(cyl(0.006, 0.0075, 0.012, 10), lam(0x9a6a3a)); p.rotation.x = Math.PI / 2; p.position.z = -0.021; MC.bala.add(p); }
+    g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
+    camera.add(g); MC.g = g;
+  }
+  const act = hands.filter(h => h.active), on = state === 'play' && gs.reloading && !player.down && act.length;
+  MC.v = damp(MC.v, on ? 1 : 0, 10, dt); MC.g.visible = MC.v > 0.02; if (!MC.g.visible) return;
+  // el revólver que se está cargando: el que tiene más huecos (igual que la recarga)
+  const h = act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] || act[0]; if (!h) return;
+  h.cylG.updateWorldMatrix(true, false); const cil = h.cylG.getWorldPosition(new THREE.Vector3()); camera.worldToLocal(cil);
+  const lado = h.side === 0 ? 1 : -1, base = new THREE.Vector3(cil.x - lado * 0.14, cil.y - 0.19, cil.z + 0.02);   // de dónde sale la mano (abajo, del lado de adentro)
+  const meta = new THREE.Vector3(cil.x - lado * 0.035, cil.y - 0.005, cil.z + 0.06);   // detrás del tambor abierto
+  let u = 0;
+  if (gs.phase === 'insert') { const T = gs.ptMax || 0.4; u = clamp(1 - gs.pt / T, 0, 1); }
+  // ida (0–0,55), empuja la bala (0,55–0,7) y vuelve a buscar otra (0,7–1)
+  const ida = u < 0.55 ? u / 0.55 : u < 0.7 ? 1 : Math.max(0, 1 - (u - 0.7) / 0.3), e = ida * ida * (3 - 2 * ida);
+  const pos = base.clone().lerp(meta, gs.phase === 'insert' ? e : gs.phase === 'open' ? 0.35 : 0.2);
+  if (u >= 0.55 && u < 0.7) pos.z -= 0.025 * Math.sin((u - 0.55) / 0.15 * Math.PI);
+  pos.y -= (1 - MC.v) * 0.25;
+  MC.g.position.copy(pos); MC.g.rotation.set(-0.35, lado * 0.5, lado * 0.25);
+  MC.bala.visible = gs.phase === 'insert' && u < 0.62 && game.box.length > 0;
 }
 function retarget(z, canAttack) {
   z.tgtT = rand(0.35, 0.55);
@@ -21233,7 +21272,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 131';
+const GAME_BUILD = '15-oct-2026 · 132';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21451,9 +21490,9 @@ const Directo = {
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') v.abierto = false; };
     this.pcs.set(p.id, v); return v;
   },
-  canal(v, dc) { v.dc = dc; dc.onopen = () => { v.abierto = true; }; dc.onclose = () => { v.abierto = false; }; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; },
+  canal(v, dc) { if (dc.label === 'rapido') { v.dr = dc; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; return; } v.dc = dc; dc.onopen = () => { v.abierto = true; }; dc.onclose = () => { v.abierto = false; }; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; },
   async llamar(p) {
-    try { await this.servidores(); const v = this.mk(p); this.canal(v, v.pc.createDataChannel('juego', { ordered: true }));
+    try { await this.servidores(); const v = this.mk(p); this.canal(v, v.pc.createDataChannel('juego', { ordered: true })); this.canal(v, v.pc.createDataChannel('rapido', { ordered: false, maxRetransmits: 0 }));   // carril rápido: posiciones y ping, sin cola (si uno se pierde, llega el siguiente)
       await v.pc.setLocalDescription(await v.pc.createOffer()); Net.ev(['dc', p.id, { o: v.pc.localDescription.toJSON() }]); Net.flush(); } catch (e) {}
   },
   async signal(p, d) {
@@ -21468,8 +21507,16 @@ const Directo = {
   },
   // todos los compañeros con el canal abierto (si falta uno, se manda por Supabase, que llega a todos)
   todos() { if (!Net.on || !Net.peers.size) return false; for (const id of Net.peers.keys()) { const v = this.pcs.get(id); if (!v || !v.abierto || !v.dc || v.dc.readyState !== 'open' || v.dc.bufferedAmount >= 262144) return false; } return true; },
-  send(m) { const t = JSON.stringify(m); for (const v of this.pcs.values()) if (v.abierto && v.dc.readyState === 'open' && v.dc.bufferedAmount < 262144) v.dc.send(t); },
-  close(id) { const v = this.pcs.get(id); if (v) { try { v.dc && v.dc.close(); v.pc.close(); } catch (e) {} this.pcs.delete(id); } },
+  send(m) {
+    const t = JSON.stringify(m), rapido = !m.ev || m.ev.every(e => e[0] === 'pi' || e[0] === 'po');
+    for (const v of this.pcs.values()) {
+      if (!v.abierto || v.dc.readyState !== 'open') continue;
+      if (rapido && v.dr && v.dr.readyState === 'open') { if (v.dr.bufferedAmount < 32768) v.dr.send(t); continue; }   // si el carril está lleno se salta este cuadro: nunca se hace cola
+      if (rapido && v.dc.bufferedAmount > 65536) continue;   // sin carril rápido: una posición vieja no vale la espera
+      if (v.dc.bufferedAmount < 262144) v.dc.send(t);
+    }
+  },
+  close(id) { const v = this.pcs.get(id); if (v) { try { v.dc && v.dc.close(); v.dr && v.dr.close(); v.pc.close(); } catch (e) {} this.pcs.delete(id); } },
   cerrarTodo() { for (const id of [...this.pcs.keys()]) this.close(id); }
 };
 let voiceIce = null;
@@ -21719,9 +21766,10 @@ function lobbyOpen() {
   $('#lobby-room').hidden = true; $('#lobby-pick').hidden = false; $('#lobby-msg').textContent = '';
   setTimeout(() => $('#btn-host').focus(), 30);
 }
-async function lobbyHost() {
+let salaPrev = null;
+async function lobbyHost(c) {
   Net.name = nickOf(); store.set('sb_nick', Net.name);
-  const code = genCode();
+  const code = typeof c === 'string' ? c : genCode();
   try { await netOpen(code, true); } catch (e) { $('#lobby-msg').textContent = 'No se pudo conectar con el servidor (' + (e && e.message || e) + '). Mándale una captura de esto a Claude.'; return; }
   $('#room-show').textContent = code; $('#lobby-room').hidden = false; $('#lobby-pick').hidden = true; $('#btn-go').hidden = false;
   $('#lobby-msg').textContent = 'Comparte el código sin salir del juego: si cambias de app en el teléfono, la sala se pausa. Cuando estén todos, pulsa Empezar partida.'; renderLobby();
@@ -22731,6 +22779,15 @@ const CAR_IDS = CHAR_IDS.concat('azar');
 const carName = id => id === 'azar' ? 'Al azar' : CHARS[id].name, carOpen = id => id === 'azar' || charOpen(id);
 function charElegido() { if (Net.on && Net.myChar) return Net.myChar; if (!META.azar) return META.char; const ok = CHAR_IDS.filter(charOpen); return ok[Math.floor(Math.random() * ok.length)] || META.char; }
 let carI = -1;
+// achica la letra de cada recuadro de la ficha hasta que el texto quepa sin estirar el recuadro
+function fichaAjustar() {
+  for (const w of document.querySelectorAll('#menu .car-top .nH .win')) {
+    const t = w.querySelector('.t'); if (!t) continue;
+    t.style.fontSize = ''; let fs = parseFloat(getComputedStyle(t).fontSize) || 14;
+    for (let k = 0; k < 12 && w.scrollHeight > w.clientHeight + 1 && fs > 8; k++) { fs -= 0.5; t.style.fontSize = fs + 'px'; t.style.lineHeight = '1.15'; }
+  }
+}
+addEventListener('resize', () => { if (!$('#menu').hidden) fichaAjustar(); });
 function renderCarousel(dir) {
   const cl = $('#char-list'), n = CAR_IDS.length;
   if (!CHARS[META.char] || !charOpen(META.char)) META.char = 'sheriff';
@@ -22744,7 +22801,7 @@ function renderCarousel(dir) {
     <div class="car-info"><span class="ch-desc">Al empezar sale uno de los personajes al azar. ¿Quién te tocará?</span></div>
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
     cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
-    const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Empezar'; menu3d('azar'); return;
+    const st = $('#btn-start'); st.disabled = false; st.innerHTML = 'Empezar'; menu3d('azar'); requestAnimationFrame(fichaAjustar); return;
   }
   cl.innerHTML = `<div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}${fichaPj(id)}</div>
   <div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}">${sideCard(-1)}
@@ -22757,7 +22814,7 @@ function renderCarousel(dir) {
     <div class="car-bar"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div><button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Empezar' : `${ico('lock')} Bloqueado`;
-  menu3d(id);
+  menu3d(id); requestAnimationFrame(fichaAjustar);
 }
 // En el menú, el personaje elegido aparece en 3D de cuerpo completo, quieto y con su propia pose:
 // en pantallas anchas, en la franja libre a la izquierda de la tarjeta; en las angostas, sobre su retrato
@@ -23485,6 +23542,8 @@ renderMeta();
 $('#btn-continue').addEventListener('click', () => { const sv = store.get(SAVE_KEY, null); if (sv) startGame(sv); });
 $('#btn-again').addEventListener('click', () => startGame());
 $('#btn-menu').addEventListener('click', toMenu);
+// después de perder en grupo: el anfitrión vuelve a abrir la misma sala y los demás entran con el mismo código
+$('#btn-sala').addEventListener('click', () => { const S = salaPrev; if (!S) return; toMenu(); lobbyOpen(); if (S.h) lobbyHost(S.r); else { $('#room-code').value = S.r; lobbyJoin(); } });
 $('#btn-win-menu').addEventListener('click', toMenu);
 $('#btn-endless').addEventListener('click', () => { if (state !== 'win') return; game.endless = true; game.sentFinal = false; show(null); openPerks(); });
 $('#btn-resume').addEventListener('click', resume);
