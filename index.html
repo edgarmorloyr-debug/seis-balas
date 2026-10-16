@@ -1613,6 +1613,7 @@ const Sfx = (() => {
     coin() { if (smp('coins', { vol: 0.35, rate: rand(1, 1.2), wet: 0.1 })) return; tone({ type: 'square', f0: 1320, dur: 0.06, vol: 0.05, wet: 0.1 }); tone({ type: 'square', f0: 1760, dur: 0.12, vol: 0.05, delay: 0.06, wet: 0.2 }); },
     cash() { smp('chips', { vol: 0.5, wet: 0.2 }); if (smp('coins2', { vol: 0.5, wet: 0.2, delay: 0.05 })) return; tone({ type: 'triangle', f0: 1568, dur: 0.12, vol: 0.2, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.4, vol: 0.2, delay: 0.1, wet: 0.5 }); burst({ f0: 5000, q: 2, dur: 0.15, vol: 0.2 }); },
     bell() { [196, 392, 588, 784, 1176].forEach((f, i) => tone({ f0: f, dur: 3.2 - i * 0.4, vol: 0.22 / (i + 1), wet: 0.8, attack: 0.004 })); },
+    alarma(pan, vol = 1) { for (let i = 0; i < 8; i++) tone({ type: 'square', f0: i % 2 ? 1320 : 880, dur: 0.2, vol: 0.05 * vol, pan, delay: i * 0.24, wet: 0.5 }); },   // alarma de coche: dos notas que se alternan
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
     combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
     deadeye(on) {
@@ -8744,9 +8745,9 @@ function fundirEstatico(desde) {
   for (const L of lotes.values()) {
     if (L.list.length < 2) { quitar.splice(quitar.indexOf(L.list[0]), 1); continue; }
     let n = 0; const parts = L.list.map(m => { const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()); g.applyMatrix4(m.matrixWorld); n += g.attributes.position.count; return g; });
-    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2); let o = 0;
-    for (const g of parts) { const c = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); if (g.attributes.normal) nor.set(g.attributes.normal.array, o * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); o += c; g.dispose(); }
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.computeBoundingSphere();
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = L.mat.vertexColors ? new Float32Array(n * 3).fill(1) : null; let o = 0;
+    for (const g of parts) { const c = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); if (g.attributes.normal) nor.set(g.attributes.normal.array, o * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); if (col && g.attributes.color) col.set(g.attributes.color.array, o * 3); o += c; g.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); if (col) geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeBoundingSphere();   // los colores por vértice (piezas de marketGeo) también se conservan
     const mm = new THREE.Mesh(geo, L.mat); mm.castShadow = L.cast; mm.receiveShadow = true; G.add(mm);
     if (L.solid) solids.push(mm);
   }
@@ -10588,15 +10589,21 @@ function buildMarket() {
   // Hipermercado: 84 × 84 m. Delante, la tienda (pasillos, congelados, charcutería, panadería, lácteos, frutas, cajas);
   // al fondo, tras una pared con tres pasos, el almacén con estanterías de palés, montacargas y muelles de carga.
   const HX = 42, HZ = 42, H = 7.5, WZ = -24;
-  world.arena = { t: 'r', hx: HX - 0.6, hz: HZ - 0.6 }; world.start = { x: 0, z: 12 }; world.indoor = true;
+  world.arena = { t: 'r', hx: SUP.A, hz: SUP.A }; world.start = { x: 0, z: 12 }; world.indoor = true;   // el súper de siempre en el centro y cuatro zonas alrededor (superGrande)
   world.shirts = [0x9a2a2a, 0x2a6a3a, 0x9a2a2a, 0x3a4a6a, 0x5a5a5a, 0x6a5a3a]; world.hat = 'cap'; world.hatP = 0.1;
   world.mix = { crawler: 1.5, bloater: 1.6, spitter: 0.8 };
   env({ fog: 0x0d0f12, dens: 0.019, top: 0x0d0f12, sky: false, hemiS: 0x9aa4b0, hemiG: 0x2a2a2a, hemiI: 0.58, moonC: 0xdfe8ff, moonI: 0.34, moonDir: new THREE.Vector3(0.12, 1, 0.2), lantern: 0.8, wind: 0.015 });
-  addGround(100, canvasTex(128, 128, (g, w) => {
+  // afuera, asfalto; dentro de la tienda, el piso de baldosas de siempre
+  addGround(200, canvasTex(256, 256, (g, w) => {
+    g.fillStyle = '#3a3c3e'; g.fillRect(0, 0, w, w);
+    for (let i = 0; i < 2600; i++) { g.fillStyle = pick(['rgba(0,0,0,.18)', 'rgba(255,255,255,.07)', 'rgba(90,80,60,.12)', 'rgba(20,20,22,.25)']); g.fillRect(rand(0, w), rand(0, w), rand(1, 3), rand(1, 3)); }
+    g.strokeStyle = 'rgba(15,15,16,.45)'; g.lineWidth = 1.5; for (let i = 0; i < 5; i++) { g.beginPath(); let x = rand(0, w), y = rand(0, w); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-30, 30); y += rand(-30, 30); g.lineTo(x, y); } g.stroke(); }
+  }, 40));
+  M(new THREE.PlaneGeometry(HX * 2, HZ * 2), lam(0xffffff, { map: canvasTex(128, 128, (g, w) => {
     for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#a8a69e' : '#d4d0c4'; g.fillRect(i * 64, j * 64, 64, 64); }
     for (let i = 0; i < 500; i++) { g.fillStyle = pick(['rgba(0,0,0,.07)', 'rgba(60,40,20,.09)', 'rgba(255,255,255,.06)']); g.fillRect(rand(0, w), rand(0, w), rand(1, 4), rand(1, 4)); }
     g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 2; [[0, 0], [64, 64], [64, 0], [0, 64]].forEach(([x, y]) => g.strokeRect(x, y, 64, 64));
-  }, 46));
+  }, 38.6) }), 0, 0.004, 0, { rx: -Math.PI / 2, cast: false });
   // ---- Dos atlas de carteles (8 filas de 512×64 cada uno)
   const atlas = (rows) => canvasTex(512, 512, (g) => {
     rows.forEach(([txt, bg, fg, cells], r) => {
@@ -10616,8 +10623,16 @@ function buildMarket() {
 
   const wallM = lam(0xc8c4b6), dark = lam(0x2a2c30), stripe = lam(0xc0302a), vc = lam(0xffffff, { vertexColors: true });
   // ---- Paredes, techo y fachada
-  M(bx(HX * 2 + 1.4, H, 0.6), lam(0x8a8a86), 0, H / 2, -HZ - 0.3, { solid: true });
-  for (const s of [-1, 1]) M(bx(0.6, H, HZ * 2 + 1.2), wallM, s * (HX + 0.3), H / 2, 0, { solid: true });
+  // pared con huecos (puertas hacia las zonas de afuera): cada tramo choca y sobre cada hueco va un dintel
+  const pared = (eje, fijo, a, b, huecos, mat, hT) => {
+    let p = a; const tr = [];
+    for (const [h0, h1] of huecos) { tr.push([p, h0]); const c = (h0 + h1) / 2, L = h1 - h0; if (eje === 'x') M(bx(L, H - hT, 0.6), mat, c, (H + hT) / 2, fijo, { solid: true }); else M(bx(0.6, H - hT, L), mat, fijo, (H + hT) / 2, c, { solid: true }); p = h1; }
+    tr.push([p, b]);
+    for (const [s0, s1] of tr) { const c = (s0 + s1) / 2, L = s1 - s0; if (L < 0.05) continue; if (eje === 'x') { M(bx(L, H, 0.6), mat, c, H / 2, fijo, { solid: true }); addBox(c, fijo, L / 2, 0.3); } else { M(bx(0.6, H, L), mat, fijo, H / 2, c, { solid: true }); addBox(fijo, c, 0.3, L / 2); } }
+  };
+  pared('x', -HZ - 0.3, -HX - 0.6, HX + 0.6, [[-2.55, 2.55], [21.45, 26.55]], lam(0x8a8a86), 4.9);   // muelles 2 y 3 abiertos: al almacén de carga
+  pared('z', HX + 0.3, -HZ - 0.6, HZ + 0.6, [[16.6, 19.4]], wallM, 2.7);                              // salida de emergencia este: a la gasolinera
+  pared('z', -HX - 0.3, -HZ - 0.6, HZ + 0.6, [[-11.2, -8.8]], wallM, 2.7);                            // puerta oeste: al callejón
   M(new THREE.PlaneGeometry(HX * 2 + 2, HZ * 2 + 2), lam(0x2a2c30, { side: THREE.DoubleSide }), 0, H, 0, { rx: Math.PI / 2, cast: false });
   { // franjas rojas, zócalos y vigas del techo en una sola malla
     const L = [];
@@ -10629,27 +10644,29 @@ function buildMarket() {
     M(marketGeo(B), vc, 0, 0, 0, { cast: false });
   }
   // Fachada de vidrio con la entrada y puertas automáticas que se abren solas
-  M(bx(HX * 2 + 1.4, 0.8, 0.6), wallM, 0, 0.4, HZ + 0.3, { solid: true }); M(bx(HX * 2 + 1.4, 2, 0.6), wallM, 0, H - 1, HZ + 0.3, { solid: true });
+  // el zócalo y el vidrio tienen dos huecos: la entrada y el ventanal que reventó el camión de reparto (x -24,5 … -19,5)
+  for (const [a, b] of [[-HX - 0.7, -24.5], [-19.5, -3.6], [3.6, HX + 0.7]]) M(bx(b - a, 0.8, 0.6), wallM, (a + b) / 2, 0.4, HZ + 0.3, { solid: true });
+  M(bx(HX * 2 + 1.4, 2, 0.6), wallM, 0, H - 1, HZ + 0.3, { solid: true });
   const glassM = lam(0x6a8aa8, { transparent: true, opacity: 0.22, depthWrite: false });
-  for (const s of [-1, 1]) M(bx(HX - 3.5, H - 2.8, 0.12), glassM, s * (HX + 3.5) / 2, (H - 2.8) / 2 + 0.8, HZ + 0.4, { solid: true, cast: false });
-  { const L = []; for (let x = -HX + 2; x <= HX - 2; x += 4) if (Math.abs(x) > 4) L.push([bx(0.15, H - 2.8, 0.3), 0x2a2c30, x, (H - 2.8) / 2 + 0.8, HZ + 0.3]);
+  for (const [a, b] of [[-HX, -24.5], [-19.5, -3.5], [3.5, HX]]) M(bx(b - a, H - 2.8, 0.12), glassM, (a + b) / 2, (H - 2.8) / 2 + 0.8, HZ + 0.4, { solid: true, cast: false });
+  { const L = []; for (let x = -HX + 2; x <= HX - 2; x += 4) if (Math.abs(x) > 4 && !(x > -25 && x < -19)) L.push([bx(0.15, H - 2.8, 0.3), 0x2a2c30, x, (H - 2.8) / 2 + 0.8, HZ + 0.3]);
+    for (const [x, s] of [[-24.4, 1], [-19.6, -1]]) for (let k = 0; k < 3; k++) L.push([new THREE.PlaneGeometry(0.7, sr(0.6, 1.4)), 0x8ab0d0, x + s * 0.3, H - 2.8 - k * 0.5, HZ + 0.4, 0, 0, s * sr(0.3, 0.7)]);   // cristales rotos colgando del marco
     L.push([bx(0.3, H - 2, 0.4), 0x2a2c30, -3.6, (H - 2) / 2, HZ + 0.3], [bx(0.3, H - 2, 0.4), 0x2a2c30, 3.6, (H - 2) / 2, HZ + 0.3], [bx(7.4, 0.5, 0.5), 0x2a2c30, 0, H - 2.2, HZ + 0.3]);
     M(marketGeo(L), vc, 0, 0, 0, { cast: false }); }
-  addBox(-HX / 2 - 2, HZ + 0.4, HX / 2 - 1.6, 0.3); addBox(HX / 2 + 2, HZ + 0.4, HX / 2 - 1.6, 0.3);
+  addBox(-33.45, HZ + 0.4, 8.95, 0.3); addBox(-11.55, HZ + 0.4, 7.95, 0.3); addBox(HX / 2 + 2, HZ + 0.4, HX / 2 - 1.6, 0.3);
+  // puertas automáticas: se abren cuando alguien (tú o un zombi) se acerca a la entrada
   const doorL = M(bx(3.4, 4.6, 0.08), glassM, -1.7, 2.3, HZ + 0.15, { cast: false }), doorR = M(bx(3.4, 4.6, 0.08), glassM, 1.7, 2.3, HZ + 0.15, { cast: false });
-  addBox(0, HZ + 0.6, 3.6, 0.2);
-  world.anims.push((dt, t) => { const o = clamp(Math.sin(t * 0.45) * 2.2 + 0.6, 0, 1) * 3.1; doorL.position.x = -1.7 - o; doorR.position.x = 1.7 + o; });
+  { let o = 0, chk = 0, want = 0;
+    world.anims.push((dt) => {
+      if ((chk -= dt) <= 0) { chk = 0.25; want = Math.hypot(player.pos.x, player.pos.z - HZ) < 6.5 ? 1 : 0; if (!want) for (const z of zombies) if (!z.dead && Math.abs(z.root.position.x) < 5 && Math.abs(z.root.position.z - HZ) < 5) { want = 1; break; } }
+      o += (want - o) * Math.min(1, dt * 3); doorL.position.x = -1.7 - o * 3.1; doorR.position.x = 1.7 + o * 3.1;
+    }); }
   sign(mA, 0, 14, 1.75, 0, H - 1, HZ - 0.05);
   // Vidrio roto: un panel caído y cristales en el suelo (por ahí entraron)
   { const L = []; for (let i = 0; i < 40; i++) L.push([new THREE.PlaneGeometry(sr(0.1, 0.4), sr(0.1, 0.3)), 0xb8d8f0, -22 + sr(-3, 3), 0.02, HZ - sr(0.6, 5), -Math.PI / 2, sr(0, 3)]);
     M(marketGeo(L), lam(0xffffff, { vertexColors: true, transparent: true, opacity: 0.6, side: THREE.DoubleSide }), 0, 0, 0, { cast: false });
     M(bx(3.6, 0.1, 2.6), glassM, -22, 0.08, HZ - 2.2, { rz: 0.04, cast: false }); }
-  // Estacionamiento visto a través del vidrio: coches y uno ardiendo
-  { M(new THREE.PlaneGeometry(140, 40), lam(0x1a1c20), 0, 0.02, HZ + 21, { rx: -Math.PI / 2, cast: false });
-    const L = []; for (let x = -36; x <= 36; x += 4.5) L.push([new THREE.PlaneGeometry(0.15, 5), 0xd8d8d0, x, 0.03, HZ + 9, -Math.PI / 2]);
-    M(marketGeo(L), vc, 0, 0, 0, { cast: false });
-    car(-14, HZ + 9, Math.PI / 2, 0x6a1e1e, { broken: true }); car(9, HZ + 9.5, Math.PI / 2 + 0.2, 0x2a3a52, { broken: true, fire: true });
-    for (const x of [-26, 26]) { M(cyl(0.1, 0.12, 6, 6), dark, x, 3, HZ + 14, { cast: false }); M(bx(0.6, 0.15, 0.4), bsc(0x6a6050), x, 6, HZ + 14, { cast: false }); } }
+  // (el estacionamiento de afuera ahora se recorre: lo arma superGrande)
 
   // ---- Tubos de luz del techo: muchos, unos apagados y otros que parpadean
   const tubeM = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -10865,10 +10882,9 @@ function buildMarket() {
   // Muelles de carga: tres puertas enrollables (una medio abierta, con luz de fuera)
   { const L = [];
     for (const x of [-24, 0, 24]) { L.push([bx(5.4, 0.4, 0.3), 0xe0b820, x, 4.7, -HZ + 0.15], [bx(0.3, 4.5, 0.3), 0xe0b820, x - 2.7, 2.25, -HZ + 0.15], [bx(0.3, 4.5, 0.3), 0xe0b820, x + 2.7, 2.25, -HZ + 0.15]);
-      const hgt = x === 24 ? 2.6 : 4.4; for (let k = 0; k < 11; k++) if (k * 0.4 < hgt) L.push([bx(5.1, 0.36, 0.08), 0x7a7c80, x, 4.5 - k * 0.4, -HZ + 0.06]); }
-    M(marketGeo(L), vc, 0, 0, 0, { cast: false });
-    M(new THREE.PlaneGeometry(5.1, 1.8), bsc(0x2a3448), 24, 0.9, -HZ + 0.02, { cast: false });
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x6a88c8, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(8, 2.5, 1); sp.position.set(24, 0.6, -HZ + 0.6); world.group.add(sp); }
+      const hgt = x === -24 ? 4.4 : 0.3; for (let k = 0; k < 11; k++) if (k * 0.4 < hgt) L.push([bx(5.1, 0.36, 0.08), 0x7a7c80, x, 4.5 - k * 0.4, -HZ + 0.06]);   // los muelles 2 y 3 quedaron con la persiana subida
+      if (x !== -24) L.push([cyl(0.28, 0.28, 5.1, 10), 0x6a6c70, x, 4.42, -HZ + 0.2, 0, 0, Math.PI / 2]); }
+    M(marketGeo(L), vc, 0, 0, 0, { cast: false }); }
   // Estanterías de palés (bastidor naranja y azul) con cajas y palés
   const rackParts = [], boxMats = [], palMats = [], boxCols = [];
   const rack = (x0, x1, z, d) => {
@@ -10924,9 +10940,9 @@ function buildMarket() {
     world.anims.push((dt, t) => { a1.rotation.y += dt * 3.5; a2.rotation.y -= dt * 3.5; if (alarmL.isLight) alarmL.intensity = 0.4 + Math.abs(Math.sin(t * 3.5)) * 1.4; }); }
   sign(mA, 7, 0.6, 0.6, 0, 5.6, WZ + 0.25, 0, 7);
   // Salida de emergencia lateral con luz verde
-  sign(mB, 7, 4.5, 0.6, HX - 0.1, 3.6, 18, -Math.PI / 2); M(bx(0.1, 2.6, 1.8), lam(0x3a3a3a), HX - 0.05, 1.3, 18, { cast: false });
+  sign(mB, 7, 4.5, 0.6, HX - 0.1, 3.6, 18, -Math.PI / 2);
   sign(mB, 7, 4.5, 0.6, -HX + 0.1, 3.6, -33, Math.PI / 2); M(bx(0.1, 2.6, 1.8), lam(0x3a3a3a), -HX + 0.05, 1.3, -33, { cast: false });
-  M(bx(0.1, 2.6, 1.8), lam(0x3a3a3a), HX - 0.05, 1.3, -33, { cast: false }); M(bx(0.1, 2.6, 1.8), lam(0x3a3a3a), -HX + 0.05, 1.3, -10, { cast: false });
+  M(bx(0.1, 2.6, 1.8), lam(0x3a3a3a), HX - 0.05, 1.3, -33, { cast: false });
 
   // ---- Productos que caen solos de las estanterías
   { const pool = [], live = shelfX.filter((_, i) => i !== 1); let next = 2;
@@ -11008,6 +11024,642 @@ function buildMarket() {
   // ---- Puntos de aparición
   [[-24, -HZ + 1.5], [0, -HZ + 1.5], [24, -HZ + 1.5], [-HX + 1.4, -33], [HX - 1.8, -33], [0, HZ - 1.5], [-HX + 1.4, -10], [HX - 1.8, 18], [HX - 1.8, 10], [-HX + 1.4, 20]].forEach(([x, z]) => world.spawns.push({ x, z, rise: false }));
   [[-27, -9], [27, -9], [-11, -12], [11, -4]].forEach(([x, z]) => world.spawns.push({ x, z, rise: true }));
+  superGrande({ H, HX, HZ, mA, cartBasket, cartFrame, cartM, cartFM, palGeo, sign, signTex: null });
+}
+
+/* ===== El Supermercado grande: el estacionamiento al frente (sur), el almacén de carga detrás (norte), la gasolinera al este y el callejón de servicio al oeste =====
+   El súper de siempre queda en el centro: se sale por la entrada (y por el ventanal que reventó el camión), por los muelles 2 y 3 y por las dos puertas laterales.
+   Igual que el cementerio y la granja: 3 zonas de llave. */
+const SUP = { A: 83.4, B: 42.7 };
+const enEstac = (x, z) => z > SUP.B;
+const enAlmacen = (x, z) => z < -SUP.B;
+const enGasol = (x, z) => x > SUP.B && Math.abs(z) <= SUP.B;
+const enCallejon = (x, z) => x < -SUP.B && Math.abs(z) <= SUP.B;
+const enNave = (x, z) => x > -62 && x < 32 && z < -57.7;          // la nave del almacén (con techo)
+const enTienda24 = (x, z) => x > 70 && x < 82 && z > 10 && z < 28;  // la tiendita de la gasolinera
+function zonaSuper(x, z) {
+  if (enEstac(x, z)) return 'en el estacionamiento';
+  if (enAlmacen(x, z)) return 'en el almacén';
+  if (enGasol(x, z)) return 'en la gasolinera';
+  if (enCallejon(x, z)) return 'en el callejón';
+  return z < -24 ? 'en la trastienda' : 'dentro del súper';
+}
+function superGrande(K) {
+  const { H, HX, HZ, mA, cartBasket, cartFrame, cartM, cartFM, palGeo, sign } = K;
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = [{ k: 'est', nombre: 'en el estacionamiento', en: enEstac }, { k: 'alm', nombre: 'en el almacén', en: enAlmacen }, { k: 'gas', nombre: 'en la gasolinera', en: enGasol }];
+  const spotK = (x, z) => world.llvSpots.push({ x, z, zona: zonaSuper(x, z) });
+  const sk = a => a[Math.floor(srand() * a.length)];
+  const signTex = (txt, w, h, font, bg, fg, sub) => canvasTex(w, h, (g) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.lineWidth = 4; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, sub ? h * 0.38 : h / 2 + 2); if (sub) { g.font = 'bold ' + Math.round(h * 0.2) + 'px sans-serif'; g.fillText(sub, w / 2, h * 0.76); } });
+  const glowAt = (x, y, z, col, sc, op = 0.6, par) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.set(sc, sc, 1); s.position.set(x, y, z); (par || world.group).add(s); return s; };
+  const TRS = (x, y, z, ry = 0, rx = 0, rz = 0, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(sx, sy, sz));
+  // mallas instanciadas: siempre con frustumCulled = false (three r128 las recorta con la caja de la pieza base, no con la de todas las copias)
+  const inst = (geo, mat, list, o = {}) => {
+    const im = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)), c = new THREE.Color();
+    list.forEach((e, i) => { im.setMatrixAt(i, e.m); if (e.c != null) im.setColorAt(i, c.setHex(e.c)); });
+    im.count = list.length; im.castShadow = o.cast !== false; im.receiveShadow = true; im.frustumCulled = false; im.userData.vivo = 1; world.group.add(im); if (o.solid) solids.push(im); return im;
+  };
+  // geometrías repetidas: una sola vez
+  const _gc = new Map(), gk = (k, f) => { let g = _gc.get(k); if (!g) _gc.set(k, g = f()); return g; };
+  const B_ = (w, h, d) => gk('b' + w + ',' + h + ',' + d, () => new THREE.BoxGeometry(w, h, d));
+  const C_ = (rt, rb, h, s = 8) => gk('c' + rt + ',' + rb + ',' + h + ',' + s, () => new THREE.CylinderGeometry(rt, rb, h, s));
+  const PL = (w, h) => gk('p' + w + ',' + h, () => new THREE.PlaneGeometry(w, h));
+  // Piezas quietas: se juntan en pocas mallas con color por vértice (s = sólidas con sombra, d = adorno con sombra, n = sin sombra,
+  // L = encendidas, T = vidrio, A = conos de luz). P() trabaja en las coordenadas del «grupo» actual (posición y giro).
+  const PZ = { s: [], d: [], n: [], L: [], T: [], A: [] };
+  let GT = new THREE.Matrix4();
+  const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+  const grp = (x, z, ry = 0, y = 0, rx = 0, rz = 0) => { GT = TRS(x, y, z, ry, rx, rz); };
+  const sinGrp = () => { GT = new THREE.Matrix4(); };
+  const pz = (k, geo, col, x, y, z, ry = 0, rx = 0, rz = 0) => { _m.multiplyMatrices(GT, TRS(x, y, z, ry, rx, rz)); _m.decompose(_p, _q, _s); _e.setFromQuaternion(_q, 'YXZ'); PZ[k].push([geo, col, _p.x, _p.y, _p.z, _e.x, _e.y, _e.z, _s.x, _s.y, _s.z]); };
+  const at = (lx, lz) => { const v = new THREE.Vector3(lx, 0, lz).applyMatrix4(GT); return { x: v.x, z: v.z }; };
+  const cajasL = [], paleL = [], cajasL2 = [];   // cajas y palés de todo el lugar (dos mallas instanciadas)
+  const g0 = world.group.children.length;   // desde aquí, lo que se añada se puede fundir
+  const charM = lam(0x1a1714), flames = [];
+  let fuegoLuz = 0;   // pocas luces de fuego de verdad (cada una cuesta en el teléfono)
+  const fuego = (x, z, y, big = 1, luz = false) => fireAt(x, z, y, luz && fuegoLuz++ < 1, big);
+
+  // ======================= SUELO PINTADO DE TODO EL LUGAR =======================
+  // estacionamiento: filas de coches (z de cada fila) y cajones de 2,8 m
+  const FILAS = [53.6, 58.2, 69.2], CAJON = 2.8, cajonesX = [];
+  for (let x = -80.6; x <= 44; x += CAJON) if (Math.abs(x) > 4.5 && Math.abs(x + 41) > 3.2 && Math.abs(x - 22) > 3.2) cajonesX.push(x);
+  overlayPlane(168, (g, w) => {
+    const k = w / 168, X = v => (v + 84) * k, R = (x0, z0, x1, z1, c) => { g.fillStyle = c; g.fillRect(X(x0), X(z0), (x1 - x0) * k, (z1 - z0) * k); };
+    const line = (x0, z0, x1, z1, wd, c) => { g.strokeStyle = c; g.lineWidth = wd * k; g.beginPath(); g.moveTo(X(x0), X(z0)); g.lineTo(X(x1), X(z1)); g.stroke(); };
+    // acera frente a la tienda y alrededor de la tienda de la gasolinera
+    R(-44, 42.7, 44, 46.5, 'rgba(150,146,136,.92)'); line(-44, 46.5, 44, 46.5, 0.25, 'rgba(200,190,60,.9)');
+    for (let x = -44; x < 44; x += 1.5) line(x, 42.8, x, 46.4, 0.04, 'rgba(60,58,54,.5)');
+    R(-80, 71.6, 46, 73, 'rgba(130,128,120,.9)'); line(-84, 73, 84, 73, 0.2, 'rgba(210,210,200,.7)');
+    // paso de cebra de la entrada y rayado amarillo de la zona de carga
+    for (let x = -3.5; x <= 3.5; x += 1) R(x - 0.3, 46.6, x + 0.3, 51.2, 'rgba(225,225,215,.85)');
+    for (let i = 0; i < 14; i++) line(10 + i * 1.2, 46.8, 12.5 + i * 1.2, 50.8, 0.18, 'rgba(220,180,40,.75)');
+    // cajones de las filas
+    for (const fz of FILAS) for (const x of cajonesX) for (const s of [-1, 1]) line(x + s * CAJON / 2, fz - 2.2, x + s * CAJON / 2, fz + 2.2, 0.13, 'rgba(225,225,215,.8)');
+    for (const fz of [55.9]) line(-80.6, fz, 44, fz, 0.1, 'rgba(225,225,215,.55)');
+    // flechas del pasillo
+    for (const x of [-60, -20, 30]) { g.fillStyle = 'rgba(225,225,215,.7)'; g.beginPath(); g.moveTo(X(x + 2), X(63.6)); g.lineTo(X(x), X(62.6)); g.lineTo(X(x), X(64.6)); g.fill(); R(x - 2.5, 63.4, x, 63.8, 'rgba(225,225,215,.7)'); }
+    // carretera: borde blanco, doble línea amarilla y paso de cebra
+    R(-84, 73.2, 84, 82.6, 'rgba(22,22,24,.55)'); line(-84, 82.2, 84, 82.2, 0.15, 'rgba(210,210,200,.7)');
+    for (let x = -84; x < 84; x += 4) { line(x, 77.6, x + 2.4, 77.6, 0.12, 'rgba(220,180,40,.85)'); line(x, 77.95, x + 2.4, 77.95, 0.12, 'rgba(220,180,40,.85)'); }
+    for (let z = 73.6; z < 82; z += 1) R(-3, z, 3, z + 0.5, 'rgba(225,225,215,.8)');
+    // gasolinera: losa de concreto con juntas, y el carril del autolavado
+    R(46, -22, 82.5, 22, 'rgba(128,126,118,.9)');
+    for (let x = 46; x <= 82.5; x += 4) line(x, -22, x, 22, 0.05, 'rgba(50,48,44,.55)');
+    for (let z = -22; z <= 22; z += 4) line(46, z, 82.5, z, 0.05, 'rgba(50,48,44,.55)');
+    R(62, -36.8, 82, -27.2, 'rgba(70,74,80,.85)'); for (let x = 63; x < 82; x += 1.4) line(x, -32.6, x + 0.7, -31.4, 0.1, 'rgba(230,200,60,.6)');
+    // patio de carga: guías amarillas hacia los muelles y rayado de «no estacionar»
+    for (const x of [-24, 0, 24]) for (const s of [-1, 1]) line(x + s * 2.7, -42.8, x + s * 2.7, -56, 0.15, 'rgba(225,190,40,.85)');
+    for (let i = 0; i < 10; i++) line(-8 + i * 1.6, -56.6, -6 + i * 1.6, -54.2, 0.2, 'rgba(225,190,40,.7)');
+    // dentro de la nave: concreto claro y pasillos marcados
+    R(-62, -83.4, 32, -57.7, 'rgba(120,118,112,.95)');
+    for (const x of [-24.6, -10.4, 7.9, 14.1]) line(x, -60, x, -80, 0.14, 'rgba(225,190,40,.85)');
+    line(-61.5, -61.2, 31.5, -61.2, 0.14, 'rgba(225,190,40,.85)'); line(-61.5, -80.5, 31.5, -80.5, 0.14, 'rgba(225,190,40,.85)');
+    R(-61.7, -82.8, -48.5, -69, 'rgba(170,190,205,.9)');   // la escarcha de la cámara frigorífica
+    // callejón: pasto seco detrás de la alambrada
+    for (let i = 0; i < 700; i++) { const x = rand(-84, -61), z = rand(-42.7, 42.7); g.fillStyle = pick(['rgba(40,52,24,.55)', 'rgba(56,66,30,.45)', 'rgba(30,36,18,.5)', 'rgba(70,64,40,.35)']); g.beginPath(); g.ellipse(X(x), X(z), rand(2, 8), rand(1.5, 5), rand(0, 3), 0, TAU); g.fill(); }
+    // manchas de aceite, marcas de frenazo y sangre por todo afuera
+    for (let i = 0; i < 260; i++) { const x = rand(-84, 84), z = rand(-84, 84); if (Math.abs(x) < 43 && Math.abs(z) < 43) continue; g.fillStyle = pick(['rgba(8,8,10,.45)', 'rgba(14,12,10,.35)', 'rgba(60,8,6,.4)']); g.beginPath(); g.ellipse(X(x), X(z), rand(2, 9), rand(1.5, 6), rand(0, 3), 0, TAU); g.fill(); }
+    for (let i = 0; i < 10; i++) { const x = rand(-70, 40), z = rand(48, 80), a = rand(0, TAU), L = rand(6, 14); for (const o of [-0.8, 0.8]) line(x + Math.sin(a) * o, z + Math.cos(a) * o, x + Math.cos(a) * L + Math.sin(a) * o, z + Math.sin(a) * L + Math.cos(a) * o, 0.22, 'rgba(10,10,10,.5)'); }
+  }, 2048);
+
+  // ======================= COCHES (todos en 2 mallas instanciadas: sedán y camioneta) =======================
+  const W = 0xffffff, VID = 0x182028, NEU = 0x101012, PAR = 0x2a2a2c;
+  const carGeo = (L, h0, hc, wb, rw, wd) => marketGeo([
+    [B_(L, h0, wd), W, 0, rw + h0 / 2 - 0.05, 0], [B_(L * 0.5, hc, wd - 0.22), VID, -L * 0.05, rw + h0 + hc / 2 - 0.08, 0], [B_(L * 0.46, 0.08, wd - 0.2), W, -L * 0.06, rw + h0 + hc - 0.08, 0],
+    [B_(0.14, 0.28, wd + 0.02), PAR, L / 2 + 0.02, rw + 0.08, 0], [B_(0.14, 0.28, wd + 0.02), PAR, -L / 2 - 0.02, rw + 0.08, 0],
+    ...[-1, 1].flatMap(sx => [-1, 1].map(sz => [C_(rw, rw, 0.26, 10), NEU, sx * wb, rw, sz * (wd / 2 - 0.06), Math.PI / 2])),
+    ...[-1, 1].map(sz => [B_(0.04, 0.14, 0.36), 0xe8e0c0, L / 2 + 0.06, rw + h0 * 0.7, sz * (wd / 2 - 0.32)]), ...[-1, 1].map(sz => [B_(0.04, 0.14, 0.3), 0x9a1010, -L / 2 - 0.06, rw + h0 * 0.7, sz * (wd / 2 - 0.3)])
+  ]);
+  const CARS = [{ geo: carGeo(4.4, 0.66, 0.58, 1.4, 0.36, 1.84), hw: 2.25, hd: 0.95, top: 1.58 }, { geo: carGeo(4.7, 0.9, 0.66, 1.5, 0.42, 1.96), hw: 2.4, hd: 1.02, top: 2.0 }];
+  const carL = [[], []], PINT = [0x6a1e1e, 0x2a3a52, 0x5a5a5e, 0x2a4a3a, 0x8a7a5a, 0x1c1c20, 0x7a6a2a, 0xa8a8a2, 0xd0d0c8, 0x1a3a6a, 0x8a3a14];
+  // t: 0 sedán, 1 camioneta; o.vuelco: patas arriba; o.ladeado: de lado; o.quemado: negro y humeante
+  const coche = (x, z, ry, t = 0, col = null, o = {}) => {
+    const C = CARS[t]; let m;
+    if (o.vuelco) m = TRS(x, C.top, z, ry, 0, Math.PI);
+    else if (o.ladeado) m = TRS(x, C.hd + 0.05, z, ry, -Math.PI / 2 * o.ladeado, 0);
+    else m = TRS(x, 0, z, ry, o.rx || 0, o.rz || 0);
+    carL[t].push({ m, c: o.quemado ? 0x1c1a18 : col != null ? col : sk(PINT) });
+    if (o.ladeado) { const off = -C.top / 2 * o.ladeado; addBox(x + off * Math.sin(ry), z + off * Math.cos(ry), C.hw, C.top / 2 + 0.05, ry); } else addBox(x, z, C.hw, C.hd, ry);
+  };
+
+  // ======================= EL ESTACIONAMIENTO (sur, frente a la entrada) =======================
+  {
+    // filas de coches abandonados (con huecos para pasar)
+    for (const [fi, fz] of FILAS.entries()) for (const x of cajonesX) {
+      if (fi === 0 && x > -38.5 && x < -21) continue;      // ahí está el camión de reparto estrellado
+      if (fi === 1 && Math.abs(x + 20) < 2.9) continue;     // el cajón del coche de la alarma
+      if (srand() > (fi === 2 ? 0.5 : 0.56)) continue;
+      const t = srand() < 0.3 ? 1 : 0, ry = (fi === 1 ? -Math.PI / 2 : Math.PI / 2) + sr(-0.09, 0.09) + (srand() < 0.15 ? Math.PI : 0);
+      coche(x + sr(-0.15, 0.15), fz + sr(-0.2, 0.2), ry, t, null, { quemado: srand() < 0.06 });
+    }
+    // choques: dos coches empotrados en el pasillo (uno arde), uno volcado en el carril de bomberos, uno de lado
+    coche(8, 63.2, 0.55, 0, 0x6a1e1e); coche(11.6, 61.9, -0.35, 1, 0xd0d0c8); fuego(9.9, 62.4, 1.2, 1, true);
+    coche(-60, 48.8, 0.25, 0, null, { vuelco: true }); fuego(-60, 48.8, 0.9, 0.7);
+    coche(-12, 64.4, 1.95, 1, 0x2a3a52); coche(62, 56.5, 0.7, 1, 0x8a7a5a, { ladeado: 1 });
+    coche(-45, 64.1, 2.9, 0, null, { quemado: true });
+    // la carretera: un choque en cadena y un coche de policía cruzado con las luces aún prendidas
+    coche(28, 76.2, 0.12, 0, 0x5a5a5e); coche(32.6, 78.6, -0.55, 1, 0x1a3a6a); coche(36.2, 76.8, 2.6, 0, null, { quemado: true }); fuego(36.2, 76.8, 1, 0.8);
+    coche(66, 79.4, 3.05, 0, 0x7a6a2a); coche(-78, 76.2, -0.08, 1);
+    {
+      const PX = -24, PZ_ = 79, PR = 0.32; coche(PX, PZ_, PR, 0, 0xe8e8e2);
+      grp(PX, PZ_, PR); pz('n', B_(1.6, 0.4, 1.86), 0x101014, -0.25, 1.05, 0); pz('n', B_(1.2, 0.03, 0.02), 0x101014, 0.6, 0.78, 0.94); sinGrp();
+      const red = bsc(0xff2020), blue = bsc(0x2050ff), lg = new THREE.Group(); lg.position.set(PX, 0, PZ_); lg.rotation.y = PR; lg.userData.vivo = 1; world.group.add(lg);
+      M(B_(0.3, 0.14, 0.5), red, -0.25, 1.65, -0.35, { p: lg, cast: false }); M(B_(0.3, 0.14, 0.5), blue, -0.25, 1.65, 0.35, { p: lg, cast: false });
+      const gr = glowAt(PX, 1.9, PZ_, 0xff2020, 3.2, 0.5), gb = glowAt(PX, 1.9, PZ_, 0x2050ff, 3.2, 0.5);
+      world.anims.push((dt, t) => { const on = Math.floor(t * 3) % 2 === 0; red.color.setHex(on ? 0xff2020 : 0x301010); blue.color.setHex(on ? 0x101030 : 0x2050ff); gr.material.opacity = on ? 0.55 : 0.05; gb.material.opacity = on ? 0.05 : 0.55; });
+      spotK(PX + 1.5, PZ_ - 2.6);
+    }
+
+    // ---- El camión de reparto que se estrelló contra el ventanal (por ahí entró la horda)
+    {
+      const TX = -30, TZ = 49, TR = 0.835; grp(TX, TZ, TR, 0, 0, 0.05);
+      pz('s', B_(5.2, 2.8, 2.3), 0xe8e6de, -1.0, 2.15, 0); pz('s', B_(1.9, 1.9, 2.2), 0xc0302a, 2.6, 1.55, 0); pz('s', B_(0.7, 0.9, 2.2), 0xc0302a, 3.7, 1.05, 0);
+      pz('n', B_(0.06, 0.8, 1.9), VID, 3.56, 2.05, 0, 0, 0, -0.3); for (const s of [-1, 1]) pz('n', B_(1.2, 0.7, 0.04), VID, 2.7, 2.05, s * 1.11);
+      pz('s', B_(5.6, 0.35, 2.2), 0x2a2a2c, 0.3, 0.6, 0); pz('d', B_(0.2, 0.4, 2.3), 0x3a3a3c, 4.1, 0.6, 0, 0, 0, 0.3);
+      for (const [lx, lz] of [[2.9, -1.0], [2.9, 1.0], [-2.2, -1.0], [-2.2, 1.0], [-0.9, -1.0], [-0.9, 1.0]]) pz('d', C_(0.48, 0.48, 0.32, 10), NEU, lx, 0.48, lz, 0, Math.PI / 2);
+      pz('d', B_(0.05, 2.5, 1.1), 0xd8d6ce, -3.75, 2.0, -1.55, -1.3); pz('d', B_(0.05, 2.5, 1.1), 0xd8d6ce, -3.7, 2.0, 1.6, 1.0);   // puertas traseras abiertas
+      const rep = M(PL(4.6, 1.2), bsc(0xffffff, { map: signTex('SUPER AHORRO', 512, 128, 'bold 64px sans-serif', '#e8e6de', '#c0302a', 'REPARTO A DOMICILIO') }), 0, 0, 0, { cast: false });
+      const rep2 = rep.clone(); world.group.add(rep2);
+      for (const [mm, s] of [[rep, 1], [rep2, -1]]) { const q = at(-1.0, s * 1.17); mm.position.set(q.x, 2.3, q.z); mm.rotation.set(0, TR + (s < 0 ? Math.PI : 0), 0); }
+      addBox(TX - 0.25, TZ + 0.25, 3.95, 1.2, TR); sinGrp();
+      // cajas que se salieron por atrás (van con las cajas del almacén)
+      const r0 = (grp(TX, TZ, TR), at(-4.4, 0)); sinGrp();
+      for (let i = 0; i < 9; i++) cajasL.push({ m: TRS(r0.x + sr(-1.6, 1.6), 0.3, r0.z + sr(-1.4, 1.4), sr(0, 3), 0, srand() < 0.3 ? 0.4 : 0, 0.9, 0.6, 0.7), c: sk([0x9a7a4a, 0x8a6a3a, 0xb08a5a]) });
+      addCircle(r0.x, r0.z, 1.2);
+      // la farola que se llevó por delante
+      grp(-24.6, 47.4, 0.4, 0, 0, -0.55); pz('s', C_(0.12, 0.16, 9, 8), 0x3a3c40, 0, 4.5, 0); pz('d', B_(3, 0.14, 0.14), 0x3a3c40, 0, 8.9, 0); sinGrp(); addCircle(-24.6, 47.4, 0.3);
+      fuego(TX + 2.0, TZ - 2.3, 1.6, 0.5);
+      spotK(-35.4, 51.6);
+    }
+
+    // ---- Farolas altas del estacionamiento (unas encendidas, otras fundidas; una parpadea)
+    const farolas = [[-70, 63.6], [-35, 63.6], [0, 63.6], [35, 63.6], [-52, 72.4], [52, 72.4], [70, 63.6]];
+    farolas.forEach(([x, z], i) => {
+      grp(x, z); pz('s', C_(0.13, 0.18, 9, 8), 0x3a3c40, 0, 4.5, 0); pz('d', B_(4.2, 0.16, 0.16), 0x3a3c40, 0, 8.9, 0); pz('d', C_(0.4, 0.4, 0.3, 8), 0x5a5a56, 0, 0.15, 0);
+      for (const s of [-1, 1]) {
+        if (i === 6 && s === 1) continue;   // esa cabeza es la que parpadea (abajo)
+        const on = (i + s) % 3 !== 0;
+        pz(on ? 'L' : 'n', B_(0.9, 0.12, 0.5), on ? 0xfff0c8 : 0x3a3a36, s * 1.9, 8.78, 0);
+        if (on) pz('A', gk('cono', () => new THREE.ConeGeometry(2.6, 8.4, 12, 1, true)), 0xffe8b0, s * 1.9, 4.5, 0);
+      }
+      sinGrp(); addCircle(x, z, 0.32);
+    });
+    { // la farola que parpadea con un zumbido
+      const hd = bsc(0xfff0c8), h = M(B_(0.9, 0.12, 0.5), hd, 70 + 1.9, 8.6, 63.6, { cast: false }); h.userData.vivo = 1;
+      const gl = glowAt(71.9, 8.4, 63.6, 0xffe0a0, 4, 0.5); let st = 1, tm = 0;
+      world.anims.push((dt) => { tm -= dt; if (tm <= 0) { st = st ? 0 : 1; tm = st ? rand(0.2, 2.5) : rand(0.05, 0.4); } hd.color.setHex(st ? 0xfff0c8 : 0x2a2a26); gl.material.opacity = st ? 0.5 : 0; });
+    }
+
+    // ---- Carritos: corrales de carritos y muchos sueltos por el estacionamiento
+    const carts = [], cartP = (x, z, ry, tipped) => carts.push({ m: tipped ? TRS(x + 0.75 * Math.cos(ry), 0.32, z - 0.75 * Math.sin(ry), ry, 0, Math.PI / 2) : TRS(x, 0, z, ry) });
+    for (const [cx, cz] of [[-57, 63.6], [18, 63.6], [-50, 48.8]]) {
+      grp(cx, cz); for (const s of [-1, 1]) { pz('d', B_(6.2, 0.06, 0.06), 0x8a9096, 0, 1.0, s * 0.62); pz('d', B_(6.2, 0.06, 0.06), 0x8a9096, 0, 0.5, s * 0.62); for (const e of [-3, 3]) pz('d', C_(0.05, 0.05, 1.05, 6), 0x8a9096, e, 0.52, s * 0.62); }
+      pz('d', B_(0.06, 1.2, 1.3), 0xc0302a, -3.1, 1.6, 0); pz('d', B_(0.04, 0.4, 1.0), 0xf2f0e6, -3.14, 1.9, 0); sinGrp();
+      for (let i = 0; i < 6; i++) if (srand() < 0.8) cartP(cx - 2.4 + i * 0.8, cz, Math.PI / 2, false);
+      addBox(cx, cz, 3.2, 0.75);
+    }
+    for (let i = 0, n = 0; i < 300 && n < 24; i++) {
+      const x = sr(-78, 60), z = sr(47.5, 72); if (pointBlocked(x, z, 1.0)) continue;
+      cartP(x, z, sr(0, TAU), srand() < 0.25); addCircle(x, z, 0.55); n++;
+    }
+    inst(cartBasket, cartM, carts, { cast: false }); inst(cartFrame, cartFM, carts);
+
+    // ---- Acera de la tienda: bolardos, el arcón del hielo y papeleras
+    const bol = [];
+    for (const x of [-12.5, -10, -7.5, -5, 5, 7.5, 10, 12.5]) { bol.push({ m: TRS(x, 0.5, 46.0) }); addCircle(x, 46.0, 0.2); }
+    inst(C_(0.14, 0.14, 1.0, 8), lam(0xd8b020), bol);
+    grp(16, 43.6); pz('s', B_(2.2, 1.3, 0.9), 0xe8eef2, 0, 0.65, 0); pz('n', B_(2.0, 0.3, 0.02), 0x2a6aa0, 0, 0.95, 0.46); sinGrp(); addBox(16, 43.6, 1.15, 0.5);
+    M(PL(1.6, 0.26), bsc(0xffffff, { map: signTex('HIELO', 256, 48, 'bold 34px sans-serif', '#2a6aa0', '#ffffff') }), 16, 0.95, 44.07, { cast: false });
+    for (const x of [-7, 7, -30, 30]) { grp(x, 43.6); pz('s', C_(0.32, 0.28, 1.0, 10), 0x2a4a3a, 0, 0.5, 0); pz('d', C_(0.34, 0.34, 0.1, 10), 0x1a2a20, 0, 1.03, 0); sinGrp(); addCircle(x, 43.6, 0.36); }
+    // el letrero grande de la fachada, encendido (se ve desde todo el estacionamiento)
+    M(B_(HX * 2 + 1.4, 1.8, 0.6), lam(0xc8c4b6), 0, H + 0.9, HZ + 0.3, { solid: true });
+    sign(mA, 0, 20, 2.4, 0, H + 0.9, HZ + 0.62); glowAt(0, H + 0.9, HZ + 2, 0xff4030, 14, 0.25);
+
+    // ---- Parada de autobús (con el anuncio aún encendido) y el autobús accidentado
+    {
+      const SX = 14, SZ = 72.4; grp(SX, SZ);
+      pz('d', B_(4.6, 0.12, 1.7), 0x3a3c40, 0, 2.6, 0); for (const lx of [-2.2, 2.2]) for (const lz of [-0.7, 0.7]) pz('s', B_(0.1, 2.6, 0.1), 0x3a3c40, lx, 1.3, lz);
+      pz('T', B_(4.3, 2.0, 0.05), 0x9ab8c8, 0, 1.35, -0.72); pz('T', B_(0.05, 2.0, 1.3), 0x9ab8c8, -2.2, 1.35, 0);
+      pz('s', B_(3.0, 0.08, 0.45), 0x8a6a40, 0, 0.5, -0.35); for (const lx of [-1.3, 1.3]) pz('d', B_(0.08, 0.5, 0.4), 0x2a2c30, lx, 0.25, -0.35);
+      pz('s', B_(0.25, 2.1, 1.3), 0x2a2c30, 2.4, 1.3, 0); sinGrp();
+      const ad = bsc(0xffffff, { map: signTex('¡OFERTAS!', 256, 400, 'bold 50px sans-serif', '#c0201c', '#f2d21a', '2 × 1 EN TODO') });
+      M(PL(1.1, 1.7), ad, SX + 2.54, 1.35, SZ, { ry: Math.PI / 2, cast: false }); M(PL(1.1, 1.7), ad, SX + 2.26, 1.35, SZ, { ry: -Math.PI / 2, cast: false }); glowAt(SX + 2.7, 1.4, SZ, 0xffd0a0, 2.4, 0.3);
+      addBox(SX, SZ - 0.72, 2.25, 0.15); addBox(SX + 2.4, SZ, 0.2, 0.7); addBox(SX, SZ - 0.35, 1.5, 0.25);
+      spotK(SX - 0.5, SZ + 1.5);
+    }
+    {
+      const BX = -52, BZ = 77.6, BR = 0.25; grp(BX, BZ, BR, 0, 0, 0.03);
+      pz('s', B_(11.5, 2.4, 2.55), 0xe8e6de, 0, 1.75, 0); pz('d', B_(11.6, 0.35, 2.6), 0x1a5aa0, 0, 0.95, 0); pz('d', B_(11.4, 0.12, 2.45), 0xc8c6be, 0, 3.0, 0);
+      for (const s of [-1, 1]) pz('n', B_(9.2, 0.9, 0.04), VID, -0.6, 2.25, s * 1.29); pz('n', B_(0.04, 1.3, 2.3), VID, 5.76, 2.1, 0);
+      for (const lx of [-3.6, 3.8]) for (const s of [-1, 1]) pz('d', C_(0.52, 0.52, 0.34, 10), NEU, lx, 0.52, s * 1.12, 0, Math.PI / 2);
+      pz('n', B_(1.2, 0.8, 0.04), 0x0a0a0a, 4.6, 1.5, 1.29);   // la puerta abierta
+      sinGrp(); addBox(BX, BZ, 5.85, 1.35, BR);
+      const fs = M(PL(2.0, 0.34), bsc(0xffa020, { map: signTex('FUERA DE SERVICIO', 512, 64, 'bold 40px monospace', '#0a0a0a', '#ffa020') }), BX + 5.79 * Math.cos(BR), 2.8, BZ - 5.79 * Math.sin(BR), { cast: false }); fs.rotation.y = BR + Math.PI / 2;
+      grp(BX, BZ, BR); const eng = at(-5.4, 0); sinGrp();
+      world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 3 : 7)) P.add(eng.x + rand(-0.4, 0.4), 2.6, eng.z + rand(-0.4, 0.4), rand(-0.2, 0.2), rand(0.8, 1.4), rand(-0.2, 0.2), rand(2, 3.4), 0.35, 0.14, 0.14, 0.15, 0.35, -0.1, 0.5, 0.6); });
+      spotK(-52, 74.6);
+    }
+    // ---- Valla publicitaria en la esquina
+    {
+      const VX = -77.5, VZ = 47.6; grp(VX, VZ); for (const lx of [-3.2, 3.2]) pz('s', C_(0.18, 0.2, 7.2, 8), 0x3a3c40, lx, 3.6, 0); pz('d', B_(10.4, 0.2, 0.9), 0x3a3c40, 0, 5.6, 0.3); sinGrp();
+      const vt = canvasTex(512, 200, (g, w, h) => {
+        const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#c0201c'); gr.addColorStop(1, '#8a1410'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#f2d21a'; g.font = 'bold 70px sans-serif'; g.textAlign = 'center'; g.fillText('SUPER AHORRO', w / 2, 82); g.fillStyle = '#fff'; g.font = 'bold 34px sans-serif'; g.fillText('ABIERTO LAS 24 HORAS', w / 2, 134);
+        g.fillStyle = 'rgba(20,10,10,.85)'; g.font = 'bold 54px sans-serif'; g.save(); g.translate(w * 0.68, h * 0.78); g.rotate(-0.12); g.fillText('ESTÁN DENTRO', 0, 0); g.restore();
+        for (let i = 0; i < 9; i++) { g.fillStyle = 'rgba(30,20,10,.6)'; g.fillRect(rand(0, w), rand(0, h), rand(20, 60), rand(10, 40)); }
+      });
+      const vm = lam(0xffffff, { map: vt, emissive: 0x3a2a2a });
+      M(B_(10, 4, 0.25), [charM, charM, charM, charM, vm, vm], VX, 7.6, VZ, { solid: true }); addCircle(VX - 3.2, VZ, 0.3); addCircle(VX + 3.2, VZ, 0.3);
+      for (const lx of [-3, 0, 3]) { pz('d', C_(0.06, 0.06, 1.2, 6), 0x2a2c30, VX + lx, 5.9, VZ + 0.9, 0, 0.7); pz('L', B_(0.4, 0.15, 0.25), 0xfff0c8, VX + lx, 6.3, VZ + 1.3); }
+      spotK(VX + 0.5, VZ + 2.2);
+    }
+    // ---- OBJETO INTERACTIVO: la alarma del coche rojo. Rompe el vidrio: suena 10 s y los zombis de los alrededores van hacia el coche
+    {
+      const AX = -20, AZ = 58.4; coche(AX, AZ, -Math.PI / 2 + 0.05, 0, 0x9a1414);
+      const blk = bsc(0xffa020), lights = new THREE.Group(); lights.position.set(AX, 0, AZ); lights.rotation.y = -Math.PI / 2 + 0.05; lights.userData.vivo = 1; world.group.add(lights);
+      for (const [lx, lz] of [[2.24, -0.75], [2.24, 0.75], [-2.24, -0.75], [-2.24, 0.75]]) M(B_(0.06, 0.12, 0.2), blk, lx, 0.75, lz, { p: lights, cast: false });
+      const gl = glowAt(AX, 1.2, AZ, 0xffa020, 5, 0), led = glowAt(AX + 0.1, 1.4, AZ - 0.2, 0xff2010, 0.5, 0.4);
+      const cebo = { root: { position: new THREE.Vector3(AX, 0, AZ + 3) }, eatT: 0, dead: true };
+      let alarmT = 0, beep = 0, retT = 0;
+      const uso = mapUse({ x: AX + 1.6, z: AZ + 1.6, r: 2.4, t: 'Alarma del coche', d: 'Rompe el vidrio: la alarma suena 10 segundos y los zombis de los alrededores van hacia el coche.', b: 'Romper el vidrio', price: 0, cd: 45, use() {
+        alarmT = 10; beep = 0; retT = 0; cebo.eatT = 10; Sfx.clang(0);
+        feed('¡La alarma del coche no para de sonar! Los zombis van hacia allá', 'gold');
+      } });
+      world.anims.push((dt, t) => {
+        const ready = !(game && uso.readyT > game.time); led.material.opacity = ready && Math.sin(t * 5) > 0.6 ? 0.6 : 0.05;
+        if (alarmT > 0) {
+          alarmT -= dt; beep -= dt; retT -= dt;
+          if (beep <= 0) { beep = 2; Sfx.alarma(panOf(cebo.root.position), volOf(cebo.root.position, 1)); }
+          const on = Math.floor(t * 4) % 2 === 0; blk.color.setHex(on ? 0xffb030 : 0x3a2008); gl.material.opacity = on ? 0.6 : 0;
+          if (retT <= 0 && alarmT > 0) { retT = 0.5; for (const zz of zombies) { if (zz.dead || zz.net || zz.boss != null || zz.state === 'rise') continue; if (Math.hypot(zz.root.position.x - AX, zz.root.position.z - AZ) < 45 && zz.tobj !== cebo) { zz.tk = 'e'; zz.tobj = cebo; zz.los = false; zz.tgtT = 0.6; } } }
+          if (alarmT <= 0) { cebo.eatT = 0; blk.color.setHex(0xffa020); gl.material.opacity = 0; for (const zz of zombies) if (zz.tobj === cebo) zz.tgtT = 0; }
+        }
+      });
+    }
+    spotK(18.5, 65.8); spotK(64.5, 59.6); spotK(4.5, 79.6);
+    // apariciones: llegan por la carretera y salen de entre los coches
+    for (const [x, z] of [[-82, 77.6], [82, 77.6], [-40, 82.6], [40, 82.6], [0, 82.6], [-82, 58], [82, 58], [80, 46]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[-10, 61], [28, 64.2], [-64, 66], [52, 66]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ======================= LA GASOLINERA (este) =======================
+  // todo lo que revienta: surtidores, grupos de bidones y el tanque grande; una explosión enciende lo que está cerca
+  const bum = [], colaBum = [];
+  const reventable = (x, z, r, f) => { const o = { x, z, r, hecho: false, f }; o.boom = () => { if (o.hecho) return; o.hecho = true; f(); for (const b of bum) { if (b.hecho) continue; const d = Math.hypot(b.x - x, b.z - z); if (d < r * 0.75) colaBum.push({ t: 0.25 + d * 0.06, b }); } }; bum.push(o); return o; };
+  world.anims.push((dt) => { for (let i = colaBum.length - 1; i >= 0; i--) { const c = colaBum[i]; if ((c.t -= dt) <= 0) { colaBum.splice(i, 1); c.b.boom(); } } });
+  const ardeEn = (x, z, s, seg) => { let b = seg; world.anims.push((dt) => { if (b <= 0) return; b -= dt; if (Math.random() < dt * (FAST() ? 10 : 22)) PA.add(x + rand(-0.6, 0.6) * s, 0.4, z + rand(-0.6, 0.6) * s, rand(-0.2, 0.2), rand(1, 2.4), rand(-0.2, 0.2), rand(0.4, 0.8), rand(0.18, 0.34) * s * Math.min(1, b / 3), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.2, 0); if (Math.random() < dt * 4) P.add(x, 1.8 * s, z, rand(-0.3, 0.3), rand(1, 1.6), rand(-0.3, 0.3), 2.5, 0.45 * s, 0.12, 0.12, 0.13, 0.4, -0.1, 0.4, 0.6); }); };
+  {
+    // ---- Marquesina con luces y las dos islas de surtidores
+    const MX = 62; grp(MX, 0);
+    pz('s', B_(18, 0.9, 24), 0xe8e6de, 0, 5.45, 0); pz('d', B_(18.1, 0.36, 24.1), 0xc0302a, 0, 5.62, 0);
+    for (let i = 0; i < 4; i++) for (const lx of [-5, 0, 5]) pz('L', B_(2.4, 0.04, 1.0), 0xf4f8ff, lx, 4.99, -9 + i * 6);
+    for (const lx of [-5, 5]) for (const lz of [-6.6, 6.6]) { pz('s', B_(0.5, 5.0, 0.5), 0xc8c6be, lx, 2.5, lz); pz('d', B_(0.55, 0.6, 0.55), 0xc0302a, lx, 0.3, lz); }
+    for (const lx of [-5, 5]) { pz('s', B_(1.5, 0.22, 12), 0xb8b6ae, lx, 0.11, 0); for (const e of [-6, 6]) pz('d', B_(1.52, 0.24, 0.3), 0xd8b020, lx, 0.12, e); }
+    sinGrp();
+    for (const lx of [-5, 5]) { addBox(MX + lx, 0, 0.8, 6.15); for (const lz of [-6.6, 6.6]) addBox(MX + lx, lz, 0.3, 0.3); }
+    const fasc = bsc(0xffffff, { map: signTex('GASOLINERA', 512, 64, 'bold 46px sans-serif', '#c0302a', '#ffffff') });
+    for (const [x, z, ry, w] of [[MX - 9.07, 0, -Math.PI / 2, 10], [MX + 9.07, 0, Math.PI / 2, 10], [MX, 12.07, 0, 9], [MX, -12.07, Math.PI, 9]]) M(PL(w, 0.34), fasc, x, 5.62, z, { ry, cast: false });
+    lampLight(MX, 4.6, 0, 0xeef4ff, 1.15, 26, null, 0.3);
+    // ---- OBJETO INTERACTIVO: los surtidores revientan si les disparas
+    const pumpGeo = marketGeo([[B_(0.7, 0.18, 1.1), 0x5a5a56, 0, 0.09, 0], [B_(0.6, 1.9, 1.0), 0xe8e6de, 0, 1.13, 0], [B_(0.64, 0.38, 1.04), 0xc0302a, 0, 2.27, 0],
+      ...[-1, 1].flatMap(s => [[B_(0.02, 0.32, 0.5), 0x20d070, s * 0.31, 1.62, 0], [B_(0.02, 0.5, 0.7), 0x2a2c30, s * 0.31, 1.0, 0], [B_(0.12, 0.3, 0.1), 0x1a1a1a, s * 0.36, 1.25, 0.3], [C_(0.025, 0.025, 1.1, 5), 0x111111, s * 0.4, 0.75, 0.38, 0, 0, 0.2]])]);
+    const pumpM = lam(0xffffff, { vertexColors: true });
+    for (const lx of [-5, 5]) for (const lz of [-2.6, 2.6]) {
+      const x = MX + lx, z = lz, pm = M(pumpGeo, pumpM, x, 0.22, z, { solid: true }); pm.userData.vivo = 1;
+      const R = reventable(x, z, 7, () => { pm.material = charM; pm.rotation.z = 0.25; pm.position.y = 0.05; Sfx.boom(); explode(new THREE.Vector3(x, 1.2, z), 7, 380, 26); ardeEn(x, z, 1.1, 14); feed('¡Revienta un surtidor!', 'gold'); });
+      shootable(pm, () => R.boom());
+    }
+    coche(MX - 2.4, -2.6, Math.PI / 2 + 0.04, 0, 0x2a4a3a); coche(MX + 2.6, 3.2, -Math.PI / 2 - 0.08, 1, 0xa8a8a2);
+    coche(52, -14, 2.4, 0, null, { ladeado: 1 });
+    spotK(MX, 0.2); spotK(MX - 8, 9.5);
+    // ---- El poste de precios (se ve desde el estacionamiento)
+    {
+      const pt = canvasTex(256, 512, (g, w, h) => { g.fillStyle = '#c0302a'; g.fillRect(0, 0, w, h * 0.3); g.fillStyle = '#fff'; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.fillText('GASOLINERA', w / 2, h * 0.17); g.font = 'bold 26px sans-serif'; g.fillText('24 HORAS', w / 2, h * 0.25);
+        g.fillStyle = '#0a0a0a'; g.fillRect(0, h * 0.3, w, h * 0.7); g.font = 'bold 28px sans-serif'; g.fillStyle = '#ddd';
+        [['SÚPER', '9.99'], ['DIÉSEL', '8.79'], ['PREMIUM', '-.--']].forEach(([a, b], i) => { const y = h * (0.42 + i * 0.2); g.textAlign = 'left'; g.fillStyle = '#ddd'; g.fillText(a, 18, y); g.textAlign = 'right'; g.fillStyle = '#ff5a2a'; g.font = 'bold 44px monospace'; g.fillText(b, w - 14, y + 4); g.font = 'bold 28px sans-serif'; }); });
+      const pm = bsc(0xffffff, { map: pt });
+      M(B_(3, 6, 0.5), [charM, charM, charM, charM, pm, pm], 49, 6.4, 38.5, { solid: true }); grp(49, 38.5); pz('s', B_(0.5, 3.4, 0.4), 0x3a3c40, 0, 1.7, 0); sinGrp(); addBox(49, 38.5, 0.4, 0.3);
+      glowAt(49, 6.4, 39.2, 0xff6a3a, 6, 0.2);
+      spotK(51, 36.4);
+    }
+    // ---- La tiendita 24 horas (se puede entrar)
+    {
+      const x0 = 70, x1 = 82, z0 = 10, z1 = 28, TH = 4.2;
+      grp(0, 0);
+      // pared oeste con escaparate y puerta (z 17,2 … 19,6)
+      for (const [a, b] of [[z0, 17.2], [19.6, z1]]) { const c = (a + b) / 2, L = b - a; pz('s', B_(0.3, 0.9, L), 0xd8d4c8, x0, 0.45, c); pz('s', B_(0.3, 1.2, L), 0xd8d4c8, x0, TH - 0.6, c); pz('T', B_(0.06, 2.1, L), 0x9ac0d8, x0, 1.95, c); for (let z = a + 2; z < b - 0.5; z += 2.5) pz('d', B_(0.12, 2.1, 0.12), 0x2a2c30, x0, 1.95, z); addBox(x0, c, 0.2, L / 2); }
+      pz('s', B_(0.3, 1.0, 2.4), 0xd8d4c8, x0, TH - 0.5, 18.4);
+      for (const [a, b, z] of [[x0, x1, z0], [x0, x1, z1]]) { pz('s', B_(b - a + 0.3, TH, 0.3), 0xd8d4c8, (a + b) / 2, TH / 2, z); addBox((a + b) / 2, z, (b - a) / 2 + 0.15, 0.2); }
+      pz('s', B_(0.3, TH, z1 - z0), 0xd8d4c8, x1, TH / 2, (z0 + z1) / 2); addBox(x1, (z0 + z1) / 2, 0.2, (z1 - z0) / 2);
+      pz('d', B_(12.8, 0.35, 18.8), 0x5a5c60, 76, TH + 0.17, 19); pz('d', B_(0.4, 0.5, 18.8), 0xc0302a, x0 - 0.2, TH - 0.1, 19);
+      pz('n', PL(11.6, 17.6), 0xc8c8c0, 76, 0.02, 19, 0, -Math.PI / 2);
+      // dentro: neveras encendidas al fondo, una góndola, el mostrador con la caja registradora
+      pz('s', B_(10.6, 2.4, 0.8), 0xe8ecee, 76.3, 1.2, 10.6); for (let i = 0; i < 5; i++) pz('L', B_(1.9, 1.8, 0.03), sk([0xbfe8ff, 0xa8d8f0, 0xd0f0ff]), 72.2 + i * 2.05, 1.3, 11.02);
+      addBox(76.3, 10.6, 5.3, 0.45);
+      pz('s', B_(6, 1.5, 1.0), 0x8a8c90, 77, 0.75, 14.6); for (let i = 0; i < 26; i++) pz('d', B_(0.3, sr(0.25, 0.4), 0.22), sk([0xc0392b, 0xf1c40f, 0x2980b9, 0x27ae60, 0xe67e22, 0xecf0f1]), 74.3 + (i % 13) * 0.43, 0.3 + (i < 13 ? 0.6 : 1.1) - 0.1, 14.6 + (i % 2 ? 0.3 : -0.3));
+      addBox(77, 14.6, 3.05, 0.55);
+      pz('s', B_(1.0, 1.05, 5.1), 0x6a4a2a, 73.5, 0.52, 25.2); pz('d', B_(1.1, 0.06, 5.2), 0x3a3c40, 73.5, 1.07, 25.2); pz('d', B_(0.4, 0.3, 0.5), 0x1a1a1a, 73.5, 1.25, 24); pz('L', B_(0.02, 0.15, 0.3), 0x30c060, 73.25, 1.42, 24);
+      addBox(73.5, 25.2, 0.55, 2.6);
+      pz('s', B_(0.5, 2.4, 4), 0x3a2a2a, 70.45, 1.2, 25.6); for (let i = 0; i < 18; i++) pz('n', B_(0.08, 0.15, 0.2), sk([0xe8e8e0, 0xc0302a, 0xd8b020]), 70.75, 0.9 + (i % 3) * 0.5, 24 + Math.floor(i / 3) * 0.6);
+      addBox(70.45, 25.6, 0.3, 2.0);
+      // afuera: arcón de hielo y la jaula de bombonas
+      pz('s', B_(0.9, 1.2, 2.0), 0xe8eef2, 69.3, 0.6, 13.2); addBox(69.3, 13.2, 0.5, 1.05);
+      sinGrp();
+      const lt = bsc(0xffffff, { map: signTex('MINIMARKET 24 H', 512, 96, 'bold 52px sans-serif', '#1a5aa0', '#ffffff') });
+      M(PL(5.6, 1.0), lt, x0 - 0.42, TH - 0.6, 18.4, { ry: -Math.PI / 2, cast: false }); glowAt(x0 - 1.2, TH - 0.6, 18.4, 0x5aa0ff, 6, 0.3);
+      lampLight(76, 3.7, 19, 0xe2f0ff, 0.95, 13, null, 1.8);
+      // ---- OBJETO INTERACTIVO: la caja de munición del encargado (bajo el mostrador; se abre una sola vez)
+      const bxG = new THREE.Group(); bxG.position.set(71.4, 0, 26.6); bxG.userData.vivo = 1; world.group.add(bxG);
+      M(B_(0.9, 0.45, 0.55), lam(0x3a4a2a), 0, 0.23, 0, { p: bxG }); const tapa = M(B_(0.92, 0.08, 0.57), lam(0x2a3a1e), 0, 0.49, 0, { p: bxG });
+      M(PL(0.6, 0.16), bsc(0xffffff, { map: signTex('MUNICIÓN', 256, 64, 'bold 40px sans-serif', '#3a4a2a', '#f2d21a') }), 0, 0.26, 0.28, { p: bxG, cast: false });
+      const bg = glowAt(71.4, 0.9, 26.6, 0xffd040, 1.4, 0.35); addBox(71.4, 26.6, 0.48, 0.3);
+      const caja = mapUse({ x: 71.4, z: 25.2, r: 1.8, t: 'Caja del encargado', d: 'El encargado guardaba munición bajo el mostrador. Solo se puede abrir una vez.', b: 'Abrir la caja', price: 0, cd: 9999, use(o) {
+        o.off = true; tapa.rotation.x = -1.2; tapa.position.set(0, 0.62, -0.3); bg.visible = false; Sfx.open && Sfx.open();
+        makePickup('ammo', 71.0, 25.3, 6); makePickup('ammo', 71.8, 25.3, 6); makePickup('bala', 71.4, 24.7, BKEYS.indexOf(randomBullet()));
+        feed('La caja del encargado: munición y una bala especial', 'gold');
+      } });
+      world.anims.push((dt, t) => { if (!caja.off) bg.material.opacity = 0.25 + Math.sin(t * 3) * 0.12; });
+      spotK(77.4, 12.6); spotK(76.5, 31);
+    }
+    // ---- Autolavado: túnel con cepillos que giran
+    {
+      const LX0 = 66, LX1 = 78, LZ = -32; grp(0, 0);
+      for (const s of [-1, 1]) { pz('s', B_(LX1 - LX0, 4.2, 0.4), 0x2a5aa0, (LX0 + LX1) / 2, 2.1, LZ + s * 5.4); addBox((LX0 + LX1) / 2, LZ + s * 5.4, (LX1 - LX0) / 2, 0.25); pz('d', B_(LX1 - LX0, 0.3, 0.42), 0xd8d6ce, (LX0 + LX1) / 2, 3.0, LZ + s * 5.4); }
+      pz('d', B_(LX1 - LX0 + 0.6, 0.4, 11.4), 0xe8e6de, (LX0 + LX1) / 2, 4.4, LZ); for (const x of [LX0 - 0.15, LX1 + 0.15]) pz('d', B_(0.3, 1.1, 11), 0x1a4a8a, x, 3.65, LZ);
+      for (let i = 0; i < 6; i++) pz('L', B_(0.2, 0.04, 9), 0x9ad8ff, LX0 + 1.5 + i * 1.8, 4.18, LZ);
+      sinGrp();
+      const lav = bsc(0xffffff, { map: signTex('AUTOLAVADO', 512, 96, 'bold 58px sans-serif', '#1a4a8a', '#9ad8ff') });
+      M(PL(6, 1.0), lav, LX0 - 0.32, 3.65, LZ, { ry: -Math.PI / 2, cast: false }); M(PL(6, 1.0), lav, LX1 + 0.32, 3.65, LZ, { ry: Math.PI / 2, cast: false });
+      const brT = canvasTex(64, 64, (g, w) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#2a6ad8' : '#e0e8f0'; g.fillRect(i * 8, 0, 8, w); } for (let i = 0; i < 200; i++) { g.fillStyle = 'rgba(0,0,40,.3)'; g.fillRect(rand(0, w), rand(0, w), 1, 4); } });
+      const brM = lam(0xffffff, { map: brT }), bros = [];
+      for (const s of [-1, 1]) { const b = M(C_(0.9, 0.9, 3.4, 12), brM, 71, 1.9, LZ + s * 3.3); b.userData.vivo = 1; bros.push(b); addCircle(71, LZ + s * 3.3, 0.9); }
+      const top = M(C_(0.6, 0.6, 9.4, 12), brM, 74.5, 3.3, LZ, { rx: Math.PI / 2 }); top.userData.vivo = 1;
+      coche(76.2, LZ, 0.03, 0, 0xd0d0c8);
+      let lavT = 0, tick = 0;
+      const uso = mapUse({ x: LX0 - 1.6, z: LZ - 3.2, r: 2.4, t: 'Autolavado', d: 'Échale una moneda: los cepillos giran a toda velocidad 8 segundos y machacan a los zombis que estén dentro del túnel.', b: 'Encender el autolavado', price: 4, cd: 40, use() {
+        lavT = 8; tick = 0; Sfx.whoosh(0); feed('¡El autolavado arranca a toda velocidad!', 'gold');
+      } });
+      const luz = glowAt(LX0 - 1.2, 1.6, LZ - 3.6, 0x40ff70, 0.8, 0.5);
+      world.anims.push((dt, t) => {
+        const v = lavT > 0 ? 14 : 0.3; for (const b of bros) b.rotation.y += dt * v; top.rotation.y += dt * v;
+        luz.material.opacity = game && uso.readyT > game.time ? 0.05 : 0.3 + Math.sin(t * 4) * 0.2;
+        if (lavT <= 0) return; lavT -= dt; tick -= dt;
+        if (Math.random() < dt * (FAST() ? 20 : 45)) P.add(rand(LX0 + 1, LX1 - 1), rand(1, 4), LZ + rand(-4.5, 4.5), rand(-1, 1), rand(-0.5, 1), rand(-1.5, 1.5), rand(0.5, 1), 0.08, 0.75, 0.88, 1, 0.6, 6, 0.3);
+        if (tick <= 0) { tick = 0.5; for (const zz of zombies) { if (zz.dead) continue; const p = zz.root.position; if (p.x > LX0 && p.x < LX1 && Math.abs(p.z - LZ) < 5.1) { zz.stagger = 0.6; damageZombie(zz, zz.boss != null ? 25 : 70, { part: 'body' }); } } }
+      });
+      spotK(68.6, LZ + 1);
+    }
+    // ---- Tanque de gasolina grande y grupos de bidones (todos revientan)
+    {
+      const TX = 79.4, TZ = -9; grp(TX, TZ);
+      for (const lz of [-3, 3]) pz('s', B_(2.4, 0.8, 0.5), 0x5a5a56, 0, 0.4, lz);
+      pz('d', B_(0.08, 2.6, 0.08), 0xd8b020, -1.6, 1.3, -4.4); pz('d', B_(1.6, 0.08, 0.08), 0xd8b020, -0.8, 2.6, -4.4); sinGrp();
+      const tank = M(gk('tanque', () => marketGeo([[C_(1.4, 1.4, 8, 14), 0xd8d6ce, 0, 0, 0, Math.PI / 2], [new THREE.SphereGeometry(1.4, 12, 6), 0xd8d6ce, 0, 0, 4], [new THREE.SphereGeometry(1.4, 12, 6), 0xd8d6ce, 0, 0, -4], [C_(1.43, 1.43, 0.6, 14), 0xc0302a, 0, 0, 0, Math.PI / 2]])), lam(0xffffff, { vertexColors: true }), TX, 2.15, TZ, { solid: true });
+      tank.userData.vivo = 1;
+      const lbl = M(PL(4, 0.7), bsc(0xffffff, { map: signTex('GASOLINA · INFLAMABLE', 512, 90, 'bold 40px sans-serif', '#c0302a', '#ffffff') }), TX - 1.45, 2.2, TZ, { ry: -Math.PI / 2, cast: false }); lbl.userData.vivo = 1;
+      addBox(TX, TZ, 1.45, 5.4);
+      const R = reventable(TX, TZ, 14, () => { tank.material = charM; tank.scale.set(1, 0.7, 1); tank.position.y = 1.2; lbl.visible = false; Sfx.boom(); setTimeout(() => Sfx.boom(), 200); explode(new THREE.Vector3(TX, 2, TZ), 11, 700, 40); ardeEn(TX, TZ - 2, 2, 25); ardeEn(TX, TZ + 2.5, 1.6, 22); player.shake = 1; feed('¡EL TANQUE DE GASOLINA REVIENTA!', 'gold'); });
+      shootable(tank, () => R.boom()); shootable(lbl, () => R.boom());
+      // bidones: cada grupo es una sola malla (así en grupo todos ven reventar el mismo)
+      const bidM = lam(0xffffff, { vertexColors: true });
+      const grupoB = (cx, cz, n) => {
+        const L = [], pos = [];
+        for (let i = 0; i < n; i++) { const a = i / n * TAU + sr(-0.3, 0.3), r = i ? 0.7 : 0; const x = Math.cos(a) * r, z = Math.sin(a) * r, col = sk([0xb02a22, 0xb02a22, 0x2a4a8a, 0xd8b020]); L.push([C_(0.3, 0.3, 0.9, 10), col, x, 0.45, z], [C_(0.31, 0.31, 0.05, 10), 0x1a1a1a, x, 0.25, z], [C_(0.31, 0.31, 0.05, 10), 0x1a1a1a, x, 0.7, z]); pos.push([x, z]); }
+        if (n > 3) L.push([C_(0.3, 0.3, 0.9, 10), 0xb02a22, 0.15, 1.35, 0.1]);
+        const m = M(marketGeo(L), bidM, cx, 0, cz, { solid: true }); m.userData.vivo = 1; addCircle(cx, cz, n > 1 ? 1.1 : 0.4);
+        const RB = reventable(cx, cz, 6, () => { m.visible = false; solidOff(m); Sfx.boom(); explode(new THREE.Vector3(cx, 0.9, cz), 5.5, 300, 22); ardeEn(cx, cz, 0.9, 8); feed('¡Los bidones de gasolina revientan!', 'gold'); });
+        shootable(m, () => RB.boom());
+      };
+      grupoB(75.6, -15.5, 5); grupoB(75.8, -3.4, 4); grupoB(63.5, -39.2, 3); grupoB(68.6, 7.6, 3); grupoB(50, -22, 1); grupoB(80.5, 33, 4);
+      spotK(74.8, -9.4);
+    }
+    // ---- Estación de aire y agua, neumáticos apilados y basura
+    grp(52.5, -28); pz('s', B_(0.6, 1.4, 0.5), 0x2a5aa0, 0, 0.7, 0); pz('L', B_(0.02, 0.2, 0.3), 0xffd040, 0.31, 1.15, 0); sinGrp(); addBox(52.5, -28, 0.35, 0.3);
+    { const L = []; for (const [cx, cz] of [[58, -38], [80, -20], [56.5, 20]]) for (let i = 0; i < 5; i++) L.push({ m: TRS(cx + sr(-0.1, 0.1), 0.15 + i * 0.28, cz + sr(-0.1, 0.1), 0, Math.PI / 2) }); inst(new THREE.TorusGeometry(0.36, 0.14, 6, 12), lam(0x151515), L);
+      for (const [cx, cz] of [[58, -38], [80, -20], [56.5, 20]]) addCircle(cx, cz, 0.55); }
+    spotK(53, -31.4);
+    for (const [x, z] of [[82.6, -20], [82.6, 38], [70, -41.6], [46, -30], [82.6, 2], [46, 30]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[58, 18], [55, -26]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ======================= EL ALMACÉN DE CARGA (norte, detrás de la tienda) =======================
+  {
+    // ---- Patio de carga: tope de muelles, el remolque enganchado al muelle 1, un tráiler y contenedores
+    grp(0, 0);
+    for (const x of [-24, 0, 24]) { for (const s of [-1, 1]) pz('d', B_(0.35, 0.5, 0.3), 0x111111, x + s * 2.2, 0.9, -HZ - 0.75); pz('L', B_(0.3, 0.2, 0.15), 0xffd890, x + 3.2, 4.2, -HZ - 0.68); pz('s', C_(0.18, 0.18, 1.1, 8), 0xd8b020, x + 3.4, 0.55, -HZ - 1.6); addCircle(x + 3.4, -HZ - 1.6, 0.22); }
+    sinGrp();
+    const remolque = (x, z, ry, L, col, enganchado) => {
+      grp(x, z, ry);
+      pz('s', B_(L, 2.9, 2.6), col, 0, 2.75, 0); pz('d', B_(L, 0.25, 2.5), 0x2a2a2c, 0, 1.18, 0);
+      for (const lx of [-L / 2 + 1.2, -L / 2 + 2.4]) for (const s of [-1, 1]) pz('d', C_(0.5, 0.5, 0.36, 10), NEU, lx, 0.5, s * 1.0, 0, Math.PI / 2);
+      if (!enganchado) for (const s of [-1, 1]) pz('d', B_(0.15, 1.1, 0.15), 0x3a3c40, L / 2 - 1.8, 0.55, s * 0.9);
+      sinGrp(); addBox(x, z, L / 2, 1.35, ry);
+    };
+    remolque(-24, -HZ - 7.4, Math.PI / 2, 12.6, 0xe8e6de, true);
+    // tráiler completo (cabeza tractora y remolque) cruzado en el patio
+    { const TX = -50, TZ = -50.5, TR = 0.12; remolque(TX - 2.4, TZ, TR, 12.4, 0xb8b6ae, true);
+      grp(TX, TZ, TR); pz('s', B_(2.6, 2.6, 2.5), 0x1a5aa0, 5.8, 2.0, 0); pz('s', B_(1.4, 1.3, 2.4), 0x1a5aa0, 7.6, 1.35, 0); pz('n', B_(0.06, 1.0, 2.2), VID, 7.12, 2.6, 0, 0, 0, -0.2);
+      for (const lx of [5.0, 7.4]) for (const s of [-1, 1]) pz('d', C_(0.52, 0.52, 0.36, 10), NEU, lx, 0.52, s * 1.05, 0, Math.PI / 2);
+      for (const s of [-1, 1]) pz('d', C_(0.1, 0.1, 1.6, 6), 0x9aa0a6, 6.0, 3.8, s * 1.0); sinGrp();
+      grp(TX, TZ, TR); const c = at(6.6, 0); sinGrp(); addBox(c.x, c.z, 2.2, 1.3, TR);
+      spotK(-45, -46.2); }
+    remolque(42, -50, -0.06, 12.4, 0xc0302a, false);
+    M(PL(8, 1.4), bsc(0xffffff, { map: signTex('SUPER AHORRO', 512, 90, 'bold 56px sans-serif', '#c0302a', '#ffffff') }), 42, 2.9, -48.68, { ry: -0.06, cast: false });
+    spotK(-29.6, -50);
+
+    // ---- La nave del almacén: paredes de chapa, techo con tragaluces, tres portones abiertos
+    const NX0 = -62, NX1 = 32, NZ0 = -57.7, NZ1 = -83.1, NH = 9;
+    grp(0, 0);
+    const puertas = [[-47, -41], [-18, -12], [11, 17]];
+    { let a = NX0 - 0.3; for (const [p0, p1] of puertas.concat([[NX1 + 0.3, NX1 + 0.3]])) { if (p0 - a > 0.05) { pz('s', B_(p0 - a, NH, 0.6), 0x6a7480, (a + p0) / 2, NH / 2, NZ0); addBox((a + p0) / 2, NZ0, (p0 - a) / 2, 0.3); } if (p1 > p0) { pz('s', B_(p1 - p0, NH - 5.2, 0.6), 0x6a7480, (p0 + p1) / 2, (NH + 5.2) / 2, NZ0); pz('d', B_(p1 - p0 + 0.3, 0.3, 0.7), 0xd8b020, (p0 + p1) / 2, 5.2, NZ0); pz('d', C_(0.35, 0.35, p1 - p0, 10), 0x7a7c80, (p0 + p1) / 2, 5.6, NZ0 + 0.45, 0, 0, Math.PI / 2); } a = p1; } }
+    for (let x = NX0 + 0.75; x < NX1; x += 1.5) if (!puertas.some(([p0, p1]) => x > p0 - 0.1 && x < p1 + 0.1) && !(x > -38.5 && x < -21.5)) pz('d', B_(0.18, NH, 0.12), 0x5a6470, x, NH / 2, NZ0 + 0.36);
+    for (const x of [NX0, NX1]) { pz('s', B_(0.6, NH, NZ0 - NZ1 + 0.6), 0x6a7480, x, NH / 2, (NZ0 + NZ1) / 2); addBox(x, (NZ0 + NZ1) / 2, 0.3, (NZ0 - NZ1) / 2 + 0.3); }
+    pz('s', B_(NX1 - NX0 + 0.6, NH, 0.6), 0x6a7480, (NX0 + NX1) / 2, NH / 2, NZ1); addBox((NX0 + NX1) / 2, NZ1, (NX1 - NX0) / 2 + 0.3, 0.3);
+    pz('d', B_(NX1 - NX0 + 1, 0.4, NZ0 - NZ1 + 1.2), 0x3a3e44, (NX0 + NX1) / 2, NH + 0.2, (NZ0 + NZ1) / 2);
+    for (let x = NX0 + 6; x < NX1; x += 12) { pz('n', B_(0.3, 0.5, NZ0 - NZ1), 0x2a2e34, x, NH - 0.3, (NZ0 + NZ1) / 2); if (x + 8 < NX1) { pz('L', B_(3, 0.02, 2.2), 0x2a3448, x + 6, NH - 0.02, -66); pz('L', B_(3, 0.02, 2.2), 0x2a3448, x + 6, NH - 0.02, -76); } }
+    for (const [p0, p1] of puertas) pz('L', B_(0.7, 0.25, 0.2), 0xffd890, (p0 + p1) / 2, 6.3, NZ0 + 0.45);
+    sinGrp();
+    const nm = bsc(0xffffff, { map: signTex('ALMACÉN DE CARGA', 1024, 96, 'bold 60px sans-serif', '#2a2e34', '#f2d21a') }); M(PL(16, 1.5), nm, -30, 7.3, NZ0 + 0.44, { cast: false });
+    puertas.forEach(([p0, p1], i) => M(PL(2, 2), bsc(0xffffff, { map: signTex(String(i + 1), 128, 128, 'bold 90px sans-serif', '#d8b020', '#1a1a1a') }), (p0 + p1) / 2, 6.6, NZ0 + 0.44, { cast: false }));
+    // estanterías de palés con cajas (el bastidor junto; las cajas y los palés instanciados)
+    const RACKS = [-42, -36.5, -31, -25.5, -9.5, -4, 1.5, 7, 15, 20.5, 26], RZ0 = -63.5, RZ1 = -78.5;
+    for (const x of RACKS) {
+      grp(x, 0);
+      const n = 6; for (let i = 0; i <= n; i++) { const z = RZ0 + (RZ1 - RZ0) * i / n; for (const s of [-1, 1]) pz('s', B_(0.12, 6.4, 0.12), 0x2a5aa0, s * 0.7, 3.2, z); pz('d', B_(1.4, 0.06, 0.06), 0x2a5aa0, 0, 2.5, z); }
+      for (const y of [0.15, 2.2, 4.2]) for (const s of [-1, 1]) pz('d', B_(0.1, 0.14, RZ0 - RZ1), 0xe07a20, s * 0.7, y + 0.05, (RZ0 + RZ1) / 2);
+      sinGrp();
+      for (const y of [0.15, 2.2, 4.2]) for (let i = 0; i < n; i++) { const z = RZ0 + (RZ1 - RZ0) * (i + 0.5) / n; if (srand() < 0.15) continue; paleL.push({ m: TRS(x, y + 0.18, z, Math.PI / 2) }); if (srand() < 0.85) { const hh = sr(0.8, 1.6); cajasL.push({ m: TRS(x, y + 0.3 + hh / 2, z, 0, 0, 0, 1.2, hh, 2.1), c: sk([0x9a7a4a, 0x8a6a3a, 0xb08a5a, 0xc8c0a8, 0x7a8a9a, 0xd8d4c8]) }); } }
+      addBox(x, (RZ0 + RZ1) / 2, 0.8, (RZ0 - RZ1) / 2 + 0.1);
+    }
+    // una estantería se vino abajo: palés y cajas desparramados por el pasillo
+    for (let i = 0; i < 10; i++) { const x = sr(-0.5, 1.5) + 11.4, z = sr(-77, -66); cajasL.push({ m: TRS(x, 0.4, z, sr(0, 3), 0, srand() < 0.3 ? 0.5 : 0, 1.0, 0.8, 1.1), c: sk([0x9a7a4a, 0x8a6a3a, 0xb08a5a]) }); }
+    addBox(11.9, -71.5, 1.0, 5.4);
+    // palés sueltos y pilas en el pasillo grande y en la entrada
+    const pila = (x, z, n, ry = 0) => { for (let k = 0; k < n; k++) paleL.push({ m: TRS(x, 0.07 + k * 0.24, z, ry + sr(-0.05, 0.05)) }); addBox(x, z, 1.15, 0.75, ry); };
+    const palCaja = (x, z, st, ry = 0) => { paleL.push({ m: TRS(x, 0.07, z, ry) }); for (let k = 0; k < st; k++) cajasL.push({ m: TRS(x + sr(-0.1, 0.1), 0.62 + k * 0.92, z, ry + sr(-0.15, 0.15), 0, 0, 1.9, 0.9, 1.3), c: sk([0x9a7a4a, 0x8a6a3a, 0xb08a5a, 0x6a8a5a]) }); addBox(x, z, 1.1, 0.75, ry); };
+    pila(-11.6, -66, 8, Math.PI / 2); pila(-11.6, -72, 5, Math.PI / 2); palCaja(-11.6, -77.5, 2, Math.PI / 2); palCaja(-22.5, -70, 3, Math.PI / 2); palCaja(-58, -60.5, 2); palCaja(-54, -61, 1, 0.3); pila(-50, -64, 6); palCaja(28.8, -66, 2, Math.PI / 2); palCaja(28.8, -74, 3, Math.PI / 2); palCaja(5, -60, 1, 0.4);
+    // cámara frigorífica (al fondo a la izquierda): paneles blancos, cortina de tiras y luz azul
+    {
+      const CX0 = -61.7, CX1 = -48.5, CZ0 = -69, CZ1 = -82.8, CH = 4.6; grp(0, 0);
+      for (const [a, b] of [[CX0, -56.5], [-53.5, CX1]]) { pz('s', B_(b - a, CH, 0.35), 0xe8ecee, (a + b) / 2, CH / 2, CZ0); addBox((a + b) / 2, CZ0, (b - a) / 2, 0.2); }
+      pz('s', B_(3, CH - 3, 0.35), 0xe8ecee, -55, CH - (CH - 3) / 2, CZ0); pz('d', B_(3.2, 0.2, 0.4), 0xd8b020, -55, 3.0, CZ0);
+      pz('s', B_(0.35, CH, CZ0 - CZ1), 0xe8ecee, CX1, CH / 2, (CZ0 + CZ1) / 2); addBox(CX1, (CZ0 + CZ1) / 2, 0.2, (CZ0 - CZ1) / 2);
+      pz('d', B_(CX1 - CX0 + 0.4, 0.3, CZ0 - CZ1 + 0.4), 0xd8dcde, (CX0 + CX1) / 2, CH + 0.15, (CZ0 + CZ1) / 2);
+      for (let z = CZ0 - 1.5; z > CZ1; z -= 1.6) pz('d', B_(0.06, 0.4, 0.06), 0xb8bcc2, -55, CH - 0.2, z);
+      pz('d', B_(0.08, 0.08, CZ0 - CZ1 - 1), 0x9aa0a6, -57.5, CH - 0.4, (CZ0 + CZ1) / 2); pz('d', B_(0.08, 0.08, CZ0 - CZ1 - 1), 0x9aa0a6, -52.5, CH - 0.4, (CZ0 + CZ1) / 2);
+      for (const [x, z] of [[-60.4, -71], [-60.4, -74], [-60.4, -77.5], [-50, -80.5]]) { cajasL.push({ m: TRS(x, 0.5, z, 0, 0, 0, 1.4, 1.0, 1.6), c: 0xd8e0e8 }); cajasL.push({ m: TRS(x, 1.45, z, 0.2, 0, 0, 1.2, 0.9, 1.2), c: 0xc8d4dc }); addBox(x, z, 0.75, 0.85); }
+      sinGrp();
+      // reses colgadas de los ganchos, que se mecen
+      const rG = new THREE.Group(); rG.userData.vivo = 1; world.group.add(rG); const reses = [];
+      const gG = marketGeo([[C_(0.3, 0.17, 1.6, 7), 0x9a4a3a, 0, -2.3, 0], [new THREE.SphereGeometry(0.32, 7, 5), 0xd8c8b0, 0, -1.6, 0.05], [C_(0.015, 0.015, 1.4, 4), 0x888888, 0, -0.7, 0]]), resM = lam(0xffffff, { vertexColors: true });
+      for (const x of [-57.5, -52.5]) for (let z = -71.5; z > -82; z -= 2.2) { const g = new THREE.Group(); g.position.set(x, CH - 0.4, z); rG.add(g); M(gG, resM, 0, 0, 0, { p: g }); reses.push([g, sr(0, 6)]); addCircle(x, z, 0.35); }
+      world.anims.push((dt, t) => { for (const [g, ph] of reses) { g.rotation.z = Math.sin(t * 0.7 + ph) * 0.06; g.rotation.y = Math.sin(t * 0.3 + ph) * 0.5; } if (Math.random() < dt * (FAST() ? 4 : 10)) P.add(rand(CX0 + 0.5, CX1 - 0.5), rand(0.3, 1.2), rand(CZ1 + 0.5, CZ0 - 0.5), rand(-0.1, 0.1), rand(0, 0.05), rand(-0.1, 0.1), rand(3, 5), 0.4, 0.75, 0.88, 0.95, 0.12, -0.02, 1.2, 1); });
+      // cortina de tiras de la puerta
+      const cg = new THREE.Group(); cg.position.set(-55, 3.0, CZ0); cg.userData.vivo = 1; world.group.add(cg);
+      const L = []; for (let i = 0; i < 8; i++) L.push([B_(0.36, 2.9, 0.02), 0xc8e0e8, -1.4 + i * 0.4, -1.45, 0, 0, sr(-0.1, 0.1)]);
+      M(marketGeo(L), lam(0xffffff, { vertexColors: true, transparent: true, opacity: 0.35, depthWrite: false }), 0, 0, 0, { p: cg, cast: false });
+      world.anims.push((dt, t) => { cg.rotation.x = Math.sin(t * 0.8) * 0.06; });
+      M(PL(2.8, 0.5), bsc(0xffffff, { map: signTex('CÁMARA FRIGORÍFICA  -18 °C', 512, 90, 'bold 40px sans-serif', '#1a4a8a', '#ffffff') }), -55, 3.5, CZ0 + 0.19, { cast: false });
+      lampLight(-55, CH - 0.6, -76, 0x8ad0ff, 1.1, 13, null, 0.6);
+      spotK(-55, -78.6);
+    }
+    // lámparas colgantes de la nave (luz de sodio) y dos luces de verdad
+    for (const [x, z] of [[-36, -70], [-17, -66], [-17, -76], [4, -70], [20, -70], [-55, -62]]) { grp(x, z); pz('n', C_(0.01, 0.01, 1.6, 3), 0x111111, 0, NH - 0.8, 0); pz('n', gk('pant', () => new THREE.ConeGeometry(0.6, 0.45, 10, 1, true)), 0x3a4a3a, 0, NH - 1.7, 0); pz('L', new THREE.SphereGeometry(0.2, 8, 5), 0xffd080, 0, NH - 1.9, 0); pz('A', gk('cono2', () => new THREE.ConeGeometry(2.4, 6.8, 12, 1, true)), 0xffc070, 0, NH - 5.3, 0); sinGrp(); }
+    lampLight(-22, NH - 2.1, -70, 0xffc070, 1.1, 30, null, 0.4); lampLight(14, NH - 2.1, -70, 0xffc070, 1.0, 28, null, 1.2);
+    // ---- OBJETO INTERACTIVO: el montacargas del pasillo grande. Arráncalo: avanza 13 m embistiendo zombis y vuelve
+    {
+      const FX = -17.5, FZ = -61.5, g = Grp(FX, FZ, Math.PI); g.userData.vivo = 1;
+      const fm = lam(0xffffff, { vertexColors: true });
+      M(marketGeo([[B_(1.4, 1.1, 2.2), 0xe0b020, 0, 0.85, 0], [B_(1.2, 0.9, 0.8), 0x2a2a2a, 0, 0.75, -1.1], [B_(0.06, 1.3, 0.06), 0x222222, -0.6, 2.0, 0.6], [B_(0.06, 1.3, 0.06), 0x222222, 0.6, 2.0, 0.6], [B_(1.3, 0.06, 1.3), 0x222222, 0, 2.65, 0.1], [B_(0.5, 0.5, 0.4), 0x3a3a3a, 0, 1.6, -0.3],
+        ...[[-0.7, 0.7], [0.7, 0.7], [-0.7, -0.7], [0.7, -0.7]].map(([sx, sz]) => [C_(0.32, 0.32, 0.25, 10), 0x111111, sx, 0.32, sz, 0, 0, Math.PI / 2]), [B_(0.12, 3.2, 0.12), 0x333333, -0.45, 1.6, 1.25], [B_(0.12, 3.2, 0.12), 0x333333, 0.45, 1.6, 1.25],
+        [B_(0.12, 0.05, 1.2), 0x222222, -0.35, 0.15, 1.95], [B_(0.12, 0.05, 1.2), 0x222222, 0.35, 0.15, 1.95], [B_(1.1, 0.6, 0.06), 0x222222, 0, 0.45, 1.35]]), fm, 0, 0, 0, { p: g });
+      const bc = M(C_(0.1, 0.1, 0.16, 8), bsc(0xffa020), 0, 2.78, 0.1, { p: g, cast: false });
+      const llave = glowAt(0, 2.0, -0.2, 0xffd040, 1.2, 0.4, g);
+      addBox(FX, FZ - 0.3, 0.9, 1.9); const col = colliders[colliders.length - 1];
+      let drive = 0, phase = 0, pause = 0; const hit = new Set(), RUN = 13;
+      const uso = mapUse({ x: FX + 1.9, z: FZ + 0.6, r: 2.4, t: 'Montacargas', d: 'Arráncalo: avanza por el pasillo grande embistiendo a los zombis que tenga delante. Luego vuelve solo.', b: 'Arrancar el montacargas', price: 0, cd: 45, use() {
+        phase = 1; drive = 0; hit.clear(); Sfx.whoosh(0); feed('¡El montacargas sale disparado por el pasillo!', 'gold');
+      } });
+      world.anims.push((dt, t) => {
+        if (phase === 1) { drive = Math.min(RUN, drive + dt * 5.5); if (drive >= RUN) { phase = 2; pause = 1; } }
+        else if (phase === 2) { pause -= dt; if (pause <= 0) phase = 3; }
+        else if (phase === 3) { drive = Math.max(0, drive - dt * 2.6); if (drive <= 0) phase = 0; }
+        g.position.z = FZ - drive; col.z = g.position.z - 0.3; g.position.y = phase ? Math.sin(t * 30) * 0.02 : 0;
+        bc.material.color.setHex(phase && Math.sin(t * 12) > 0 ? 0xffa020 : 0x4a2a08);
+        llave.material.opacity = phase || (game && uso.readyT > game.time) ? 0 : 0.3 + Math.sin(t * 4) * 0.2;
+        if (phase === 1) for (const zz of zombies) {
+          if (zz.dead || hit.has(zz)) continue;
+          const dx = zz.root.position.x - g.position.x, dz = g.position.z - zz.root.position.z;
+          if (dz > 0.8 && dz < 3.4 && Math.abs(dx) < 1.4) { hit.add(zz); zz.stagger = 1; damageZombie(zz, zz.boss != null ? 120 : 380, { part: 'body' }); Sfx.hit(false, 0); }
+        }
+      });
+    }
+    // un segundo montacargas abandonado y una transpaleta
+    grp(16.5, -70, 0.4); pz('s', B_(1.4, 1.1, 2.2), 0xe0b020, 0, 0.85, 0); pz('d', B_(1.3, 0.06, 1.3), 0x222222, 0, 2.65, 0.1); for (const s of [-0.6, 0.6]) pz('d', B_(0.06, 1.8, 0.06), 0x222222, s, 1.75, 0.6); for (const [sx, sz] of [[-0.7, 0.7], [0.7, 0.7], [-0.7, -0.7], [0.7, -0.7]]) pz('d', C_(0.32, 0.32, 0.25, 10), 0x111111, sx, 0.32, sz, 0, 0, Math.PI / 2); sinGrp(); addBox(16.5, -70, 0.85, 1.25, 0.4);
+    spotK(-15, -80.6); spotK(23.2, -72); spotK(-45.5, -66);
+    // ---- Fuera de la nave: pilas de palés al oeste y contenedores al este
+    for (const [x, z, n] of [[-68, -62, 9], [-71, -62, 6], [-76, -66, 10], [-68, -74, 4], [-79, -78, 8], [-72, -80, 7]]) pila(x, z, n, sr(-0.2, 0.2));
+    for (const [x, z] of [[-77, -60], [-66, -68], [-80, -71]]) palCaja(x, z, 2, sr(0, 3));
+    grp(-81.4, -66, Math.PI / 2); pz('s', B_(5, 2.6, 3.2), 0xd8b020, 0, 1.3, 0); pz('d', B_(2, 1.2, 0.5), 0x3a3c40, 0, 2.2, 1.8); sinGrp(); addBox(-81.4, -66, 1.65, 2.55);
+    spotK(-74, -70.6);
+    {
+      const ctT = canvasTex(128, 64, (g, w, h) => { for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#d8d8d8' : '#ffffff'; g.fillRect(i * 8, 0, 8, h); } g.fillStyle = 'rgba(80,40,20,.3)'; for (let i = 0; i < 40; i++) g.fillRect(rand(0, w), rand(0, h), rand(2, 8), rand(2, 10)); });
+      const cts = [], ct = (x, z, ry, y = 0) => { cts.push({ m: TRS(x, 1.3 + y, z, ry), c: sk([0x8a2a1a, 0x1a4a7a, 0x2a6a3a, 0xa86a1a, 0x5a5a5e, 0x7a1a3a]) }); if (!y) addBox(x, z, 3.05, 1.23, ry); };
+      for (const [x, z, ry, st] of [[40, -64, 0, 1], [40, -69, 0, 0], [48, -76, Math.PI / 2, 1], [58, -62, 0, 1], [58, -66.5, 0, 0], [66, -76, 0.1, 1], [74, -64, Math.PI / 2, 0], [79, -78, 0, 1], [68, -60, 0, 0], [50, -81, 0, 0]]) { ct(x, z, ry); if (st) ct(x, z, ry + sr(-0.04, 0.04), 2.62); }
+      inst(B_(6.1, 2.6, 2.45), lam(0xffffff, { map: ctT }), cts, { solid: true });
+      spotK(63, -70); spotK(56, -78.5);
+    }
+    for (const [x, z] of [[-82.6, -50], [-82.6, -72], [82.6, -50], [82.6, -72], [-15, -82.4], [15, -82.4], [-35, -82.4], [-30, -55.5], [60, -82.6]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[62, -70.5], [-58, -64]]) world.spawns.push({ x, z, rise: true });
+  }
+  inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), cajasL, { solid: true });
+  inst(palGeo, lam(0xffffff, { vertexColors: true }), paleL);
+
+  // ======================= EL CALLEJÓN DE SERVICIO (oeste) =======================
+  {
+    grp(0, 0);
+    // contenedores de basura, compactadora y bolsas
+    for (const z of [26, 30.5, -21, -25.5]) { pz('s', B_(1.8, 1.3, 2.8), 0x2a5a3a, -44.4, 0.75, z); pz('d', B_(1.9, 0.12, 2.9), 0x1a3a26, -44.6, 1.45, z, 0, 0, 0.25); for (const s of [-1, 1]) pz('d', C_(0.12, 0.12, 0.1, 6), NEU, -44.4 + s * 0.7, 0.12, z + 1.2, 0, 0, Math.PI / 2); addBox(-44.4, z, 0.95, 1.45); }
+    pz('s', B_(3.6, 2.6, 5), 0xd8b020, -45.2, 1.3, -36); pz('d', B_(1.2, 1.4, 2.2), 0x5a5c60, -43.3, 2.0, -36); addBox(-45.2, -36, 1.85, 2.55);
+    for (let i = 0; i < 18; i++) { const z = sk([28, -23, -32, 8]) + sr(-2.5, 2.5), x = -46.6 + sr(-0.8, 0.8); pz('d', gk('bolsa', () => new THREE.IcosahedronGeometry(0.45, 0)), sk([0x111214, 0x1a1c1e, 0x2a3a5a]), x, 0.35, z, sr(0, 3)); }
+    // furgoneta refrigerada de reparto, con la puerta de atrás abierta, y lámparas de pared sobre las puertas de servicio
+    sinGrp(); grp(-51.5, 14, Math.PI / 2 + 0.12);
+    pz('s', B_(3.6, 2.3, 2.1), 0xe8ecee, -0.7, 1.55, 0); pz('s', B_(1.5, 1.6, 2.0), 0x2a6aa0, 1.85, 1.2, 0); pz('n', B_(0.05, 0.7, 1.8), VID, 2.62, 1.6, 0, 0, 0, -0.2);
+    for (const [lx, lz] of [[1.8, -0.95], [1.8, 0.95], [-1.4, -0.95], [-1.4, 0.95]]) pz('d', C_(0.38, 0.38, 0.26, 10), NEU, lx, 0.38, lz, 0, Math.PI / 2);
+    pz('d', B_(0.05, 2.1, 1.0), 0xe8ecee, -2.55, 1.5, 1.5, -1.2); pz('n', B_(0.02, 1.9, 1.9), 0x0a0c10, -2.51, 1.5, 0);
+    sinGrp(); addBox(-51.5, 14, 2.75, 1.1, Math.PI / 2 + 0.12); grp(0, 0);
+    for (const z of [-10, 18]) { pz('d', B_(0.3, 0.2, 0.5), 0x2a2c30, -43.0, 3.3, z); pz('L', B_(0.04, 0.12, 0.36), 0xfff0c8, -43.17, 3.22, z); }
+    // zona de fumar del personal: banco y cenicero
+    pz('s', B_(0.5, 0.08, 2.4), 0x8a6a40, -44, 0.5, 4); for (const s of [-1, 1]) pz('d', B_(0.4, 0.5, 0.08), 0x2a2c30, -44, 0.25, 4 + s * 1.0); pz('s', C_(0.2, 0.2, 0.9, 8), 0x5a5c60, -44, 0.45, 6); addBox(-44, 4.5, 0.35, 1.9);
+    // la alambrada (con dos huecos rotos) y, detrás, una franja de pasto con árboles, la subestación eléctrica y fardos de cartón
+    for (const [a, b] of [[-42.7, -7], [1.5, 21], [27.5, 42.7]]) { const c = (a + b) / 2, L = b - a; pz('T', B_(0.04, 2.6, L), 0x8a9096, -60, 1.3, c); for (let z = a; z <= b + 0.01; z += 3) pz('d', C_(0.05, 0.05, 2.7, 6), 0x6a7076, -60, 1.35, z); pz('d', C_(0.035, 0.035, L, 5), 0x6a7076, -60, 2.6, c, 0, Math.PI / 2); addBox(-60, c, 0.12, L / 2); }
+    {
+      const SX = -74, SZ = -28; pz('s', B_(3, 3, 2.4), 0x6a7076, SX, 1.5, SZ); pz('s', B_(2, 2.2, 1.6), 0x5a6066, SX + 3.6, 1.1, SZ + 0.4); for (const [dx, dz] of [[-0.8, -1.4], [0.8, -1.4], [0, -1.4]]) pz('d', C_(0.12, 0.18, 1.6, 8), 0xa89060, SX + dx, 3.6, SZ + dz + 1.4);
+      for (const [a, b, L, vert] of [[SX - 3, SZ, 7, true], [SX + 6, SZ, 7, true], [SX + 1.5, SZ - 3.5, 9, false], [SX + 1.5, SZ + 3.5, 9, false]]) { if (vert) { pz('T', B_(0.04, 2.4, L), 0x8a9096, a, 1.2, b); addBox(a, b, 0.1, L / 2); } else { pz('T', B_(L, 2.4, 0.04), 0x8a9096, a, 1.2, b); addBox(a, b, L / 2, 0.1); } }
+      M(PL(1.2, 0.8), bsc(0xffffff, { map: signTex('PELIGRO', 256, 160, 'bold 60px sans-serif', '#f2d21a', '#1a1a1a', 'ALTA TENSIÓN') }), SX + 1.5, 1.6, SZ + 3.53, { cast: false });
+      world.anims.push((dt) => { if (Math.random() < dt * 0.8) { const x = SX + rand(-0.8, 0.8), z = SZ + rand(-0.2, 0.2); for (let i = 0; i < (FAST() ? 5 : 10); i++) PA.add(x, 3.9, z, rand(-2, 2), rand(0, 2.5), rand(-2, 2), rand(0.2, 0.5), 0.05, 0.6, 0.8, 1, 1, 9, 0.2, 0, 0); } });
+      spotK(SX + 1.5, SZ + 5.2);
+    }
+    for (const [x, z, n] of [[-52, -8, 3], [-52, -11.2, 2], [-55.5, -9.6, 3]]) { for (let k = 0; k < n; k++) cajasL2.push({ m: TRS(x, 0.55 + k * 1.1, z, sr(-0.1, 0.1), 0, 0, 1.6, 1.1, 2.4), c: 0x8a6a3a }); addBox(x, z, 0.9, 1.3); }
+    sinGrp();
+    // graffiti en la pared de la tienda
+    const grT = canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = 'bold 72px sans-serif'; g.textAlign = 'center'; g.lineWidth = 6; g.strokeStyle = 'rgba(10,10,10,.9)'; g.fillStyle = '#c0201c'; g.strokeText('NO ENTREN', w / 2, 92); g.fillText('NO ENTREN', w / 2, 92); for (let i = 0; i < 30; i++) { g.fillRect(rand(80, 440), rand(80, 120), 3, rand(6, 30)); } });
+    M(PL(7, 1.75), lam(0xffffff, { map: grT, transparent: true }), -HX - 0.62, 2.4, 13, { ry: -Math.PI / 2, cast: false });
+    const grT2 = canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = 'bold 60px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2d21a'; g.fillText('ELLOS OYEN', w / 2, 80); g.fillStyle = 'rgba(242,210,26,.8)'; for (let i = 0; i < 20; i++) g.fillRect(rand(100, 420), rand(70, 110), 3, rand(6, 24)); });
+    M(PL(6, 1.5), lam(0xffffff, { map: grT2, transparent: true }), -HX - 0.62, 2.0, -30, { ry: -Math.PI / 2, cast: false });
+    spotK(-47.6, 28.2);
+    for (const [x, z] of [[-82.6, -30], [-82.6, 30], [-82.6, 0], [-70, 40]]) world.spawns.push({ x, z, rise: false });
+    world.spawns.push({ x: -53, z: 14, rise: true });
+  }
+
+  // ======================= BORDES: muro de concreto, barreras en la carretera y árboles alrededor =======================
+  {
+    grp(0, 0);
+    const MZ = SUP.A + 0.35;
+    pz('s', B_(2 * MZ + 0.7, 3.4, 0.5), 0x7a7872, 0, 1.7, -MZ);
+    for (const s of [-1, 1]) { pz('s', B_(0.5, 3.4, 73 + MZ), 0x7a7872, s * MZ, 1.7, (73 - MZ) / 2); for (let z = -MZ; z < 73; z += 6) pz('d', B_(0.7, 3.6, 0.7), 0x6a6862, s * MZ, 1.8, z); }
+    for (let x = -MZ; x < MZ; x += 6) pz('d', B_(0.7, 3.6, 0.7), 0x6a6862, x, 1.8, -MZ);
+    // barreras de concreto (las puso el ejército) en las dos puntas de la carretera y a lo largo del borde sur
+    const jer = [];
+    for (let x = -SUP.A + 1; x < SUP.A; x += 3.1) jer.push({ m: TRS(x, 0, MZ - 0.2, sr(-0.05, 0.05)) });
+    for (const s of [-1, 1]) for (let z = 73.8; z < MZ; z += 3.1) jer.push({ m: TRS(s * (MZ - 0.2), 0, z, Math.PI / 2 + sr(-0.08, 0.08)) });
+    inst(marketGeo([[B_(3, 0.3, 0.8), 0xb8b6ae, 0, 0.15, 0], [B_(3, 0.55, 0.38), 0xb8b6ae, 0, 0.55, 0], [B_(3.02, 0.14, 0.4), 0xc0302a, 0, 0.75, 0]]), lam(0xffffff, { vertexColors: true }), jer);
+    pz('T', B_(2 * MZ, 2.4, 0.04), 0x8a9096, 0, 1.9, MZ + 0.4); for (let x = -MZ; x <= MZ; x += 4) pz('d', C_(0.05, 0.05, 3.1, 6), 0x6a7076, x, 1.55, MZ + 0.4);
+    // caballetes con luces que parpadean en el corte de la carretera
+    for (const s of [-1, 1]) for (const z of [75.5, 80]) { pz('d', B_(0.1, 0.4, 2.4), 0xe8e6de, s * 81.6, 1.0, z); pz('d', B_(0.12, 0.12, 2.4), 0xc0302a, s * 81.62, 1.05, z); for (const e of [-1, 1]) pz('d', B_(0.08, 1.1, 0.08), 0xe8e6de, s * 81.6, 0.55, z + e * 1.1, 0, s * e * 0.25); addBox(s * 81.6, z, 0.2, 1.2); }
+    sinGrp();
+    const blink = bsc(0xffa020), bl = [];
+    for (const s of [-1, 1]) for (const z of [75.5, 80]) { const m = M(B_(0.18, 0.18, 0.18), blink, s * 81.6, 1.35, z, { cast: false }); m.userData.vivo = 1; bl.push(glowAt(s * 81.6, 1.35, z, 0xffa020, 1.4, 0.5)); }
+    world.anims.push((dt, t) => { const on = Math.sin(t * 5) > 0; blink.color.setHex(on ? 0xffb040 : 0x2a1606); for (const g of bl) g.material.opacity = on ? 0.55 : 0; });
+    // árboles alrededor (fuera del muro) y unos pocos en el pasto del callejón: 2 mallas instanciadas
+    const tr = [], cp = [], arbol = (x, z, s) => { const ry = sr(0, TAU); tr.push({ m: TRS(x, 1.6 * s, z, ry, 0, 0, s, s, s) }); cp.push({ m: TRS(x, 4.2 * s, z, ry, 0, 0, s * sr(0.9, 1.2), s, s * sr(0.9, 1.2)), c: sk([0x1a2a1c, 0x20301e, 0x263420, 0x18241a]) }); };
+    for (let a = -96; a < 96; a += 4.6) { arbol(a + sr(-1, 1), -sr(87, 95), sr(1.1, 1.7)); arbol(-sr(87, 95), a + sr(-1, 1), sr(1.1, 1.7)); arbol(sr(87, 95), a + sr(-1, 1), sr(1.1, 1.7)); arbol(a + sr(-1, 1), sr(89, 97), sr(1.1, 1.7)); }
+    for (let i = 0, n = 0; i < 200 && n < 12; i++) { const x = sr(-81, -64), z = sr(-40, 40); if (pointBlocked(x, z, 2)) continue; arbol(x, z, sr(0.9, 1.3)); addCircle(x, z, 0.4); n++; }
+    inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp);
+  }
+  // cajas sueltas del callejón (fardos de cartón)
+  inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), cajasL2, { solid: true });
+
+  // ---- Todas las piezas quietas, juntas: pocas llamadas de dibujo
+  const vcS = lam(0xffffff, { vertexColors: true });
+  if (PZ.s.length) M(marketGeo(PZ.s), vcS, 0, 0, 0, { solid: true });
+  if (PZ.d.length) M(marketGeo(PZ.d), lam(0xffffff, { vertexColors: true }), 0, 0, 0, {});
+  if (PZ.n.length) M(marketGeo(PZ.n), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false });
+  if (PZ.L.length) M(marketGeo(PZ.L), bsc(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false });
+  if (PZ.T.length) M(marketGeo(PZ.T), lam(0xffffff, { vertexColors: true, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, { cast: false, solid: true });
+  if (PZ.A.length) M(marketGeo(PZ.A), bsc(0xffffff, { vertexColors: true, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, { cast: false, recv: false });
+  inst(CARS[0].geo, lam(0xffffff, { vertexColors: true }), carL[0], { solid: true }); inst(CARS[1].geo, lam(0xffffff, { vertexColors: true }), carL[1], { solid: true });
+
+  // ningún punto de aparición puede quedar encima de un coche, un muro o una estantería: se corre al hueco libre más cercano
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 5 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  fundirEstatico(g0);
+  // dentro del súper, de la nave y de la tiendita flota el polvo; afuera no
+  world.anims.push(() => { const p = player.pos; world.indoor = (Math.abs(p.x) < HX && Math.abs(p.z) < HZ) || enNave(p.x, p.z) || enTienda24(p.x, p.z); });
+  world.anims.push(llvStep); llvMalla();
 }
 
 // DESC: La función no terminó. El público tampoco se fue.
@@ -22102,7 +22754,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 154';
+const GAME_BUILD = '15-oct-2026 · 155';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
