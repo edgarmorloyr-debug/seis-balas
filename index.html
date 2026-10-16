@@ -1749,8 +1749,9 @@ const Sfx = (() => {
       .catch(e => { if (tries > 0) return new Promise(r => setTimeout(r, 1500)).then(() => get(n, ext, tries - 1)); smpErr.push(n + ' (' + (e && e.message || 'no se pudo leer') + ')'); });
     for (const n of SND) get(n, n.startsWith('shot_') || n.startsWith('rl_') ? '.wav' : '.mp3', 2);
   }
+  let zMudo = false;   // zombis de fondo del menú: sin ningún sonido (pedido del dueño, 16-oct-2026)
   function smp(name, o = {}) {
-    const b = SMP[name]; if (!ctx || !b) return false;
+    const b = SMP[name]; if (!ctx || !b || zMudo) return false;
     const t = ctx.currentTime + (o.delay || 0), s = ctx.createBufferSource(), g = ctx.createGain();
     s.buffer = b; s.playbackRate.value = o.rate || 1; g.gain.value = o.vol == null ? 1 : o.vol;
     s.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.2 : o.wet)); s.start(t);
@@ -1843,14 +1844,14 @@ const Sfx = (() => {
     return g;
   }
   function tone({ type = 'sine', f0 = 440, f1 = null, dur = 0.2, vol = 0.3, pan = 0, wet = 0.2, delay = 0, attack = 0.005 }) {
-    if (!ctx) return;
+    if (!ctx || zMudo) return;
     const t = ctx.currentTime + delay, o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(bus(pan, wet)); o.start(t); o.stop(t + dur + 0.05);
   }
   function burst({ f0 = 2000, f1 = null, q = 0.7, ftype = 'bandpass', dur = 0.1, vol = 0.3, pan = 0, wet = 0.2, delay = 0, attack = 0.002 }) {
-    if (!ctx) return;
+    if (!ctx || zMudo) return;
     const t = ctx.currentTime + delay, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     s.buffer = noise; f.type = ftype; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -1935,6 +1936,7 @@ const Sfx = (() => {
     jingle(k) { return smp('jingle_' + k, { vol: 0.55, wet: 0.25 }); },
     get on() { return !!ctx; },
     setVol(v) { if (out) out.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
+    mudoZ(on) { zMudo = !!on; },   // mientras se mueven los zombis del menú, todo sonido queda en silencio
     setWind(v) { windLevel = v; if (windG) windG.gain.setTargetAtTime(v, ctx.currentTime, 0.5); },
     silen() { if (!ctx) return; burst({ ftype: 'lowpass', f0: 1400, f1: 300, q: 0.7, dur: 0.07, vol: 0.35, wet: 0.05 }); burst({ ftype: 'bandpass', f0: 3200, q: 2, dur: 0.02, vol: 0.12, wet: 0 }); tone({ f0: 110, f1: 60, dur: 0.06, vol: 0.2, wet: 0 }); },
     shot(model, gold, last) {
@@ -2009,7 +2011,7 @@ const Sfx = (() => {
     boom() { tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
     gas(pan) { this.boom(); burst({ ftype: 'highpass', f0: 2500, dur: 1.2, vol: 0.25, pan, wet: 0.4, attack: 0.05 }); },
     groan(pan, vol, pitch = 1, long = false) {
-      try { if (!(game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state))) vol *= 0.4; } catch (e) {}   // zombis de fondo en los menús: 60 % más bajos (pedido del dueño, 16-oct-2026)
+      try { if (!(game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state))) return; } catch (e) {}   // zombis de fondo en los menús: sin sonido (pedido del dueño, 16-oct-2026)
       if (!ctx || vol < 0.02) return;
       if (long && Math.random() < 0.45 && smpOf('aullido', 5, { vol: Math.min(1, vol * 2), pan, rate: pitch * rand(0.9, 1.1), wet: 0.4 })) return;   // aullidos
       if (!long && Math.random() < 0.12 && smpOf('aullido', 5, { vol: Math.min(1, vol * 1.6), pan, rate: pitch * rand(0.9, 1.1), wet: 0.4 })) return;
@@ -25485,7 +25487,7 @@ function updateMenu(dt) {
   updateFlow(dt, chase.x, chase.z);
   const aliveN = zombies.filter(z => !z.dead).length;
   if (aliveN < 10 && Math.random() < dt * 0.8) { const ang = rand(0, TAU), r = rand(14, 26), t = pick(['walker', 'walker', 'walker', 'crawler', 'runner', 'spitter', 'dog', 'screamer', 'armored', 'brute']); spawnZombie(t, S0.x + Math.cos(ang) * r, S0.z + Math.sin(ang) * r, 1); }
-  updateZombies(dt, false); updateDebris(dt); P.update(dt); PA.update(dt);
+  Sfx.mudoZ(true); try { updateZombies(dt, false); updateDebris(dt); P.update(dt); PA.update(dt); } finally { Sfx.mudoZ(false); }   // los zombis del menú no se oyen (pedido del dueño)
   menuFondo(dt);
 }
 // Fondo del menú (pedido del dueño, 16-oct-2026): cada cierto tiempo cambia a otro mapa terminado, con un fundido a negro
