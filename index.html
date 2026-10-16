@@ -21272,7 +21272,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 132';
+const GAME_BUILD = '15-oct-2026 · 133';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21831,7 +21831,7 @@ function fpsCuenta(rawDt) {
 function pingHud() {
   const e = $('#inv-ping'); if (!e) return;
   const f = fpsM.v, fc = f == null ? 'medio' : f >= 45 ? 'ok' : f >= 25 ? 'medio' : 'malo';
-  let h = `<b class="${fc}">${f == null ? '… FPS' : f + ' FPS'}</b>`;
+  let h = `<b class="${fc}">${f == null ? '… FPS' : f + ' FPS'}</b><b class="medio" title="Tiempo por cuadro">Lógica ${PERF.l.toFixed(1)} ms · Dibujo ${PERF.r.toFixed(1)} ms · ${renderer.info.render.calls} piezas · ${Math.round(renderer.info.render.triangles / 1000)}k tri</b>`;
   if (Net.on) {
     if (Net.host) h += '<b class="ok">Anfitrión</b>';
     else { const v = Net.ping; h += `<b class="${v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'}">${v == null ? 'Ping …' : `Ping ${v} ms`}</b>`; }
@@ -22026,11 +22026,11 @@ function applySnapshot(s) {
   if (local && s.ph !== 'count' && s.ph !== 'fight') return;
   if (state === 'play' && !(game.phase === 'wait' && s.ph !== 'count' && s.ph !== 'fight') && game.phase !== 'cleared' || s.ph === 'fight') game.phase = s.ph;
   if (s.mp !== world.idx && s.mp !== ROOM_IDX) { travel(s.mp); return; }
-  const seen = new Set();
+  const seen = new Set(), porId = new Map(); for (const q of zombies) if (q.net) porId.set(q.id, q);   // búsqueda rápida por número (antes recorría la lista entera por cada zombi)
   for (const a0 of s.z) {
     const a = s.sv === 2 ? zUnsnap(a0) : a0;
     seen.add(a[0]);
-    let z = zombies.find(q => q.id === a[0] && q.net);
+    let z = porId.get(a[0]);
     // si lo dimos por muerto solo porque faltó en un envío, y sigue vivo: vuelve a aparecer
     if (z && z.dead && !(a[6] & 1) && (z.missDied || (z.predT && performance.now() - z.predT > 1200))) { const k = zombies.indexOf(z); if (k >= 0) removeZombie(k); z = null; }
     if (z) z.miss = 0;
@@ -22261,7 +22261,7 @@ function setAvGun(av, p) {
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
-const P3D = { cache: {}, esperan: {}, v: 3 };   // v2: personajes de Mixamo con dedos
+const P3D = { cache: {}, esperan: {}, v: 4 };   // v2: personajes de Mixamo con dedos
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
 const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante', maid_rubia: 'maid_rubia', maid_rosa: 'maid_rosa', maid_plata: 'maid_plata',
   pistolero: 'pistolero', pandillero: 'pandillero', carlos: 'granjero', rebeca: 'rebeca', ursula: 'ursula', contador: 'contador', recargador: 'recargador', franco: 'franco', dinamitero: 'dinamitero', carnicero: 'carnicero' };
@@ -22308,7 +22308,7 @@ function p3dCargar(ch, cb) {
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
-    m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });
+    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });   // sin sombra y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
     const C = { m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
@@ -23743,7 +23743,7 @@ function autoRes(rawDt) {
   else perf.good = 0;
 }
 function frame() {
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); PERF.t0 = performance.now();
   const rawDt = clock.getDelta(); let dt = Math.min(rawDt, 0.05);
   if (hitStop > 0) { hitStop -= Math.min(rawDt, 0.05); dt *= 0.12; }
   autoRes(Math.min(rawDt, 0.25));
@@ -23757,8 +23757,10 @@ function frame() {
   Net.tick(Math.min(rawDt, 0.25)); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
-  renderer.render(scene, camera);
+  const tR = performance.now(); renderer.render(scene, camera); const tF = performance.now();
+  PERF.l = PERF.l * 0.95 + (tR - PERF.t0) * 0.05; PERF.r = PERF.r * 0.95 + (tF - tR) * 0.05;
 }
+const PERF = { t0: 0, l: 0, r: 0 };   // milisegundos por cuadro: lógica del juego y dibujo (se ven en el inventario)
 /* ===================== CUENTA: invitado o Google ===================== */
 const SUPA_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js';
 const Cuenta = {
