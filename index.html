@@ -1461,6 +1461,7 @@ const Sfx = (() => {
     get on() { return !!ctx; },
     setVol(v) { if (out) out.gain.setTargetAtTime(v, ctx.currentTime, 0.05); },
     setWind(v) { windLevel = v; if (windG) windG.gain.setTargetAtTime(v, ctx.currentTime, 0.5); },
+    silen() { if (!ctx) return; burst({ ftype: 'lowpass', f0: 1400, f1: 300, q: 0.7, dur: 0.07, vol: 0.35, wet: 0.05 }); burst({ ftype: 'bandpass', f0: 3200, q: 2, dur: 0.02, vol: 0.12, wet: 0 }); tone({ f0: 110, f1: 60, dur: 0.06, vol: 0.2, wet: 0 }); },
     shot(model, gold, last) {
       if (!ctx) return; const p = SHOTS[model] || SHOTS.paci, mini = model === 'minigun';
       // Revólveres de acero .44 de Geronimo: estampido grave y seco, con un eco metálico largo; cada mano suena un poco distinta
@@ -14218,14 +14219,14 @@ Object.assign(MODELS, {
 });
 // Ludopatía de Johnny R.: armas que solo salen del dado (no se compran ni se guardan)
 Object.assign(MODELS, {
-  honda: { name: 'Resortera de piedras', desc: 'Una resortera de niño. El peor daño del juego.', cap: 6, dmg: 9, cd: 0.45, reload: 1, spread: 1.3, recoil: 0.2, pierce: 0, price: 0, L: 0.05, R: 0.01, tr: 0x9a8a78, temp: true },
+  silen: { name: 'Pistola con silenciador', desc: 'Pistola de 12 balas con silenciador: casi no hace ruido. Daño bajo.', cap: 12, dmg: 34, cd: 0.2, reload: 1, spread: 1.0, recoil: 0.25, pierce: 0, price: 0, L: 0.11, R: 0.01, tr: 0xd8d0c0, temp: true },
   glock: { name: 'Glock-18', desc: 'Pistola automática de 17 balas.', cap: 17, dmg: 30, cd: 0.09, reload: 1, spread: 1.25, recoil: 0.3, pierce: 0, price: 0, L: 0.11, R: 0.01, auto: true, temp: true },
   escopeta: { name: 'Escopeta básica', desc: 'Siete perdigones que empujan a los zombis. Corto alcance.', cap: 6, dmg: 22, cd: 0.6, reload: 1, spread: 1, recoil: 1.8, pierce: 0, price: 0, L: 0.46, R: 0.016, pellets: 7, pSpread: 0.075, temp: true },
   sniper: { name: 'Rifle de francotirador', desc: 'Un disparo enorme que atraviesa a tres zombis.', cap: 5, dmg: 260, cd: 0.85, reload: 1, spread: 0.2, recoil: 2.4, pierce: 2, price: 0, L: 0.55, R: 0.012, temp: true },
   tommy: { name: 'Ametralladora del mafioso', desc: 'La Thompson de tambor de los mafiosos italianos. 50 balas sin parar.', cap: 50, dmg: 30, cd: 0.075, reload: 1, spread: 1.35, recoil: 0.3, pierce: 0, price: 0, L: 0.3, R: 0.013, rc: 0.05, auto: true, temp: true },
-  cartas: { name: 'Lanzacartas de póker', desc: 'Dispara naipes afilados que atraviesan a un zombi. Daño moderado.', cap: 13, dmg: 48, cd: 0.16, reload: 1, spread: 0.9, recoil: 0.3, pierce: 1, price: 0, L: 0.12, R: 0.012, auto: true, tr: 0xfff4f0, temp: true }
+  ak47: { name: 'AK-47', desc: 'El rifle de asalto: 30 balas potentes que atraviesan a un zombi. Mantén el gatillo.', cap: 30, dmg: 55, cd: 0.1, reload: 1, spread: 1.1, recoil: 0.55, pierce: 1, price: 0, L: 0.42, R: 0.011, auto: true, temp: true },
 });
-const DADO_ARMAS = ['honda', 'glock', 'escopeta', 'sniper', 'tommy', 'cartas'];
+const DADO_ARMAS = ['silen', 'glock', 'escopeta', 'sniper', 'tommy', 'ak47'];
 const MODEL_ORDER = ['paci', 'corto', 'viejo', 'uzi', 'cowboy', 'magnum', 'minigun', 'mp5', 'ballesta', 'tesla', 'jackpot', 'bazuca'];
 const MODEL_RED = [...MODEL_ORDER, ...DADO_ARMAS];   // el arma que se ve en los compañeros (incluye las del dado)
 const MASTERY = {
@@ -14382,9 +14383,6 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
   } else if (id === 'jackpot') {
     for (let i = 0; i < 3; i++) P_(bx(0.012, 0.016, 0.016), [GM.orange, GM.brass, GM.chrome][i], 0.019, 0.025, 0.02 - i * 0.018);
     P_(bx(0.006, 0.05, 0.006), GM.chrome, 0.022, 0.06, 0.05); P_(new THREE.SphereGeometry(0.009, 10, 8), GM.orange, 0.022, 0.088, 0.05);
-  } else if (id === 'honda') {   // horquilla en Y con la liga
-    for (const s of [-1, 1]) { const b = P_(bx(0.014, 0.09, 0.014), LOOK.frame, s * 0.03, by + 0.05, bz - 0.06); b.rotation.z = -s * 0.3; }
-    P_(bx(0.07, 0.006, 0.006), GM.rubber, 0, by + 0.09, bz - 0.06); P_(new THREE.SphereGeometry(0.012, 8, 6), GM.screw, 0, by + 0.09, bz - 0.04);
   } else if (id === 'glock') {   // corredera cuadrada y cargador largo
     P_(bx(0.03, 0.03, L + 0.1), GM.black, 0, by + 0.012, bz - L / 2 + 0.02); P_(bx(0.022, 0.12, 0.03), GM.black, 0, -0.1, 0.05);
   } else if (id === 'escopeta') {   // segundo cañón y corredera de bombeo
@@ -14398,9 +14396,10 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
     P_(cyl(0.055, 0.055, 0.035, 22), GM.black, 0, -0.06, bz - 0.04).rotation.z = Math.PI / 2;
     P_(bx(0.025, 0.07, 0.03), GM.wood, 0, -0.04, bz - L * 0.65); P_(bx(0.035, 0.05, 0.2), GM.wood, 0, 0.0, 0.18);
     for (let i = 0; i < 5; i++) rot(P_(cyl(R * 1.25, R * 1.25, 0.006, 12), GM.black, 0, by, bz - L * 0.7 - i * 0.025));
-  } else if (id === 'cartas') {   // baraja encima y un naipe asomando por la boca
-    P_(bx(0.045, 0.03, 0.065), GM.ivory, 0, by + 0.04, bz + 0.01); P_(bx(0.046, 0.004, 0.066), GM.orange, 0, by + 0.056, bz + 0.01);
-    P_(bx(0.04, 0.002, 0.055), GM.ivory, 0, by, bz - L - 0.02);
+  } else if (id === 'ak47') {   // cargador curvo, guardamanos y culata de madera, mira delantera y tubo de gases
+    for (let i = 0; i < 4; i++) { const m = P_(bx(0.026, 0.04, 0.034), GM.rust, 0, -0.05 - i * 0.034, bz + 0.015 - i * 0.012); m.rotation.x = 0.25 + i * 0.12; }
+    P_(bx(0.036, 0.034, 0.16), GM.woodL, 0, by - 0.012, bz - L * 0.42); rot(P_(cyl(R * 0.9, R * 0.9, L * 0.55, 10), GM.black, 0, by + 0.024, bz - L * 0.35));
+    P_(bx(0.006, 0.03, 0.008), GM.black, 0, by + 0.03, bz - L + 0.02); P_(bx(0.034, 0.055, 0.22), GM.woodL, 0, -0.005, 0.19).rotation.x = 0.08;
 
   }
 }
@@ -14426,12 +14425,11 @@ function buildGun(h, id) {
     tesla: { frame: GM.brassF, barrel: GM.blue, cyl: GM.brassF, grip: GM.wood, trig: GM.brassF },
     jackpot: { frame: GM.brass, barrel: GM.chrome, cyl: GM.brass, grip: GM.ivory, trig: GM.orange },
     bazuca: { frame: GM.blue, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel },
-    honda: { frame: GM.woodL, barrel: GM.wood, cyl: GM.wood, grip: GM.woodL, trig: GM.wood },
     glock: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.rubber, trig: GM.black },
     escopeta: { frame: GM.blue, barrel: GM.blue, cyl: GM.wood, grip: GM.wood, trig: GM.brassF },
     sniper: { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.woodL, trig: GM.steel },
     tommy: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.wood, trig: GM.steel },
-    cartas: { frame: GM.orange, barrel: GM.chrome, cyl: GM.brass, grip: GM.ivory, trig: GM.brass }
+    ak47: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.woodL, trig: GM.steel }
   }[g629 ? 'g629' : id] || { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel };
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
@@ -14455,8 +14453,8 @@ function buildGun(h, id) {
     rot(P_(new THREE.TorusGeometry(0.02, 0.0035, 8, 16, Math.PI), LOOK.frame, 0, -0.04, 0.0)).rotation.set(0, Math.PI / 2, Math.PI);
     P_(profileGeo([[0, 0], [-0.004, -0.02], [0.004, -0.026], [0.006, -0.004]], 0.006, 0.0015), LOOK.trig, 0, -0.035, 0.004);
     muzzleY = 0.012; muzzleZ = -0.45;
-  } else if (id === 'glock') {
-    // Glock-18: corredera cuadrada negra, armazón de polímero, empuñadura inclinada con muescas, guardamonte cuadrado y selector de ráfaga
+  } else if (id === 'glock' || id === 'silen') {
+    // Glock-18 (y la pistola con silenciador, que usa el mismo cuerpo): corredera cuadrada negra, armazón de polímero, empuñadura inclinada con muescas, guardamonte cuadrado y selector de ráfaga
     const poli = GM.rubber, corr = GM.black;
     P_(profileGeo([[-0.066, 0.016], [0.124, 0.016], [0.124, 0.043], [0.119, 0.048], [-0.06, 0.048], [-0.066, 0.043]], 0.026, 0.002), corr, 0, 0, 0);
     P_(profileGeo([[-0.062, -0.004], [0.112, -0.004], [0.116, 0.016], [-0.062, 0.016]], 0.024, 0.002), poli, 0, 0, 0);
@@ -14473,6 +14471,7 @@ function buildGun(h, id) {
     for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) P_(bx(0.002, 0.02, 0.012), GM.blue, sx * 0.0152, -0.035 - i * 0.017, 0.035 + i * 0.0055).rotation.x = -0.33;   // textura de la empuñadura
     for (let i = 0; i < N; i++) h.caps.push(P_(cyl(0.003, 0.003, 0.004, 6), GM.brass, 0, -0.02 - (i % 6) * 0.012, 0.05 + (i % 6) * 0.004));   // balas escondidas en el cargador
     muzzleY = 0.032; muzzleZ = -0.128;
+    if (id === 'silen') { rot(P_(cyl(0.011, 0.011, 0.12, 14), GM.black, 0, 0.032, -0.185)); rot(P_(cyl(0.0062, 0.0062, 0.002, 12), GM.bore, 0, 0.032, -0.2455)); muzzleZ = -0.248; }   // silenciador
   } else {
     const corto = id === 'corto', viejo = id === 'viejo', magnum = id === 'magnum';
     // armazón con ventana para el tambor
@@ -16030,7 +16029,7 @@ function shoot(h, fanned, yawOff = 0) {
   smokePuff(_mp, cam, h.model === 'viejo' || h.model === 'escopeta' ? 10 : m.auto ? 1 : 4, h.model === 'viejo' ? 2.2 : h.model === 'escopeta' ? 1.6 : 1);
   for (let i = 0; i < (m.auto ? 2 : 6); i++) PA.add(_mp.x, _mp.y, _mp.z, cam.x * rand(2, 6) + rand(-1, 1), cam.y * rand(2, 6) + rand(-1, 1), cam.z * rand(2, 6) + rand(-1, 1), rand(0.05, 0.15), 0.012, 1, 0.7, 0.3, 1, 0, 2, 0, 0);
   }
-  const rec = h.model === 'honda' || h.model === 'cartas' ? (Sfx.whoosh(0), true) : Sfx.shot(h.model === 'cowboy' && game.char === 'carlos' ? 'gomez' : ({ glock: 'corto', sniper: 'magnum', tommy: 'uzi' })[h.model] || h.model, game.goldT > 0, h.ammo === 0);
+  const rec = h.model === 'silen' ? (Sfx.silen(), true) : Sfx.shot(h.model === 'cowboy' && game.char === 'carlos' ? 'gomez' : ({ glock: 'corto', sniper: 'magnum', tommy: 'uzi', ak47: 'magnum' })[h.model] || h.model, game.goldT > 0, h.ammo === 0);
   if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
   if (ctx.hitZ && hasB(type, 'bumeran')) { h.loaded[fired] = 'bumeran'; h.ammo++; feed('La bumerán volvió al tambor', 'gold'); }
   if (ctx.hitZ && hasB(type, 'junior')) {
@@ -18190,6 +18189,7 @@ function updateWave(dt) {
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]);
+      if (Net.host && relicTime()) rvPrep();
       if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
       Sfx.win();
@@ -19113,39 +19113,6 @@ function updateGun(dt) {
     if (h.flash.visible) { h.flash.rotation.z = Math.random() * TAU; const W_ = WFX[h.model], s = rand(0.8, 1.4) * (W_ ? W_.fs : h.model === 'escopeta' ? 1.8 : 1); h.flash.scale.set(s, s, s * (W_ && W_.stretch ? W_.stretch : 1)); }
     h.flashLight.intensity = h.fl > 0 && !(FAST() && h.side) ? 3.2 : 0;
   }
-  manoCarga(dt);
-}
-// Recarga a una mano: la otra mano (con guante) lleva cada bala al tambor abierto y la empuja; entre bala y bala vuelve al cinturón
-const MC = { g: null, bala: null, v: 0 };
-function manoCarga(dt) {
-  if (!MC.g) {
-    const g = new THREE.Group(), add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); g.add(m); return m; };
-    add(bx(0.05, 0.035, 0.07), GM.glove, 0, 0, 0, -0.2);   // palma
-    for (let i = 0; i < 3; i++) add(cyl(0.009, 0.009, 0.045, 8), GM.glove, -0.017 + i * 0.017, 0.012, -0.05, Math.PI / 2 + 0.5);   // dedos que sujetan la bala
-    add(cyl(0.01, 0.01, 0.045, 8), GM.glove, 0.03, 0.004, -0.02, Math.PI / 2, 0, -0.6);   // pulgar
-    add(cyl(0.03, 0.034, 0.06, 12), GM.gloveD, 0, -0.005, 0.06, Math.PI / 2);   // puño del guante
-    add(cyl(0.034, 0.036, 0.12, 12), GM.sleeve, 0, -0.008, 0.14, Math.PI / 2);   // manga
-    MC.bala = new THREE.Group(); g.add(MC.bala); MC.bala.position.set(0, 0.03, -0.075);
-    { const c = new THREE.Mesh(cyl(0.0075, 0.0075, 0.03, 10), GM.brassF || GM.glove); c.rotation.x = Math.PI / 2; MC.bala.add(c); const p = new THREE.Mesh(cyl(0.006, 0.0075, 0.012, 10), lam(0x9a6a3a)); p.rotation.x = Math.PI / 2; p.position.z = -0.021; MC.bala.add(p); }
-    g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
-    camera.add(g); MC.g = g;
-  }
-  const act = hands.filter(h => h.active), on = state === 'play' && gs.reloading && !player.down && act.length;
-  MC.v = damp(MC.v, on ? 1 : 0, 10, dt); MC.g.visible = MC.v > 0.02; if (!MC.g.visible) return;
-  // el revólver que se está cargando: el que tiene más huecos (igual que la recarga)
-  const h = act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] || act[0]; if (!h) return;
-  h.cylG.updateWorldMatrix(true, false); const cil = h.cylG.getWorldPosition(new THREE.Vector3()); camera.worldToLocal(cil);
-  const lado = h.side === 0 ? 1 : -1, base = new THREE.Vector3(cil.x - lado * 0.14, cil.y - 0.19, cil.z + 0.02);   // de dónde sale la mano (abajo, del lado de adentro)
-  const meta = new THREE.Vector3(cil.x - lado * 0.035, cil.y - 0.005, cil.z + 0.06);   // detrás del tambor abierto
-  let u = 0;
-  if (gs.phase === 'insert') { const T = gs.ptMax || 0.4; u = clamp(1 - gs.pt / T, 0, 1); }
-  // ida (0–0,55), empuja la bala (0,55–0,7) y vuelve a buscar otra (0,7–1)
-  const ida = u < 0.55 ? u / 0.55 : u < 0.7 ? 1 : Math.max(0, 1 - (u - 0.7) / 0.3), e = ida * ida * (3 - 2 * ida);
-  const pos = base.clone().lerp(meta, gs.phase === 'insert' ? e : gs.phase === 'open' ? 0.35 : 0.2);
-  if (u >= 0.55 && u < 0.7) pos.z -= 0.025 * Math.sin((u - 0.55) / 0.15 * Math.PI);
-  pos.y -= (1 - MC.v) * 0.25;
-  MC.g.position.copy(pos); MC.g.rotation.set(-0.35, lado * 0.5, lado * 0.25);
-  MC.bala.visible = gs.phase === 'insert' && u < 0.62 && game.box.length > 0;
 }
 function retarget(z, canAttack) {
   z.tgtT = rand(0.35, 0.55);
@@ -20203,7 +20170,9 @@ function openExitDoors() {
   const conLlave = llvSalidas();
   if (conLlave && !conLlave.length) { llvSinLlaves(); return; }
   show(null); state = 'play'; game.phase = 'exit'; game.routeWave = game.wave;
-  const opts = conLlave || routeOptions(), objs = [];
+  const opts = rvOpts(conLlave), objs = [];
+  if (!opts) { game.exitPend = true; world.room = { objs }; Net.ev(['ready', game.wave]); renderChips(); hint('Esperando las puertas del grupo…', 3000); return; }   // el invitado espera las mismas tres puertas que tiene el anfitrión
+  game.exitPend = false; game.rvView = null;
   const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   // sitios libres, alcanzables caminando y separados entre sí; primero delante del jugador, luego alrededor
   const spots = [], ok = (x, z) => insideArena(x, z, 2) && !pointBlocked(x, z, 1.7) && nav.mainDist[cellOf(x, z)] < 1e9 && spots.every(p => Math.hypot(p.x - x, p.z - z) >= 3.8);
@@ -20217,12 +20186,75 @@ function openExitDoors() {
   opts.forEach((o, i) => {
     const C = ROUTE_MODS[o.k], tz = zoneOf(game.wave) + 2 + (o.skip ? 1 : 0), p = spots[i];
     roomDoor(p.x, p.z, Math.atan2(player.pos.x - p.x, player.pos.z - p.z), hexCol(C.col), C.col, MAPS[o.map].name.replace(/^(El|La|Las|Los) /, ''), o.skip ? `Atajo · lugar ${tz}` : C.name, true);
-    objs.push({ kind: 'route', opt: o, x: p.x, z: p.z, r: 1.1, auto: true });
+    objs.push({ kind: 'route', opt: o, x: p.x, z: p.z, r: 1.1, auto: !Net.on, i, cnt: Net.on ? rvCartel(p.x, p.z) : null });
   });
   world.room = { objs };
   if (Net.client) { Net.ev(['ready', game.wave]); }
   renderChips(); requestLock(); canvas.focus();
-  banner('¡Camino abierto!', 'Cruza una de las puertas de color para ir al siguiente lugar', 3200, 'compass');
+  banner('¡Camino abierto!', Net.on ? 'Párense frente a la puerta que quieran: gana la más votada (si empatan, la suerte decide)' : 'Cruza una de las puertas de color para ir al siguiente lugar', 3200, 'compass');
+}
+/* ===== Votación de las puertas en grupo =====
+   Todos ven las mismas tres puertas (las decide el anfitrión al vencer al jefe). Pararse frente a una es votar por ella:
+   encima aparece un contador con los votos. Cuando todos votaron empieza una cuenta atrás; gana la más votada y, si empatan, una al azar. */
+const RV = { r: 2.6, t: 3 };
+function rvOpts(conLlave) {
+  if (!Net.on) return conLlave || routeOptions();
+  if (game.exitOpts && game.exitOpts.w === game.wave) return game.exitOpts.opts;
+  if (Net.client) return null;
+  rvPrep(conLlave); return game.exitOpts.opts;
+}
+function rvPrep(conLlave) {
+  const L = conLlave || llvSalidas();
+  game.exitOpts = { w: game.wave, opts: L && L.length ? L : routeOptions(), done: false }; game.rvKey = game.rvSt = null; game.rvoT = 0;
+  Net.ev(['rvo', game.wave, game.exitOpts.opts]);
+}
+// el contador que flota sobre cada puerta (sin palabras: votos y cuenta atrás)
+function rvCartel(x, z) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const t = new THREE.CanvasTexture(c), sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
+  sp.scale.set(1.9, 0.95, 1); sp.position.set(x, 4.75, z); sp.visible = false; world.group.add(sp);
+  return { sp, t, g: c.getContext('2d'), h: '' };
+}
+function rvDibujar(C, n, total, seg) {
+  const h = n + '/' + total + '/' + seg; if (C.h === h) return; C.h = h;
+  const g = C.g; g.clearRect(0, 0, 256, 128);
+  C.sp.visible = n > 0; if (!n) return;
+  g.fillStyle = 'rgba(20,12,6,.88)'; g.beginPath(); if (g.roundRect) g.roundRect(8, 8, 240, 112, 24); else g.rect(8, 8, 240, 112); g.fill();
+  g.strokeStyle = '#ffd060'; g.lineWidth = 5; g.stroke();
+  g.fillStyle = '#ffe6a0'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (seg >= 0) { g.font = 'bold 50px sans-serif'; g.fillText(`${n}/${total}`, 84, 66); g.fillStyle = '#ff9a40'; g.font = 'bold 74px sans-serif'; g.fillText(String(seg), 188, 68); }
+  else { g.font = 'bold 64px sans-serif'; g.fillText(`${n}/${total}`, 128, 68); }
+  C.t.needsUpdate = true;
+}
+function rvMostrar(n, seg, total) {
+  if (!world.room || !game) return;
+  const prev = game.rvView; game.rvView = { n, seg, total };
+  for (const o of world.room.objs) if (o.kind === 'route' && o.cnt) rvDibujar(o.cnt, n[o.i] | 0, total, seg);
+  if (seg >= 0 && (!prev || prev.seg !== seg)) Sfx.clink();
+}
+// el anfitrión cuenta los votos por la posición de cada jugador
+function rvTick(dt) {
+  const E = game.exitOpts; if (!E || E.done || E.w !== game.wave) return;
+  if ((game.rvoT -= dt) <= 0) { game.rvoT = 2; Net.ev(['rvo', E.w, E.opts]); }   // por si a alguien no le llegó el aviso
+  if (game.phase !== 'exit' || !world.room) return;
+  const ds = world.room.objs.filter(o => o.kind === 'route'); if (!ds.length) return;
+  const who = []; let todos = true;
+  if (!player.down) who.push(player.pos);
+  for (const p of Net.peers.values()) { if (p.down) continue; if (p.ready !== game.wave || !p.pos) { todos = false; continue; } who.push(p.pos); }
+  const n = ds.map(() => 0); let votos = 0;
+  for (const q of who) { let bi = -1, bd = RV.r; ds.forEach((o, i) => { const d = Math.hypot(q.x - o.x, q.z - o.z); if (d < bd) { bd = d; bi = i; } }); if (bi >= 0) { n[ds[bi].i]++; votos++; } }
+  const listo = todos && votos > 0 && votos === who.length, key = n.join(',') + listo;
+  if (key !== game.rvKey) { game.rvKey = key; game.rvT = listo ? RV.t : -1; } else if (listo) game.rvT -= dt;
+  const seg = listo ? Math.max(1, Math.ceil(game.rvT)) : -1, total = (player.down ? 0 : 1) + [...Net.peers.values()].filter(p => !p.down).length, st = n.join(',') + '|' + seg + '|' + total;
+  if (st !== game.rvSt || (game.rvSend -= dt) <= 0) { game.rvSt = st; game.rvSend = 1.5; Net.ev(['rvc', game.wave, n, seg, total]); rvMostrar(n, seg, total); }
+  if (listo && game.rvT <= 0) {
+    const mx = Math.max(...n), top = ds.filter(o => n[o.i] === mx), o = pick(top), azar = top.length > 1;
+    E.done = true; Net.ev(['rvf', game.wave, o.i, azar]); rvFin(o.opt, azar); takeRoute(o.opt);
+  }
+}
+function rvFin(opt, azar) {
+  if (world.room) for (const o of world.room.objs) if (o.cnt) o.cnt.sp.visible = false;
+  Sfx.bell(); hint(azar ? `¡Empate! La suerte eligió: ${MAPS[opt.map].name}` : `El grupo eligió: ${MAPS[opt.map].name}`, 2600);
 }
 const ROOM_IDX = 17;
 const ROOM_DOORS = {
@@ -21118,6 +21150,9 @@ function useLabel(o) {
   if (!o) return null;
   if (o.kind === 'map') { const wait = o.readyT > game.time, ok = !wait && (!o.price || game.gold >= o.price) && (!o.ficha || (game.poker | 0) > 0); return { key: 'mp' + o.t + wait + ok, t: o.t, r: '', d: o.d, b: wait ? 'Recargando…' : o.ficha ? ((game.poker | 0) > 0 ? `${o.b} · 1 ficha` : 'Sin fichas de póker') : o.price ? (game.gold >= o.price ? `${o.b} · ${o.price} $` : `Faltan ${o.price - game.gold} $`) : o.b, ok }; }
   if (o.kind === 'item') { const I = ITEMS[o.it.id], p = itemPrice(o.it.id); return { key: 'i' + o.it.id + game.gold, t: I.name, r: `<span class="rar-${I.rar + 1}">${IRAR[I.rar].name}</span>`, d: I.desc, b: game.gold >= p ? `Comprar · ${p} $` : `Faltan ${p - game.gold} $`, ok: game.gold >= p }; }
+  if (o.kind === 'route' && !o.auto) { const C = ROUTE_MODS[o.opt.k], V = game.rvView, aqui = Math.hypot(player.pos.x - o.x, player.pos.z - o.z) < RV.r, n = V ? V.n[o.i] | 0 : 0, tot = V ? V.total : 1;
+    const v = !aqui ? 'Párate frente a esta puerta para votar por ella.' : V && V.seg >= 0 ? `Votas por esta puerta · votos: ${n} de ${tot} · cruzan en ${V.seg}` : `Votas por esta puerta · votos: ${n} de ${tot} · faltan compañeros por elegir`;
+    return { key: 'rv' + o.opt.k + v, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' ' + v, b: null }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
@@ -21151,6 +21186,7 @@ function roomStep() {
     if (o.used) continue;
     const d = Math.hypot(player.pos.x - o.x, player.pos.z - o.z);
     if (o.wait) { if (d > o.r + 1.5) o.wait = false; continue; }
+    if (o.kind === 'route' && !o.auto) { if (d < 4 && d < nd) { nd = d; near = o; } continue; }
     if (o.auto) { if (d < o.r) { showUse(null); useObj(o); return; } if (o.kind === 'route' && d < 4 && d < nd) { nd = d; near = o; } continue; }
     if (d < o.r && d < nd) { nd = d; near = o; }
   }
@@ -21274,7 +21310,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 137';
+const GAME_BUILD = '15-oct-2026 · 138';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21430,11 +21466,18 @@ async function supaTransport(room) {
   if (!window.supabase) { try { await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js'); } catch (e) { throw new Error('paso 1: no cargó la herramienta de conexión'); } }
   msg.textContent = 'Paso 2 de 2: conectando con el servidor…';
   const cl = supaCl();
-  const ch = cl.channel('seisbalas-' + room, { config: { broadcast: { self: false } } });
-  ch.on('broadcast', { event: 'm' }, ({ payload }) => netIn(payload));
-  try {
-    await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('el servidor no respondió en 12 s')), 12000); ch.subscribe((st, err) => { if (st === 'SUBSCRIBED') { clearTimeout(to); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { clearTimeout(to); rej(new Error(st + (err && err.message ? ': ' + err.message : ''))); } }); });
-  } catch (e) { try { cl.removeChannel(ch); } catch (e2) {} throw new Error('paso 2: ' + e.message); }
+  // hasta 3 intentos: a veces el servidor tarda en contestar la primera vez (TIMED_OUT) y al segundo intento entra
+  let ch = null, fallo = null;
+  for (let n = 1; n <= 3 && !ch; n++) {
+    if (n > 1) { msg.textContent = `Paso 2 de 2: reintentando la conexión (${n} de 3)…`; await new Promise(r => setTimeout(r, 1200 * n)); }
+    const c = cl.channel('seisbalas-' + room, { config: { broadcast: { self: false } } });
+    c.on('broadcast', { event: 'm' }, ({ payload }) => netIn(payload));
+    try {
+      await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('el servidor no respondió en 12 s')), 12000); c.subscribe((st, err) => { if (st === 'SUBSCRIBED') { clearTimeout(to); res(); } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { clearTimeout(to); rej(new Error(st + (err && err.message ? ': ' + err.message : ''))); } }); });
+      ch = c;
+    } catch (e) { fallo = e; try { cl.removeChannel(c); } catch (e2) {} }
+  }
+  if (!ch) throw new Error('paso 2: ' + (fallo ? fallo.message : 'sin respuesta'));
   msg.textContent = '';
   const tr = { ch, cl, send: m => tr.ch.send({ type: 'broadcast', event: 'm', payload: m }), close: () => { tr.closed = true; try { cl.removeChannel(tr.ch); } catch (e) {} },
     rejoin() {
@@ -21818,6 +21861,7 @@ function netStartAsClient() {
 let pingT = 0;
 let bjT = 0;
 function pingTick(dt) {
+  if (Net.host && game) rvTick(dt);
   if (Net.host && game && game.bj && (bjT -= dt) <= 0) { bjT = 2; if (game.phase === 'room' || game.phase === 'wait' || game.phase === 'exit') Net.ev(['bjs', game.bj]); }   // la mesa de blackjack, para quien llega tarde
   if (!Net.on || !Net.client || !game) return;
   if ((pingT -= dt) <= 0) { pingT = 2; Net.ev(['pi', Math.round(performance.now())]); Net.flush(); }   // el ping sale al instante: mide la red, no la espera
@@ -21837,6 +21881,7 @@ function pingHud() {
   if (Net.on) {
     if (Net.host) h += '<b class="ok">Anfitrión</b>';
     else { const v = Net.ping; h += `<b class="${v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'}">${v == null ? 'Ping …' : `Ping ${v} ms`}</b>`; }
+    { const D = Directo.pcs.get(Net.host ? [...Net.peers.keys()][0] : Net.hostId), dir = !!(D && D.abierto && D.dc && D.dc.readyState === 'open'), rap = !!(D && D.dr && D.dr.readyState === 'open'); h += `<b class="${dir ? 'ok' : 'malo'}" title="Por dónde viajan los datos">${dir ? (rap ? 'Conexión directa' : 'Directa (sin carril rápido)') : 'Por el servidor'}</b>`; }   // para saber si el retraso viene de ir por Supabase
   }
   e.hidden = false; if (e._h !== h) { e._h = h; e.innerHTML = h; }
   jugadoresHud();
@@ -21923,6 +21968,9 @@ function netEvent(p, e) {
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); colGuardar(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
   else if (t === 'evb') { const B = { saq: ['¡Saqueadores armados!', 'No son zombis: vienen a robarte y disparan', 'gun'], refuerzos: ['¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean con el grupo esta oleada', 'badge'], ejercito: ['¡Llegó el ejército!', '6 soldados como Bill pelean con el grupo esta oleada', 'medal'] }[e[1]]; if (B) setTimeout(() => { banner(B[0], B[1], 2800, B[2]); Sfx.bell(); }, 1700); }
+  else if (t === 'rvo') { if (e[1] === game.wave && !(game.exitOpts && game.exitOpts.w === e[1])) { game.exitOpts = { w: e[1], opts: e[2] }; if (game.phase === 'exit' && game.exitPend) openExitDoors(); } }
+  else if (t === 'rvc') { if (e[1] === game.wave && game.phase === 'exit') rvMostrar(e[2], e[3], e[4]); }
+  else if (t === 'rvf') { if (e[1] === game.wave && game.exitOpts && game.exitOpts.opts[e[2]]) rvFin(game.exitOpts.opts[e[2]], e[3]); }
   else if (t === 'route') { if (!Net.host && game) { game.route = e[3]; game.zmod = { z: e[2], k: e[1] }; routeGift(e[1]); banner(ROUTE_MODS[e[1]].name, ROUTE_MODS[e[1]].desc, 3200, ROUTE_MODS[e[1]].ic); } }
   else if (t === 'over') gameOver();
   else if (t === 'rescue') { addGold(e[1], true); game.rescued++; Sfx.win(); banner(`¡${e[2]} está a salvo!`, `+${e[1]} $ para todos`, 2600); }
@@ -22237,7 +22285,7 @@ function avGun(id, ch) {
   g.userData.k = clamp((ARMA_LARGO[id] || L0) / L0, 0.7, 1.25); return g;
 }
 // largo de cada arma en la vida real (metros), para que se vea a escala en la mano de los personajes 3D
-const ARMA_LARGO = { paci: 0.34, corto: 0.21, viejo: 0.38, magnum: 0.4, cowboy: 0.36, uzi: 0.3, glock: 0.2, honda: 0.22, cartas: 0.3, mp5: 0.55, minigun: 0.6, escopeta: 1.0, sniper: 1.15, tommy: 0.85, bazuca: 1.1, ballesta: 0.5, tesla: 0.38, jackpot: 0.38 };
+const ARMA_LARGO = { paci: 0.34, corto: 0.21, viejo: 0.38, magnum: 0.4, cowboy: 0.36, uzi: 0.3, glock: 0.2, silen: 0.3, ak47: 0.9, mp5: 0.55, minigun: 0.6, escopeta: 1.0, sniper: 1.15, tommy: 0.85, bazuca: 1.1, ballesta: 0.5, tesla: 0.38, jackpot: 0.38 };
 function revolverMini(id) {
   const Md = MODELS[id] || MODELS.paci, [fc, gc] = RV_COL[id] || RV_COL.paci, g = new THREE.Group(), fm = LM(fc, { emissive: 0x141518 }), gm = LM(gc);
   const L = Math.round((Md.L * 1.1 + 0.06) * 100) / 100, r = Math.round((Md.R || 0.011) * 1400) / 1000, cr = id === 'escopeta' || id === 'minigun' ? 0.045 : 0.035;
