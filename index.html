@@ -1615,6 +1615,8 @@ const Sfx = (() => {
     bell() { [196, 392, 588, 784, 1176].forEach((f, i) => tone({ f0: f, dur: 3.2 - i * 0.4, vol: 0.22 / (i + 1), wet: 0.8, attack: 0.004 })); },
     // el calíope de la feria: una frase de vals con sus tubos (cuadrada y triangular) y el bajo
     calliope(pan, vol = 1) { const N = [392, 523, 659, 784, 659, 523, 587, 494, 392, 440, 494, 523]; N.forEach((f, i) => { tone({ type: 'square', f0: f, dur: 0.17, vol: 0.03 * vol, pan, delay: i * 0.2, wet: 0.45 }); tone({ type: 'triangle', f0: f * 2, dur: 0.14, vol: 0.025 * vol, pan, delay: i * 0.2, wet: 0.45 }); if (i % 3 === 0) tone({ type: 'triangle', f0: [131, 98, 147, 131][i / 3], dur: 0.5, vol: 0.06 * vol, pan, delay: i * 0.2, wet: 0.3 }); }); },
+    silbato(pan, vol = 1) { for (const [d, L] of [[0, 0.45], [0.55, 1.1]]) { tone({ type: 'square', f0: 622, f1: 600, dur: L, vol: 0.045 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'square', f0: 784, f1: 760, dur: L, vol: 0.035 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'triangle', f0: 932, f1: 900, dur: L, vol: 0.03 * vol, pan, delay: d, wet: 0.55 }); } burst({ ftype: 'bandpass', f0: 2400, q: 3, dur: 1.6, vol: 0.06 * vol, pan, wet: 0.4 }); },   // silbato del trenecito: dos pitidos de vapor
+    megafono(pan, vol = 1) { tone({ type: 'triangle', f0: 784, dur: 0.7, vol: 0.12 * vol, pan, wet: 0.6 }); tone({ type: 'triangle', f0: 622, dur: 0.9, vol: 0.12 * vol, pan, delay: 0.45, wet: 0.6 }); for (let i = 0; i < 9; i++) burst({ ftype: 'bandpass', f0: rand(500, 1300), q: 4, dur: rand(0.08, 0.16), vol: 0.07 * vol, pan, delay: 1.3 + i * 0.13, wet: 0.5 }); },   // altavoz: «din, don» y una voz que ya no se entiende
     alarma(pan, vol = 1) { for (let i = 0; i < 8; i++) tone({ type: 'square', f0: i % 2 ? 1320 : 880, dur: 0.2, vol: 0.05 * vol, pan, delay: i * 0.24, wet: 0.5 }); },   // alarma de coche: dos notas que se alternan
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
     combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
@@ -14642,19 +14644,41 @@ function zooGlow(x, y, z, color, s, op = 0.55, parent) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
   sp.scale.set(s, s, 1); sp.position.set(x, y, z); (parent || world.group).add(sp); return sp;
 }
+// Junta las mallas hijas directas de «nodo» (menos las de «deja», que se animan solas) en una sola por material:
+// las de color liso pasan a color por vértice y van todas juntas; así un animal de diez piezas se dibuja en dos o tres llamadas
+const _juntaM = new Map();
+function juntarHijos(nodo, deja = []) {
+  const lotes = new Map();
+  for (const c of nodo.children) {
+    if (!c.isMesh || c.isInstancedMesh || deja.includes(c) || Array.isArray(c.material) || c.material.transparent || !c.visible || solids.includes(c)) continue;
+    const m = c.material, vc = !m.map && !m.vertexColors && !m.emissiveMap && (m.isMeshLambertMaterial || m.isMeshBasicMaterial);
+    const k = vc ? m.type + (m.flatShading ? 'f' : '') + (c.castShadow ? 'c' : '') : m.uuid + (c.castShadow ? 'c' : '');
+    let L = lotes.get(k); if (!L) lotes.set(k, L = { vc, mat: m, cast: c.castShadow, list: [] }); L.list.push(c);
+  }
+  for (const [k, L] of lotes) {
+    if (L.list.length < 2) continue;
+    let n = 0; const parts = L.list.map(c => { c.updateMatrix(); const g = c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone(); g.applyMatrix4(c.matrix); n += g.attributes.position.count; return [g, c.material.color]; });
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = new Float32Array(n * 3); let o = 0;
+    for (const [g, cc] of parts) { const q = g.attributes.position.count; pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); for (let i = 0; i < q; i++) { col[(o + i) * 3] = cc.r; col[(o + i) * 3 + 1] = cc.g; col[(o + i) * 3 + 2] = cc.b; } o += q; g.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); if (L.vc) geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeBoundingSphere();
+    let mat = L.mat; if (L.vc) { const mk = L.mat.type + (L.mat.flatShading ? 'f' : ''); mat = _juntaM.get(mk); if (!mat || !mat.userData.ok) { mat = L.mat.isMeshBasicMaterial ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: !!L.mat.flatShading }); mat.userData.ok = 1; _juntaM.set(mk, mat); } }
+    const mm = new THREE.Mesh(geo, mat); mm.castShadow = L.cast; mm.receiveShadow = true; nodo.add(mm);
+    for (const c of L.list) nodo.remove(c);
+  }
+}
 function buildZoo() {
   const HX = 42;
-  world.arena = { t: 'r', hx: HX, hz: HX }; world.start = { x: 0, z: 16 };
+  world.arena = { t: 'r', hx: ZOO.A, hz: ZOO.A }; world.start = { x: 0, z: 16 };   // el zoo de siempre en el centro y tres zonas alrededor (zooGrande)
   world.shirts = [0xa89058, 0x6a7a3a, 0xe8e0c8, 0x8a5a2a, 0x3a6a8a, 0xd8603a, 0xe8c8d8]; world.hat = 'straw'; world.hatP = 0.25; world.mix = { dog: 2.2, runner: 1.2, crawler: 1.1 };
   env({ fog: 0x111c16, dens: 0.02, top: 0x03080a, hemiS: 0x8ab098, hemiG: 0x2a2a1a, hemiI: 0.68, moonC: 0xc8e0d0, moonI: 0.8, wind: 0.1 });
 
   // ---------- suelo
-  addGround(170, canvasTex(512, 512, (g, w, h) => {
+  addGround(250, canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = '#2c3d1d'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 2400; i++) { g.fillStyle = pick(['#34481f', '#24331a', '#3e5226', '#2a3a1a', '#4a4a26']); g.globalAlpha = rand(0.3, 0.8); g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(2, 12), 0, TAU); g.fill(); }
     g.globalAlpha = 0.7; for (let i = 0; i < 3600; i++) { g.strokeStyle = pick(['#4a6228', '#55702e', '#38501f', '#60783a']); g.lineWidth = 1; const x = rand(0, w), y = rand(0, h); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-3, 3), y - rand(4, 10)); g.stroke(); }
     g.globalAlpha = 1;
-  }, 26));
+  }, 38));
   overlayPlane(86, (g, w) => {
     const k = w / 86, X = x => (x + 43) * k, Z = z => (z + 43) * k;
     const rect = (x1, z1, x2, z2, c) => { g.fillStyle = c; g.fillRect(X(x1), Z(z1), (x2 - x1) * k, (z2 - z1) * k); };
@@ -14687,7 +14711,7 @@ function buildZoo() {
   });
 
   // ---------- materiales y texturas compartidas
-  let sgAq = null;
+  let sgAq = null, meshM = null;
   // carteles de los objetos con los que se puede interactuar (4 franjas en una textura)
   const intT = canvasTex(512, 256, (g, w) => {
     [['PELIGRO · RINOCERONTE', '#f0c020', '#111'], ['NO GOLPEAR EL CRISTAL', '#1a4a7a', '#e8f4ff'], ['ABRIR SOLO EN EMERGENCIA', '#c01818', '#fff'], ['COMIDA CALIENTE', '#f0e0b0', '#a01a10']].forEach(([t, bg, fg], i) => {
@@ -14715,25 +14739,35 @@ function buildZoo() {
   [[0, 39.5, false], [-34, -26, false], [0, -36, false], [36, -27, false], [33, 4, false], [-29.5, 8.5, false], [-39.5, 32, true], [39.5, 38.5, true], [-39, -14, true], [39.5, -14, true], [14, 40, true], [-16, 39.5, true]].forEach(([x, z, r]) => world.spawns.push({ x, z, rise: r }));
 
   const B = zooBatch();
+  // piezas de un mismo animal juntas en una sola malla con color por vértice (menos llamadas de dibujo); P = [geo, color, x, y, z, rx, ry, rz, sx, sy, sz]
+  const vcZ = lam(0xffffff, { vertexColors: true }), MG = (parts, p, o = {}) => M(marketGeo(parts), vcZ, o.x || 0, o.y || 0, o.z || 0, { p, cast: o.cast });
   const G = { box: bx(1, 1, 1), cyl: cyl(0.5, 0.5, 1, 8), sph: new THREE.SphereGeometry(0.5, 10, 8), ico: new THREE.IcosahedronGeometry(1, 0), dod: new THREE.DodecahedronGeometry(1, 0), cone: new THREE.ConeGeometry(1, 1, 6) };
 
   // ---------- valla exterior de malla con postes verdes + selva detrás
   {
     const W = HX + 0.6, H = 3.2;
-    const meshM = new THREE.MeshLambertMaterial({ map: chainT, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, color: 0xb8c0c0 });
-    for (const [x, z, ry, len] of [[0, -W, 0, 2 * W], [W, 0, Math.PI / 2, 2 * W], [-W, 0, Math.PI / 2, 2 * W], [-(W + 4) / 2 - 2, W, 0, W - 4], [(W + 4) / 2 + 2, W, 0, W - 4]]) {
-      const t = chainT.clone(); t.needsUpdate = true; t.repeat.set(len / 0.4, H / 0.4);
-      M(new THREE.PlaneGeometry(len, H), new THREE.MeshLambertMaterial({ map: t, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, color: 0xb8c0c0 }), x, H / 2, z, { ry, cast: false });
-      const n = Math.round(len / 3);
-      for (let i = 0; i <= n; i++) { const tt = -len / 2 + i * len / n, px = x + Math.cos(ry) * tt, pz = z - Math.sin(ry) * tt; B.put('fpost', G.cyl, green, null, px, H / 2 + 0.1, pz, 0, 0, 0, 0.14, H + 0.2, 0.14); B.put('fpost', G.cyl, green, null, px, H + 0.25, pz, 0.6, ry, 0, 0.06, 0.6, 0.06); }
-      for (const y of [H, H + 0.35]) B.put('wire', G.box, iron, null, x, y, z, 0, ry, 0, len, 0.025, 0.025);
+    // una sola malla de alambre para todos los tramos (la textura se repite por las coordenadas, así luego se funden en una)
+    meshM = new THREE.MeshLambertMaterial({ map: chainT, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, color: 0xb8c0c0 });
+    // los cuatro lados, con los huecos que llevan a las zonas nuevas (ZOO.huecos: centro y ancho de cada uno)
+    for (const [lado, fijo, ry] of [['n', -W, 0], ['s', W, 0], ['o', -W, Math.PI / 2], ['e', W, Math.PI / 2]]) {
+      const hs = ZOO.huecos[lado].map(([c, w]) => [c - w / 2, c + w / 2]).sort((a, b) => a[0] - b[0]), tramos = []; let a0 = -W;
+      for (const [a, b] of hs) { tramos.push([a0, a]); a0 = b; } tramos.push([a0, W]);
+      for (const [a, b] of tramos) {
+        const len = b - a, c = (a + b) / 2; if (len < 0.3) continue;
+        const x = ry ? fijo : c, z = ry ? c : fijo, g = new THREE.PlaneGeometry(len, H), uv = g.attributes.uv;
+        for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * len / 0.4, uv.getY(i) * H / 0.4);
+        M(g, meshM, x, H / 2, z, { ry, cast: false }); addBox(x, z, len / 2, 0.12, ry);
+        const n = Math.max(1, Math.round(len / 3));
+        for (let i = 0; i <= n; i++) { const tt = -len / 2 + i * len / n, px = x + Math.cos(ry) * tt, pz = z - Math.sin(ry) * tt; B.put('fpost', G.cyl, green, null, px, H / 2 + 0.1, pz, 0, 0, 0, 0.14, H + 0.2, 0.14); B.put('fpost', G.cyl, green, null, px, H + 0.25, pz, 0.6, ry, 0, 0.06, 0.6, 0.06); }
+        for (const y of [H, H + 0.35]) B.put('wire', G.box, iron, null, x, y, z, 0, ry, 0, len, 0.025, 0.025);
+      }
     }
-    // seto bajo pegado a la valla
-    const hedge = lam(0x1d2e17, { flatShading: true });
-    for (let i = 0; i < 120; i++) { const side = i % 4, t = sr(-W, W), x = side === 0 ? t : side === 1 ? W - 0.9 : side === 2 ? -W + 0.9 : t, z = side === 0 ? -W + 0.9 : side === 3 ? W - 0.9 : t; if (side === 3 && Math.abs(x) < 6) continue; B.put('hedge', G.dod, hedge, null, x, 0.35, z, sr(0, 3), sr(0, 3), 0, sr(0.8, 1.3), sr(0.5, 0.9), sr(0.8, 1.3)); }
-    // selva exterior (palmeras y árboles)
+    // seto bajo pegado a la valla (nunca en los huecos)
+    const hedge = lam(0x1d2e17, { flatShading: true }), enHueco = (lado, t) => ZOO.huecos[lado].some(([c, w]) => Math.abs(t - c) < w / 2 + 1.2);
+    for (let i = 0; i < 120; i++) { const side = i % 4, t = sr(-W, W), x = side === 0 ? t : side === 1 ? W - 0.9 : side === 2 ? -W + 0.9 : t, z = side === 0 ? -W + 0.9 : side === 3 ? W - 0.9 : t; if (enHueco(['n', 'e', 'o', 's'][side], t)) continue; B.put('hedge', G.dod, hedge, null, x, 0.35, z, sr(0, 3), sr(0, 3), 0, sr(0.8, 1.3), sr(0.5, 0.9), sr(0.8, 1.3)); }
+    // selva de fuera del muro (palmeras y árboles; el zoo grande llega hasta el muro de ZOO.A)
     const tr = lam(0x2e2418), lf = lam(0x1a2c16, { flatShading: true });
-    for (let i = 0; i < 60; i++) { const a = sr(0, TAU), r = sr(47, 66), x = Math.cos(a) * r, z = Math.sin(a) * r, s = sr(1, 2); B.put('btrunk', G.cyl, tr, null, x, 1.6 * s, z, 0, 0, 0, 0.5 * s, 3.2 * s, 0.5 * s); B.put('bleaf', G.ico, lf, null, x, 4.4 * s, z, sr(0, 3), sr(0, 3), 0, 2.2 * s, 2 * s, 2.2 * s); }
+    for (let i = 0; i < 70; i++) { const a = sr(0, TAU), r = sr(ZOO.A * 1.1, ZOO.A * 1.36), x = Math.cos(a) * r, z = Math.sin(a) * r, s = sr(1.4, 2.4); if (Math.max(Math.abs(x), Math.abs(z)) < ZOO.A + 6) continue; B.put('btrunk', G.cyl, tr, null, x, 1.6 * s, z, 0, 0, 0, 0.5 * s, 3.2 * s, 0.5 * s); B.put('bleaf', G.ico, lf, null, x, 4.4 * s, z, sr(0, 3), sr(0, 3), 0, 2.2 * s, 2 * s, 2.2 * s); }
   }
 
   // ---------- arco de entrada con cartel y taquilla
@@ -14757,7 +14791,7 @@ function buildZoo() {
     M(bx(10.6, 2.6, 0.35), lam(0x5a1e0e), 0, 6.1, 0, { p: sign });
     M(zooUV(new THREE.PlaneGeometry(10.4, 2.44), 136 / 256, 1), bsc(0xd8d0c8, { map: sgAq }), 0, 6.1, -0.18, { p: sign, ry: Math.PI, cast: false });
     // tablón de CERRADO colgado de dos cadenas, que se mece con el viento
-    const plank = new THREE.Group(); plank.position.set(2.8, 4.85, -0.3); sign.add(plank);
+    const plank = new THREE.Group(); plank.position.set(2.8, 4.85, -0.3); sign.add(plank); plank.userData.vivo = 1;
     for (const sx of [-0.8, 0.8]) M(cyl(0.02, 0.02, 0.5, 4), lam(0x8a8a80), sx, -0.25, 0, { p: plank, cast: false });
     M(zooUV(new THREE.PlaneGeometry(2.2, 0.4), 96 / 256, 136 / 256, 0, 220 / 512), bsc(0xd0c8c0, { map: sgAq }), 0, -0.68, -0.02, { p: plank, ry: Math.PI, cast: false });
     M(bx(2.24, 0.44, 0.04), lam(0x5a1e0e), 0, -0.68, 0.01, { p: plank });
@@ -14814,7 +14848,7 @@ function buildZoo() {
     for (let i = 0; i < 6; i++) B.put('bone', G.cyl, lam(0xe0d8c0), null, -30 + sr(-3, 3), 0.06, -27 + sr(-2, 2), 0, sr(0, 3), Math.PI / 2, 0.1, sr(0.5, 0.9), 0.1);
     // el león, tumbado en lo alto de la roca, mirando
     const lion = (x, y, z, ry, male, scale = 1) => {
-      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; g.scale.setScalar(scale); world.group.add(g);
+      const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; g.scale.setScalar(scale); world.group.add(g); g.userData.vivo = 1;
       const fur = lam(0xb88a4a), mane = lam(0x5a3418, { flatShading: true });
       M(G.sph, fur, 0, 0.5, 0, { p: g }).scale.set(1, 0.65, 1.9);
       for (const sx of [-0.28, 0.28]) { M(G.box, fur, sx, 0.15, 0.75, { p: g }).scale.set(0.2, 0.25, 0.8); M(G.box, fur, sx, 0.15, -0.7, { p: g }).scale.set(0.24, 0.3, 0.6); }
@@ -14826,7 +14860,8 @@ function buildZoo() {
       const tail = new THREE.Group(); tail.position.set(0, 0.6, -0.9); g.add(tail);
       M(G.cyl, fur, 0, 0, -0.45, { p: tail, rx: Math.PI / 2 - 0.3 }).scale.set(0.07, 0.9, 0.07);
       const ph = Math.random() * 9;
-      anims.push((dt, t) => { head.rotation.y = Math.sin(t * 0.4 + ph) * 0.6; head.rotation.x = Math.sin(t * 0.23 + ph) * 0.1; tail.rotation.y = Math.sin(t * 1.6 + ph) * 0.7; g.children[0].scale.y = 0.65 + Math.sin(t * 1.4 + ph) * 0.02; });
+      const cuerpo = g.children[0]; juntarHijos(g, [cuerpo]); juntarHijos(head);
+      anims.push((dt, t) => { head.rotation.y = Math.sin(t * 0.4 + ph) * 0.6; head.rotation.x = Math.sin(t * 0.23 + ph) * 0.1; tail.rotation.y = Math.sin(t * 1.6 + ph) * 0.7; cuerpo.scale.y = 0.65 + Math.sin(t * 1.4 + ph) * 0.02; });
       return g;
     };
     lion(-34, 1.75, -33.5, 0.5, true, 1.15);
@@ -14857,7 +14892,7 @@ function buildZoo() {
     const spots = canvasTex(128, 128, (g, w) => { g.fillStyle = '#e0b060'; g.fillRect(0, 0, w, w); g.fillStyle = '#7a4a1e'; for (let y = 0; y < w; y += 22) for (let x = (y / 22 % 2) * 11; x < w; x += 22) { g.beginPath(); g.moveTo(x + rand(2, 6), y + rand(1, 4)); g.lineTo(x + rand(14, 19), y + rand(1, 5)); g.lineTo(x + rand(15, 20), y + rand(14, 19)); g.lineTo(x + rand(1, 5), y + rand(14, 19)); g.fill(); } }, 2);
     const gm = lam(0xffffff, { map: spots }), hoof = lam(0x3a2a1a);
     const giraffe = (x, z, ry, s) => {
-      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; g.scale.setScalar(s); world.group.add(g);
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; g.scale.setScalar(s); world.group.add(g); g.userData.vivo = 1;
       M(G.sph, gm, 0, 2.3, 0, { p: g }).scale.set(1.0, 1.0, 2.0);
       for (const [lx, lz] of [[-0.3, 0.65], [0.3, 0.65], [-0.3, -0.7], [0.3, -0.7]]) M(G.cyl, gm, lx, 1.05, lz, { p: g }).scale.set(0.16, 2.2, 0.16);
       const neck = new THREE.Group(); neck.position.set(0, 2.6, 0.8); g.add(neck);
@@ -14867,6 +14902,7 @@ function buildZoo() {
       for (const sx of [-0.08, 0.08]) M(G.cyl, hoof, sx, 0.28, 0.05, { p: head }).scale.set(0.06, 0.3, 0.06);
       M(G.cyl, hoof, 0, 0.2, -1.1, { p: g, rx: 0 });
       const tail = M(G.cyl, hoof, 0, 2.1, -1.0, { p: g, rx: 0.3 }); tail.scale.set(0.04, 0.9, 0.04);
+      juntarHijos(g, [tail]); juntarHijos(head);
       const ph = Math.random() * 9;
       anims.push((dt, t) => { neck.rotation.x = Math.sin(t * 0.5 + ph) * 0.12 + (Math.sin(t * 0.13 + ph) > 0.7 ? 0.5 : 0) * 0.6; neck.rotation.y = Math.sin(t * 0.3 + ph) * 0.35; head.rotation.x = Math.sin(t * 0.9 + ph) * 0.15; tail.rotation.z = Math.sin(t * 2.2 + ph) * 0.3; });
       addCircle(x, z, 1.1 * s);
@@ -14890,7 +14926,7 @@ function buildZoo() {
     for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; B.put('rock', G.dod, rockM, null, 25 + Math.cos(a) * 3.1, 0.15, -29.5 + Math.sin(a) * 3.1, sr(0, 3), sr(0, 3), 0, 0.5, 0.35, 0.5); }
     addCircle(25, -29.5, 3.2);
     // oso de pie, balanceándose
-    const bear = new THREE.Group(); bear.position.set(30, 0, -28); bear.rotation.y = 0.3; world.group.add(bear);
+    const bear = new THREE.Group(); bear.position.set(30, 0, -28); bear.rotation.y = 0.3; world.group.add(bear); bear.userData.vivo = 1;
     const fur = lam(0x3a2618);
     M(G.sph, fur, 0, 1.45, 0, { p: bear }).scale.set(1.2, 1.7, 0.95);
     for (const sx of [-0.35, 0.35]) M(G.cyl, fur, sx, 0.35, 0, { p: bear }).scale.set(0.4, 0.8, 0.45);
@@ -14898,7 +14934,7 @@ function buildZoo() {
     const bh = new THREE.Group(); bh.position.set(0, 2.55, 0.1); bear.add(bh);
     M(G.sph, fur, 0, 0, 0, { p: bh }).scale.set(0.7, 0.62, 0.65); M(G.sph, lam(0x6a4a30), 0, -0.08, 0.32, { p: bh }).scale.set(0.3, 0.25, 0.3);
     for (const sx of [-0.25, 0.25]) M(G.sph, fur, sx, 0.3, 0, { p: bh }).scale.set(0.2, 0.2, 0.12);
-    addCircle(30, -28, 0.9);
+    addCircle(30, -28, 0.9); juntarHijos(bear); juntarHijos(bh);
     anims.push((dt, t) => { bear.rotation.z = Math.sin(t * 1.1) * 0.06; bh.rotation.y = Math.sin(t * 0.5) * 0.5; arms[0].rotation.x = -0.4 + Math.sin(t * 1.1) * 0.3; arms[1].rotation.x = -0.4 - Math.sin(t * 1.1) * 0.3; const blink = (t % 4) < 0.15; eyes.forEach(e => e.visible = !blink); });
   }
 
@@ -14918,15 +14954,15 @@ function buildZoo() {
     B.put('ttrunk', G.cyl, woodD, null, cx, 2.2, cz, 0, 0, 0, 0.5, 4.4, 0.5); addCircle(cx, cz, 0.4);
     for (let i = 0; i < 4; i++) B.put('ttrunk', G.cyl, woodD, null, cx + Math.cos(i * 1.6) * 1.2, 3.3 + i * 0.2, cz + Math.sin(i * 1.6) * 1.2, 0, -i * 1.6, 1.2, 0.18, 2.8, 0.18);
     const ropes = [], ropeM = lam(0x8a7a5a);
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + 0.3, r = 2.6; const g = new THREE.Group(); g.position.set(cx + Math.cos(a) * r, 5.2 - (i % 2) * 0.4, cz + Math.sin(a) * r); world.group.add(g); M(G.cyl, ropeM, 0, -1.4, 0, { p: g, cast: false }).scale.set(0.05, 2.8, 0.05); if (i === 2) M(new THREE.TorusGeometry(0.4, 0.13, 6, 12), black, 0, -2.9, 0, { p: g }); ropes.push(g); }
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + 0.3, r = 2.6; const g = new THREE.Group(); g.position.set(cx + Math.cos(a) * r, 5.2 - (i % 2) * 0.4, cz + Math.sin(a) * r); world.group.add(g); g.userData.vivo = 1; M(G.cyl, ropeM, 0, -1.4, 0, { p: g, cast: false }).scale.set(0.05, 2.8, 0.05); if (i === 2) M(new THREE.TorusGeometry(0.4, 0.13, 6, 12), black, 0, -2.9, 0, { p: g }); ropes.push(g); }
     // monos que saltan y se cuelgan
     const mFur = lam(0x5a3a22), mFace = lam(0xc89a72);
     const monkeys = [];
     for (let i = 0; i < 5; i++) {
-      const m = new THREE.Group(); world.group.add(m);
+      const m = new THREE.Group(); world.group.add(m); m.userData.vivo = 1;
       M(G.sph, mFur, 0, 0.35, 0, { p: m }).scale.set(0.38, 0.5, 0.32); M(G.sph, mFur, 0, 0.75, 0.04, { p: m }).scale.set(0.3, 0.28, 0.28); M(G.sph, mFace, 0, 0.73, 0.15, { p: m }).scale.set(0.2, 0.18, 0.1);
       const tl = M(G.cyl, mFur, 0, 0.2, -0.25, { p: m, rx: -1 }); tl.scale.set(0.04, 0.7, 0.04);
-      monkeys.push({ m, ph: i * 1.7, k: i });
+      juntarHijos(m); monkeys.push({ m, ph: i * 1.7, k: i });
     }
     anims.push((dt, t) => {
       ropes.forEach((r, i) => { r.rotation.z = Math.sin(t * 1.4 + i) * 0.25; r.rotation.x = Math.cos(t * 1.1 + i) * 0.15; });
@@ -14997,7 +15033,7 @@ function buildZoo() {
     // grietas que aparecen con cada disparo (líneas blancas finas sobre el cristal)
     const crackM = bsc(0xe8f6ff, { transparent: true, opacity: 0.85 }), cracks = [];
     for (let k = 0; k < 2; k++) {
-      const cg = new THREE.Group(); cg.position.set(x0 + 0.05, k ? 1.7 : 2.9, cz + (k ? 3.5 : -2.5)); cg.visible = false; world.group.add(cg);
+      const cg = new THREE.Group(); cg.position.set(x0 + 0.05, k ? 1.7 : 2.9, cz + (k ? 3.5 : -2.5)); cg.visible = false; world.group.add(cg); cg.userData.vivo = 1;
       for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + sr(-0.3, 0.3), L = sr(0.8, 1.9); const c = M(bx(0.02, L, 0.03), crackM, 0, Math.sin(a) * L / 2, Math.cos(a) * L / 2, { p: cg, cast: false }); c.rotation.x = -a + Math.PI / 2; }
       cracks.push(cg);
     }
@@ -15028,7 +15064,7 @@ function buildZoo() {
 
   // ---------- CARRUSEL (centro) que gira con música
   {
-    const cx = 0, cz = -6, g = Grp(cx, cz), plat = new THREE.Group(); g.add(plat);
+    const cx = 0, cz = -6, g = Grp(cx, cz), plat = new THREE.Group(); g.add(plat); plat.userData.vivo = 1;
     M(cyl(5.4, 5.6, 0.5, 28), lam(0x7a2a5a), 0, 0.25, 0, { p: g, solid: true });
     M(cyl(5.2, 5.2, 0.06, 28), lam(0xd8b050), 0, 0.53, 0, { p: plat, cast: false });
     const roofT = stripeTex('#c83a3a', '#f0e8d0', 16);
@@ -15037,20 +15073,22 @@ function buildZoo() {
     M(cyl(0.7, 0.7, 4.4, 12), lam(0xd8b050), 0, 2.6, 0, { p: g, solid: true });
     M(new THREE.SphereGeometry(0.35, 10, 8), lam(0xd8b050), 0, 7, 0, { p: plat });
     const animals = []; const AC = [0xf0e8d8, 0x8a5a2a, 0x2a2a2a, 0xd8a040, 0xe8e8e8];
+    // los caballitos: una sola malla con diez copias que suben y bajan; las barras, otra malla
+    const caba = new THREE.InstancedMesh(marketGeo([[bx(1, 1, 1), 0xffffff, 0, 0, 0, 0, 0, 0, 0.35, 0.45, 1.1], [bx(1, 1, 1), 0xffffff, 0, 0.45, 0.55, -0.5, 0, 0, 0.22, 0.6, 0.3], [bx(1, 1, 1), 0xffffff, 0, 0.7, 0.75, 0, 0, 0, 0.2, 0.22, 0.45], [bx(1, 1, 1), 0xc83a3a, 0, 0.25, 0, 0, 0, 0, 0.38, 0.06, 0.5], [bx(1, 1, 1), 0x2a2a2a, 0, -0.45, 0.25, 0, 0, 0, 0.08, 0.5, 0.08], [bx(1, 1, 1), 0x2a2a2a, 0, -0.45, -0.3, 0, 0, 0, 0.08, 0.5, 0.08]]), vcZ, 10);
+    caba.castShadow = true; caba.frustumCulled = false; caba.userData.vivo = 1; plat.add(caba);
+    const barras = [];
     for (let i = 0; i < 10; i++) {
       const a = i / 10 * TAU, x = Math.cos(a) * 4, z = Math.sin(a) * 4;
-      M(cyl(0.05, 0.05, 3.6, 5), lam(0xd8b050), x, 2.4, z, { p: plat, cast: false });
-      const h = new THREE.Group(); h.position.set(x, 1.6, z); h.rotation.y = -a; plat.add(h);
-      const c = lam(AC[i % 5]);
-      M(G.box, c, 0, 0, 0, { p: h }).scale.set(0.35, 0.45, 1.1); M(G.box, c, 0, 0.45, 0.55, { p: h, rx: -0.5 }).scale.set(0.22, 0.6, 0.3); M(G.box, c, 0, 0.7, 0.75, { p: h }).scale.set(0.2, 0.22, 0.45);
-      M(G.box, lam(0xc83a3a), 0, 0.25, 0, { p: h, cast: false }).scale.set(0.38, 0.06, 0.5);
-      animals.push(h);
+      barras.push([cyl(0.05, 0.05, 3.6, 5), 0xd8b050, x, 2.4, z]); caba.setColorAt(i, new THREE.Color(AC[i % 5]));
+      animals.push({ x, z, a });
     }
+    MG(barras, plat, { cast: false });
+    const hd4 = new THREE.Object3D();
     const pts = []; for (let i = 0; i < 36; i++) { const a = i / 36 * TAU; pts.push([cx + Math.cos(a) * 6.05, 3.95, cz + Math.sin(a) * 6.05]); }
     const ring = bulbString(pts, [0xffd060, 0xff6080, 0x60c0ff, 0xffffff]); world.group.remove(ring); ring.position.set(-cx, 0, -cz); plat.add(ring);
     lampLight(cx, 3.2, cz + 0.1, 0xffc0d8, 1.5, 18, null, 0.4);
     zooGlow(cx, 4.2, cz, 0xffb0c0, 12, 0.18);
-    anims.push((dt, t) => { const sp = 0.45 + Math.sin(t * 0.2) * 0.1; plat.rotation.y += dt * sp; animals.forEach((h, i) => h.position.y = 1.6 + Math.sin(t * 2.4 + i * 1.3) * 0.35); });
+    anims.push((dt, t) => { const sp = 0.45 + Math.sin(t * 0.2) * 0.1; plat.rotation.y += dt * sp; animals.forEach((h, i) => { hd4.position.set(h.x, 1.6 + Math.sin(t * 2.4 + i * 1.3) * 0.35, h.z); hd4.rotation.set(0, -h.a, 0); hd4.updateMatrix(); caba.setMatrixAt(i, hd4.matrix); }); caba.instanceMatrix.needsUpdate = true; });
     addCircle(cx, cz, 5.7);
     // bancos alrededor
     for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.5; if (Math.sin(a) > 0.8) continue; const x = cx + Math.cos(a) * 9.3, z = cz + Math.sin(a) * 9.3, P = B.at(x, 0, z, -a - Math.PI / 2); B.put('bseat', G.box, wood, P, 0, 0.48, 0, 0, 0, 0, 2, 0.08, 0.55); B.put('bseat', G.box, wood, P, 0, 0.82, -0.27, -0.15, 0, 0, 2, 0.4, 0.06); for (const sx of [-0.85, 0.85]) B.put('bleg', G.box, iron, P, sx, 0.24, 0, 0, 0, 0, 0.08, 0.48, 0.55); addBox(x, z, 1.05, 0.38, -a - Math.PI / 2); }
@@ -15070,17 +15108,17 @@ function buildZoo() {
     const pink = lam(0xf07aa0), beak = lam(0x1a1a1a);
     const fls = [];
     [[px - 2.5, pz - 2, 0.3], [px - 1, pz - 3.2, 1.2], [px + 1.8, pz - 2.5, -0.6], [px + 3.4, pz + 0.8, 2.1], [px - 3.6, pz + 1.2, 2.8], [px + 0.5, pz + 2.6, -2.4], [px + 4.6, pz - 1.6, 0.9]].forEach(([x, z, ry], i) => {
-      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; world.group.add(g);
+      const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; world.group.add(g); g.userData.vivo = 1;
       M(G.cyl, pink, 0, 0.6, 0, { p: g, cast: false }).scale.set(0.035, 1.2, 0.035); if (i % 2) M(G.cyl, pink, 0.06, 0.95, -0.1, { p: g, rz: 0.4, cast: false }).scale.set(0.035, 0.5, 0.035);
       M(G.sph, pink, 0, 1.3, 0, { p: g }).scale.set(0.42, 0.36, 0.7);
       const nk = new THREE.Group(); nk.position.set(0, 1.4, 0.25); g.add(nk);
       M(G.cyl, pink, 0, 0.42, 0.05, { p: nk, rx: 0.15 }).scale.set(0.05, 0.85, 0.05);
       M(G.sph, pink, 0, 0.86, 0.12, { p: nk }).scale.set(0.14, 0.14, 0.18); M(G.cyl, beak, 0, 0.8, 0.26, { p: nk, rx: 1.9 }).scale.set(0.04, 0.16, 0.04);
-      fls.push({ g, nk, ph: i * 2.1 });
+      juntarHijos(g); juntarHijos(nk); fls.push({ g, nk, ph: i * 2.1 });
     });
     // patos que nadan en círculos
     const ducks = [];
-    for (let i = 0; i < 5; i++) { const d = new THREE.Group(); world.group.add(d); M(G.sph, lam(i === 0 ? 0xe8e4d8 : 0x6a5a3a), 0, 0.12, 0, { p: d, cast: false }).scale.set(0.26, 0.2, 0.42); M(G.sph, lam(i === 0 ? 0xe8e4d8 : 0x1a5a2a), 0, 0.32, 0.18, { p: d, cast: false }).scale.set(0.15, 0.15, 0.15); M(G.box, lam(0xe8a020), 0, 0.3, 0.3, { p: d, cast: false }).scale.set(0.07, 0.04, 0.12); ducks.push(d); }
+    for (let i = 0; i < 5; i++) { const d = new THREE.Group(); world.group.add(d); d.userData.vivo = 1; M(G.sph, lam(i === 0 ? 0xe8e4d8 : 0x6a5a3a), 0, 0.12, 0, { p: d, cast: false }).scale.set(0.26, 0.2, 0.42); M(G.sph, lam(i === 0 ? 0xe8e4d8 : 0x1a5a2a), 0, 0.32, 0.18, { p: d, cast: false }).scale.set(0.15, 0.15, 0.15); M(G.box, lam(0xe8a020), 0, 0.3, 0.3, { p: d, cast: false }).scale.set(0.07, 0.04, 0.12); juntarHijos(d); ducks.push(d); }
     anims.push((dt, t) => {
       fls.forEach(f => { const dip = Math.max(0, Math.sin(t * 0.5 + f.ph)); f.nk.rotation.x = dip * 2.1 * Math.min(1, dip * 2); f.g.rotation.y += Math.sin(t * 0.2 + f.ph) * dt * 0.1; });
       ducks.forEach((d, i) => { const a = t * (0.25 + i * 0.04) + i * 1.3, r = 2.4 + (i % 3) * 0.8; d.position.set(px + Math.cos(a) * r, 0.02 + Math.sin(t * 3 + i) * 0.02, pz + Math.sin(a) * r * 0.75); d.rotation.y = -a; });
@@ -15095,7 +15133,7 @@ function buildZoo() {
     const awnT = stripeTex('#d83a3a', '#f8f0e0', 10);
     const awnM = lam(0xffffff, { map: awnT, side: THREE.DoubleSide });
     // puesto de perritos calientes
-    const hd = Grp(-27, 24.5, Math.PI / 2 - 0.1);
+    const hd = Grp(-27, 24.5, Math.PI / 2 - 0.1); hd.userData.vivo = 1;
     M(bx(4, 1.1, 1.8), lam(0xe8d8b0), 0, 0.55, 0, { p: hd, solid: true }); M(bx(4, 2.4, 0.2), lam(0xe8d8b0), 0, 1.2, -0.8, { p: hd, solid: true });
     const aw = M(new THREE.PlaneGeometry(4.4, 1.8), awnM, 0, 2.6, 0.3, { p: hd, rx: -Math.PI / 2 + 0.35 });
     M(new THREE.PlaneGeometry(3, 0.42), signM(6), 0, 2.15, -0.68, { p: hd, cast: false });
@@ -15107,6 +15145,7 @@ function buildZoo() {
     const grill = M(bx(1.4, 0.06, 0.8), bsc(0xff7a30), -0.9, 1.13, 0.1, { p: hd, cast: false });
     const sausM = lam(0xb8562a), saus = []; for (let i = 0; i < 4; i++) saus.push(M(G.cyl, sausM, -1.4 + i * 0.32, 1.2, 0.1, { p: hd, rx: Math.PI / 2 }));
     saus.forEach(m => m.scale.set(0.09, 0.5, 0.09));
+    juntarHijos(hd, [aw, grill, ...saus]);
     const fp = lw(hd, 0, 2.2), gp = lw(hd, -0.9, 0.1);
     let fed = 0;
     mapUse({ x: fp.x, z: fp.z, r: 2.4, t: 'Puesto de perritos calientes', d: 'La plancha sigue encendida: un perrito te cura 40 de vida.', b: 'Comprar', price: 8, cd: 25, use(o) {
@@ -15182,7 +15221,7 @@ function buildZoo() {
 
   // ---------- elefante suelto en el césped y corral de cabras
   {
-    const ex = 15, ez = -8.5, el = new THREE.Group(); el.position.set(ex, 0, ez); el.rotation.y = -2.2; world.group.add(el);
+    const ex = 15, ez = -8.5, el = new THREE.Group(); el.position.set(ex, 0, ez); el.rotation.y = -2.2; world.group.add(el); el.userData.vivo = 1;
     const sk = lam(0x6a6a70);
     M(G.sph, sk, 0, 2.1, 0, { p: el }).scale.set(2.2, 2.1, 3.4);
     for (const [lx, lz] of [[-0.6, 1], [0.6, 1], [-0.6, -1], [0.6, -1]]) M(G.cyl, sk, lx, 0.65, lz, { p: el }).scale.set(0.6, 1.4, 0.6);
@@ -15194,6 +15233,7 @@ function buildZoo() {
     const tr2 = new THREE.Group(); tr2.position.set(0, -1.05, 0.2); trunk.add(tr2); M(G.cyl, sk, 0, -0.4, 0, { p: tr2 }).scale.set(0.22, 0.85, 0.22);
     for (const sx of [-0.3, 0.3]) M(new THREE.ConeGeometry(0.08, 0.7, 6), white, sx, -0.35, 0.55, { p: eh, rx: 2.1 });
     const etl = M(G.cyl, sk, 0, 2.2, -1.75, { p: el, rx: 0.3 }); etl.scale.set(0.06, 1, 0.06);
+    juntarHijos(el, [etl]); juntarHijos(eh);
     addCircle(ex, ez, 1.9); addCircle(ex + Math.sin(-2.2) * 1.6, ez + Math.cos(-2.2) * 1.6, 1.2);
     anims.push((dt, t) => { trunk.rotation.x = Math.sin(t * 0.8) * 0.35; tr2.rotation.x = Math.sin(t * 0.8 - 0.6) * 0.5; trunk.rotation.z = Math.sin(t * 0.5) * 0.2; ears.forEach(([e, sx]) => e.rotation.y = sx * (0.2 + Math.sin(t * 2.2) * 0.25)); eh.rotation.y = Math.sin(t * 0.25) * 0.25; etl.rotation.z = Math.sin(t * 1.8) * 0.3; });
     // corral de cabras: valla baja con la puerta rota, balas de heno y cabras que pastan
@@ -15201,7 +15241,7 @@ function buildZoo() {
     for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; if (Math.abs(Math.atan2(Math.sin(a - Math.PI / 2), Math.cos(a - Math.PI / 2))) < 0.5) continue; B.put('wpost', G.cyl, woodD, null, cx + Math.cos(a) * R, 0.55, cz + Math.sin(a) * R, 0, 0, 0, 0.18, 1.1, 0.18); const a2 = a + TAU / 28; if (Math.abs(Math.atan2(Math.sin(a2 - Math.PI / 2), Math.cos(a2 - Math.PI / 2))) < 0.6) continue; B.put('wrail', G.box, wood, null, cx + Math.cos(a2) * R, 0.75, cz + Math.sin(a2) * R, 0, -a2 + Math.PI / 2, 0, R * TAU / 14, 0.12, 0.08); addBox(cx + Math.cos(a2) * R, cz + Math.sin(a2) * R, R * TAU / 28, 0.12, -a2 + Math.PI / 2); }
     for (const [x, z] of [[cx - 1.5, cz - 1.5], [cx + 2, cz - 0.5]]) { B.put('hay', G.cyl, lam(0xc8a850), null, x, 0.45, z, Math.PI / 2, sr(0, 3), 0, 1.1, 1.2, 1.1); addCircle(x, z, 0.65); }
     const goats = [];
-    for (let i = 0; i < 3; i++) { const g = new THREE.Group(); world.group.add(g); const c = lam(i === 1 ? 0x3a2a1a : 0xe8e0d0); M(G.sph, c, 0, 0.6, 0, { p: g }).scale.set(0.45, 0.45, 0.85); for (const [lx, lz] of [[-0.15, 0.25], [0.15, 0.25], [-0.15, -0.25], [0.15, -0.25]]) M(G.cyl, c, lx, 0.25, lz, { p: g }).scale.set(0.07, 0.5, 0.07); const h = new THREE.Group(); h.position.set(0, 0.8, 0.4); g.add(h); M(G.box, c, 0, 0, 0.12, { p: h }).scale.set(0.2, 0.22, 0.38); for (const sx of [-0.06, 0.06]) M(G.cone, black, sx, 0.18, 0, { p: h, rx: -0.5 }).scale.set(0.03, 0.2, 0.03); goats.push({ g, h, ph: i * 2.4 }); }
+    for (let i = 0; i < 3; i++) { const g = new THREE.Group(); world.group.add(g); g.userData.vivo = 1; const c = lam(i === 1 ? 0x3a2a1a : 0xe8e0d0); M(G.sph, c, 0, 0.6, 0, { p: g }).scale.set(0.45, 0.45, 0.85); for (const [lx, lz] of [[-0.15, 0.25], [0.15, 0.25], [-0.15, -0.25], [0.15, -0.25]]) M(G.cyl, c, lx, 0.25, lz, { p: g }).scale.set(0.07, 0.5, 0.07); const h = new THREE.Group(); h.position.set(0, 0.8, 0.4); g.add(h); M(G.box, c, 0, 0, 0.12, { p: h }).scale.set(0.2, 0.22, 0.38); for (const sx of [-0.06, 0.06]) M(G.cone, black, sx, 0.18, 0, { p: h, rx: -0.5 }).scale.set(0.03, 0.2, 0.03); juntarHijos(g); juntarHijos(h); goats.push({ g, h, ph: i * 2.4 }); }
     anims.push((dt, t) => goats.forEach((o, i) => { const a = t * 0.12 + o.ph; o.g.position.set(cx + Math.cos(a) * 2.6, 0, cz + 1 + Math.sin(a) * 2.4); o.g.rotation.y = -a; o.h.rotation.x = 0.4 + Math.max(0, Math.sin(t * 1.2 + o.ph)) * 0.6; }));
     // carrito de cuidador estrellado contra un farol
     const gc = Grp(10.5, 13.5, 0.7); gc.rotation.z = 0.06;
@@ -15240,7 +15280,7 @@ function buildZoo() {
     M(intGeo(0, 3, 0.4), intM, 0, 2.1, 1.26, { p: crate, cast: false });
     M(intGeo(0, 3, 0.4), intM, 0, 2.1, -1.26, { p: crate, ry: Math.PI, cast: false });
     // puerta de barrotes (bisagra en la esquina noroeste)
-    const door = new THREE.Group(); door.position.set(CX - 1.72, 0, LZ - 1.2); world.group.add(door);
+    const door = new THREE.Group(); door.position.set(CX - 1.72, 0, LZ - 1.2); world.group.add(door); door.userData.vivo = 1;
     for (let i = 0; i < 6; i++) M(G.cyl, iron, 0, 1.3, 0.2 + i * 0.4, { p: door }).scale.set(0.08, 2.3, 0.08);
     for (const y of [0.3, 2.3]) M(G.box, iron, 0, y, 1.2, { p: door }).scale.set(0.1, 0.12, 2.4);
     const lock = M(G.box, lam(0xc8a020), 0.06, 1.3, 2.2, { p: door }); lock.scale.set(0.15, 0.3, 0.2);
@@ -15248,13 +15288,13 @@ function buildZoo() {
     // palanca roja junto a la jaula (lado norte)
     const LX = CX + 0.6, LZ2 = LZ + 1.95;
     M(G.box, lam(0x3a3e40), LX, 0.55, LZ2, { solid: true }).scale.set(0.5, 1.1, 0.4); addBox(LX, LZ2, 0.3, 0.25);
-    const lever = new THREE.Group(); lever.position.set(LX, 1.1, LZ2); world.group.add(lever);
+    const lever = new THREE.Group(); lever.position.set(LX, 1.1, LZ2); world.group.add(lever); lever.userData.vivo = 1;
     M(G.cyl, iron, 0, 0.35, 0, { p: lever }).scale.set(0.06, 0.7, 0.06); M(G.sph, bsc(0xff3020), 0, 0.72, 0, { p: lever, cast: false }).scale.setScalar(0.22);
     lever.rotation.x = 0.6;
     M(intGeo(2, 1.6, 0.22), intM, LX, 0.75, LZ2 + 0.21, { cast: false });
     const warn = zooGlow(LX, 1.85, LZ2, 0xff4020, 1.6, 0.6), warn2 = zooGlow(CX - 1.7, 2.75, LZ, 0xff3020, 1.4, 0.5);
     // el rinoceronte (mira hacia -x, hacia el camino)
-    const rh = new THREE.Group(); rh.scale.setScalar(0.86); world.group.add(rh);
+    const rh = new THREE.Group(); rh.scale.setScalar(0.86); world.group.add(rh); rh.userData.vivo = 1;
     const hide = lam(0x7d7870, { flatShading: true }), hideD = lam(0x5e5a54, { flatShading: true }), hornM = lam(0xd8ccb0);
     const body = M(G.sph, hide, 0, 1.2, 0, { p: rh }); body.scale.set(1.35, 1.25, 2.6);
     M(G.sph, hideD, 0, 1.45, 0.55, { p: rh }).scale.set(1.15, 0.9, 1.0);
@@ -15267,6 +15307,7 @@ function buildZoo() {
     for (const sx of [-0.22, 0.22]) M(G.cone, hideD, sx, 0.35, 0.02, { p: head }).scale.set(0.08, 0.22, 0.05);
     const eyeM = bsc(0x200a06); for (const sx of [-0.31, 0.31]) M(G.sph, eyeM, sx, 0.08, 0.38, { p: head, cast: false }).scale.setScalar(0.07);
     const tail = M(G.cyl, hideD, 0, 1.25, -1.3, { p: rh, rx: 0.5 }); tail.scale.set(0.05, 0.5, 0.05);
+    juntarHijos(rh, [body, tail]); juntarHijos(head); juntarHijos(door, [lock]);
     const RS = { st: 0, k: 0, x: HOME, ry: -Math.PI / 2, hit: new Set(), pHit: false };
     rh.position.set(HOME, 0.25, LZ); rh.rotation.y = RS.ry;
     const hitZ = (dmg, back) => {
@@ -15328,7 +15369,811 @@ function buildZoo() {
   // luciérnagas en los recintos
   world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 2 : 5)) PA.add(rand(-38, 38), rand(0.4, 2.2), rand(-40, -24), rand(-0.3, 0.3), rand(-0.1, 0.2), rand(-0.3, 0.3), rand(2, 4), 0.035, 0.8, 1, 0.4, 0.8, 0, 0.3, 0, 0); });
   world.anims.push(...anims);
-  mistField(10, 0x9ab8a8, 42);
+  mistField(16, 0x9ab8a8, ZOO.A - 4);   // el muro y las tres zonas nuevas los pone zooGrande
+  zooGrande({ waterM, waterT, meshM, sgAq, rockM });
+}
+
+/* ===== El Zoológico grande: el reptilario y el acuario al oeste, la sabana al norte, la selva tropical al este y la plaza de la entrada al sur =====
+   El zoo de siempre queda en el centro, dentro de su valla de malla, que ahora tiene huecos hacia afuera (ZOO.huecos: centro y ancho).
+   Igual que la granja, el súper y el circo: 3 zonas de llave. Las zonas son las franjas de fuera de la valla; la del sur es la plaza de la entrada. */
+const ZOO = { A: 82, C: 43.6, huecos: { n: [[-17, 5], [17, 5]], s: [[0, 12], [-33, 5]], o: [[-17, 5], [28.5, 5]], e: [[-17, 5], [17, 5]] },
+  rep: { x0: -76, x1: -54, z0: -36, z1: -18 }, acu: { x0: -78, x1: -56, z0: -6, z1: 20, tz: 7, tw: 2.6 }, coc: { x: -63, z: 44, rx: 12.5, rz: 8 },
+  tren: { z1: -50, z2: -76, x: 60, r: 13 }, cha: { x: -28, z: -63, rx: 7.5, rz: 4.8 }, avi: { x: 64, z: 0, r: 15.5 }, isla: { x: 63, z: 54, r: 9.6 } };
+const enSabana = (x, z) => z < -ZOO.C;
+const enReptil = (x, z) => x < -ZOO.C && z >= -ZOO.C;
+const enSelva = (x, z) => x > ZOO.C && z >= -ZOO.C;
+const enReptilario = (x, z) => x > ZOO.rep.x0 && x < ZOO.rep.x1 && z > ZOO.rep.z0 && z < ZOO.rep.z1;
+const enTunel = (x, z) => x > ZOO.acu.x0 - 0.6 && x < ZOO.acu.x1 + 0.6 && Math.abs(z - ZOO.acu.tz) < ZOO.acu.tw;
+const enAviario = (x, z) => Math.hypot(x - ZOO.avi.x, z - ZOO.avi.z) < ZOO.avi.r;
+function zonaZoo(x, z) {
+  if (enReptil(x, z)) { if (enTunel(x, z)) return 'en el túnel del acuario'; const C = ZOO.coc; return Math.hypot((x - C.x) / (C.rx + 5), (z - C.z) / (C.rz + 5)) < 1 ? 'junto a los cocodrilos' : 'en el reptilario'; }
+  if (enSabana(x, z)) return 'en la sabana';
+  if (enSelva(x, z)) return enAviario(x, z) ? 'en el aviario' : 'en la selva';
+  if (z > ZOO.C) return 'en la entrada del zoo';
+  return 'dentro del zoo';
+}
+// el recorrido del trenecito de la sabana: dos rectas y dos curvas; s = metros desde la estación. Devuelve x, z y el rumbo a (atan2 de dz, dx)
+function zooVia(s) {
+  const T = ZOO.tren, cz = (T.z1 + T.z2) / 2, LC = Math.PI * T.r, L = 4 * T.x + 2 * LC; s = ((s % L) + L) % L;
+  if (s < T.x) return { x: s, z: T.z1, a: 0 };
+  s -= T.x; if (s < LC) { const th = Math.PI / 2 - s / T.r; return { x: T.x + Math.cos(th) * T.r, z: cz + Math.sin(th) * T.r, a: th - Math.PI / 2 }; }
+  s -= LC; if (s < 2 * T.x) return { x: T.x - s, z: T.z2, a: Math.PI };
+  s -= 2 * T.x; if (s < LC) { const th = -Math.PI / 2 - s / T.r; return { x: -T.x + Math.cos(th) * T.r, z: cz + Math.sin(th) * T.r, a: th - Math.PI / 2 }; }
+  s -= LC; return { x: -T.x + s, z: T.z1, a: 0 };
+}
+const zooViaL = () => 4 * ZOO.tren.x + 2 * Math.PI * ZOO.tren.r;
+// distancia de (x, z) a la vía (para no plantar nada encima)
+function zooViaD(x, z) {
+  const T = ZOO.tren, cz = (T.z1 + T.z2) / 2;
+  if (Math.abs(x) <= T.x) return Math.min(Math.abs(z - T.z1), Math.abs(z - T.z2));
+  return Math.abs(Math.hypot(Math.abs(x) - T.x, z - cz) - T.r);
+}
+function zooGrande(K) {
+  const { waterM, waterT, meshM, sgAq, rockM } = K;
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = [{ k: 'rep', nombre: 'en el reptilario', en: enReptil }, { k: 'sab', nombre: 'en la sabana', en: enSabana }, { k: 'sel', nombre: 'en la selva', en: enSelva }];
+  const spotK = (x, z) => world.llvSpots.push({ x, z, zona: zonaZoo(x, z) }), cercaSpot = (x, z, r = 3) => world.llvSpots.some(o => Math.hypot(o.x - x, o.z - z) < r);
+  const sk = a => a[Math.floor(srand() * a.length)];
+  const glowAt = (x, y, z, col, sc, op = 0.6, par) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.set(sc, sc, 1); s.position.set(x, y, z); (par || world.group).add(s); return s; };
+  const TRS = (x, y, z, ry = 0, rx = 0, rz = 0, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(sx, sy, sz));
+  // mallas instanciadas: siempre con frustumCulled = false (three r128 las recorta con la caja de la pieza base, no con la de todas las copias)
+  const inst = (geo, mat, list, o = {}) => {
+    const im = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)), c = new THREE.Color();
+    list.forEach((e, i) => { im.setMatrixAt(i, e.m); im.setColorAt(i, c.setHex(e.c != null ? e.c : 0xffffff)); });   // siempre con color: las copias que comparten material deben ser todas iguales (con o sin color por copia)
+    im.count = list.length; im.castShadow = o.cast !== false; im.receiveShadow = true; im.frustumCulled = false; im.userData.vivo = 1; world.group.add(im); if (o.solid) solids.push(im); return im;
+  };
+  const _gc = new Map(), gk = (k, f) => { let g = _gc.get(k); if (!g) _gc.set(k, g = f()); return g; };
+  const B_ = (w, h, d) => gk('b' + w + ',' + h + ',' + d, () => new THREE.BoxGeometry(w, h, d));
+  const C_ = (rt, rb, h, s = 8) => gk('c' + rt + ',' + rb + ',' + h + ',' + s, () => new THREE.CylinderGeometry(rt, rb, h, s));
+  const S_ = (r, w = 8, h = 6) => gk('s' + r + ',' + w + ',' + h, () => new THREE.SphereGeometry(r, w, h));
+  const D_ = () => gk('dod', () => new THREE.DodecahedronGeometry(1, 0)), I_ = () => gk('ico', () => new THREE.IcosahedronGeometry(1, 0));
+  // piezas quietas: se juntan en pocas mallas con color por vértice (s = sólidas con sombra, d = adorno con sombra, n = sin sombra, L = encendidas)
+  const PZ = { s: [], d: [], n: [], L: [] };
+  let GT = new THREE.Matrix4();
+  const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+  const grp = (x, z, ry = 0, y = 0, rx = 0, rz = 0) => { GT = TRS(x, y, z, ry, rx, rz); };
+  const sinGrp = () => { GT = new THREE.Matrix4(); };
+  const pz = (k, geo, col, x, y, z, ry = 0, rx = 0, rz = 0, sx = 1, sy = 1, sz = 1) => { _m.multiplyMatrices(GT, TRS(x, y, z, ry, rx, rz, sx, sy, sz)); _m.decompose(_p, _q, _s); _e.setFromQuaternion(_q, 'YXZ'); PZ[k].push([geo, col, _p.x, _p.y, _p.z, _e.x, _e.y, _e.z, _s.x, _s.y, _s.z]); };
+  const at = (lx, lz) => { const v = new THREE.Vector3(lx, 0, lz).applyMatrix4(GT); return { x: v.x, z: v.z }; };
+  const boxAt = (lx, lz, hw, hd, ry) => { const q = at(lx, lz); addBox(q.x, q.z, hw, hd, ry); };
+  // pared recta de (x1, z1) a (x2, z2) con choque (para los edificios que se pueden recorrer)
+  const pared = (k, x1, z1, x2, z2, h, col, gr = 0.3, y0 = 0) => { const L = Math.hypot(x2 - x1, z2 - z1), ry = Math.atan2(-(z2 - z1), x2 - x1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2; if (L < 0.05) return; pz(k, B_(L + gr * 0.5, h, gr), col, cx, y0 + h / 2, cz, ry); if (!y0) addBox(cx, cz, L / 2 + gr * 0.25, gr / 2 + 0.02, ry); };
+  // elipse de agua que no se puede pisar: se tapa con franjas de choque (huecoX: tramo de x que queda libre, p. ej. un puente)
+  const charca = (cx, cz, rx, rz, paso = 1.4, huecoX) => { for (let x = cx - rx + paso / 2; x < cx + rx; x += paso) { if (huecoX && x + paso / 2 > huecoX[0] && x - paso / 2 < huecoX[1]) continue; const xc = Math.abs(x - cx) < paso / 2 ? cx : x - Math.sign(x - cx) * paso / 2, u = (xc - cx) / rx, hz = rz * Math.sqrt(Math.max(0, 1 - u * u)) - 0.15; if (hz > 0.2) addBox(x, cz, paso / 2, hz); } };   // cada franja llega hasta la orilla más lejana de su tramo: no queda agua pisable
+  const vcM = lam(0xffffff, { vertexColors: true });
+  const vidrio = lam(0x9ad8e8, { transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, emissive: 0x0a2a30 });
+  const NEU = 0x141210, MAD = 0x6a4a2c, MADO = 0x3e2a1a, VERDE = 0x2a5a3a, PIEDRA = 0x8a8478, HIERRO = 0x2a2e30;
+
+  // ---- Carteles: un solo lienzo con 16 letreros (dos columnas de 8)
+  const TXT = [['REPTILARIO', '#1e4a2a', '#e8f0a0'], ['ACUARIO · EL TÚNEL', '#06223a', '#9ae0ff'], ['COCODRILOS', '#3a4a1a', '#f0e0a0'], ['NO DAR DE COMER', '#2a2a2a', '#f2d060'], ['LA SABANA', '#8a5a1a', '#fff0c0'], ['ESTACIÓN DE LA SABANA', '#2a4a6a', '#ffffff'], ['MIRADOR', '#5a3a1a', '#fff0c0'], ['SAFARI', '#c8a040', '#1a1a1a'],
+    ['SELVA TROPICAL', '#1a4a2a', '#d8f0a0'], ['AVIARIO', '#2a6a4a', '#ffffff'], ['TEMPLO DE LOS TIGRES', '#5a4a3a', '#f0d890'], ['TAQUILLAS', '#8a2a1a', '#ffffff'], ['TIENDA DE REGALOS', '#a83a6a', '#ffffff'], ['ORANGUTANES', '#6a3a1a', '#ffe0b0'], ['SOLO PERSONAL', '#3a2a1a', '#f0e0c0'], ['PELIGRO · ALTO VOLTAJE', '#f0c020', '#111111']];
+  const atl = canvasTex(1024, 512, (g) => {
+    TXT.forEach(([t, bg, fg], i) => {
+      const x = i < 8 ? 0 : 512, y = (i % 8) * 64;
+      g.fillStyle = bg; g.fillRect(x, y, 512, 64); g.strokeStyle = fg; g.globalAlpha = 0.8; g.lineWidth = 4; g.strokeRect(x + 5, y + 5, 502, 54); g.globalAlpha = 1;
+      if (i === 15) { g.fillStyle = '#111'; for (let k = -1; k < 12; k++) { g.beginPath(); g.moveTo(x + k * 44, y + 64); g.lineTo(x + k * 44 + 18, y + 64); g.lineTo(x + k * 44 + 30, y + 52); g.lineTo(x + k * 44 + 12, y + 52); g.fill(); } }
+      g.fillStyle = fg; g.textAlign = 'center'; let fs = 40; g.font = `bold ${fs}px sans-serif`; while (g.measureText(t).width > 470 && fs > 20) { fs -= 2; g.font = `bold ${fs}px sans-serif`; } g.fillText(t, x + 256, y + 32 + fs * 0.36);
+    });
+  });
+  const atM = bsc(0xe8e8e8, { map: atl });
+  const cartel = (i, w, h, x, y, z, ry = 0) => { const u0 = i < 8 ? 0 : 0.5, v1 = 1 - (i % 8) / 8; return M(marketSign(w, h, 0.06, u0, u0 + 0.5, v1 - 1 / 8, v1), atM, x, y, z, { ry, cast: false }); };
+  const poste = (i, x, z, ry, w = 2.2) => { grp(x, z, ry); for (const s of [-1, 1]) pz('d', B_(0.12, 2.2, 0.12), MADO, s * (w / 2 - 0.1), 1.1, 0); sinGrp(); cartel(i, w, 0.5, x, 1.9, z, ry); addCircle(x, z, 0.2); };
+
+  // ======================= SUELO PINTADO DE LAS ZONAS NUEVAS (el centro ya tiene el suyo) =======================
+  overlayPlane(168, (g, w) => {
+    const k = w / 168, X = v => (v + 84) * k, R = (x0, z0, x1, z1, c) => { g.fillStyle = c; g.fillRect(X(x0), X(z0), (x1 - x0) * k, (z1 - z0) * k); };
+    const line = (pts, wd, c) => { g.strokeStyle = c; g.lineWidth = wd * k; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))); g.stroke(); };
+    const blob = (x, z, rx, rz, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(X(x), X(z), rx * k, rz * k, 0, 0, TAU); g.fill(); };
+    const fuera = (x, z) => Math.max(Math.abs(x), Math.abs(z)) > 44;
+    // la sabana: hierba seca y tierra rojiza
+    R(-84, -84, 84, -43.6, 'rgba(150,126,64,.62)');
+    for (let i = 0; i < 1500; i++) { const x = sr(-84, 84), z = sr(-84, -44); blob(x, z, sr(0.6, 3.2), sr(0.4, 2), sk(['rgba(176,150,80,.4)', 'rgba(120,96,48,.4)', 'rgba(150,90,50,.32)', 'rgba(96,104,48,.35)'])); }
+    // el lecho de grava de la vía del tren y el barro alrededor de la charca
+    { const pts = []; for (let s = 0; s <= zooViaL() + 1; s += 2) { const p = zooVia(s); pts.push([p.x, p.z]); } line(pts, 3.4, 'rgba(92,84,72,.92)'); line(pts, 2.6, 'rgba(118,110,96,.9)'); }
+    const C = ZOO.cha; blob(C.x, C.z, C.rx + 3.4, C.rz + 3, 'rgba(70,52,30,.85)'); blob(C.x, C.z, C.rx + 1.6, C.rz + 1.4, 'rgba(50,38,24,.9)');
+    // pisadas de animales y huellas de neumáticos del jeep
+    for (let i = 0; i < 40; i++) { const x = -20 + i * 0.9, z = -62 + Math.sin(i * 0.4) * 2; blob(x, z + (i % 2 ? 0.25 : -0.25), 0.22, 0.16, 'rgba(50,34,20,.6)'); }
+    line([[30, -66], [40, -61], [46, -58]], 0.35, 'rgba(40,30,20,.6)'); line([[30, -67.6], [40, -62.6], [45.6, -59.6]], 0.35, 'rgba(40,30,20,.6)');
+    // la selva: musgo oscuro y barro
+    R(43.6, -43.6, 84, 84, 'rgba(18,40,16,.55)');
+    for (let i = 0; i < 1100; i++) { const x = sr(44, 84), z = sr(-44, 84); blob(x, z, sr(0.5, 2.6), sr(0.4, 2), sk(['rgba(14,30,12,.5)', 'rgba(40,52,20,.4)', 'rgba(56,40,22,.4)', 'rgba(24,56,26,.4)'])); }
+    // el reptilario: losas y grava clara
+    R(-84, -43.6, -43.6, 84, 'rgba(40,52,34,.4)');
+    for (let i = 0; i < 700; i++) { const x = sr(-84, -44), z = sr(-44, 84); blob(x, z, sr(0.4, 2), sr(0.3, 1.5), sk(['rgba(60,72,50,.35)', 'rgba(30,40,26,.4)', 'rgba(90,86,70,.3)'])); }
+    const L = ZOO.coc; blob(L.x, L.z, L.rx + 2.2, L.rz + 2, 'rgba(60,46,26,.85)');
+    // la plaza de la entrada: baldosas y el aparcamiento
+    R(-43.6, 43.6, 43.6, 84, 'rgba(118,112,100,.88)');
+    g.strokeStyle = 'rgba(70,66,58,.45)'; g.lineWidth = 1; for (let v = -43; v < 43.6; v += 2) { g.beginPath(); g.moveTo(X(v), X(43.6)); g.lineTo(X(v), X(84)); g.stroke(); } for (let v = 44; v < 84; v += 2) { g.beginPath(); g.moveTo(X(-43.6), X(v)); g.lineTo(X(43.6), X(v)); g.stroke(); }
+    R(14, 54, 43.6, 82, 'rgba(46,46,48,.95)');
+    g.fillStyle = 'rgba(230,226,210,.8)'; for (const z0 of [58, 69]) for (let x = 15; x <= 43; x += 4.5) g.fillRect(X(x), X(z0), 0.15 * k, 5.2 * k);
+    blob(0, 56, 5.4, 5.4, 'rgba(150,140,120,.9)');
+    // caminos de tierra apisonada desde los huecos de la valla y entre los edificios
+    const TIE = 'rgba(138,122,92,.85)';
+    line([[-17, -43], [-17, -48]], 4, TIE); line([[17, -43], [17, -48]], 4, TIE);
+    line([[-43, -17], [-50, -22], [-53.6, -27]], 3.6, TIE); line([[-43, -17], [-50, -12], [-56, 7], [-58, 26], [-63, 34]], 3.4, TIE); line([[-43, 28.5], [-52, 28], [-60, 31], [-63, 35]], 3.4, TIE); line([[-63, 53], [-62, 62], [-56, 70]], 3, TIE);
+    line([[-62, -17.8], [-62, -7]], 3, TIE); line([[-78, 5], [-80, 20], [-80, 60]], 2.4, TIE);
+    line([[43, -17], [50, -16], [56, -24], [56, -31]], 3.4, 'rgba(70,52,30,.85)'); line([[43, 17], [52, 16], [64, 17]], 3.4, 'rgba(70,52,30,.85)'); line([[64, -17], [64, -24]], 3, 'rgba(70,52,30,.85)'); line([[64, 17], [60, 30], [52, 44], [52, 60], [62, 70], [72, 70]], 3, 'rgba(70,52,30,.85)');
+    line([[-33, 43], [-33, 55]], 3.6, 'rgba(150,144,130,.9)');
+    // manchas de sangre y basura repartidas fuera del centro
+    for (let i = 0; i < 70; i++) { const x = sr(-84, 84), z = sr(-84, 84); if (!fuera(x, z)) continue; blob(x, z, sr(0.4, 1.6), sr(0.3, 1.1), sk(['rgba(80,8,6,.5)', 'rgba(14,10,6,.4)'])); }
+    for (let i = 0; i < 160; i++) { const x = sr(-40, 40), z = sr(45, 80); g.fillStyle = sk(['rgba(240,230,200,.8)', 'rgba(200,60,50,.7)', 'rgba(80,140,200,.7)']); g.fillRect(X(x), X(z), 3, 2); }
+  }, 2048);
+
+  // ======================= EL MURO DEL ZOO Y LOS ÁRBOLES DE FUERA =======================
+  const tr = [], cp = [];
+  const arbol = (x, z, s, c) => { const ry = sr(0, TAU); tr.push({ m: TRS(x, 1.6 * s, z, ry, 0, 0, s, s, s) }); cp.push({ m: TRS(x, 4.0 * s, z, ry, 0, 0, s * sr(0.9, 1.25), s * sr(0.85, 1.1), s * sr(0.9, 1.25)), c: c != null ? c : sk([0x1a2a1c, 0x20301e, 0x263420, 0x18241a, 0x22301a]) }); };
+  {
+    const MZ = ZOO.A + 0.4, pan = [], pil = [];
+    for (const [ax, fijo] of [['x', -MZ], ['x', MZ], ['z', -MZ], ['z', MZ]]) {
+      for (let t = -MZ + 2; t < MZ; t += 4) {
+        const x = ax === 'x' ? t : fijo, z = ax === 'x' ? fijo : t, ry = ax === 'x' ? 0 : Math.PI / 2;
+        if (ax === 'x' && fijo > 0 && Math.abs(t) < 8) continue;   // la puerta grande
+        pan.push({ m: TRS(x, 0, z, ry), c: sk([0xffffff, 0xece6dc, 0xdcd6cc]) }); pil.push({ m: TRS(x - (ax === 'x' ? 2 : 0), 2.05, z - (ax === 'z' ? 2 : 0)) });
+      }
+      if (ax === 'x') addBox(0, fijo, MZ, 0.4); else addBox(fijo, 0, 0.4, MZ);
+    }
+    inst(marketGeo([[B_(4, 3.4, 0.5), 0xc8bea4, 0, 1.7, 0], [B_(4.04, 0.6, 0.56), 0x3a5a36, 0, 0.3, 0], [B_(4.1, 0.24, 0.74), 0x2a4a2c, 0, 3.52, 0], [B_(4.02, 0.22, 0.54), 0x6a8a4a, 0, 2.7, 0]]), vcM, pan, { solid: true });
+    inst(B_(0.8, 4.1, 0.8), lam(0x2e4a2e), pil, { solid: true });
+    // la puerta grande, cerrada con cadenas: dos torres, la reja y el cartel del zoo
+    grp(0, MZ);
+    for (const s of [-1, 1]) { pz('s', B_(2.2, 7.5, 2.2), 0x8a7a5a, s * 8.6, 3.75, 0); pz('d', B_(2.6, 0.5, 2.6), 0x2a4a2c, s * 8.6, 7.7, 0); pz('d', new THREE.ConeGeometry(1.9, 1.8, 4), 0x8a2a1a, s * 8.6, 8.85, 0, Math.PI / 4); }
+    for (let i = 0; i <= 30; i++) pz('d', B_(0.1, 4.2, 0.1), HIERRO, -7.4 + i * 14.8 / 30, 2.1, 0);
+    for (const y of [0.4, 2.2, 4.1]) pz('d', B_(14.8, 0.14, 0.14), HIERRO, 0, y, 0);
+    pz('s', B_(18, 1.6, 0.5), 0x5a1e0e, 0, 8.2, 0); pz('d', C_(0.05, 0.05, 2.2, 5), 0x9a9a9a, 0, 2.2, -0.15, 0, 0, 0.7); pz('d', B_(0.4, 0.5, 0.2), 0x8a8a80, 0, 1.8, -0.25);
+    sinGrp(); addBox(0, MZ, 9.8, 0.5);
+    M(zooUV(new THREE.PlaneGeometry(9.6, 2.25), 136 / 256, 1), bsc(0xd8d0c8, { map: sgAq }), 0, 8.2, MZ - 0.27, { ry: Math.PI, cast: false });
+    // árboles grandes al otro lado del muro
+    for (let a = -100; a < 100; a += 5.6) { arbol(a + sr(-1, 1), -sr(88, 98), sr(1.2, 1.8)); arbol(-sr(88, 98), a + sr(-1, 1), sr(1.2, 1.8)); arbol(sr(88, 98), a + sr(-1, 1), sr(1.2, 1.8)); arbol(a + sr(-1, 1), sr(88, 98), sr(1.2, 1.8)); }
+  }
+
+  // ======================= ARCOS SOBRE LOS HUECOS DE LA VALLA DEL CENTRO =======================
+  {
+    const W = 42.6;
+    for (const [lado, i0] of [['n', 4], ['o', 0], ['e', 8], ['s', 12]]) for (const [c, w] of ZOO.huecos[lado]) {
+      if (lado === 's' && c === 0) continue;   // la entrada principal ya tiene su arco
+      const vert = lado === 'o' || lado === 'e', x = vert ? (lado === 'o' ? -W : W) : c, z = vert ? c : (lado === 'n' ? -W : W), ry = vert ? Math.PI / 2 : 0, hw = w / 2 + 0.35;
+      grp(x, z, ry);
+      for (const s of [-1, 1]) { pz('s', C_(0.2, 0.24, 4.6, 8), VERDE, s * hw, 2.3, 0); pz('d', S_(0.28, 8, 6), 0xd8b050, s * hw, 4.75, 0); boxAt(s * hw, 0, 0.25, 0.25, ry); }
+      pz('d', B_(2 * hw + 0.5, 0.3, 0.3), VERDE, 0, 4.3, 0); pz('d', new THREE.TorusGeometry(hw, 0.08, 4, 16, Math.PI), VERDE, 0, 3.3, 0, 0, 0, 0, 1, 0.35, 1);
+      sinGrp();
+      cartel(lado === 's' ? 12 : i0, Math.min(5.2, 2 * hw + 0.2), 0.62, x, 3.85, z, ry);
+    }
+  }
+
+  // ======================= LA PLAZA DE LA ENTRADA (sur): taquillas, la fuente, la tienda de regalos y el aparcamiento =======================
+  const banco = (x, z, ry) => { grp(x, z, ry); pz('d', B_(2, 0.08, 0.55), MAD, 0, 0.48, 0); pz('d', B_(2, 0.4, 0.06), MAD, 0, 0.82, -0.27, 0, -0.15); for (const s of [-0.85, 0.85]) pz('d', B_(0.08, 0.48, 0.55), HIERRO, s, 0.24, 0); sinGrp(); addBox(x, z, 1.05, 0.36, ry); };
+  const farola = [], farG = [];
+  const farol = (x, z, luz) => { farola.push({ m: TRS(x, 0, z) }); farG.push({ m: TRS(x, 3.95, z) }); addCircle(x, z, 0.25); if (luz) glowAt(x, 3.95, z, 0xffc880, 2.6, 0.55); };
+  {
+    // la fuente con el elefante de piedra que echa agua por la trompa
+    const FX = 0, FZ = 56;
+    pz('s', C_(3.6, 3.7, 0.7, 28), PIEDRA, FX, 0.35, FZ); pz('d', C_(3.75, 3.75, 0.12, 28), 0xa8a294, FX, 0.74, FZ);
+    M(new THREE.CircleGeometry(3.3, 28), waterM, FX, 0.62, FZ, { rx: -Math.PI / 2, cast: false });
+    pz('s', C_(1.0, 1.3, 1.6, 12), 0x9a9488, FX, 0.8, FZ);
+    grp(FX, FZ, -0.4, 1.6);
+    pz('d', S_(1, 10, 8), 0x8a8a84, 0, 1.15, 0, 0, 0, 0, 1.25, 0.95, 0.85); pz('d', S_(0.62, 10, 8), 0x8a8a84, 1.05, 1.55, 0);
+    for (const s of [-1, 1]) pz('d', S_(0.5, 8, 6), 0x7e7e78, 0.95, 1.6, s * 0.55, 0, 0, 0, 0.18, 1, 0.9);
+    pz('d', C_(0.14, 0.22, 1.1, 8), 0x8a8a84, 1.55, 1.75, 0, 0, 0, -0.9); pz('d', C_(0.1, 0.14, 0.6, 8), 0x8a8a84, 2.05, 2.25, 0, 0, 0, -0.3);
+    for (const [lx, lz] of [[0.6, 0.4], [0.6, -0.4], [-0.6, 0.4], [-0.6, -0.4]]) pz('d', C_(0.25, 0.28, 0.9, 8), 0x8a8a84, lx, 0.45, lz);
+    const pico = at(2.15, 0); sinGrp(); addCircle(FX, FZ, 3.85);
+    world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 12 : 30)) P.add(pico.x + rand(-0.05, 0.05), 4.1, pico.z + rand(-0.05, 0.05), rand(0.4, 1.0), rand(1.2, 2.2), rand(-0.3, 0.3), rand(0.7, 1.1), 0.09, 0.7, 0.85, 0.95, 0.6, 9.8, 0.3, 0, 0); });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.3; banco(FX + Math.cos(a) * 6.6, FZ + Math.sin(a) * 6.6, -a - Math.PI / 2); }
+    // las taquillas con su cola de vallas
+    for (const x of [-15, -8.5, 8.5, 15]) {
+      grp(x, 73);
+      pz('s', B_(2.6, 2.7, 2.4), 0xd8c08a, 0, 1.35, 0); pz('d', B_(2.8, 0.2, 2.6), 0x8a2a1a, 0, 2.8, 0); pz('d', new THREE.ConeGeometry(2.1, 1.1, 4), 0x8a2a1a, 0, 3.45, 0, Math.PI / 4);
+      pz('L', B_(1.6, 0.9, 0.05), 0xffe0a0, 0, 1.6, -1.22); pz('d', B_(2.2, 0.08, 0.5), MAD, 0, 1.08, -1.4);
+      for (const s of [-1, 1]) { pz('d', C_(0.05, 0.07, 1.0, 6), 0x9a9a9a, s * 1.1, 0.5, -3); pz('d', C_(0.05, 0.07, 1.0, 6), 0x9a9a9a, s * 1.1, 0.5, -6.2); pz('n', C_(0.03, 0.03, 3.2, 4), 0xb02a2a, s * 1.1, 0.92, -4.6, 0, Math.PI / 2); boxAt(s * 1.1, -4.6, 0.08, 1.65); }
+      sinGrp(); addBox(x, 73, 1.35, 1.25);
+    }
+    cartel(11, 4.6, 0.6, -11.75, 4.4, 73, 0); cartel(11, 4.6, 0.6, 11.75, 4.4, 73, 0);
+    for (const x of [-11.75, 11.75]) { pz('d', B_(0.14, 1.2, 0.14), MADO, x - 2, 3.8, 73); pz('d', B_(0.14, 1.2, 0.14), MADO, x + 2, 3.8, 73); }
+    // la tienda de regalos (se puede entrar por el norte y por el este)
+    const X0 = -40, X1 = -24, Z0 = 56, Z1 = 70, H = 4;
+    pared('s', X0, Z0, -34.3, Z0, H, 0xd8a8b8); pared('s', -31.7, Z0, X1, Z0, H, 0xd8a8b8); pared('s', X0, Z1, X1, Z1, H, 0xd8a8b8); pared('s', X0, Z0, X0, Z1, H, 0xd8a8b8);
+    pared('s', X1, Z0, X1, 61.8, H, 0xd8a8b8); pared('s', X1, 64.2, X1, Z1, H, 0xd8a8b8);
+    pz('s', B_(2.6, 1.2, 0.3), 0xd8a8b8, -33, H - 0.6, Z0); pz('s', B_(0.3, 1.2, 2.4), 0xd8a8b8, X1, H - 0.6, 63);
+    pz('d', B_(X1 - X0 + 0.8, 0.35, Z1 - Z0 + 0.8), 0x7a2a4a, (X0 + X1) / 2, H + 0.18, (Z0 + Z1) / 2); pz('n', B_(X1 - X0 - 0.3, 0.04, Z1 - Z0 - 0.3), 0x2a1a24, (X0 + X1) / 2, H - 0.02, (Z0 + Z1) / 2);
+    pz('n', B_(X1 - X0 - 0.4, 0.02, Z1 - Z0 - 0.4), 0x8a6a5a, (X0 + X1) / 2, 0.02, (Z0 + Z1) / 2);
+    // escaparates encendidos y toldo de rayas
+    for (const x of [-38, -28]) pz('L', B_(3.4, 1.8, 0.05), 0xffe6b0, x + 0.6, 1.7, Z0 - 0.17);
+    for (let i = 0; i < 8; i++) pz('d', B_(1.0, 0.08, 1.3), i % 2 ? 0xf0e8d8 : 0xb02a5a, X0 + 0.5 + i * 2, 3.0, Z0 - 0.6, 0, 0.35);
+    // dentro: estanterías con peluches, el mostrador y la caja registradora
+    const pel = [];
+    for (const [x, z, ry, L] of [[X0 + 0.5, 63, Math.PI / 2, 11], [-35, 63.4, 0, 6], [-35, 66.8, 0, 6]]) {
+      grp(x, z, ry); pz('s', B_(L, 1.8, 0.7), 0xe8dcc8, 0, 0.9, 0); for (const y of [0.55, 1.15, 1.75]) pz('d', B_(L + 0.1, 0.06, 0.8), MAD, 0, y, 0);
+      for (let i = 0; i < L * 2.2; i++) { const q = at(-L / 2 + 0.25 + i * L / (L * 2.2), sr(-0.2, 0.2)); pel.push([q.x, sk([0.65, 1.25, 1.85]), q.z]); }
+      sinGrp(); addBox(x, z, ry ? 0.4 : L / 2, ry ? L / 2 : 0.4);
+    }
+    grp(-27.4, 63); pz('s', B_(1.0, 1.0, 3.2), 0x8a2a4a, 0, 0.5, 0); pz('d', B_(1.2, 0.06, 3.4), 0xd8c8a0, 0, 1.02, 0); pz('d', B_(0.5, 0.35, 0.4), 0x3a3a3a, 0, 1.22, -0.9); pz('L', B_(0.3, 0.12, 0.02), 0x60ff90, 0.05, 1.36, -0.69); sinGrp(); addBox(-27.4, 63, 0.55, 1.65);
+    const pelM = new THREE.InstancedMesh(gk('peluche', () => marketGeo([[S_(0.2, 8, 6), 0xffffff, 0, 0.18, 0], [S_(0.14, 8, 6), 0xffffff, 0, 0.42, 0], [S_(0.06, 6, 4), 0xffffff, -0.1, 0.55, 0], [S_(0.06, 6, 4), 0xffffff, 0.1, 0.55, 0], [S_(0.03, 4, 3), 0x111111, -0.05, 0.45, 0.12], [S_(0.03, 4, 3), 0x111111, 0.05, 0.45, 0.12]])), vcM, pel.length), cc = new THREE.Color();
+    pel.forEach(([x, y, z], i) => { pelM.setMatrixAt(i, TRS(x, y, z, sr(0, TAU))); pelM.setColorAt(i, cc.setHex(sk([0xc8904a, 0xf0f0f0, 0x6a6a72, 0xe8a0c0, 0xd8c050, 0x8a5a3a]))); });
+    pelM.frustumCulled = false; pelM.userData.vivo = 1; world.group.add(pelM);
+    lampLight(-32, 3.2, 63, 0xffd8c0, 0.9, 14, null, 0.5);
+    cartel(12, 6, 0.75, -33, H + 0.75, Z0 - 0.2, 0); cartel(12, 5, 0.7, X1 + 0.2, H + 0.7, 63, Math.PI / 2);
+    world.anims.push(() => { const p = player.pos; if (p.x > X0 && p.x < X1 && p.z > Z0 && p.z < Z1) world.indoor = true; });
+    spotK(-37.6, 68.6);
+    // el aparcamiento: coches abandonados y el autobús del safari
+    const cocheG = marketGeo([[B_(1.8, 0.7, 4.1), 0xffffff, 0, 0.62, 0], [B_(1.6, 0.6, 2.1), 0xffffff, 0, 1.25, 0.2], [B_(1.62, 0.5, 0.05), 0x101418, 0, 1.25, -0.86, 0.5], [B_(1.62, 0.45, 0.05), 0x101418, 0, 1.25, 1.27, -0.4], [B_(0.05, 0.42, 1.8), 0x101418, 0.81, 1.27, 0.2], [B_(0.05, 0.42, 1.8), 0x101418, -0.81, 1.27, 0.2],
+      ...[[-0.85, 1.3], [0.85, 1.3], [-0.85, -1.3], [0.85, -1.3]].map(([x, z]) => [C_(0.36, 0.36, 0.24, 10), NEU, x, 0.36, z, 0, 0, Math.PI / 2]), [B_(0.4, 0.14, 0.05), 0xfff0c0, -0.55, 0.72, -2.06], [B_(0.4, 0.14, 0.05), 0xfff0c0, 0.55, 0.72, -2.06], [B_(0.4, 0.14, 0.05), 0xa01010, -0.6, 0.75, 2.06], [B_(0.4, 0.14, 0.05), 0xa01010, 0.6, 0.75, 2.06]]);
+    const coches = [];
+    for (const [x, z, ry, rz] of [[17.3, 61, 0.05, 0], [21.8, 60.6, -0.08, 0], [30.8, 61.2, 0.1, 0], [39.8, 60.8, 0, 0], [17.3, 72, Math.PI + 0.06, 0], [26.3, 72.4, Math.PI - 0.1, 0], [35.3, 71.8, Math.PI, 0], [28, 66.4, 1.2, 0.08]]) { coches.push({ m: TRS(x, 0, z, ry, 0, rz), c: sk([0xb02a2a, 0x2a4ab0, 0xd8d0c0, 0x3a3a3a, 0x2a6a4a, 0xd8a020]) }); addBox(x, z, 0.95, 2.1, ry); }
+    inst(cocheG, vcM, coches, { solid: true });
+    grp(30, 79.2, Math.PI / 2);
+    pz('s', B_(2.5, 2.4, 9), 0xd8c070, 0, 1.6, 0); pz('d', B_(2.52, 0.5, 9.02), 0x3a6a2a, 0, 0.8, 0); for (let i = 0; i < 6; i++) for (const s of [-1, 1]) pz('n', B_(0.05, 0.8, 1.1), 0x101418, s * 1.26, 2.2, -3.2 + i * 1.3);
+    pz('n', B_(2.3, 0.9, 0.05), 0x101418, 0, 2.1, -4.51); for (const lz of [-3, 3]) for (const s of [-1, 1]) pz('d', C_(0.5, 0.5, 0.3, 10), NEU, s * 1.1, 0.5, lz, 0, 0, Math.PI / 2);
+    pz('d', B_(2.6, 0.12, 9.1), 0x2a2a2a, 0, 2.85, 0); sinGrp(); addBox(30, 79.2, 4.6, 1.3);
+    cartel(7, 3.4, 0.55, 28.7, 1.8, 77.9, Math.PI);
+    // farolas, papeleras, banderas del zoo y un quiosco de helados
+    for (const [x, z, l] of [[-6, 46, 0], [6, 46, 1], [-6, 66, 1], [6, 66, 0], [-20, 50, 0], [20, 50, 0], [-20, 78, 0], [-40, 76, 0], [10, 79, 0], [42, 52, 0]]) farol(x, z, l);
+    for (const [x, z] of [[-12, 46], [12, 46], [-24, 76], [-4, 78]]) { pz('s', C_(0.3, 0.26, 0.8, 8), VERDE, x, 0.4, z); addCircle(x, z, 0.32); }
+    for (const x of [-26, -18, 18, 26]) { pz('d', C_(0.06, 0.07, 7, 6), 0xd8d8d0, x, 3.5, 80.6); pz('n', B_(0.04, 1.4, 1.8), sk([0x2a8a4a, 0xd8a020, 0xb02a2a]), x, 6.0, 81.5); addCircle(x, 80.6, 0.15); }
+    grp(-14, 47.5, 0.3); pz('s', B_(2.4, 1.0, 1.4), 0xe8f0f8, 0, 0.6, 0); pz('d', C_(0.04, 0.04, 2, 5), 0x9a9a9a, 0, 1.6, 0); pz('d', new THREE.ConeGeometry(1.4, 0.6, 8), 0x3a7ab0, 0, 2.7, 0); for (let i = 0; i < 4; i++) pz('n', S_(0.12, 6, 4), sk([0xf0c0d0, 0xf8f0d0, 0x8a5a3a, 0xa0e0b0]), -0.8 + i * 0.5, 1.15, 0.3); sinGrp(); addBox(-14, 47.5, 1.25, 0.75, 0.3);
+    for (const [x, z, ry] of [[-10, 62, Math.PI / 2], [10, 62, -Math.PI / 2], [-20, 64, 0.3], [24, 50, 1.4], [-38, 48, 0], [38, 46.5, 0]]) banco(x, z, ry);
+    spotK(-17.6, 52.6);
+    for (const [x, z] of [[-30, 81], [-8, 81.2], [8, 81.2], [40, 81], [-41, 46]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[-6, 60], [22, 66.5]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ======================= EL REPTILARIO Y EL ACUARIO (oeste) =======================
+  {
+    // ---- El reptilario: nave con terrarios de cristal; se entra por el este y por el sur. En la esquina, el despacho del cuidador
+    const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = ZOO.rep, H = 4.6, PC = 0x5e6e52, MX = (X0 + X1) / 2, MZ = (Z0 + Z1) / 2;
+    pared('s', X0, Z0, X1, Z0, H, PC); pared('s', X0, Z0, X0, Z1, H, PC);
+    pared('s', X0, Z1, -63.6, Z1, H, PC); pared('s', -60.4, Z1, X1, Z1, H, PC); pz('s', B_(3.4, 1.3, 0.3), PC, -62, H - 0.65, Z1);
+    pared('s', X1, Z0, X1, -28.6, H, PC); pared('s', X1, -25.4, X1, Z1, H, PC); pz('s', B_(0.3, 1.3, 3.4), PC, X1, H - 0.65, -27);
+    pz('d', B_(X1 - X0 + 0.8, 0.45, Z1 - Z0 + 0.8), 0x3a4a34, MX, H + 0.22, MZ); pz('n', B_(X1 - X0 - 0.3, 0.04, Z1 - Z0 - 0.3), 0x0e140e, MX, H - 0.02, MZ);
+    pz('n', B_(X1 - X0 - 0.4, 0.02, Z1 - Z0 - 0.4), 0x2a3428, MX, 0.02, MZ);
+    for (let i = 0; i < 6; i++) pz('L', B_(0.6, 0.04, 6), 0xd8ffd0, X0 + 3 + i * 3.4, H - 0.06, MZ);
+    // franja de piedras pintadas en la fachada y los carteles de las dos puertas
+    for (let i = 0; i < 18; i++) pz('d', D_(), sk([0x4a5a3a, 0x5a6a4a, 0x3a4a2e]), X1 + 0.3, sr(0.2, 0.6), sr(Z0 + 0.5, Z1 - 0.5), sr(0, 3), sr(0, 3), 0, 0.45, 0.35, 0.45);
+    cartel(0, 5.4, 0.8, X1 + 0.2, H + 0.75, -27, Math.PI / 2); cartel(0, 5.4, 0.8, -62, H + 0.75, Z1 + 0.2, 0);
+    // un terrario: mueble, cristal delante (o por los cuatro lados), fondo pintado, lámpara y el bicho que vive dentro
+    const vidrios = [];
+    const terrario = (x, z, ry, w, d, h, bicho, roto, isla) => {
+      grp(x, z, ry);
+      pz('s', B_(w, 0.9, d), 0x2a2018, 0, 0.45, 0); pz('d', B_(w + 0.06, 0.12, d + 0.06), 0x4a3a2a, 0, 0.92 + h, 0);
+      pz('n', B_(w - 0.1, 0.12, d - 0.1), sk([0xb89a60, 0x5a4a2a, 0x4a5a2a]), 0, 0.96, 0);
+      pz('L', B_(w - 0.4, 0.05, 0.25), sk([0xfff0b0, 0xd8ffc0, 0xffd090]), 0, 0.88 + h, 0);
+      if (!isla) { pz('d', B_(w, h, 0.06), sk([0x2a4a2a, 0x3a3a1a, 0x1a3a3a]), 0, 0.9 + h / 2, -d / 2 + 0.03); for (const s of [-1, 1]) pz('d', B_(0.06, h, d), 0x2a2a20, s * (w / 2 - 0.03), 0.9 + h / 2, 0); }
+      const caras = isla ? [[0, d / 2, 0, w], [0, -d / 2, 0, w], [w / 2, 0, Math.PI / 2, d], [-w / 2, 0, Math.PI / 2, d]] : [[0, d / 2, 0, w]];
+      for (const [lx, lz, r, L] of caras) { if (roto && lz > 0) continue; const q = at(lx, lz); vidrios.push([q.x, q.z, ry + r, L, h]); }
+      // decorado: piedra, rama y plantas
+      pz('d', D_(), 0x6a6458, -w * 0.28, 1.1, -d * 0.15, sr(0, 3), sr(0, 3), 0, 0.42, 0.3, 0.36); pz('d', C_(0.06, 0.09, w * 0.8, 5), 0x4a3420, w * 0.05, 1.5, -d * 0.1, 0, 0, Math.PI / 2 - 0.35);
+      for (let i = 0; i < 3; i++) pz('n', new THREE.ConeGeometry(0.16, 0.7, 5), sk([0x2a6a2a, 0x3a7a2a, 0x1e5a2a]), sr(-w / 2 + 0.4, w / 2 - 0.4), 1.35, -d / 2 + 0.3);
+      if (!roto) {
+        if (bicho === 'serp') { for (let i = 0; i < 16; i++) { const t = i / 15; pz('d', S_(0.09 - t * 0.03, 6, 4), i % 3 ? 0xc8a040 : 0x2a1a10, -w * 0.35 + t * w * 0.7, 1.08 + Math.max(0, Math.sin(t * 6)) * 0.05, Math.sin(t * 9) * d * 0.22); } pz('d', S_(0.11, 6, 4), 0xc8a040, -w * 0.35 - 0.12, 1.12, 0); }
+        else if (bicho === 'lag') { pz('d', B_(0.6, 0.18, 0.24), 0x4a8a3a, 0, 1.1, 0.1); pz('d', B_(0.24, 0.14, 0.18), 0x4a8a3a, 0.4, 1.12, 0.1); pz('d', new THREE.ConeGeometry(0.08, 0.7, 5), 0x3a7a2a, -0.62, 1.08, 0.1, 0, 0, Math.PI / 2); for (const [lx, lz] of [[0.2, 0.22], [0.2, -0.02], [-0.2, 0.22], [-0.2, -0.02]]) pz('n', B_(0.05, 0.12, 0.05), 0x3a7a2a, lx, 1.03, lz); }
+        else if (bicho === 'tor') { pz('d', S_(0.4, 10, 6), 0x5a4a2a, 0, 0.98, 0.1, 0, 0, 0, 1, 0.55, 1.2); pz('d', S_(0.13, 6, 4), 0x7a7a4a, 0, 1.06, 0.62); }
+        else if (bicho === 'ran') for (let i = 0; i < 4; i++) pz('L', S_(0.07, 6, 4), sk([0xff4020, 0x30c0ff, 0xffd020, 0x40ff60]), sr(-w / 3, w / 3), 1.08 + sr(0, 0.6), sr(-d / 4, d / 4));
+        else if (bicho === 'cam') { pz('d', S_(0.16, 8, 6), 0x60c040, w * 0.05, 1.68, -d * 0.1, 0, 0, 0, 1.5, 1, 0.8); pz('d', new THREE.TorusGeometry(0.08, 0.03, 4, 8, 4.5), 0x50a030, w * 0.05 - 0.28, 1.6, -d * 0.1); }
+        else if (bicho === 'pit') { for (let i = 0; i < 26; i++) { const t = i / 25, a = t * 10; pz('d', S_(0.15, 6, 4), i % 4 ? 0xa88a50 : 0x4a3a1a, Math.cos(a) * 0.9 * (1 - t * 0.5), 1.1 + t * 0.9, Math.sin(a) * 0.6 * (1 - t * 0.5)); } pz('d', C_(0.12, 0.2, 2.2, 6), 0x4a3420, 0, 2.0, 0); }
+      }
+      sinGrp(); addBox(x, z, isla ? w / 2 : w / 2, d / 2, ry);
+      if (roto) for (let i = 0; i < 10; i++) { const q = at(sr(-w / 2, w / 2), d / 2 + sr(0.2, 1.4)); pz('n', B_(sr(0.1, 0.3), 0.02, sr(0.08, 0.25)), 0xc8f0ff, q.x, 0.03, q.z, sr(0, 3)); }
+    };
+    [[-73.6, 'serp'], [-69.6, 'lag'], [-65.6, 'ran'], [-61.6, 'cam']].forEach(([x, b]) => terrario(x, Z0 + 1.15, 0, 3.6, 1.8, 2.2, b));
+    terrario(-73.6, Z1 - 1.15, Math.PI, 3.6, 1.8, 2.2, 'tor'); terrario(-69.6, Z1 - 1.15, Math.PI, 3.6, 1.8, 2.2, 'serp', true); terrario(-57.4, Z1 - 1.15, Math.PI, 3.6, 1.8, 2.2, 'lag');
+    terrario(X0 + 1.15, -27, Math.PI / 2, 3.6, 1.8, 2.2, 'cam');
+    terrario(-66.5, -27, 0, 6.4, 3.0, 2.6, 'pit', false, true);
+    { const L = vidrios.map(([x, z, ry, Lw, h]) => [B_(Lw, h, 0.04), 0xffffff, x, 0.9 + h / 2, z, 0, ry]); M(marketGeo(L), vidrio, 0, 0, 0, { cast: false }); }
+    lampLight(-66.5, 3.6, -27, 0xc8ffc8, 0.9, 16, null, 0.4);
+    for (const [x, z] of [[-60.5, -27], [-71, -27]]) banco(x, z, Math.PI / 2);
+    // ---- El despacho del cuidador (esquina noreste del reptilario): la caja de munición se abre una sola vez
+    pared('s', -58.6, Z0, -58.6, -31.4, H, 0x7a6a52, 0.2); pared('s', -58.6, -31.4, -58.3, -31.4, H, 0x7a6a52, 0.2); pared('s', -55.7, -31.4, X1, -31.4, H, 0x7a6a52, 0.2); pz('s', B_(2.7, 1.6, 0.2), 0x7a6a52, -57, H - 0.8, -31.4);
+    cartel(14, 2.2, 0.32, -57, 2.75, -31.25, 0);
+    grp(-56.2, -35.1); pz('s', B_(2.2, 0.08, 0.9), MAD, 0, 0.8, 0); for (const [lx, lz] of [[-1, -0.38], [1, -0.38], [-1, 0.38], [1, 0.38]]) pz('d', B_(0.07, 0.8, 0.07), MADO, lx, 0.4, lz);
+    pz('d', B_(0.5, 0.35, 0.4), 0x2a2a2a, -0.5, 1.02, -0.1); pz('L', B_(0.42, 0.26, 0.02), 0x60a0ff, -0.5, 1.04, 0.11); for (let i = 0; i < 6; i++) pz('n', B_(0.22, 0.01, 0.3), 0xf0ead8, sr(0, 0.8), 0.85, sr(-0.3, 0.3), sr(0, 3));
+    sinGrp(); addBox(-56.2, -35.1, 1.15, 0.5);
+    pz('s', B_(0.6, 1.9, 0.5), 0x5a6a6a, -58.1, 0.95, -32.4); addBox(-58.1, -32.4, 0.32, 0.27);
+    for (let i = 0; i < 3; i++) pz('n', B_(0.6, 0.8, 0.02), sk([0xf0e0a0, 0xa0d0f0, 0xf0a0a0]), -55.6 + i * 0.75, 2.2, Z0 + 0.17);
+    { const BX = -54.75, BZ = -33.2, bxG = new THREE.Group(); bxG.position.set(BX, 0, BZ); bxG.userData.vivo = 1; world.group.add(bxG);
+      M(B_(0.6, 0.5, 1.1), lam(0x3a4a2a), 0, 0.25, 0, { p: bxG }); M(B_(0.62, 0.06, 1.12), lam(0xd8b030), 0, 0.27, 0, { p: bxG, cast: false });
+      const tapa = M(B_(0.62, 0.1, 1.12), lam(0x2e3a20), 0, 0.55, 0, { p: bxG });
+      const bg = glowAt(BX, 0.85, BZ, 0xffd040, 1.2, 0.35); addBox(BX, BZ, 0.32, 0.56);
+      const caja = mapUse({ x: -56.1, z: -33.2, r: 1.7, t: 'Caja del cuidador', d: 'El cuidador guardaba munición para los dardos tranquilizantes… y algo más. Solo se abre una vez.', b: 'Abrir la caja', price: 0, cd: 9999, use(o) {
+        o.off = true; tapa.rotation.z = 1.1; tapa.position.set(-0.35, 0.75, 0); bg.visible = false; Sfx.open && Sfx.open();
+        makePickup('ammo', -55.6, -32.6, 6); makePickup('ammo', -55.6, -33.8, 6); makePickup('health', -56.6, -33.2, 25);
+        feed('La caja del cuidador: munición y un botiquín', 'gold');
+      } });
+      world.anims.push((dt, t) => { if (!caja.off) bg.material.opacity = 0.25 + Math.sin(t * 3) * 0.12; }); }
+    spotK(-56.8, -33.2); spotK(-71.6, -31.2);
+    world.anims.push(() => { const p = player.pos; if (enReptilario(p.x, p.z) || enTunel(p.x, p.z)) world.indoor = true; });
+
+    // ---- El acuario: un tanque enorme con un túnel de cristal que lo cruza de este a oeste. Un tramo del túnel está reventado
+    const A = ZOO.acu, TZ = A.tz, TW = A.tw, WH2 = 5.2, AC = 0x56687a, AX = (A.x0 + A.x1) / 2, LX = A.x1 - A.x0;
+    pared('s', A.x0, A.z0, A.x1, A.z0, WH2, AC, 0.5); pared('s', A.x0, A.z1, A.x1, A.z1, WH2, AC, 0.5);
+    for (const x of [A.x0, A.x1]) { pared('s', x, A.z0, x, TZ - TW, WH2, AC, 0.5); pared('s', x, TZ + TW, x, A.z1, WH2, AC, 0.5); pz('s', B_(0.5, WH2 - 3.4, 2 * TW), AC, x, 3.4 + (WH2 - 3.4) / 2, TZ); }
+    addBox(AX, (A.z0 + TZ - TW) / 2, LX / 2 + 0.25, (TZ - TW - A.z0) / 2); addBox(AX, (A.z1 + TZ + TW) / 2, LX / 2 + 0.25, (A.z1 - TZ - TW) / 2);
+    for (const s of [-1, 1]) pz('d', B_(LX + 0.6, 0.3, 0.7), 0x9aa8b4, AX, WH2 + 0.1, s < 0 ? A.z0 : A.z1);
+    pz('n', B_(LX, 0.02, 2 * TW), 0x18283a, AX, 0.02, TZ);
+    // fondo pintado del tanque (arena, rocas y algas) en las paredes de dentro
+    const fondoT = canvasTex(512, 128, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2a8ac0'); gr.addColorStop(1, '#04182a'); g.fillStyle = gr; g.fillRect(0, 0, w, h); for (let i = 0; i < 46; i++) { g.strokeStyle = sk(['#1a6a3a', '#2a8a4a', '#0e4a2a']); g.lineWidth = sr(3, 6); const x = sr(0, w); g.beginPath(); g.moveTo(x, h); g.quadraticCurveTo(x + sr(-20, 20), h * 0.6, x + sr(-10, 10), h - sr(30, 110)); g.stroke(); } g.fillStyle = '#b8a070'; g.fillRect(0, h - 9, w, 9); for (let i = 0; i < 26; i++) { g.fillStyle = sk(['#5a6a7a', '#3a4a5a', '#c86a50']); g.beginPath(); g.arc(sr(0, w), h - 8, sr(5, 16), Math.PI, 0); g.fill(); } });
+    const fondoM = bsc(0xd0e0e8, { map: fondoT });
+    M(new THREE.PlaneGeometry(LX - 0.6, 4.6), fondoM, AX, 2.3, A.z0 + 0.27, { cast: false }); M(new THREE.PlaneGeometry(LX - 0.6, 4.6), fondoM, AX, 2.3, A.z1 - 0.27, { ry: Math.PI, cast: false });
+    pz('n', B_(LX - 0.6, 0.3, TZ - TW - A.z0 - 0.5), 0xb8a070, AX, 0.15, (A.z0 + TZ - TW) / 2); pz('n', B_(LX - 0.6, 0.3, A.z1 - TZ - TW - 0.5), 0xb8a070, AX, 0.15, (A.z1 + TZ + TW) / 2);
+    for (let i = 0; i < 26; i++) { const zz = srand() < 0.5 ? sr(A.z0 + 1, TZ - TW - 0.6) : sr(TZ + TW + 0.6, A.z1 - 1), xx = sr(A.x0 + 1, A.x1 - 1); if (srand() < 0.5) pz('d', D_(), sk([0x5a6a7a, 0x3a4a5a, 0x6a5a4a]), xx, 0.4, zz, sr(0, 3), sr(0, 3), 0, sr(0.4, 1.1), sr(0.4, 1.2), sr(0.4, 1.1)); else pz('L', I_(), sk([0xff7050, 0xff90c0, 0xffd070, 0xa070ff]), xx, 0.5, zz, sr(0, 3), 0, 0, sr(0.25, 0.5), sr(0.4, 0.8), sr(0.25, 0.5)); }
+    const kelp = []; for (let i = 0; i < 40; i++) { const zz = srand() < 0.5 ? sr(A.z0 + 0.8, TZ - TW - 0.5) : sr(TZ + TW + 0.5, A.z1 - 0.8), h = sr(2, 4.2); kelp.push({ m: TRS(sr(A.x0 + 0.8, A.x1 - 0.8), h / 2, zz, sr(0, 3), sr(-0.08, 0.08), sr(-0.08, 0.08), 1, h, 1), c: sk([0x2a7a3a, 0x1e6a2e, 0x3a8a3a]) }); }
+    inst(C_(0.06, 0.1, 1, 5), lam(0xffffff, { emissive: 0x0a2a10 }), kelp, { cast: false });
+    // el agua: dos bloques azules a cada lado del túnel y otro por encima
+    const aguaM = bsc(0x2a7ab8, { transparent: true, opacity: 0.32, depthWrite: false });
+    const HA = 4.7;
+    M(marketGeo([[B_(LX - 0.6, HA, TZ - TW - A.z0 - 0.5), 0xffffff, AX, HA / 2, (A.z0 + TZ - TW) / 2], [B_(LX - 0.6, HA, A.z1 - TZ - TW - 0.5), 0xffffff, AX, HA / 2, (A.z1 + TZ + TW) / 2], [B_(LX - 0.6, HA - 3.3, 2 * TW), 0xffffff, AX, 3.3 + (HA - 3.3) / 2, TZ]]), aguaM, 0, 0, 0, { cast: false }).userData.vivo = 1;
+    // el túnel: arco de cristal en tramos, costillas de metal y el tramo roto (el agua cae dentro)
+    const ROTO = [-68.5, -65];
+    { const L = [];
+      for (let x = A.x0; x < A.x1 - 0.01; x += 2.75) { const x2 = Math.min(A.x1, x + 2.75), cx = (x + x2) / 2, roto = cx > ROTO[0] && cx < ROTO[1]; L.push([new THREE.CylinderGeometry(TW, TW, x2 - x, 14, 1, true, 0, roto ? Math.PI * 0.45 : Math.PI), 0xffffff, cx, 0, TZ, 0, 0, Math.PI / 2, 1.27, 1, 1]); }
+      M(marketGeo(L), vidrio, 0, 0, 0, { cast: false });
+      for (let x = A.x0; x <= A.x1 + 0.01; x += 2.75) pz('d', new THREE.TorusGeometry(TW, 0.07, 4, 16, Math.PI), 0x3a4a5a, x, 0, TZ, Math.PI / 2, 0, 0, 1, 1.27, 1);
+      for (let i = 0; i < 18; i++) pz('n', new THREE.ConeGeometry(sr(0.08, 0.2), 0.02, 3), 0xd8f4ff, sr(ROTO[0], ROTO[1]), 0.03, TZ - TW + sr(0.3, 2.2), sr(0, 3));
+      M(new THREE.CircleGeometry(2.4, 18), new THREE.MeshLambertMaterial({ map: waterT, color: 0x6ab0c8, emissive: 0x08222a, transparent: true, opacity: 0.6, depthWrite: false }), (ROTO[0] + ROTO[1]) / 2, 0.035, TZ - 0.8, { rx: -Math.PI / 2, cast: false }).scale.set(1.3, 1, 1);
+      world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 10 : 26)) P.add(rand(ROTO[0] + 0.4, ROTO[1] - 0.4), 3.0, TZ - TW + 0.5, rand(-0.2, 0.2), rand(-0.5, 0), rand(0.6, 1.4), rand(0.6, 0.9), 0.12, 0.6, 0.8, 0.95, 0.55, 9.8, 0.3, 0, 0); });
+    }
+    // peces, dos tiburones y una raya que nadan por el tanque
+    { const N = FAST() ? 30 : 46, fishG = new THREE.ConeGeometry(0.16, 0.5, 6); fishG.rotateZ(-Math.PI / 2);
+      const fish = new THREE.InstancedMesh(fishG, bsc(0xffffff), N); fish.frustumCulled = false; fish.userData.vivo = 1; world.group.add(fish);
+      const fs = [], cc = new THREE.Color(), d = new THREE.Object3D();
+      for (let i = 0; i < N; i++) { const lado = i % 2 ? 1 : -1; fs.push({ x: sr(A.x0 + 1, A.x1 - 1), y: sr(0.7, 4.2), z: lado < 0 ? sr(A.z0 + 0.8, TZ - TW - 0.6) : sr(TZ + TW + 0.6, A.z1 - 0.8), sp: sr(0.8, 2) * (srand() < 0.5 ? -1 : 1), ph: sr(0, 9), s: sr(0.6, 1.5) }); fish.setColorAt(i, cc.setHex(sk([0xff8a20, 0xffd030, 0x40a0ff, 0xff5070, 0xf0f0f0, 0x60ffd0]))); }
+      const shG = marketGeo([[S_(0.5, 10, 6), 0x6a7a8a, 0, 0, 0, 0, 0, 0, 2.6, 0.55, 0.7], [new THREE.ConeGeometry(0.35, 0.9, 4), 0x5a6a7a, -0.1, 0.55, 0, 0, 0, -0.35, 1, 1, 0.2], [new THREE.ConeGeometry(0.4, 1.0, 4), 0x5a6a7a, -1.5, 0.15, 0, 0, 0, 0.9, 1, 1, 0.2], [new THREE.ConeGeometry(0.35, 0.8, 4), 0x5a6a7a, -1.45, -0.25, 0, 0, 0, 2.3, 1, 1, 0.2], [B_(1.0, 0.04, 0.7), 0x5a6a7a, 0.2, -0.2, 0, 0, 0.4, 0], [S_(0.05, 4, 3), 0x111111, 1.1, 0.12, 0.2], [S_(0.05, 4, 3), 0x111111, 1.1, 0.12, -0.2]]);
+      const sharks = new THREE.InstancedMesh(shG, vcM, 3); sharks.frustumCulled = false; sharks.userData.vivo = 1; sharks.setColorAt(0, cc.setHex(0xffffff)); sharks.setColorAt(1, cc.setHex(0xe0e8f0)); sharks.setColorAt(2, cc.setHex(0x9a8a70)); world.group.add(sharks);
+      const SH = [{ z: (A.z0 + TZ - TW) / 2, y: 2.4, ph: 0, sp: 0.35, s: 1 }, { z: (A.z1 + TZ + TW) / 2, y: 2.9, ph: 2, sp: -0.3, s: 1.2 }, { z: (A.z1 + TZ + TW) / 2, y: 0.9, ph: 4, sp: 0.22, s: 0.9 }];
+      world.anims.push((dt, t) => {
+        for (let i = 0; i < N; i++) { const f = fs[i]; f.x += f.sp * dt; if (f.x > A.x1 - 0.8) f.sp = -Math.abs(f.sp); if (f.x < A.x0 + 0.8) f.sp = Math.abs(f.sp); d.position.set(f.x, f.y + Math.sin(t * 1.3 + f.ph) * 0.2, f.z); d.rotation.set(0, f.sp > 0 ? 0 : Math.PI, Math.sin(t * 2 + f.ph) * 0.1); d.rotation.y += Math.sin(t * 9 + f.ph) * 0.15; d.scale.set(f.s, f.s * 0.8, f.s * 0.5); d.updateMatrix(); fish.setMatrixAt(i, d.matrix); }
+        fish.instanceMatrix.needsUpdate = true;
+        SH.forEach((o, i) => { const a = t * o.sp + o.ph, x = AX + Math.cos(a) * (LX / 2 - 2.5), zz = o.z + Math.sin(a) * 2.2; d.position.set(x, o.y + Math.sin(t * 0.7 + i) * 0.3, zz); d.rotation.set(0, -Math.atan2(Math.cos(a) * o.sp * 2.2, -Math.sin(a) * o.sp * (LX / 2 - 2.5)) + Math.sin(t * 3 + i) * 0.12, 0); d.scale.setScalar(o.s); d.updateMatrix(); sharks.setMatrixAt(i, d.matrix); });
+        sharks.instanceMatrix.needsUpdate = true;
+      }); }
+    lampLight(AX, 2.6, TZ, 0x40b0ff, 1.4, 20, null, 0.25);
+    M(new THREE.PlaneGeometry(LX, 2 * TW - 0.2), new THREE.MeshBasicMaterial({ map: waterT, color: 0x2a6a8a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }), AX, 0.05, TZ, { rx: -Math.PI / 2, cast: false });
+    cartel(1, 5.6, 0.8, A.x1 + 0.32, 4.2, TZ, Math.PI / 2); cartel(1, 5.6, 0.8, A.x0 - 0.32, 4.2, TZ, -Math.PI / 2);
+    spotK(-66.8, TZ + 0.6); spotK(-76.4, TZ - 0.4);
+    // ---- OBJETO INTERACTIVO: el tanque de las anguilas eléctricas. Dispárale: el agua se derrama y electrocuta a los zombis que la pisen durante 9 s
+    { const EX = -50, EZ = 0, R = 1.25, ER = 6.5;
+      grp(EX, EZ); pz('s', C_(R + 0.2, R + 0.3, 0.9, 16), 0x3a3a40, 0, 0.45, 0); pz('d', C_(R + 0.2, R + 0.2, 0.25, 16), 0x3a3a40, 0, 3.6, 0); pz('d', B_(0.5, 0.8, 0.35), 0xd8b020, R + 0.1, 0.5, 0); sinGrp();
+      addCircle(EX, EZ, R + 0.3); cartel(15, 3.6, 0.45, EX + R + 0.45, 2.6, EZ, Math.PI / 2);
+      const glass = M(C_(R, R, 2.6, 16), new THREE.MeshLambertMaterial({ color: 0x9ad8ff, transparent: true, opacity: 0.3, emissive: 0x103040, depthWrite: false }), EX, 2.2, EZ, { cast: false }); glass.userData.vivo = 1;
+      const agua = M(C_(R - 0.05, R - 0.05, 2.5, 16), bsc(0x2a6aa0, { transparent: true, opacity: 0.55 }), EX, 2.15, EZ, { cast: false }); agua.userData.vivo = 1;
+      const ang = []; for (let i = 0; i < 2; i++) { const g = new THREE.Group(); g.position.set(EX, 0, EZ); g.userData.vivo = 1; world.group.add(g); const segs = []; for (let k = 0; k < 8; k++) { const m = M(S_(0.09, 6, 4), lam(0xd8c040, { emissive: 0x403a00 }), 0, 0, 0, { p: g, cast: false }); m.scale.set(1.6, 1, 1); segs.push(m); } ang.push({ g, segs, ph: i * 3 }); }
+      const charco = M(new THREE.CircleGeometry(ER, 28), new THREE.MeshLambertMaterial({ map: waterT, color: 0x7ab8d8, emissive: 0x0a2a3a, transparent: true, opacity: 0.6, depthWrite: false }), EX, 0.04, EZ, { rx: -Math.PI / 2, cast: false }); charco.visible = false; charco.userData.vivo = 1;
+      const brillo = glowAt(EX, 2.2, EZ, 0x60c0ff, 3.4, 0.35);
+      const S = { roto: false, t: 0, tick: 0 }, hp = new THREE.Vector3();
+      shootable(glass, () => {
+        if (S.roto) return; S.roto = true; S.t = 9; glass.visible = false; agua.visible = false; charco.visible = true; solidOff(glass);
+        Sfx.ice(panOf({ x: EX, z: EZ })); Sfx.splat(panOf({ x: EX, z: EZ }), 1); Sfx.zap(panOf({ x: EX, z: EZ }));
+        for (let i = 0; i < 40; i++) PA.add(EX + rand(-1, 1), rand(0.5, 3), EZ + rand(-1, 1), rand(-5, 5), rand(0, 3), rand(-5, 5), rand(0.4, 0.9), 0.06, 0.75, 0.9, 1, 0.9, 9.8, 0.5, 0, 0);
+        feed('¡Se rompe el tanque de las anguilas! El agua está electrificada', 'gold');
+      });
+      world.anims.push((dt, t) => {
+        ang.forEach((o, i) => { if (S.roto) { o.g.visible = S.t > 6; } o.segs.forEach((m, k) => { const a = t * 0.8 + o.ph + k * 0.32; m.position.set(Math.cos(a) * 0.65, (S.roto ? 0.12 : 1.6 + i * 0.7) + Math.sin(t * 2 + k * 0.6) * 0.15, Math.sin(a) * 0.65); m.rotation.y = -a; }); });
+        brillo.material.opacity = S.roto ? (S.t > 0 ? 0.25 + Math.random() * 0.5 : 0) : 0.22 + Math.sin(t * 2.4) * 0.08 + (Math.random() < 0.03 ? 0.4 : 0);
+        if (!S.roto) { if (Math.random() < dt * 0.6) for (let i = 0; i < 5; i++) PA.add(EX + rand(-0.8, 0.8), rand(1.2, 3.2), EZ + rand(-0.8, 0.8), rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.15, 0.04, 0.7, 0.9, 1, 1, 0, 0.2, 0, 0); return; }
+        if (S.t <= 0) { charco.material.opacity = Math.max(0.3, charco.material.opacity - dt * 0.02); return; }
+        S.t -= dt; S.tick -= dt; charco.material.emissive.setHex(Math.random() < 0.4 ? 0x3a6a9a : 0x0a2a3a);
+        if (Math.random() < dt * (FAST() ? 10 : 24)) { const a = rand(0, TAU), r = rand(0, ER); PA.add(EX + Math.cos(a) * r, 0.1, EZ + Math.sin(a) * r, rand(-1.5, 1.5), rand(1, 3), rand(-1.5, 1.5), rand(0.15, 0.3), 0.05, 0.7, 0.9, 1, 1, 6, 0.3, 0, 0); }
+        if (S.tick > 0) return; S.tick = 0.35; let n = 0;
+        for (const zz of zombies) { if (zz.dead || zz.state === 'rise') continue; const p = zz.root.position; if (Math.hypot(p.x - EX, p.z - EZ) > ER) continue; zz.stagger = Math.max(zz.stagger || 0, 0.7); damageZombie(zz, zz.boss != null ? 14 : 40, { part: 'body', dir: null }); hp.set(p.x, 1, p.z); sparks(hp, 5, null); n++; }
+        if (n && Math.random() < 0.6) Sfx.zap(panOf({ x: EX, z: EZ }));
+        if (Math.hypot(player.pos.x - EX, player.pos.z - EZ) < ER) player.shake = Math.min(1, (player.shake || 0) + 0.15);
+      });
+      spotK(-47.4, -4.2);
+    }
+
+    // ---- El estanque de los cocodrilos, con su puente de madera de norte a sur
+    { const C = ZOO.coc, PX = [C.x - 1.6, C.x + 1.6];
+      const pond = M(new THREE.CircleGeometry(1, 40), waterM, C.x, 0.05, C.z, { rx: -Math.PI / 2, cast: false }); pond.scale.set(C.rx, C.rz, 1);
+      pz('n', new THREE.RingGeometry(0.92, 1.08, 40), 0x3a2a18, C.x, 0.03, C.z, 0, -Math.PI / 2, 0, C.rx, C.rz, 1);
+      charca(C.x, C.z, C.rx, C.rz, 1.4, PX);
+      const roc = []; for (let i = 0; i < 46; i++) { const a = i / 46 * TAU, x = C.x + Math.cos(a) * (C.rx + 0.3), z = C.z + Math.sin(a) * (C.rz + 0.3); if (Math.abs(x - C.x) < 2.4) continue; roc.push({ m: TRS(x, 0.12, z, sr(0, 3), sr(0, 3), 0, sr(0.4, 0.75), sr(0.25, 0.4), sr(0.4, 0.75)), c: sk([0x6e665a, 0x5a544a, 0x7a7262]) }); }
+      inst(D_(), lam(0xffffff, { flatShading: true }), roc);
+      const jun = []; for (let i = 0; i < 70; i++) { const a = sr(0, TAU), e = sr(0.78, 1.05), x = C.x + Math.cos(a) * C.rx * e, z = C.z + Math.sin(a) * C.rz * e; if (Math.abs(x - C.x) < 2.4) continue; jun.push({ m: TRS(x, 0.6, z, 0, sr(-0.15, 0.15), sr(-0.15, 0.15), 1, sr(0.8, 1.6), 1), c: sk([0x3a5a26, 0x4a6a2a, 0x2e4a20]) }); }
+      inst(C_(0.04, 0.05, 1.2, 4), lam(0xffffff), jun, { cast: false });
+      for (let i = 0; i < 14; i++) { const a = sr(0, TAU), e = sr(0.2, 0.8); pz('n', new THREE.CircleGeometry(0.4, 7), 0x2a6a2a, C.x + Math.cos(a) * C.rx * e + (Math.abs(Math.cos(a) * C.rx * e) < 2.4 ? 3 : 0), 0.07, C.z + Math.sin(a) * C.rz * e, sr(0, 3), -Math.PI / 2); }
+      // el puente: tablones, postes y barandillas
+      for (let z = C.z - C.rz - 1.6; z <= C.z + C.rz + 1.6; z += 0.55) pz('d', B_(3.4, 0.12, 0.48), sk([0x6a4a2c, 0x5e4228, 0x765230]), C.x, 0.1, z, sr(-0.02, 0.02));
+      for (const s of [-1, 1]) { for (let z = C.z - C.rz - 1.6; z <= C.z + C.rz + 1.7; z += 2.2) pz('d', B_(0.14, 1.2, 0.14), MADO, C.x + s * 1.65, 0.6, z); pz('d', B_(0.1, 0.1, 2 * C.rz + 3.4), MAD, C.x + s * 1.65, 1.15, C.z); pz('d', B_(0.06, 0.06, 2 * C.rz + 3.4), MAD, C.x + s * 1.65, 0.65, C.z); }
+      cartel(2, 3.2, 0.5, C.x, 1.75, C.z - C.rz - 1.75, 0); cartel(2, 3.2, 0.5, C.x, 1.75, C.z + C.rz + 1.75, Math.PI);
+      poste(3, C.x + 5, C.z - C.rz - 2.2, 0.15); poste(3, C.x - 6, C.z + C.rz + 2.3, Math.PI - 0.1);
+      // los cocodrilos: tres que nadan despacio y dos que toman el sol en la orilla; si un zombi se acerca al agua, muerden
+      const cocG = marketGeo([[B_(2.2, 0.36, 0.7), 0x3a4a26, 0, 0.18, 0], [B_(1.1, 0.24, 0.42), 0x3a4a26, 1.6, 0.14, 0], [B_(0.9, 0.08, 0.36), 0x4a5a30, 1.75, 0.04, 0], [new THREE.ConeGeometry(0.32, 2.2, 5), 0x34421f, -2.1, 0.14, 0, 0, 0, Math.PI / 2], [S_(0.07, 5, 3), 0xd8d040, 1.2, 0.33, 0.16], [S_(0.07, 5, 3), 0xd8d040, 1.2, 0.33, -0.16],
+        ...[[0.7, 0.42], [0.7, -0.42], [-0.6, 0.42], [-0.6, -0.42]].map(([x, z]) => [B_(0.2, 0.14, 0.4), 0x34421f, x, 0.08, z]), ...[-0.8, -0.4, 0, 0.4, 0.8].map(x => [B_(0.12, 0.1, 0.4), 0x2a361a, x, 0.4, 0])]);
+      const cocM = new THREE.InstancedMesh(cocG, vcM, 5); for (let i = 0; i < 5; i++) cocM.setColorAt(i, new THREE.Color(i < 3 ? 0xffffff : 0xd8d8c8)); cocM.frustumCulled = false; cocM.userData.vivo = 1; cocM.castShadow = true; world.group.add(cocM);
+      const CO = [{ a: 0.4, e: 0.55, sp: 0.05, y: -0.18 }, { a: 2.6, e: 0.6, sp: -0.04, y: -0.2 }, { a: 4.1, e: 0.4, sp: 0.06, y: -0.16 }, { x: C.x - C.rx - 1.4, z: C.z + 2, ry: 2.6 }, { x: C.x + C.rx + 1.2, z: C.z - 3, ry: -0.5 }];
+      CO.slice(3).forEach(o => addCircle(o.x, o.z, 0.9));
+      const dd = new THREE.Object3D(), hp = new THREE.Vector3(); let mt = 0;
+      world.anims.push((dt, t) => {
+        CO.forEach((o, i) => {
+          if (o.ataca > 0) { o.ataca -= dt; const u = Math.sin((1 - o.ataca / 0.6) * Math.PI); dd.position.set(o.px + (o.tx - o.px) * u * 0.6, 0.05 + u * 0.25, o.pz + (o.tz - o.pz) * u * 0.6); dd.rotation.set(0, Math.atan2(-(o.tz - o.pz), o.tx - o.px), 0); }
+          else if (i < 3) { o.a += o.sp * dt; let x = C.x + Math.cos(o.a) * C.rx * o.e, z = C.z + Math.sin(o.a) * C.rz * o.e; if (Math.abs(x - C.x) < 2.2) x += Math.sign(x - C.x || 1) * 2.2; dd.position.set(x, o.y + Math.sin(t * 0.8 + i) * 0.03, z); dd.rotation.set(0, -Math.atan2(Math.cos(o.a) * C.rz * o.sp, -Math.sin(o.a) * C.rx * o.sp), 0); o.px = x; o.pz = z; }
+          else { dd.position.set(o.x, 0, o.z); dd.rotation.set(0, o.ry + Math.sin(t * 0.3 + i) * 0.05, 0); o.px = o.x; o.pz = o.z; }
+          dd.scale.setScalar(i < 3 ? 1 : 0.9); dd.updateMatrix(); cocM.setMatrixAt(i, dd.matrix);
+        });
+        cocM.instanceMatrix.needsUpdate = true;
+        if ((mt -= dt) > 0) return; mt = 0.8;
+        for (const zz of zombies) {
+          if (zz.dead || zz.state === 'rise' || Math.random() > 0.3) continue; const p = zz.root.position, e = Math.hypot((p.x - C.x) / C.rx, (p.z - C.z) / C.rz);
+          if (e < 0.85 || e > 1.25 || Math.abs(p.x - C.x) < 2) continue;
+          let best = null, bd = 1e9; CO.forEach(o => { if (o.ataca > 0) return; const d = Math.hypot(o.px - p.x, o.pz - p.z); if (d < bd) { bd = d; best = o; } }); if (!best || bd > 7) continue;
+          best.ataca = 0.6; best.tx = p.x; best.tz = p.z; zz.stagger = Math.max(zz.stagger || 0, 1.2); damageZombie(zz, zz.boss != null ? 40 : 170, { part: 'body', dir: null });
+          Sfx.splat(panOf(p), 0.8); hp.set(p.x, 0.6, p.z); for (let i = 0; i < 10; i++) P.add(p.x, 0.3, p.z, rand(-2, 2), rand(1, 3), rand(-2, 2), 0.7, 0.18, 0.6, 0.75, 0.85, 0.5, 9.8, 0.4, 0, 0);
+          break;
+        }
+      });
+      spotK(C.x, C.z + 0.5); spotK(C.x - C.rx - 2.4, C.z - 5.2);
+    }
+    // ---- El corral de las tortugas gigantes (muro bajo de piedra con la entrada al este)
+    { const TX = -70, TZ2 = 27, R = 4.2, n = 22;
+      for (let i = 0; i < n; i++) { const a = (i + 0.5) / n * TAU; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.45) continue; const x = TX + Math.cos(a) * R, z = TZ2 + Math.sin(a) * R, ch = 2 * R * Math.sin(Math.PI / n); pz('s', B_(ch + 0.08, 0.7, 0.4), sk([0x8a8274, 0x7a7466, 0x948c7c]), x, 0.35, z, -a - Math.PI / 2); addBox(x, z, ch / 2 + 0.05, 0.22, -a - Math.PI / 2); }
+      for (const [x, z, ry, s] of [[TX - 1.2, TZ2 - 1, 0.6, 1], [TX + 0.8, TZ2 + 1.6, 2.4, 0.85], [TX - 1.8, TZ2 + 1.8, -1.2, 0.9]]) { grp(x, z, ry); pz('s', S_(1, 12, 7, 0), 0x5a4a32, 0, 0, 0, 0, 0, 0, 1.1 * s, 0.75 * s, 0.85 * s); pz('d', S_(0.28, 8, 6), 0x7a7a5a, 1.15 * s, 0.35, 0); for (const [lx, lz] of [[0.6, 0.6], [0.6, -0.6], [-0.6, 0.6], [-0.6, -0.6]]) pz('d', C_(0.16, 0.18, 0.4, 6), 0x7a7a5a, lx * s, 0.2, lz * s); sinGrp(); addCircle(x, z, 1.0 * s); }
+      pz('n', new THREE.CircleGeometry(R - 0.2, 20), 0x4a3a22, TX, 0.02, TZ2, 0, -Math.PI / 2); addCircle(TX, TZ2, R + 0.1);   // el corral es solo para mirar: dentro no se pisa
+    }
+    // ---- El patio de servicio (suroeste): almacén de pienso, cobertizo, depósitos de agua y el carrito del cuidador
+    { grp(-70, 72); pz('s', B_(10, 3.6, 7), 0x7a6a52, 0, 1.8, 0); pz('d', B_(10.6, 0.3, 7.6), 0x3a4a34, 0, 3.75, 0); pz('d', B_(4.2, 3.0, 0.08), 0x9a9a8a, 1, 1.5, -3.52); for (let i = 0; i < 10; i++) pz('n', B_(4.2, 0.03, 0.09), 0x6a6a5a, 1, 0.2 + i * 0.3, -3.57); sinGrp(); addBox(-70, 72, 5.05, 3.55); cartel(14, 3, 0.45, -70, 3.25, 68.42, 0);
+      grp(-56, 75); pz('s', B_(8, 0.2, 0.2), MADO, 0, 3.2, 2.4); for (const lx of [-3.8, 3.8]) for (const lz of [-2.4, 2.4]) { pz('d', B_(0.24, 3.2, 0.24), MADO, lx, 1.6, lz); } pz('d', B_(8.6, 0.2, 5.6), 0x6a3a2a, 0, 3.35, 0, 0, 0.12); pz('s', B_(8, 2.6, 0.2), MAD, 0, 1.3, 2.5);
+      for (const lx of [-3.8, 3.8]) for (const lz of [-2.4, 2.4]) boxAt(lx, lz, 0.18, 0.18); boxAt(0, 2.5, 4, 0.15); sinGrp();
+      const hay = []; for (let i = 0; i < 9; i++) { const k = i % 3, f = Math.floor(i / 3); hay.push({ m: TRS(-58.5 + k * 1.3, 0.42 + f * 0.82, 76.4, sr(-0.08, 0.08)), c: sk([0xb09048, 0xa08040, 0xc0a058]) }); } addBox(-57.2, 76.4, 2, 0.5);
+      inst(B_(1.2, 0.82, 0.8), lam(0xffffff), hay);
+      for (const [x, z] of [[-78.6, 60], [-78.6, 64.4]]) { pz('s', C_(1.7, 1.7, 4.2, 14), 0x5a7a8a, x, 2.1, z); pz('d', C_(1.75, 1.75, 0.2, 14), 0x3a4a54, x, 4.25, z); addCircle(x, z, 1.75); }
+      grp(-50, 63.5, 0.6); pz('s', B_(2.4, 0.6, 1.3), 0xe8e4dc, 0, 0.6, 0); pz('d', B_(0.7, 0.9, 1.1), VERDE, -0.6, 1.25, 0); pz('d', B_(2.2, 0.08, 1.4), VERDE, 0, 2.1, 0); for (const [lx, lz] of [[-0.85, 0.6], [0.85, 0.6], [-0.85, -0.6], [0.85, -0.6]]) { pz('d', C_(0.28, 0.28, 0.2, 10), NEU, lx, 0.28, lz * 1.1, 0, 0, Math.PI / 2); pz('d', C_(0.04, 0.04, 1.6, 5), HIERRO, lx, 1.3, lz); } pz('d', B_(1.2, 0.5, 1.2), 0x3a4a2a, 1.6, 0.45, 0); sinGrp(); addBox(-50, 63.5, 2.2, 0.75, 0.6);
+      const sac = []; for (let i = 0; i < 12; i++) sac.push({ m: TRS(-64 + sr(-1.2, 1.2), 0.3 + Math.floor(i / 5) * 0.45, 64.5 + sr(-0.8, 0.8), sr(0, TAU), 0, sr(-0.1, 0.1)), c: sk([0xc8b890, 0xb8a878, 0xa89868]) }); addCircle(-64, 64.5, 1.4);
+      inst(gk('saco', () => { const g = new THREE.SphereGeometry(0.5, 7, 5); g.scale(1, 0.55, 0.75); return g; }), lam(0xffffff, { flatShading: true }), sac);
+      const caj = []; for (const [x, z] of [[-76.5, 79], [-75.2, 79.4], [-76, 77.8], [-46, 79], [-47.3, 79.2], [-46.5, 77.6]]) { const s = sr(0.8, 1.1); caj.push({ m: TRS(x, s / 2, z, sr(0, 1.5), 0, 0, s, s, s), c: sk([0x8a6a3a, 0x7a5a32, 0x9a7a4a]) }); addCircle(x, z, s * 0.62); }
+      inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), caj, { solid: true });
+      spotK(-62.6, 68.6);
+    }
+    // apariciones: por el muro del oeste y entre los edificios
+    for (const [x, z] of [[-81.2, -40], [-81.2, 0], [-81.2, 36], [-81.2, 56], [-60, 81.2], [-48, 50]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[-50, -38], [-48, 14], [-56, 26], [-74, 50]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ======================= LA SABANA (norte) =======================
+  const acaT = [], acaC = [], hierba = [];
+  {
+    const T = ZOO.tren, LT = zooViaL();
+    // ---- La vía del trenecito: traviesas y raíles en dos mallas
+    { const dur = [], rai = [];
+      for (let s = 0; s < LT; s += 0.9) { const p = zooVia(s); dur.push({ m: TRS(p.x, 0.06, p.z, -p.a), c: sk([0x3a2a1a, 0x2e2216, 0x463220]) }); }
+      for (let s = 0; s < LT; s += 1) { const p = zooVia(s + 0.5), nx = -Math.sin(p.a), nz = Math.cos(p.a); for (const o of [-0.72, 0.72]) rai.push({ m: TRS(p.x + nx * o, 0.17, p.z + nz * o, -p.a) }); }
+      inst(B_(0.3, 0.12, 2.3), lam(0xffffff), dur, { cast: false }); inst(B_(1.04, 0.12, 0.1), lam(0x7a7a80), rai, { cast: false });
+    }
+    // ---- La estación: andén, marquesina, bancos y el cartel
+    { const SX = 0, SZ = -47.2;
+      pz('n', B_(20, 0.1, 2.8), 0x8a8478, SX, 0.05, SZ); pz('d', B_(20, 0.12, 0.25), 0xd8c050, SX, 0.06, SZ - 1.3);
+      for (const x of [-8, -2.6, 2.6, 8]) { pz('s', C_(0.12, 0.14, 3.6, 8), VERDE, x, 1.8, SZ + 1.1); addCircle(x, SZ + 1.1, 0.2); }
+      pz('d', B_(19, 0.18, 3.4), 0x8a2a1a, SX, 3.7, SZ + 0.1, 0, 0.12); pz('d', B_(19.2, 0.3, 0.12), 0xd8c050, SX, 3.5, SZ - 1.6);
+      cartel(5, 6.4, 0.7, SX, 3.05, SZ - 1.55, 0);
+      for (const x of [-5.2, 5.2]) banco(x, SZ + 0.6, Math.PI);
+      lampLight(SX, 3.1, SZ, 0xffe0a8, 1.0, 14, null, 0.6);
+    }
+    // ---- OBJETO INTERACTIVO: el tren de la sabana. Da una vuelta entera a la vía y arrolla a los zombis que estén encima
+    { const S0 = 8, OFF = [0, 4.5, 8.8, 13.1];
+      const loco = new THREE.Mesh(marketGeo([
+        [B_(4.4, 0.35, 1.7), 0x1a1a1a, 0, 0.55, 0], [C_(0.68, 0.68, 2.6, 12), 0x2a6a3a, 0.75, 1.45, 0, 0, 0, Math.PI / 2], [C_(0.72, 0.72, 0.12, 12), 0xd8b050, 2.05, 1.45, 0, 0, 0, Math.PI / 2], [C_(0.72, 0.72, 0.12, 12), 0xd8b050, 0.75, 1.45, 0, 0, 0, Math.PI / 2],
+        [C_(0.2, 0.3, 0.9, 10), 0x1a1a1a, 1.55, 2.4, 0], [C_(0.32, 0.32, 0.12, 10), 0xd8b050, 1.55, 2.86, 0], [S_(0.3, 8, 6), 0xd8b050, 0.6, 2.1, 0], [B_(1.7, 2.0, 1.9), 0xb02a1e, -1.25, 1.75, 0], [B_(1.95, 0.14, 2.1), 0x1a1a1a, -1.25, 2.82, 0],
+        [B_(0.9, 0.6, 0.04), 0x101418, -1.25, 2.1, 0.96], [B_(0.9, 0.6, 0.04), 0x101418, -1.25, 2.1, -0.96], [B_(0.04, 0.6, 1.2), 0x101418, -0.39, 2.1, 0], [B_(0.5, 0.5, 1.6), 0x8a8a8a, 2.35, 0.45, 0, 0, 0, 0.6], [C_(0.2, 0.2, 0.18, 10), 0xfff0b0, 2.15, 2.0, 0, 0, 0, Math.PI / 2],
+        ...[1.4, 0.3, -1.1].flatMap(lx => [-0.86, 0.86].map(lz => [C_(0.42, 0.42, 0.14, 12), 0xb02a1e, lx, 0.42, lz, Math.PI / 2]))]), vcM);
+      loco.castShadow = true; loco.userData.vivo = 1; world.group.add(loco);
+      const carG = marketGeo([[B_(4.0, 0.3, 1.7), 0x1a1a1a, 0, 0.55, 0], [B_(3.9, 0.1, 1.8), 0x6a4a2c, 0, 0.75, 0], [B_(3.9, 0.5, 0.06), 0xd8c070, 0, 1.05, 0.88], [B_(3.9, 0.5, 0.06), 0xd8c070, 0, 1.05, -0.88], [B_(0.06, 0.5, 1.8), 0xd8c070, 1.95, 1.05, 0], [B_(0.06, 0.5, 1.8), 0xd8c070, -1.95, 1.05, 0],
+        ...[-0.9, 0.9].flatMap(lx => [[B_(0.5, 0.45, 1.6), 0x8a5a2a, lx, 1.0, 0], [B_(0.08, 0.5, 1.6), 0x8a5a2a, lx - 0.25, 1.4, 0]]), ...[-1.85, 1.85].flatMap(lx => [-0.85, 0.85].map(lz => [B_(0.08, 1.6, 0.08), 0xd8d0c0, lx, 1.6, lz])),
+        ...[0, 1, 2, 3, 4, 5].map(i => [B_(0.68, 0.08, 1.95), i % 2 ? 0x1a1a1a : 0xe8e0d0, -1.7 + i * 0.68, 2.45, 0]), ...[-1.3, 1.3].flatMap(lx => [-0.86, 0.86].map(lz => [C_(0.32, 0.32, 0.12, 10), NEU, lx, 0.32, lz, Math.PI / 2])), [B_(0.5, 0.1, 0.12), 0x3a3a3a, 2.2, 0.55, 0]]);
+      const cars = new THREE.InstancedMesh(carG, vcM, 3); for (let i = 0; i < 3; i++) cars.setColorAt(i, new THREE.Color(0xffffff)); cars.frustumCulled = false; cars.castShadow = true; cars.userData.vivo = 1; world.group.add(cars);
+      const cols = OFF.map(o => { const p = zooVia(S0 - o); addCircle(p.x, p.z, 1.25); return colliders[colliders.length - 1]; });
+      const humo = new THREE.Vector3(), dd = new THREE.Object3D(), golpe = new Map(), NONE = new Set();
+      const TR = { d: 0, v: 0, on: false, pT: 0 };
+      const pon = (t) => {
+        OFF.forEach((o, i) => {
+          const p = zooVia(S0 + TR.d - o), bob = TR.on ? Math.abs(Math.sin(t * 9 + i)) * 0.03 : 0;
+          if (i === 0) { loco.position.set(p.x, bob, p.z); loco.rotation.y = -p.a; } else { dd.position.set(p.x, bob, p.z); dd.rotation.set(0, -p.a, 0); dd.updateMatrix(); cars.setMatrixAt(i - 1, dd.matrix); }
+          cols[i].x = p.x; cols[i].z = p.z;
+        });
+        cars.instanceMatrix.needsUpdate = true;
+      };
+      pon(0);
+      cartel(5, 2.6, 0.36, 4.2, 1.35, -46.0, 0);
+      const luz = glowAt(5.6, 1.4, -46.4, 0x60ff60, 1.2, 0.4);
+      const uso = mapUse({ x: 5.6, z: -46.6, r: 2.6, t: 'El tren de la sabana', d: 'Arranca el trenecito: da una vuelta entera a la sabana por su vía y arrolla a los zombis que se crucen. ¡No te quedes en la vía!', b: 'Arrancar el tren', price: 10, cd: 45, use(o) {
+        if (TR.on) { game.gold += o.price; o.readyT = 0; hint('El tren ya está en marcha', 1500); return; }
+        TR.on = true; TR.d = 0; TR.v = 0; golpe.clear(); Sfx.silbato(panOf(loco.position), 1); feed('¡El tren de la sabana arranca!', 'gold');
+      } });
+      world.anims.push((dt, t) => {
+        luz.material.opacity = TR.on || (game && uso.readyT > game.time) ? 0.05 : 0.3 + Math.sin(t * 4) * 0.15;
+        if (!TR.on) return;
+        const resta = LT - TR.d; TR.v = resta < TR.v * TR.v / 10 + 0.5 ? Math.max(1.2, TR.v - 5 * dt) : Math.min(16, TR.v + 5 * dt);
+        TR.d = Math.min(LT, TR.d + TR.v * dt); pon(t);
+        if (Math.random() < dt * (FAST() ? 8 : 18)) { humo.set(1.55, 3, 0).applyMatrix4(loco.matrixWorld); P.add(humo.x, humo.y, humo.z, rand(-0.3, 0.3), rand(1.2, 2), rand(-0.3, 0.3), rand(1.4, 2.2), 0.45, 0.82, 0.82, 0.85, 0.4, -0.15, 0.6, 0.8); }
+        if ((TR.pT -= dt) <= 0 && TR.v > 6) { TR.pT = 7; Sfx.silbato(panOf(loco.position), volOf(loco.position, 1)); }
+        // arrolla: lo que esté a menos de 1,7 m de un vagón sale despedido hacia un lado
+        if (TR.v > 3) for (let i = 0; i < 4; i++) {
+          const p = zooVia(S0 + TR.d - OFF[i]), nx = -Math.sin(p.a), nz = Math.cos(p.a), fx = Math.cos(p.a), fz = Math.sin(p.a);
+          for (const zz of zombies) {
+            if (zz.dead || zz.state === 'rise' || golpe.has(zz)) continue; const q = zz.root.position, dx = q.x - p.x, dz = q.z - p.z;
+            if (Math.abs(dx * fx + dz * fz) > 2.3 || Math.abs(dx * nx + dz * nz) > 1.5) continue;
+            golpe.set(zz, 1); const sd = dx * nx + dz * nz >= 0 ? 1 : -1; zz.kbx = nx * sd * 11 + fx * 5; zz.kbz = nz * sd * 11 + fz * 5; zz.stagger = Math.max(zz.stagger || 0, 2.2);
+            damageZombie(zz, zz.boss != null ? 70 : 320, { part: 'body', dir: null }); Sfx.thud(panOf(q)); for (let k = 0; k < 8; k++) P.add(q.x, 1, q.z, rand(-2, 2), rand(1, 4), rand(-2, 2), 0.6, 0.2, 0.45, 0.05, 0.04, 0.8, 9.8, 0.5, 0, 0);
+          }
+          const pp = player.pos, dx = pp.x - p.x, dz = pp.z - p.z;
+          if (Math.abs(dx * fx + dz * fz) < 2.3 && Math.abs(dx * nx + dz * nz) < 1.4 && !(TR.pp > game.time)) { TR.pp = game.time + 1; const sd = dx * nx + dz * nz >= 0 ? 1 : -1; player.kx = (player.kx || 0) + nx * sd * 9; player.kz = (player.kz || 0) + nz * sd * 9; player.shake = Math.min(1, (player.shake || 0) + 0.4); }
+        }
+        if (TR.d >= LT) { TR.on = false; TR.d = 0; TR.v = 0; pon(0); Sfx.clang(panOf(loco.position)); }
+      });
+      spotK(-1.4, -45.4);
+    }
+    // ---- OBJETO INTERACTIVO: el altavoz de la hora de comer. Durante 12 s los zombis de los alrededores van al comedero, que está en plena vía
+    { const AX = 34, AZ = -45.4, CX = 34, CZ = -50;
+      pz('s', C_(0.12, 0.15, 6, 8), VERDE, AX, 3, AZ); addCircle(AX, AZ, 0.25);
+      for (const s of [-1, 1]) pz('d', new THREE.ConeGeometry(0.42, 0.9, 10, 1, true), 0xd8d0b8, AX + s * 0.4, 5.6, AZ - 0.35, 0, -Math.PI / 2 + 0.3, s * 0.25);
+      pz('d', B_(1.2, 0.12, 0.2), HIERRO, AX, 5.65, AZ); pz('d', B_(0.5, 0.7, 0.3), 0x8a8a7a, AX, 1.3, AZ + 0.22);
+      pz('s', B_(2.4, 0.6, 0.9), 0x5a4a3a, CX + 3.2, 0.3, CZ - 3.4); pz('n', B_(2.2, 0.06, 0.7), 0x6a8a3a, CX + 3.2, 0.58, CZ - 3.4); addBox(CX + 3.2, CZ - 3.4, 1.25, 0.5);
+      for (let i = 0; i < 7; i++) pz('n', B_(sr(0.2, 0.4), 0.08, sr(0.1, 0.2)), sk([0x8a2a1a, 0xc8a040, 0x6a8a3a]), CX + sr(-1.2, 1.2), 0.21, CZ + sr(-0.6, 0.6), sr(0, 3));
+      const luz = glowAt(AX, 6.15, AZ, 0xff4020, 1.2, 0.2), pos = new THREE.Vector3(AX, 5.6, AZ), cebo = { root: { position: new THREE.Vector3(CX, 0, CZ) }, eatT: 0, dead: true };
+      let suena = 0, voz = 0, retT = 0;
+      const uso = mapUse({ x: AX, z: AZ + 1.2, r: 2.4, t: 'Altavoz de la hora de comer', d: 'Anuncia la hora de comer: durante 12 segundos los zombis de los alrededores van al comedero de la vía. Buen momento para arrancar el tren.', b: 'Dar el aviso', price: 0, cd: 50, use() {
+        suena = 12; voz = 0; retT = 0; cebo.eatT = 12; feed('«¡Es la hora de comer!» Los zombis van al comedero', 'gold');
+      } });
+      world.anims.push((dt, t) => {
+        luz.material.opacity = suena > 0 ? ((t % 0.5) < 0.25 ? 0.9 : 0.15) : (game && uso.readyT > game.time) ? 0.05 : 0.25 + Math.sin(t * 2) * 0.1;
+        if (suena <= 0) return;
+        suena -= dt; voz -= dt; retT -= dt;
+        if (voz <= 0) { voz = 3; Sfx.megafono(panOf(pos), volOf(pos, 1.6)); }
+        if (retT <= 0 && suena > 0) { retT = 0.5; for (const zz of zombies) { if (zz.dead || zz.net || zz.boss != null || zz.state === 'rise') continue; if (Math.hypot(zz.root.position.x - CX, zz.root.position.z - CZ) < 60 && zz.tobj !== cebo) { zz.tk = 'e'; zz.tobj = cebo; zz.los = false; zz.tgtT = 0.6; } } }
+        if (suena <= 0) { cebo.eatT = 0; for (const zz of zombies) if (zz.tobj === cebo) zz.tgtT = 0; }
+      });
+    }
+    // ---- La charca con los hipopótamos y las cebras que beben
+    { const C = ZOO.cha;
+      const ch = M(new THREE.CircleGeometry(1, 32), waterM, C.x, 0.05, C.z, { rx: -Math.PI / 2, cast: false }); ch.scale.set(C.rx, C.rz, 1);
+      charca(C.x, C.z, C.rx, C.rz, 1.2);
+      for (let i = 0; i < 22; i++) { const a = i / 22 * TAU; pz('d', D_(), sk([0x6a5a40, 0x5a4a34]), C.x + Math.cos(a) * (C.rx + 0.3), 0.1, C.z + Math.sin(a) * (C.rz + 0.3), sr(0, 3), sr(0, 3), 0, sr(0.35, 0.6), 0.22, sr(0.35, 0.6)); }
+      const hipG = marketGeo([[S_(0.6, 12, 8), 0x6a5a66, 0, 0.3, 0, 0, 0, 0, 1.9, 0.85, 1.05], [B_(0.9, 0.5, 0.75), 0x6a5a66, 1.25, 0.32, 0], [B_(0.5, 0.34, 0.8), 0x7a6a72, 1.6, 0.2, 0], [S_(0.08, 5, 3), 0x111111, 1.05, 0.62, 0.26], [S_(0.08, 5, 3), 0x111111, 1.05, 0.62, -0.26], [B_(0.1, 0.16, 0.08), 0x5a4a56, 0.85, 0.7, 0.24], [B_(0.1, 0.16, 0.08), 0x5a4a56, 0.85, 0.7, -0.24]]);
+      const hip = new THREE.InstancedMesh(hipG, vcM, 3); for (let i = 0; i < 3; i++) hip.setColorAt(i, new THREE.Color(0xffffff)); hip.frustumCulled = false; hip.userData.vivo = 1; world.group.add(hip);
+      const HP = [[C.x - 2.4, C.z - 1, 0.4], [C.x + 2.6, C.z + 0.6, 2.6], [C.x + 0.2, C.z + 2.2, -1.2]], hd = new THREE.Object3D();
+      world.anims.push((dt, t) => { HP.forEach(([x, z, r], i) => { hd.position.set(x + Math.sin(t * 0.2 + i) * 0.4, -0.32 + Math.sin(t * 0.9 + i * 2) * 0.07, z); hd.rotation.set(0, r + Math.sin(t * 0.15 + i) * 0.3, 0); hd.updateMatrix(); hip.setMatrixAt(i, hd.matrix); }); hip.instanceMatrix.needsUpdate = true; });
+      const zebT = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#ece8dc'; g.fillRect(0, 0, w, h); g.fillStyle = '#141210'; for (let y = 0; y < h; y += 8) { g.beginPath(); g.moveTo(0, y + sr(0, 2)); g.lineTo(0, y + 4 + sr(-1, 1)); g.lineTo(w, y + 4 + sr(-2, 2)); g.lineTo(w, y + sr(-1, 1)); g.fill(); } });   // rayas horizontales: en el cuerpo (cilindro tumbado) y en las patas salen de través
+      const zebG = marketGeo([[C_(0.4, 0.38, 1.25, 10), 0xffffff, 0, 1.25, 0, 0, 0, Math.PI / 2], [S_(0.4, 10, 8), 0xffffff, 0.62, 1.25, 0, 0, 0, 0, 0.7, 1, 1], [S_(0.39, 10, 8), 0xffffff, -0.62, 1.25, 0, 0, 0, 0, 0.7, 1, 1], [B_(0.08, 0.16, 0.06), 0x2a2420, 1.12, 0.86, 0.08, 0, 0, -1.0], [B_(0.08, 0.16, 0.06), 0x2a2420, 1.12, 0.86, -0.08, 0, 0, -1.0], [C_(0.12, 0.18, 0.95, 8), 0xffffff, 0.82, 1.05, 0, 0, 0, 0.62], [B_(0.5, 0.22, 0.24), 0xffffff, 1.18, 0.62, 0, 0, 0, -1.0], [B_(0.06, 0.14, 0.9), 0x2a2420, 0.78, 1.18, 0, 0, 0, 0.62], [B_(0.1, 0.1, 0.22), 0x2a2420, 1.38, 0.38, 0],
+        ...[[0.5, 0.2], [0.5, -0.2], [-0.5, 0.2], [-0.5, -0.2]].flatMap(([lx, lz]) => [[C_(0.09, 0.07, 1.0, 6), 0xffffff, lx, 0.5, lz], [C_(0.075, 0.08, 0.1, 6), 0x2a2420, lx, 0.04, lz]]), [C_(0.03, 0.02, 0.7, 4), 0x2a2420, -1.0, 1.05, 0, 0, 0, -0.5]]);
+      const zeb = [];
+      for (const [x, z, ry] of [[C.x - 8.8, C.z + 1, 0], [C.x - 6.5, C.z - 5.4, -0.69], [C.x + 7, C.z - 4.8, -2.54], [C.x + 8.4, C.z + 2, 2.91], [-10, -56.4, 1.2], [52, -70, -2], [-58, -46.8, 0.4]]) { zeb.push({ m: TRS(x, 0, z, ry) }); addCircle(x, z, 0.75); }
+      inst(zebG, lam(0xffffff, { map: zebT, vertexColors: true }), zeb, { solid: true });
+      spotK(C.x, C.z + C.rz + 1.6); spotK(C.x - 2, C.z - C.rz - 1.8);
+    }
+    // ---- El promontorio de rocas con suricatos y un árbol seco lleno de buitres
+    { const RX = 24, RZ = -64, roc = [];
+      for (const [x, z, r, h] of [[0, 0, 4, 4.2], [3.5, 2.5, 2.6, 2.6], [-3.5, 3, 2.2, 1.8], [2, -3.5, 2.6, 3.2], [-3, -3, 1.8, 1.4], [5.5, -1.5, 1.6, 1.2]]) { roc.push({ m: TRS(RX + x, h * 0.42, RZ + z, sr(0, 3), sr(0, 0.6), sr(0, 0.6), r, h, r * 0.9), c: sk([0xa08a6a, 0x8a7a5c, 0xb09a78]) }); addCircle(RX + x, RZ + z, r * 0.85); }
+      inst(D_(), lam(0xffffff, { flatShading: true }), roc, { solid: true });
+      const sur = marketGeo([[C_(0.08, 0.11, 0.38, 6), 0xb89a68, 0, 0.19, 0], [S_(0.07, 6, 4), 0xb89a68, 0, 0.44, 0.02], [S_(0.03, 4, 3), 0x111111, 0, 0.44, 0.09], [C_(0.02, 0.03, 0.3, 4), 0xa08a58, 0, 0.12, -0.12, 0, 0.8, 0]]);
+      const surL = []; for (const [x, z, y] of [[RX - 4.6, RZ + 4.4, 0], [RX - 5.2, RZ + 3.6, 0], [RX + 1.6, RZ + 2.4, 2.6], [RX - 1.2, RZ + 1.8, 3.6], [RX + 6.4, RZ + 0.6, 0], [RX + 6.9, RZ + 1.2, 0]]) surL.push({ m: TRS(x, y, z, sr(0, TAU)) });
+      inst(sur, vcM, surL, { cast: false });
+      deadTree(RX + 9, RZ + 6, 1.1, true, lam(0x3a2e22));
+      for (const [x, y, z] of [[RX + 9.4, 3.8, RZ + 6.2], [RX + 8.4, 3.2, RZ + 5.6], [RX + 9.8, 2.6, RZ + 5.4]]) { grp(x, z, sr(0, TAU), y); pz('d', S_(0.22, 6, 5), 0x1a1614, 0, 0, 0, 0, 0, 0, 1, 1.3, 0.8); pz('d', S_(0.1, 6, 4), 0xc89a8a, 0.12, 0.28, 0); pz('d', new THREE.ConeGeometry(0.05, 0.14, 4), 0xd8c070, 0.2, 0.26, 0, 0, 0, -Math.PI / 2); sinGrp(); }
+      spotK(RX - 5, RZ + 5.2);
+    }
+    // ---- El mirador: pasarela elevada de madera que cruza la sabana por encima de la vía, con su torre al fondo
+    { const MX = -48, Y = 4.4, ZA = -44.6, ZB = -80.6, ZM = (ZA + ZB) / 2;
+      for (const z of [-45.6, -55, -61.5, -68, -72.5, -80]) for (const s of [-1, 1]) { pz('s', C_(0.16, 0.18, Y, 8), MADO, MX + s * 1.4, Y / 2, z); addCircle(MX + s * 1.4, z, 0.22); }
+      pz('d', B_(3.0, 0.25, ZA - ZB), MAD, MX, Y, ZM); for (let z = ZB + 1; z < ZA; z += 4) pz('d', B_(3.2, 0.3, 0.25), MADO, MX, Y - 0.25, z);
+      for (const s of [-1, 1]) { for (let z = ZB; z <= ZA; z += 2) pz('n', B_(0.08, 1.0, 0.08), MADO, MX + s * 1.45, Y + 0.6, z); pz('d', B_(0.1, 0.1, ZA - ZB), MAD, MX + s * 1.45, Y + 1.1, ZM); pz('n', B_(0.05, 0.05, ZA - ZB), MAD, MX + s * 1.45, Y + 0.6, ZM); }
+      // la torre del fondo y los prismáticos
+      pz('d', B_(5, 0.3, 5), MAD, MX, Y, -79.5); for (const sx of [-2.3, 2.3]) for (const sz of [-2.3, 2.3]) pz('d', B_(0.18, 2.6, 0.18), MADO, MX + sx, Y + 1.4, -79.5 + sz);
+      pz('d', new THREE.ConeGeometry(4.2, 2, 4), 0xa08040, MX, Y + 3.6, -79.5, Math.PI / 4); pz('d', C_(0.05, 0.05, 1.2, 5), HIERRO, MX + 1.2, Y + 0.7, ZA + 0.6); pz('d', B_(0.3, 0.18, 0.4), 0x2a2a2a, MX + 1.2, Y + 1.35, ZA + 0.6);
+      // la escalera, pegada al oeste de la pasarela
+      for (let i = 0; i < 12; i++) { const h = (i + 1) * Y / 12; pz('s', B_(0.56, h, 1.5), MAD, -55.6 + i * 0.52, h / 2, -45.6); }
+      for (const z of [-46.4, -44.8]) pz('n', B_(6.4, 0.08, 0.06), MADO, -52.6, Y / 2 + 0.9, z, 0, 0, Math.atan2(Y, 6.2));
+      addBox(-52.6, -45.6, 3.2, 0.8);
+      cartel(6, 2.6, 0.5, MX, Y + 1.5, ZA, 0);
+      spotK(MX, -58.2);
+    }
+    // ---- El jeep del safari, empotrado contra un termitero, con un faro que todavía parpadea
+    { const JX = 46, JZ = -58, JR = 0.5;
+      grp(JX, JZ, JR, 0, 0, 0.05);
+      pz('s', B_(3.6, 0.8, 1.8), 0xc8b070, 0, 0.85, 0); pz('d', B_(1.2, 0.3, 1.7), 0xc8b070, 1.2, 1.35, 0); for (let i = 0; i < 5; i++) for (const s of [-1, 1]) pz('n', B_(0.18, 0.7, 0.02), 0x1a1a1a, -1.4 + i * 0.6, 0.85, s * 0.91, 0, 0, 0.3);
+      pz('d', B_(0.06, 0.6, 1.7), 0x8a8a8a, 0.5, 1.6, 0, 0, 0, -0.3); for (const s of [-1, 1]) { pz('d', C_(0.04, 0.04, 1.6, 5), 0x2a2a2a, -0.6, 1.9, s * 0.8); pz('d', C_(0.04, 0.04, 1.6, 5), 0x2a2a2a, -1.6, 1.9, s * 0.8); }
+      pz('d', B_(1.1, 0.06, 1.7), 0x2a2a2a, -1.1, 2.7, 0); pz('d', B_(0.9, 0.4, 1.5), 0x5a3a22, -0.6, 1.4, 0); pz('d', C_(0.4, 0.4, 0.26, 12), NEU, -1.95, 1.1, 0, 0, 0, Math.PI / 2);
+      for (const [lx, lz] of [[1.1, 0.95], [1.1, -0.95], [-1.1, 0.95], [-1.1, -0.95]]) pz('d', C_(0.42, 0.42, 0.3, 12), NEU, lx, 0.42, lz, 0, Math.PI / 2);
+      pz('L', C_(0.14, 0.14, 0.06, 8), 0xfff0c0, 1.82, 1.1, 0.6, 0, 0, Math.PI / 2);
+      const faro = at(2.1, -0.6), lado = at(-0.4, 0.93); sinGrp(); addBox(JX, JZ, 1.9, 1.0, JR);
+      const fg = glowAt(faro.x, 1.1, faro.z, 0xfff0c0, 2.4, 0.6); world.anims.push((dt, t) => { fg.material.opacity = Math.random() < 0.85 ? 0.55 : 0.05; });
+      cartel(7, 1.2, 0.3, lado.x, 1.0, lado.z, JR);
+      spotK(50.6, -54.6);
+    }
+    // ---- Termiteros y avestruces
+    for (const [x, z, s] of [[-62, -47, 1], [-8, -71, 1.2], [40, -72, 0.9], [66, -47.4, 1.1], [-70, -79, 1], [8, -58, 0.8], [49.2, -60.6, 0.7]]) { pz('s', new THREE.ConeGeometry(1, 1, 7), 0xa0623a, x, 1.3 * s, z, sr(0, 3), 0, 0, 1.1 * s, 2.6 * s, 1.1 * s); pz('d', new THREE.ConeGeometry(0.4, 1.4, 6), 0x9a5a34, x + 0.6 * s, 0.7 * s, z + 0.3, 0, 0, 0, s, s, s); addCircle(x, z, 1.1 * s); }
+    { const avG = marketGeo([[S_(0.5, 10, 6), 0x1a1614, 0, 1.3, 0, 0, 0, 0, 1.1, 0.75, 0.85], [S_(0.25, 6, 4), 0xe8e4dc, -0.55, 1.45, 0], [C_(0.06, 0.08, 1.2, 6), 0xd8a090, 0.5, 2.0, 0, 0, 0, -0.3], [S_(0.12, 6, 4), 0xd8a090, 0.68, 2.6, 0], [new THREE.ConeGeometry(0.05, 0.16, 4), 0xd8c070, 0.82, 2.58, 0, 0, 0, -Math.PI / 2],
+      [C_(0.05, 0.04, 1.2, 5), 0xd8a090, 0.05, 0.6, 0.18], [C_(0.05, 0.04, 1.2, 5), 0xd8a090, 0.05, 0.6, -0.18]]);
+      const av = []; for (const [x, z, ry] of [[8, -70, 0.3], [11, -73, -2.5], [-4, -60.4, 1.0]]) { av.push({ m: TRS(x, 0, z, ry) }); addCircle(x, z, 0.5); }
+      inst(avG, vcM, av, { solid: true }); }
+    spotK(-15, -79.4); spotK(T.x, (T.z1 + T.z2) / 2);
+    // ---- Acacias de copa plana (donde haya sitio) y matas de hierba alta
+    for (let k = 0, n = 0; k < 900 && n < 22; k++) {
+      const x = sr(-79, 79), z = sr(-80, -46); if (zooViaD(x, z) < 3.4 || pointBlocked(x, z, 2.6) || Math.abs(x + 48) < 3.6 || (Math.abs(x) < 12 && z > -49) || (Math.abs(Math.abs(x) - 17) < 4 && z > -49)) continue;
+      if (acaT.some(o => Math.hypot(o.x - x, o.z - z) < 8) || world.llvSpots.some(o => Math.hypot(o.x - x, o.z - z) < 3)) continue;
+      const s = sr(0.85, 1.25), h = 4.2 * s, lean = sr(-0.08, 0.08);
+      acaT.push({ x, z, m: TRS(x, h / 2, z, sr(0, 3), lean, sr(-0.08, 0.08), s, h, s) });
+      acaC.push({ m: TRS(x + lean * h * 0.5, h + 0.15, z, sr(0, 3), 0, 0, 3.6 * s, 0.5 * s, 3.4 * s), c: sk([0x3a4a22, 0x46562a, 0x34441e]) }, { m: TRS(x + sr(-1, 1), h + 0.55, z + sr(-1, 1), sr(0, 3), 0, 0, 2.2 * s, 0.4 * s, 2.2 * s), c: sk([0x4a5a2a, 0x3e4e24]) });
+      addCircle(x, z, 0.45 * s); n++;
+    }
+    for (let k = 0; k < 1400 && hierba.length < 280; k++) { const x = sr(-80, 80), z = sr(-81, -45); if (zooViaD(x, z) < 2 || pointBlocked(x, z, 0.3)) continue; const s = sr(0.7, 1.3); hierba.push({ m: TRS(x, 0.4 * s, z, sr(0, 3), sr(-0.15, 0.15), sr(-0.15, 0.15), s, s, s), c: sk([0xa08a48, 0x8a7a3a, 0x7a7a3a, 0xb09a58, 0x6a6a34]) }); }
+    // apariciones: por el muro del norte y desde la hierba
+    for (const [x, z] of [[-70, -81.2], [-40, -81.2], [-10, -81.2], [20, -81.2], [50, -81.2], [76, -81.2], [-81.2, -60], [81.2, -60]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[-8, -64], [44, -70], [-62, -66], [62, -60]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ======================= LA SELVA TROPICAL (este) =======================
+  const palT = [], palF = [], hojas = [], lianas = [], flores = [], bambu = [];
+  const palmera = (x, z, s) => { const h = sr(5.5, 7.5) * s, lean = sr(-0.18, 0.18), lz = sr(-0.18, 0.18); palT.push({ m: TRS(x, h / 2, z, 0, lz, lean, s, h, s) }); const tx = x - Math.sin(lean) * h, tz = z + Math.sin(lz) * h; for (let k = 0; k < 8; k++) { const a = k / 8 * TAU + sr(-0.2, 0.2); palF.push({ m: TRS(tx, h - 0.1, tz, -a, 0, -sr(0.3, 0.55), s, 1, s), c: sk([0x2e5a24, 0x3a6a2a, 0x24501e]) }); } addCircle(x, z, 0.32 * s); };
+  const mata = (x, z, n = 5, s = 1) => { for (let i = 0; i < n; i++) { const a = sr(0, TAU); hojas.push({ m: TRS(x + Math.cos(a) * 0.2 * s, 0.05, z + Math.sin(a) * 0.2 * s, -a, 0, -sr(0.5, 1.0), s * sr(0.8, 1.3), s * sr(0.8, 1.3), 1), c: sk([0x1e5a24, 0x2a6a2a, 0x2e7a34, 0x1a4a1e, 0x3a6a24]) }); } };
+  {
+    // ---- El aviario: cúpula de red con tres puertas (oeste, norte y sur)
+    const AV = ZOO.avi, R = AV.r, WH = 3.6, HT = 0.55, G = 2.3 / R, PUERTAS = [Math.PI, -Math.PI / 2, Math.PI / 2];
+    const enPuerta = (f, m = 0) => PUERTAS.some(p => { let d = Math.abs(f - p) % TAU; if (d > Math.PI) d = TAU - d; return d < G + m; });
+    const arcos = [[-Math.PI / 2 + G, Math.PI / 2 - G], [Math.PI / 2 + G, Math.PI - G], [-Math.PI + G, -Math.PI / 2 - G]];
+    for (const [f1, f2] of arcos) {
+      const g = new THREE.CylinderGeometry(R, R, WH, Math.max(4, Math.round((f2 - f1) * 14)), 1, true, Math.PI / 2 - f2, f2 - f1), uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * R * (f2 - f1) / 0.4, uv.getY(i) * WH / 0.4);
+      M(g, meshM, AV.x, WH / 2, AV.z, { cast: false });
+    }
+    { const g = new THREE.SphereGeometry(R, 40, 10, 0, TAU, 0, Math.PI / 2), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * TAU * R / 0.5, uv.getY(i) * Math.PI / 2 * R * HT / 0.5); M(g, meshM, AV.x, WH, AV.z, { cast: false }).scale.y = HT; }
+    for (let i = 0; i < 16; i++) { const f = i / 16 * TAU; pz('d', new THREE.TorusGeometry(R, 0.07, 4, 18, Math.PI / 2), HIERRO, AV.x, WH, AV.z, -f, 0, 0, 1, HT, 1); if (!enPuerta(f, 0.05)) pz('d', C_(0.09, 0.09, WH, 6), HIERRO, AV.x + Math.cos(f) * R, WH / 2, AV.z + Math.sin(f) * R); }
+    pz('d', new THREE.TorusGeometry(R, 0.09, 4, 56), HIERRO, AV.x, WH, AV.z, 0, Math.PI / 2); pz('d', new THREE.TorusGeometry(R * 0.6, 0.07, 4, 40), HIERRO, AV.x, WH + R * HT * 0.8, AV.z, 0, Math.PI / 2);
+    for (let f = -Math.PI; f < Math.PI; f += 0.1) { if (enPuerta(f + 0.05, 0.03)) continue; const fm = f + 0.05; addBox(AV.x + Math.cos(fm) * R, AV.z + Math.sin(fm) * R, R * 0.05 + 0.08, 0.15, -fm - Math.PI / 2); }
+    // marcos de las puertas con su cartel
+    for (const f of PUERTAS) {
+      const x = AV.x + Math.cos(f) * R, z = AV.z + Math.sin(f) * R, ry = -f - Math.PI / 2; grp(x, z, ry);
+      for (const s of [-1, 1]) { pz('s', B_(0.3, WH + 0.6, 0.3), VERDE, s * (G * R + 0.15), (WH + 0.6) / 2, 0); boxAt(s * (G * R + 0.15), 0, 0.18, 0.18, ry); }
+      pz('d', B_(2 * G * R + 0.7, 0.35, 0.35), VERDE, 0, WH + 0.6, 0); sinGrp();
+      cartel(9, 3.6, 0.55, x + Math.cos(f) * 0.25, WH + 1.15, z + Math.sin(f) * 0.25, ry);
+    }
+    // ---- La cascada: paredón de rocas al este, el agua que cae, la poza y el arroyo que cruza el aviario
+    const roc = [];
+    for (const [x, z, r, h] of [[75.5, -3, 3.2, 8], [74, -7.8, 2.4, 5], [74.5, 1.9, 2.6, 6], [77.6, -0.5, 2.1, 9], [72.6, -10.2, 1.8, 3], [72.4, 4.6, 1.6, 2.4]]) { roc.push({ m: TRS(x, h * 0.45, z, sr(0, 3), sr(0, 0.5), sr(0, 0.5), r, h * 0.55, r * 0.9), c: sk([0x5a5a50, 0x4a4a42, 0x62605a]) }); addCircle(x, z, r * 0.85); }
+    inst(D_(), lam(0xffffff, { flatShading: true }), roc, { solid: true }); addBox(76.4, -4.4, 4, 8.4); addCircle(71.2, -12.2, 0.9);   // detrás del paredón no se puede pasar
+    const caidaT = canvasTex(64, 128, (g, w, h) => { g.fillStyle = '#9ad0e8'; g.fillRect(0, 0, w, h); for (let i = 0; i < 70; i++) { g.fillStyle = sk(['rgba(255,255,255,.7)', 'rgba(200,236,255,.6)', 'rgba(60,120,160,.5)']); g.fillRect(sr(0, w), sr(0, h), sr(1, 4), sr(10, 40)); } });
+    caidaT.wrapS = caidaT.wrapT = THREE.RepeatWrapping;
+    const caida = M(new THREE.PlaneGeometry(2.6, 7.6), lam(0xffffff, { map: caidaT, transparent: true, opacity: 0.82, emissive: 0x2a4a5a, depthWrite: false, side: THREE.DoubleSide }), 72.2, 3.8, -3, { ry: -Math.PI / 2, cast: false }); caida.userData.vivo = 1;
+    const poza = M(new THREE.CircleGeometry(1, 28), waterM, 69.2, 0.06, -3, { rx: -Math.PI / 2, cast: false }); poza.scale.set(2.8, 3.6, 1);
+    charca(69.2, -3, 2.8, 3.6, 1.0);
+    for (const [x1, z1, x2, z2] of [[66.6, -1.6, 61, 2.4], [61, 2.4, 55, 5.2], [55, 5.2, 49.5, 5.8]]) { const L = Math.hypot(x2 - x1, z2 - z1); M(new THREE.PlaneGeometry(L + 0.6, 1.5), waterM, (x1 + x2) / 2, 0.045, (z1 + z2) / 2, { rx: -Math.PI / 2, rz: Math.atan2(-(z2 - z1), x2 - x1), cast: false }); for (let i = 0; i < 2; i++) pz('d', D_(), 0x6a6a60, x1 + (x2 - x1) * (0.3 + i * 0.4), 0.08, z1 + (z2 - z1) * (0.3 + i * 0.4), sr(0, 3), sr(0, 3), 0, 0.45, 0.12, 0.4); }
+    world.anims.push((dt, t) => { caidaT.offset.y = (t * 1.3) % 1; if (Math.random() < dt * (FAST() ? 8 : 20)) P.add(71.6 + rand(-0.4, 0.4), 0.4, -3 + rand(-1.2, 1.2), rand(-1, 0.2), rand(0.6, 1.6), rand(-0.6, 0.6), rand(1, 1.8), 0.35, 0.8, 0.9, 0.95, 0.35, -0.2, 0.6, 0.6); });
+    lampLight(66, 3.5, -2, 0x9affc8, 1.0, 22, null, 0.3);
+    // ---- La casa del árbol (mirador de la selva) y los puentes colgantes entre las plataformas
+    const TX = 58, TZ = -4, PY = 5.6;
+    pz('s', C_(0.9, 1.5, 11, 10), 0x4a3424, TX, 5.5, TZ); for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + 0.4; pz('d', B_(1.8, 0.7, 0.3), 0x4a3424, TX + Math.cos(a) * 1.4, 0.3, TZ + Math.sin(a) * 1.4, -a, 0, -0.35); }
+    addCircle(TX, TZ, 1.6);
+    pz('d', C_(3.4, 3.4, 0.25, 8), MAD, TX, PY, TZ); for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + Math.PI / 8; pz('n', B_(0.1, 1.0, 0.1), MADO, TX + Math.cos(a) * 3.2, PY + 0.6, TZ + Math.sin(a) * 3.2); }
+    pz('d', new THREE.TorusGeometry(3.25, 0.05, 4, 8), MADO, TX, PY + 1.05, TZ, Math.PI / 8, Math.PI / 2);
+    pz('d', B_(2.6, 1.9, 2.4), 0x7a5a32, TX - 1.1, PY + 1.05, TZ - 1.0); pz('n', B_(0.7, 1.2, 0.04), 0x1a120a, TX - 1.1, PY + 0.75, TZ + 0.21); pz('d', new THREE.ConeGeometry(2.4, 1.5, 6), 0xa08040, TX - 1.1, PY + 2.75, TZ - 1.0);
+    for (const [dx, dz, s] of [[0.6, 1.2, 1.6], [-1.6, -0.6, 1.8], [1.2, -1.6, 1.4]]) pz('d', I_(), sk([0x1e4a1e, 0x2a5a24]), TX + dx, 9.2, TZ + dz, sr(0, 3), 0, 0, s * 1.4, s * 0.8, s * 1.4);
+    for (let i = 0; i < 2; i++) pz('n', C_(0.025, 0.025, PY, 4), 0xb89a6a, TX + 3.35, PY / 2, TZ - 0.25 + i * 0.5); for (let y = 0.4; y < PY; y += 0.42) pz('n', B_(0.06, 0.05, 0.56), 0x6a4a2a, TX + 3.35, y, TZ);
+    const plat = (x, z, y) => { for (const sx of [-1.5, 1.5]) for (const sz of [-1.5, 1.5]) { pz('s', C_(0.13, 0.15, y, 6), MADO, x + sx, y / 2, z + sz); addCircle(x + sx, z + sz, 0.2); } pz('d', B_(3.6, 0.22, 3.6), MAD, x, y, z); for (const s of [-1, 1]) { pz('n', B_(3.6, 0.06, 0.06), MADO, x, y + 1, z + s * 1.75); pz('n', B_(0.06, 0.06, 3.6), MADO, x + s * 1.75, y + 1, z); } };
+    const P2 = [67, 9, 5.2], P3 = [68.4, -11, 5.6]; plat(...P2); plat(...P3);
+    const puente = (a, ra, b, rb) => {
+      const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ry = Math.atan2(-dz, dx), x0 = a[0] + ux * ra, z0 = a[1] + uz * ra, x1 = b[0] - ux * rb, z1 = b[1] - uz * rb, L2 = Math.hypot(x1 - x0, z1 - z0), n = Math.round(L2 / 0.42);
+      for (let i = 0; i <= n; i++) { const t = i / n, y = a[2] + (b[2] - a[2]) * t - Math.sin(t * Math.PI) * 0.8; pz('d', B_(0.3, 0.06, 1.3), sk([0x6a4a2c, 0x5e4228, 0x765230]), x0 + (x1 - x0) * t, y, z0 + (z1 - z0) * t, ry); }
+      for (const s of [-0.68, 0.68]) for (let i = 0; i < 12; i++) { const t = (i + 0.5) / 12, y = a[2] + (b[2] - a[2]) * t - Math.sin(t * Math.PI) * 0.8 + 0.95; pz('n', B_(L2 / 12 + 0.05, 0.035, 0.035), 0xb89a6a, x0 + (x1 - x0) * t - uz * s, y, z0 + (z1 - z0) * t + ux * s, ry, 0, Math.cos(t * Math.PI) * 0.18); }
+    };
+    puente([TX, TZ, PY], 3.3, P2, 1.8); puente([TX, TZ, PY], 3.3, P3, 1.8); puente(P2, 1.8, P3, 1.8);
+    spotK(61.4, 0.6); spotK(65.2, -7.6); spotK(64, 11.6);
+    // ---- Plantas: palmeras, matas de hojas grandes, lianas y flores dentro de la cúpula
+    for (let k = 0, n = 0; k < 400 && n < 12; k++) { const a = sr(0, TAU), r = sr(3, 13.4), x = AV.x + Math.cos(a) * r, z = AV.z + Math.sin(a) * r; if (pointBlocked(x, z, 2) || cercaSpot(x, z) || enPuerta(a, 0.25) && r > 10) continue; palmera(x, z, sr(0.8, 1.05)); n++; }
+    for (let k = 0, n = 0; k < 600 && n < 34; k++) { const a = sr(0, TAU), r = sr(2, 14.6), x = AV.x + Math.cos(a) * r, z = AV.z + Math.sin(a) * r; if (pointBlocked(x, z, 0.8) || cercaSpot(x, z, 1.8) || (enPuerta(a, 0.3) && r > 9)) continue; mata(x, z, 5, sr(0.8, 1.4)); n++; }
+    for (let i = 0; i < 46; i++) { const a = sr(0, TAU), r = sr(3, 14), y = WH + HT * Math.sqrt(R * R - r * r), L = sr(2.5, 5.5); lianas.push({ m: TRS(AV.x + Math.cos(a) * r, y - L / 2, AV.z + Math.sin(a) * r, 0, sr(-0.05, 0.05), sr(-0.05, 0.05), 1, L, 1), c: sk([0x2a4a1e, 0x3a5a24, 0x4a3a20]) }); }
+    for (let i = 0; i < 60; i++) { const a = sr(0, TAU), r = sr(2, 14.5); flores.push({ m: TRS(AV.x + Math.cos(a) * r, sr(0.3, 1.1), AV.z + Math.sin(a) * r, 0, 0, 0, 1, 0.7, 1), c: sk([0xff3060, 0xffd030, 0xff7a20, 0xd040ff, 0xffffff]) }); }
+    // ---- Los pájaros del aviario: guacamayos que vuelan en círculos (y algunos posados)
+    // OBJETO INTERACTIVO: la suelta del aviario. Durante 12 s la bandada se lanza contra los zombis de alrededor
+    { const N = FAST() ? 16 : 26, pajG = marketGeo([[S_(0.16, 8, 6), 0xffffff, 0, 0, 0, 0, 0, 0, 1.6, 0.9, 0.9], [S_(0.11, 6, 4), 0xffffff, 0.26, 0.08, 0], [new THREE.ConeGeometry(0.05, 0.12, 4), 0x2a2a2a, 0.38, 0.05, 0, 0, 0, -Math.PI / 2], [B_(0.5, 0.03, 0.09), 0xffffff, -0.42, -0.02, 0], [B_(0.26, 0.02, 0.5), 0xe8e0d0, -0.02, 0.06, 0.3, 0, 0, 0], [B_(0.26, 0.02, 0.5), 0xe8e0d0, -0.02, 0.06, -0.3, 0, 0, 0]]);
+      const paj = new THREE.InstancedMesh(pajG, vcM, N); paj.frustumCulled = false; paj.userData.vivo = 1; world.group.add(paj); const cc = new THREE.Color(), dd = new THREE.Object3D();
+      const B = []; for (let i = 0; i < N; i++) { paj.setColorAt(i, cc.setHex(sk([0xd82a2a, 0x2a6ad8, 0xf0c020, 0x2ab04a, 0xff7a20]))); const posado = i < 5; B.push({ posado, x: 0, y: 0, z: 0, cx: AV.x + sr(-4, 4), cz: AV.z + sr(-4, 4), r: sr(4, 11), h: sr(4.5, 9), sp: sr(0.35, 0.8) * (srand() < 0.5 ? -1 : 1), ph: sr(0, TAU), tgt: null }); }
+      [[TX + 3.2, PY + 1.05, TZ], [TX - 3.1, PY + 1.05, TZ + 0.6], [P2[0] + 1.75, P2[2] + 1.0, P2[1]], [P3[0] - 1.75, P3[2] + 1.0, P3[1] + 0.4], [P2[0], P2[2] + 1.0, P2[1] - 1.75]].forEach(([x, y, z], i) => { B[i].x = x; B[i].y = y + 0.12; B[i].z = z; B[i].ry = sr(0, TAU); });
+      const S = { t: 0, tick: 0 };
+      const panel = [67.4, 17.6]; pz('s', B_(1.0, 1.4, 0.5), 0x3a5a3a, panel[0], 0.7, panel[1]); pz('L', B_(0.5, 0.25, 0.02), 0x60ff90, panel[0], 1.15, panel[1] - 0.26); addBox(panel[0], panel[1], 0.55, 0.3);
+      const luz = glowAt(panel[0], 1.6, panel[1], 0x60ff90, 1.1, 0.3);
+      const uso = mapUse({ x: panel[0] - 0.4, z: panel[1] - 1.3, r: 2.2, t: 'La suelta del aviario', d: 'Abre las trampillas: durante 12 segundos la bandada de guacamayos se lanza contra los zombis de los alrededores y los aturde a picotazos.', b: 'Soltar la bandada', price: 8, cd: 50, use() {
+        S.t = 12; S.tick = 0; Sfx.whoosh(panOf({ x: AV.x, z: AV.z })); feed('¡La bandada del aviario ataca a los zombis!', 'gold');
+      } });
+      world.anims.push((dt, t) => {
+        luz.material.opacity = S.t > 0 || (game && uso.readyT > game.time) ? 0.05 : 0.25 + Math.sin(t * 3) * 0.12;
+        const ataca = S.t > 0; if (ataca) { S.t -= dt; S.tick -= dt; }
+        let vivos = null;
+        if (ataca && S.tick <= 0) { S.tick = 0.3; vivos = zombies.filter(zz => !zz.dead && zz.state !== 'rise' && Math.hypot(zz.root.position.x - AV.x, zz.root.position.z - AV.z) < 30); }
+        for (let i = 0; i < N; i++) {
+          const b = B[i]; let tx, ty, tz, fl = true;
+          if (ataca && vivos && vivos.length && (!b.tgt || b.tgt.dead || Math.random() < 0.2)) b.tgt = vivos[Math.floor(Math.random() * vivos.length)];
+          if (ataca && b.tgt && !b.tgt.dead) { const p = b.tgt.root.position, a = t * 6 + b.ph; tx = p.x + Math.cos(a) * 0.7; ty = 1.9 + Math.sin(t * 9 + b.ph) * 0.3; tz = p.z + Math.sin(a) * 0.7;
+            if (vivos && Math.hypot(b.x - p.x, b.z - p.z) < 1.4 && Math.random() < 0.5) { b.tgt.stagger = Math.max(b.tgt.stagger || 0, 0.9); damageZombie(b.tgt, b.tgt.boss != null ? 10 : 30, { part: 'head', dir: null }); for (let k = 0; k < 4; k++) PA.add(p.x, 1.8, p.z, rand(-1.5, 1.5), rand(0.5, 2), rand(-1.5, 1.5), rand(0.6, 1.2), 0.06, rand(0.6, 1), rand(0.2, 0.8), rand(0.1, 0.5), 0.9, 2, 0.5, 0, 0); } }
+          else if (b.posado) { tx = b.x; ty = b.y; tz = b.z; fl = false; if (!ataca) b.tgt = null; }
+          else { const a = t * b.sp + b.ph; tx = b.cx + Math.cos(a) * b.r; ty = b.h + Math.sin(t * 1.3 + b.ph) * 0.6; tz = b.cz + Math.sin(a) * b.r; b.tgt = null; }
+          if (b.x === 0 && b.z === 0) { b.x = tx; b.y = ty; b.z = tz; }
+          const k = Math.min(1, dt * (ataca ? 4 : 2.2)), vx = tx - b.x, vz = tz - b.z; b.x += vx * k; b.y += (ty - b.y) * k; b.z += vz * k;
+          dd.position.set(b.x, b.y, b.z); if (fl && Math.abs(vx) + Math.abs(vz) > 0.01) b.ry = -Math.atan2(vz, vx); dd.rotation.set(fl ? Math.sin(t * 18 + b.ph) * 0.5 : 0, b.ry || 0, 0); dd.updateMatrix(); paj.setMatrixAt(i, dd.matrix);
+        }
+        paj.instanceMatrix.needsUpdate = true;
+      });
+    }
+
+    // ---- El templo de los tigres (norte de la selva): pirámide de piedra con escalera, columnas rotas y una tigresa que dormita arriba
+    { const KX = 64, KZ = -31, ST = 0x7a7262;
+      for (const [w, d, y] of [[11, 8, 0.5], [8, 5.8, 1.5], [5, 3.6, 2.5]]) pz('s', B_(w, 1, d), ST, KX, y, KZ);
+      for (let i = 0; i < 6; i++) pz('s', B_(0.5, 0.5 * (i + 1), 2.4), 0x8a8272, KX - 5.25 - (5 - i) * 0.5, 0.25 * (i + 1), KZ);
+      for (let i = 0; i < 30; i++) pz('n', B_(sr(0.3, 0.8), 0.04, sr(0.3, 0.8)), sk([0x3a5a2a, 0x2a4a22]), KX + sr(-5.4, 5.4), sr(0.05, 3.02), KZ + sr(-3.9, 3.9), sr(0, 3));
+      addBox(KX, KZ, 5.55, 4.05); addBox(KX - 6.75, KZ, 1.55, 1.25);
+      for (const [x, z, h, cai] of [[57, -25.4, 4.2, 0], [57, -36.6, 2.2, 0], [71, -25.4, 3.2, 0], [71, -36.6, 5, 0], [74.5, -30, 1.2, 1]]) { if (cai) { pz('s', C_(0.55, 0.6, 4.6, 10), ST, x, 0.55, z, 0.4, 0, Math.PI / 2); addBox(x, z, 2.3, 0.6, 0.4); } else { pz('s', C_(0.55, 0.65, h, 10), ST, x, h / 2, z); pz('d', B_(1.5, 0.35, 1.5), 0x6a6252, x, 0.18, z); addCircle(x, z, 0.75); } }
+      // la puerta de piedra al oeste con el cartel
+      grp(51.6, KZ, Math.PI / 2); for (const s of [-1, 1]) { pz('s', B_(1, 4.6, 1), ST, s * 2.6, 2.3, 0); boxAt(s * 2.6, 0, 0.5, 0.5, Math.PI / 2); } pz('s', B_(6.4, 0.9, 1.2), ST, 0, 5.0, 0); sinGrp(); cartel(10, 4.6, 0.6, 51.0, 5.0, KZ, Math.PI / 2);
+      for (const s of [-1, 1]) { grp(KX - 6.6, KZ + s * 1.9, -Math.PI / 2); pz('s', B_(1.4, 0.8, 0.9), ST, 0, 0.4, 0); pz('d', B_(0.9, 0.7, 0.6), 0x6a6252, 0, 1.1, 0); pz('d', B_(0.5, 0.5, 0.5), 0x6a6252, 0.45, 1.6, 0); sinGrp(); addBox(KX - 6.6, KZ + s * 1.9, 0.5, 0.7); }
+      const tig = new THREE.Group(); tig.position.set(KX + 0.4, 3.0, KZ); tig.rotation.y = 2.4; tig.userData.vivo = 1; world.group.add(tig);
+      const tbody = M(marketGeo([[S_(0.5, 12, 8), 0xd8782a, 0, 0.32, 0, 0, 0, 0, 1.7, 0.6, 0.8], ...[-0.55, -0.2, 0.15, 0.5].map(x => [B_(0.1, 0.62, 0.84), 0x1a1210, x, 0.34, 0]), [S_(0.3, 10, 8), 0xd8782a, 0.95, 0.42, 0.1], [B_(0.26, 0.16, 0.24), 0xf0e0c8, 1.2, 0.36, 0.1], [S_(0.05, 4, 3), 0x111111, 1.32, 0.42, 0.1], [S_(0.08, 5, 3), 0xd8782a, 0.85, 0.66, 0.28], [S_(0.08, 5, 3), 0xd8782a, 0.85, 0.66, -0.08],
+        [C_(0.07, 0.06, 0.9, 6), 0xd8782a, 1.1, 0.12, 0.42, 0, 0, Math.PI / 2], [C_(0.07, 0.06, 0.9, 6), 0xd8782a, 1.1, 0.12, -0.22, 0, 0, Math.PI / 2], [B_(0.5, 0.18, 0.2), 0xd8782a, -0.6, 0.1, 0.42]]), vcM, 0, 0, 0, { p: tig });
+      const cola = new THREE.Group(); cola.position.set(-0.8, 0.3, 0); tig.add(cola); M(C_(0.05, 0.04, 1.2, 5), lam(0xd8782a), -0.55, 0, 0, { p: cola, rz: Math.PI / 2 });
+      world.anims.push((dt, t) => { tbody.scale.y = 1 + Math.sin(t * 1.3) * 0.04; cola.rotation.y = Math.sin(t * 0.9) * 0.6; });
+      spotK(57.4, -40.2); spotK(70.4, -40.6);
+    }
+    // ---- La isla de los orangutanes: foso de agua, isla con andamio de troncos y cuerdas
+    { const I = ZOO.isla;
+      M(new THREE.RingGeometry(I.r - 3.2, I.r - 0.2, 40), waterM, I.x, 0.05, I.z, { rx: -Math.PI / 2, cast: false });
+      pz('n', new THREE.CircleGeometry(I.r - 3.2, 28), 0x3a4a22, I.x, 0.04, I.z, 0, -Math.PI / 2);
+      for (let i = 0; i < 40; i++) { const a = i / 40 * TAU; pz('d', D_(), sk([0x5a5448, 0x6a6458]), I.x + Math.cos(a) * I.r, 0.15, I.z + Math.sin(a) * I.r, sr(0, 3), sr(0, 3), 0, 0.45, 0.32, 0.45); }
+      addCircle(I.x, I.z, I.r + 0.2);
+      for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) pz('d', C_(0.15, 0.2, 7, 6), 0x5a4024, I.x + dx, 3.5, I.z + dz);
+      for (const s of [-2, 2]) { pz('d', C_(0.12, 0.12, 4.2, 6), 0x5a4024, I.x, 6.6, I.z + s, 0, 0, Math.PI / 2); pz('d', C_(0.12, 0.12, 4.2, 6), 0x5a4024, I.x + s, 6.6, I.z, Math.PI / 2, 0, Math.PI / 2); }
+      pz('d', B_(3, 0.2, 3), MAD, I.x, 4.2, I.z); for (let i = 0; i < 3; i++) pz('n', C_(0.03, 0.03, 4.4, 4), 0xb89a6a, I.x - 1.5 + i * 1.5, 4.4, I.z + 1.95, 0, 0.2);
+      for (const [dx, dz, s] of [[-4.4, 1.2, 1], [3.8, -2.8, 0.8]]) { pz('d', C_(0.25, 0.35, 4, 6), 0x4a3424, I.x + dx, 2, I.z + dz); pz('d', I_(), 0x2a5a24, I.x + dx, 4.6, I.z + dz, sr(0, 3), 0, 0, 2 * s, 1.5 * s, 2 * s); }
+      const ora = []; const oraG = () => { const g = new THREE.Group(); g.userData.vivo = 1; world.group.add(g); M(marketGeo([[S_(0.4, 10, 8), 0xb0501e, 0, 0, 0, 0, 0, 0, 1, 1.15, 0.85], [S_(0.25, 8, 6), 0xb0501e, 0, 0.55, 0.05], [S_(0.16, 8, 6), 0x5a3a2a, 0, 0.52, 0.22], [C_(0.08, 0.06, 1.0, 6), 0xb0501e, -0.42, 0.5, 0, 0, 0, 0.3], [C_(0.08, 0.06, 1.0, 6), 0xb0501e, 0.42, 0.5, 0, 0, 0, -0.3], [C_(0.08, 0.07, 0.6, 6), 0xb0501e, -0.18, -0.55, 0], [C_(0.08, 0.07, 0.6, 6), 0xb0501e, 0.18, -0.55, 0]]), vcM, 0, 0, 0, { p: g }); return g; };
+      const o1 = oraG(), o2 = oraG(); o2.position.set(I.x + 0.6, 4.95, I.z - 0.4); o2.rotation.y = 2.2;
+      world.anims.push((dt, t) => { const sw = Math.sin(t * 1.2) * 0.45; o1.position.set(I.x + Math.sin(sw) * 1.2, 6.6 - Math.cos(sw) * 1.2 - 0.2, I.z + 2); o1.rotation.set(0, 0, sw); o2.rotation.y = 2.2 + Math.sin(t * 0.4) * 0.4; });
+      poste(13, I.x - I.r - 1.3, I.z - 3, Math.PI / 2);
+      spotK(I.x - I.r - 1.8, I.z + 1.4);
+    }
+    // ---- La caseta del guarda, un tronco caído y los bosquecillos de bambú
+    { grp(74, 72); pz('s', B_(5, 3, 4), 0x6a4a2a, 0, 1.5, 0); pz('d', new THREE.ConeGeometry(3.8, 1.6, 4), 0x8a6a3a, 0, 3.8, 0, Math.PI / 4); pz('n', B_(1, 2, 0.05), 0x1a120a, -1, 1, -2.02); pz('L', B_(0.8, 0.6, 0.05), 0xffd890, 1.2, 1.7, -2.02); sinGrp(); addBox(74, 72, 2.55, 2.05); cartel(14, 2.4, 0.36, 74, 2.55, 69.92, 0); spotK(72, 67.4); }
+    pz('s', C_(0.6, 0.75, 7, 10), 0x4a3424, 52, 0.6, 72, 0.5, 0, Math.PI / 2); addBox(52, 72, 3.5, 0.7, 0.5);
+    for (const [x, z] of [[49.5, 30], [78, 30], [77.6, -22], [49, -40], [79, 50], [58, 78]]) { for (let i = 0; i < 11; i++) { const h = sr(5, 9); bambu.push({ m: TRS(x + sr(-0.9, 0.9), h / 2, z + sr(-0.9, 0.9), 0, sr(-0.06, 0.06), sr(-0.06, 0.06), 1, h, 1), c: sk([0x5a8a2a, 0x6a9a34, 0x4a7a24]) }); } addCircle(x, z, 1.2); }
+    // ---- El resto de la selva: árboles grandes, palmeras y matas (donde haya sitio)
+    for (let k = 0, n = 0; k < 1500 && n < 46; k++) {
+      const x = sr(46, 80), z = sr(-41.5, 80); if (Math.hypot(x - ZOO.avi.x, z - ZOO.avi.z) < ZOO.avi.r + 3) continue;
+      if (pointBlocked(x, z, 2.8) || cercaSpot(x, z) || (x < 52 && (Math.abs(z + 17) < 4.5 || Math.abs(z - 17) < 4.5)) || (Math.abs(x - 64) < 7 && Math.abs(z + 20) < 5) || (Math.abs(x - 64) < 4 && Math.abs(z - 22) < 6)) continue;
+      if (srand() < 0.35) palmera(x, z, sr(0.9, 1.2)); else { const s = sr(1.2, 1.8); arbol(x, z, s, sk([0x1a3a1a, 0x1e4a20, 0x244a1e, 0x163216])); addCircle(x, z, 0.45 * s); }
+      n++;
+    }
+    for (let k = 0, n = 0; k < 900 && n < 60; k++) { const x = sr(45, 81), z = sr(-42.5, 81); if (enAviario(x, z) || pointBlocked(x, z, 0.9) || cercaSpot(x, z, 1.8)) continue; mata(x, z, 4, sr(0.9, 1.6)); n++; }
+    // apariciones: por el muro del este y desde la maleza
+    for (const [x, z] of [[81.2, -36], [81.2, -16], [81.2, 22], [81.2, 40], [81.2, 70], [56, 81.2], [76, 81.2]]) world.spawns.push({ x, z, rise: false });
+    for (const [x, z] of [[50, -26], [78, 40], [48.6, 62], [70, -21]]) world.spawns.push({ x, z, rise: true });
+    world.anims.push((dt) => { if (Math.random() < dt * (FAST() ? 2 : 5)) PA.add(rand(46, 80), rand(0.4, 2.4), rand(-40, 80), rand(-0.3, 0.3), rand(-0.1, 0.2), rand(-0.3, 0.3), rand(2, 4), 0.035, 0.7, 1, 0.5, 0.8, 0, 0.3, 0, 0); });
+  }
+
+  // ======================= RELLENO: árboles y matas entre el reptilario, el muro y la valla del centro =======================
+  // (nunca dentro de los edificios, del túnel, junto al estanque ni en el corral de las tortugas)
+  const relleno = (x, z) => { const R = ZOO.rep, A = ZOO.acu, C = ZOO.coc; return !(x > R.x0 - 1.5 && x < R.x1 + 1.5 && z > R.z0 - 1.5 && z < R.z1 + 1.5) && !(x > A.x0 - 3 && x < A.x1 + 3 && z > A.z0 - 1.5 && z < A.z1 + 1.5) && Math.hypot((x - C.x) / (C.rx + 4), (z - C.z) / (C.rz + 4)) > 1 && Math.hypot(x + 70, z - 27) > 6.5 && Math.hypot(x + 50, z) > 8 && !(x > -82 && x < -44 && z > 57 && z < 82 && Math.abs(x + 63) < 18 && z > 60 && z < 80); };
+  for (let k = 0, n = 0; k < 1200 && n < 26; k++) {
+    const x = sr(-81, -45), z = sr(-42, 80); if (!relleno(x, z) || pointBlocked(x, z, 3) || cercaSpot(x, z) || (Math.abs(z + 17) < 4.5 && x > -56) || (Math.abs(z - 28.5) < 4.5 && x > -60) || (x > -60 && x < -44 && z > -16 && z < 30)) continue;
+    const s = sr(1.0, 1.5); arbol(x, z, s); addCircle(x, z, 0.45 * s); n++;
+  }
+  for (let k = 0, n = 0; k < 600 && n < 30; k++) { const x = sr(-81, -45), z = sr(-42, 80); if (!relleno(x, z) || pointBlocked(x, z, 1) || cercaSpot(x, z, 1.8)) continue; mata(x, z, 4, sr(0.8, 1.3)); n++; }
+  for (let k = 0, n = 0; k < 400 && n < 10; k++) { const x = sr(-42, 42), z = sr(45, 80); if (pointBlocked(x, z, 3.5) || cercaSpot(x, z) || Math.abs(x) < 7 || (x > 13 && z > 53)) continue; const s = sr(1.0, 1.3); arbol(x, z, s); addCircle(x, z, 0.45 * s); n++; }
+
+  // ---- Las mallas instanciadas de todo el lugar
+  inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr, { solid: true }); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp);
+  inst(marketGeo([[C_(0.09, 0.12, 3.8, 6), 0x2a5a3a, 0, 1.9, 0], [C_(0.32, 0.38, 0.5, 8), 0x2a5a3a, 0, 0.25, 0]]), vcM, farola, { solid: true }); inst(marketGeo([[C_(0.15, 0.3, 0.45, 6), 0xffe2a8, 0, 0, 0], [new THREE.ConeGeometry(0.42, 0.35, 6), 0x2a5a3a, 0, 0.42, 0]]), bsc(0xffffff, { vertexColors: true }), farG, { cast: false });
+  inst(C_(0.22, 0.34, 1, 6), lam(0x4a3a28), acaT, { solid: true }); inst(C_(1, 1, 1, 9), lam(0xffffff, { flatShading: true }), acaC);
+  inst(new THREE.ConeGeometry(0.3, 0.8, 4), lam(0xffffff), hierba, { cast: false });
+  inst(C_(0.14, 0.26, 1, 6), lam(0x6a5032), palT, { solid: true }); inst(gk('fronda', () => { const g = new THREE.BoxGeometry(2.6, 0.05, 0.55); g.translate(1.2, 0, 0); return g; }), lam(0xffffff), palF);
+  inst(gk('hoja', () => { const g = new THREE.PlaneGeometry(0.7, 1.5); g.translate(0, 0.75, 0); return g; }), lam(0xffffff, { side: THREE.DoubleSide }), hojas, { cast: false });
+  inst(C_(0.035, 0.035, 1, 4), lam(0xffffff), lianas, { cast: false }); inst(S_(0.12, 6, 4), bsc(0xffffff), flores, { cast: false });
+  inst(C_(0.07, 0.08, 1, 6), lam(0xffffff), bambu, { cast: false });
+
+  // ---- Todas las piezas quietas, juntas: pocas llamadas de dibujo
+  if (PZ.s.length) M(marketGeo(PZ.s), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { solid: true });
+  if (PZ.d.length) M(marketGeo(PZ.d), lam(0xffffff, { vertexColors: true }), 0, 0, 0, {});
+  if (PZ.n.length) M(marketGeo(PZ.n), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false });
+  if (PZ.L.length) M(marketGeo(PZ.L), bsc(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false });
+
+  // ningún punto de aparición puede quedar encima de un edificio, una charca o una valla: se corre al hueco libre más cercano
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 5 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  // el zoo del centro se hizo con mallas sueltas: todo lo quieto (lo que no se mueve ni cambia) se funde aquí con lo nuevo
+  fundirEstatico(0);
+  world.anims.push(llvStep); llvMalla();
 }
 
 // DESC: Poca gravedad y ningún escondite. La base lunar Selene dejó de contestar.
@@ -23395,7 +24240,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 156';
+const GAME_BUILD = '15-oct-2026 · 157';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
