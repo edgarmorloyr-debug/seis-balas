@@ -21310,7 +21310,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 140';
+const GAME_BUILD = '15-oct-2026 · 141';
 const SUPA = { url: 'https://hfoqvhorkiplvjppidxp.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhmb3F2aG9ya2lwbHZqcHBpZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NTU1MTMsImV4cCI6MjEwNzIzMTUxM30.o0f8kh1Z5EG5z0tgc72_oq4-mAmKHTKAJtgv23o6_l4' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -21527,15 +21527,17 @@ const Directo = {
   ok() { return typeof RTCPeerConnection !== 'undefined' && Net.on && !Net.local; },
   async servidores() { if (!this.ice) { this.ice = ICE; this.ice = await voiceIceServers(); } return this.ice; },
   llamando: new Set(),
-  check(p) { const v = this.pcs.get(p.id); if (v && v.pc.connectionState === 'failed' && performance.now() - v.t > 15000) this.close(p.id); if (!this.ok() || this.pcs.has(p.id) || this.llamando.has(p.id) || !(Net.id < p.id)) return; this.llamando.add(p.id); this.llamar(p).finally(() => this.llamando.delete(p.id)); },   // ofrece el de id menor (sin choques)
+  check(p) { const v = this.pcs.get(p.id), cs = v && v.pc.connectionState, edad = v ? performance.now() - v.t : 0;
+    if (v && ((cs === 'failed' && edad > 4000) || (cs === 'disconnected' && edad > 8000) || (!v.abierto && edad > 12000))) { this.fallos = (this.fallos | 0) + 1; this.close(p.id); }   // trabada: se cierra y se vuelve a intentar
+ if (!this.ok() || this.pcs.has(p.id) || this.llamando.has(p.id) || !(Net.id < p.id)) return; this.llamando.add(p.id); this.llamar(p).finally(() => this.llamando.delete(p.id)); },   // ofrece el de id menor (sin choques)
   mk(p) {
     const pc = new RTCPeerConnection({ iceServers: this.ice || ICE }), v = { pc, dc: null, pend: [], t: performance.now(), abierto: false };
     pc.onicecandidate = e => { if (e.candidate) Net.ev(['dc', p.id, { c: e.candidate.toJSON() }]); };
     pc.ondatachannel = e => this.canal(v, e.channel);
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') v.abierto = false; };
+    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') v.abierto = false; if (pc.connectionState === 'connected') v.t = performance.now(); };
     this.pcs.set(p.id, v); return v;
   },
-  canal(v, dc) { if (dc.label === 'rapido') { v.dr = dc; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; return; } v.dc = dc; dc.onopen = () => { v.abierto = true; }; dc.onclose = () => { v.abierto = false; }; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; },
+  canal(v, dc) { if (dc.label === 'rapido') { v.dr = dc; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; return; } v.dc = dc; if (dc.readyState === 'open') v.abierto = true; dc.onopen = () => { v.abierto = true; }; dc.onclose = () => { v.abierto = false; }; dc.onmessage = e => { try { netIn(JSON.parse(e.data)); } catch (er) {} }; },
   async llamar(p) {
     try { await this.servidores(); const v = this.mk(p); this.canal(v, v.pc.createDataChannel('juego', { ordered: true })); this.canal(v, v.pc.createDataChannel('rapido', { ordered: false, maxRetransmits: 0 }));   // carril rápido: posiciones y ping, sin cola (si uno se pierde, llega el siguiente)
       await v.pc.setLocalDescription(await v.pc.createOffer()); Net.ev(['dc', p.id, { o: v.pc.localDescription.toJSON() }]); Net.flush(); } catch (e) {}
@@ -21881,7 +21883,7 @@ function pingHud() {
   if (Net.on) {
     if (Net.host) h += '<b class="ok">Anfitrión</b>';
     else { const v = Net.ping; h += `<b class="${v == null ? 'medio' : v < 150 ? 'ok' : v < 300 ? 'medio' : 'malo'}">${v == null ? 'Ping …' : `Ping ${v} ms`}</b>`; }
-    { const D = Directo.pcs.get(Net.host ? [...Net.peers.keys()][0] : Net.hostId), dir = !!(D && D.abierto && D.dc && D.dc.readyState === 'open'), rap = !!(D && D.dr && D.dr.readyState === 'open'); h += `<b class="${dir ? 'ok' : 'malo'}" title="Por dónde viajan los datos">${dir ? (rap ? 'Conexión directa' : 'Directa (sin carril rápido)') : 'Por el servidor'}</b>`; }   // para saber si el retraso viene de ir por Supabase
+    { const D = Directo.pcs.get(Net.host ? [...Net.peers.keys()][0] : Net.hostId), dir = !!(D && D.abierto && D.dc && D.dc.readyState === 'open'), rap = !!(D && D.dr && D.dr.readyState === 'open'); h += `<b class="${dir ? 'ok' : 'malo'}" title="Por dónde viajan los datos">${dir ? (rap ? 'Conexión directa' : 'Directa (sin carril rápido)') : `Por el servidor · ${D ? D.pc.connectionState + '/' + D.pc.iceConnectionState : 'sin intento'} · ${voiceIce && voiceIce.turn ? 'TURN sí' : 'TURN no'} · ${Directo.fallos | 0} reintentos`}</b>`; }   // para saber si el retraso viene de ir por Supabase
   }
   e.hidden = false; if (e._h !== h) { e._h = h; e.innerHTML = h; }
   jugadoresHud();
