@@ -2,8 +2,8 @@
 
 Lista de lo que falta, para retomar en cualquier sesión. Lo primero de la lista va primero.
 
-1. **Estética general** (16-oct-2026): aplicada en todas las pantallas la opción B «Feria del oeste» y el logo nuevo; aprobada por el dueño. Además, rango de la D a la S al morir. Falta publicarlo con «sube todo».
-2. **Mecánicas nuevas para los jefes** (pedido del dueño, 16-oct-2026): que obliguen a moverse y no quedarse quietos disparando. Ejemplos: embestida (el jefe carga en línea recta), bolas de fuego, lanzamiento de proyectiles y saltos que caen en un punto. Todo con **marcas en el suelo antes del golpe** (círculos o líneas que avisan dónde va a caer), para que los jugadores tengan tiempo de reaccionar y esquivar.
+1. **HECHO y publicado: estética general** «Feria del oeste» con logo nuevo, rango de la D a la S, selección de personaje con la foto grande, estrella dorada en la Tienda calavera, niveles del árbol a 1 ficha y canje 1 calavera = 3 de póker.
+2. **HECHO (16-oct-2026): mecánicas nuevas para los jefes**. Los 10 jefes grandes y los 16 minijefes de la lista tienen su ataque con aviso en el suelo (círculos, franjas y abanicos rojos que se llenan antes del golpe). Falta que el dueño los pruebe. Pedido original: que obliguen a moverse y no quedarse quietos disparando. Ejemplos: embestida (el jefe carga en línea recta), bolas de fuego, lanzamiento de proyectiles y saltos que caen en un punto. Todo con **marcas en el suelo antes del golpe** (círculos o líneas que avisan dónde va a caer), para que los jugadores tengan tiempo de reaccionar y esquivar.
    - Encuesta del dueño (16-oct-2026). **Reciben mecánicas nuevas:**
      - Jefes grandes (10): Domador y su León, Bombero en Llamas, Coloso Blindado, Jinete sin Cabeza, Gemelos Siameses, Carnicero Mayor, Rey Rata, Abuelo Inmortal, Francotirador Zombi, La Masa.
      - Minijefes (16): Capitán Náufrago, Comisario, Espantapájaros, Astronauta, Rey Duende, Campeón del Arcade, Comandante Selene, Luchador de Sumo, Pirómano, Fontanero, Payaso Mayor, Guardia de Seguridad, Rey de Atlantis, El Sonriente, Ángel Caído, Fan Número Uno.
