@@ -16580,6 +16580,12 @@ function bSpot(cx, cz, r0, r1) {
   for (let k = 0; k < 24; k++) { const a = rand(0, TAU), r = rand(r0, r1), x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (insideArena(x, z, 1.5) && !pointBlocked(x, z, 0.7)) return { x, z }; }
   return null;
 }
+// ---- Ataques con aviso en el suelo (16-oct-2026): cada jefe tiene el suyo y todos se pueden esquivar ----
+function bGooTick(z, dt, c) {   // Gemelos: escupen una bola de carne que deja un charco pegajoso
+  z.gt = (z.gt || rand(0, 3)) + dt;
+  if (z.gt > 6 && c.canAttack && c.dist < 26) { z.gt = 0; const t = 1.3; bossEv('tgc', c.tp.x, c.tp.z, 2.3, t, Math.round(z.dmg * 0.5), 'goo'); bossEv('lob', c.pos.x, c.pos.z, c.tp.x, c.tp.z, t, 'goo'); }
+  return null;
+}
 // Mantener la distancia (francotirador y espejo)
 function bKeepAway(c, near, far) {
   if (c.dist < near) return { mx: -c.mx, mz: -c.mz, spd: 1 };
@@ -16619,7 +16625,12 @@ const BOSSES = [
     hit(z, a) { const after = (z.hp - a) / z.maxHp; while (after < z.next10 && z.next10 > 0.05) { z.next10 -= 0.1; bSpawnNear(z, 'runner', 6, 4); feed('¡La Reina suelta su cría!', 'red'); } return a; } },
   { id: 'tamer', name: 'El Domador y su León', sub: 'Si cae uno, el otro se enfurece', hp: 6000, spd: 2.0, sc: 1.7, dmg: 40,
     look(z) { bRecolor(z, 1, 0xb02a2a); bRecolor(z, 2, 0xe8e0c8); for (let i = 0; i < 4; i++) for (const x of [-0.08, 0.08]) addL(z.torso, LG.sph(0.02), GMAT.brass, x, 0.22 - i * 0.12, 0.15); addL(z.head, LG.cyl(0.13, 0.13, 0.28, 12), GMAT.black, 0, 0.3, 0); addL(z.head, LG.cyl(0.2, 0.2, 0.02, 14), GMAT.black, 0, 0.16, 0); if (z.armR) { const g = new THREE.Group(); addL(g, LG.cyl(0.012, 0.006, 0.9, 6), LM(0x3a2414), 0, 0, 0.4, Math.PI / 2); g.position.set(0, -0.68, 0.03); z.armR.add(g); } },
-    spawn(z) { const l = bSpawnNear(z, 'dog', 1, 3)[0]; if (l) { applyBoss(l, BOSSES.findIndex(b => b.id === 'lion')); z.partner = l; l.partner = z; } } },
+    spawn(z) { const l = bSpawnNear(z, 'dog', 1, 3)[0]; if (l) { applyBoss(l, BOSSES.findIndex(b => b.id === 'lion')); z.partner = l; l.partner = z; } },
+    tick(z, dt, c) {   // latigazo: abanico delante de él
+      z.bt += dt; if (z.wh > 0) { z.wh -= dt; return { spd: 0 }; }
+      if (z.bt > 4.5 && c.dist < 8 && c.canAttack) { z.bt = 0; z.wh = 0.95; bossEv('tga', c.pos.x, c.pos.z, bAng(c), 7, 0.8, 0.95, Math.round(z.dmg * 0.7)); Sfx.whoosh(panOf(c.pos)); }
+      return null;
+    } },
   { id: 'clown', name: 'El Payaso de las Cajas', sub: 'Salta de un lado a otro y deja bombas', hp: 7000, spd: 2.4, sc: 1.8, dmg: 38,
     look(z) { LOOKS['Payaso'](z); },
     tick(z, dt, c) {
@@ -16644,9 +16655,26 @@ const BOSSES = [
     hit: (z, a) => z.bst === 1 ? a : 0 },
   { id: 'fire', name: 'El Bombero en Llamas', sub: 'Deja fuego por donde pasa', hp: 8000, spd: 1.8, sc: 1.8, dmg: 42,
     look(z) { LOOKS['Bombero'](z); for (const m of z.mats) m.emissive = new THREE.Color(0x401000); },
-    tick(z, dt, c) { z.bt += dt; z.burn = 0; if (z.bt > 0.45) { z.bt = 0; bossEv('fire', c.pos.x, c.pos.z); } return null; },
+    tick(z, dt, c) {
+      z.bt += dt; z.burn = 0; if (z.bt > 0.45) { z.bt = 0; bossEv('fire', c.pos.x, c.pos.z); }
+      z.ft = (z.ft || 0) + dt;
+      if (z.ft > 6.5 && c.canAttack && c.dist < 30) {   // tres bolas de fuego: donde caen queda ardiendo
+        z.ft = 0; const pts = [{ x: c.tp.x, z: c.tp.z }, bSpot(c.tp.x, c.tp.z, 2.5, 4.5), bSpot(c.tp.x, c.tp.z, 2.5, 4.5)].filter(Boolean);
+        pts.forEach((q, i) => { const t = 1.4 + i * 0.2; bossEv('tgc', q.x, q.z, 2.2, t, Math.round(z.dmg * 0.45), 'fire'); bossEv('lob', c.pos.x, c.pos.z, q.x, q.z, t, 'fire'); });
+      }
+      return null;
+    },
     hit: (z, a, info) => info.fx === 'dragon' || info.fx === 'burn' ? a * 0.3 : a },
   { id: 'colossus', name: 'El Coloso Blindado', sub: 'Rómpele la armadura pieza por pieza', hp: 7000, spd: 1.3, sc: 2.1, dmg: 55,
+    tick(z, dt, c) {   // pisotón: abre tres grietas en línea; hay que salirse de ellas
+      z.bt += dt; if (z.wh > 0) { z.wh -= dt; return { spd: 0 }; }
+      if (z.bt > 7 && c.dist < 16 && c.canAttack) {
+        z.bt = 0; z.wh = 1.3; const a = bAng(c);
+        for (const da of [0, 0.6, -0.6]) { const e = bFar(c, a + da, 16); bossEv('tgl', c.pos.x, c.pos.z, e.x, e.z, 2.2, 1.3, Math.round(z.dmg * 0.7), 'slam'); }
+        Sfx.roar(panOf(c.pos), volOf(c.pos, 1.5));
+      }
+      return null;
+    },
     look(z) {
       z.plates = [];
       const pl = (geo, parent, x, y, zz, sx = 1, sy = 1, sz = 1) => { const m = addL(parent, geo, armorMat, x, y, zz); m.scale.set(sx, sy, sz); z.plates.push(m); return m; };
@@ -16681,33 +16709,50 @@ const BOSSES = [
     },
     tick(z, dt, c) {
       const p = c.pos; let vx = 0, vz = 0;
+      if (z.chw > 0) { z.chw -= dt; if (z.chw <= 0) z.chg = 1.4; z.atkCd = Math.max(z.atkCd, 0.5); return { mx: z.cdx, mz: z.cdz, spd: 0 }; }   // se queda quieto mientras se llena la franja
       if (z.chg > 0) { z.chg -= dt; vx = z.cdx * 12; vz = z.cdz * 12; if (!z.kicked && Math.hypot(c.tp.x - p.x, c.tp.z - p.z) < 1.8) { z.kicked = true; bossEv('slam', p.x, p.z, 2, z.dmg); } }
       else {
         if (z.ang === undefined) z.ang = Math.atan2(p.x - c.tp.x, p.z - c.tp.z);
         z.ang += dt * 0.7; const gx = c.tp.x + Math.sin(z.ang) * 9, gz = c.tp.z + Math.cos(z.ang) * 9, dx = gx - p.x, dz = gz - p.z, d = Math.hypot(dx, dz) || 1;
         vx = dx / d * Math.min(8, d * 3); vz = dz / d * Math.min(8, d * 3);
-        z.bt += dt; if (z.bt > 7 && c.canAttack) { z.bt = 0; z.chg = 1.4; z.kicked = false; const ex = c.tp.x - p.x, ez = c.tp.z - p.z, ed = Math.hypot(ex, ez) || 1; z.cdx = ex / ed; z.cdz = ez / ed; Sfx.roar(panOf(p), volOf(p, 1.4)); }
+        z.bt += dt; if (z.bt > 7 && c.canAttack) { z.bt = 0; z.chw = 1.0; z.kicked = false; const ex = c.tp.x - p.x, ez = c.tp.z - p.z, ed = Math.hypot(ex, ez) || 1; z.cdx = ex / ed; z.cdz = ez / ed; bossEv('tgl', p.x, p.z, p.x + z.cdx * 17, p.z + z.cdz * 17, 3, 1.0, 0, 'dust'); Sfx.roar(panOf(p), volOf(p, 1.4)); }
       }
       p.x += vx * dt; p.z += vz * dt; resolve(p, z.r); z.atkCd = Math.max(z.atkCd, 0.5);
       const v = Math.hypot(vx, vz) || 1; return { mx: vx / v, mz: vz / v, spd: 0 };
     },
     hit: (z, a, info) => info.part === 'head' ? a : a * 0.06 },
-  { id: 'twins', name: 'Los Gemelos Siameses', sub: 'Al partirlos, cada mitad vuelve completa', hp: 9000, spd: 1.5, sc: 2.0, dmg: 45,
+  { id: 'twins', name: 'Los Gemelos Siameses', sub: 'Al partirlos, cada mitad vuelve completa', hp: 9000, spd: 1.5, sc: 2.0, dmg: 45, tick: bGooTick,
     look(z) { z.torso.scale.set(1.35, 1, 1.1); const h2 = bHit(z, addL(z.torso, ZG.head, z.mats[0], -0.34, 0.42, 0, 0, 0, 0.35), 'head'); for (const x of [-0.065, 0.065]) addL(h2, ZG.eye, eyeMats.boss, x, 0.035, 0.146); } },
   { id: 'butcher', name: 'El Carnicero Mayor', sub: 'Te engancha con su garfio', hp: 10000, spd: 1.4, sc: 2.3, dmg: 55,
     look(z) { z.torso.scale.set(1.3, 1.05, 1.25); addL(z.torso, LG.box(0.44, 0.72, 0.02), LM(0xffffff, { map: AT.apron }), 0, -0.12, 0.152); if (z.armR) { const g = new THREE.Group(); addL(g, ringG(0.08, 0.015), GMAT.steel, 0, -0.08, 0); addL(g, LG.cyl(0.012, 0.012, 0.3, 6), GMAT.steel, 0, 0.08, 0); g.position.set(0, -0.72, 0.05); z.armR.add(g); } },
     tick(z, dt, c) {
       z.bt += dt;
-      if (z.bt > 5.5 && c.dist > 4 && c.dist < 20 && c.canAttack && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.2)) { z.bt = 0; bossEv('hook', c.pos.x, c.pos.z, c.tp.x, c.tp.z, c.pid); }
+      if (z.hk) { z.hk.t -= dt; if (z.hk.t <= 0) { bossEv('hook', c.pos.x, c.pos.z, z.hk.x, z.hk.z, z.hk.pid); z.hk = null; } return { spd: 0 }; }
+      if (z.wh > 0) { z.wh -= dt; return { spd: 0 }; }
+      z.st = (z.st || 0) + dt;
+      if (z.st > 4.5 && c.dist < 6 && c.canAttack) { z.st = 0; z.wh = 0.9; bossEv('tga', c.pos.x, c.pos.z, bAng(c), 6, 1.05, 0.9, Math.round(z.dmg * 0.75)); }   // barrido con el garfio delante de él
+      if (z.bt > 5.5 && c.dist > 4 && c.dist < 20 && c.canAttack && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.2)) { z.bt = 0; z.hk = { x: c.tp.x, z: c.tp.z, pid: c.pid, t: 0.85 }; bossEv('tgl', c.pos.x, c.pos.z, c.tp.x, c.tp.z, 1.6, 0.85, 0, 'dust'); }   // la franja avisa por dónde lanza el gancho
       return null;
     } },
   { id: 'spider', name: 'La Araña de Carne', sub: 'Sus redes te frenan: sal de ellas rápido', hp: 7000, spd: 3.4, sc: 1.8, dmg: 28,
     look(z) { bRecolor(z, 0, 0xb87870); bRecolor(z, 1, 0x6a2a2a); for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) addL(z.torso, LG.box(0.05, 0.05, 0.75), z.mats[0], sx * 0.32, 0.1 - i * 0.15, 0, -0.5 + i * 0.5, sx * 1.1, sx * 0.5); for (let i = 0; i < 6; i++) addL(z.head, LG.box(0.03, 0.03, 0.02), eyeMats.boss, -0.08 + (i % 3) * 0.08, 0.09 - Math.floor(i / 3) * 0.04, 0.148); },
     tick(z, dt, c) { z.bt += dt; if (z.bt > 4 && c.canAttack && c.dist < 25) { z.bt = 0; bossEv('web', c.tp.x, c.tp.z); } return null; } },
   { id: 'rats', name: 'El Rey Rata', sub: 'Las balas casi no le hacen nada; las explosiones sí', hp: 9000, spd: 1.8, sc: 2.0, dmg: 40,
+    tick(z, dt, c) {   // estampida: una ola de ratas corre por la franja marcada
+      z.bt += dt; if (z.bt > 6 && c.canAttack && c.dist < 26) { z.bt = 0; const e = bFar(c, bAng(c), 22); bossEv('tgl', c.pos.x, c.pos.z, e.x, e.z, 3.2, 1.25, Math.round(z.dmg * 0.6), 'rats'); Sfx.roar(panOf(c.pos), volOf(c.pos, 1)); }
+      return null;
+    },
     look(z) { const rm = LM(0x3a2a20); for (let i = 0; i < 40; i++) { const par = [z.torso, z.torso, z.head, z.armL || z.torso, z.armR || z.torso][i % 5]; addL(par, LG.box(0.09, 0.07, 0.15), rm, rand(-0.22, 0.22), rand(-0.3, 0.3), rand(-0.16, 0.16), 0, rand(0, 3), 0); } z.next10 = 0.85; },
     hit(z, a, info) { const r = !info.dir && !info.ally ? a * 4 : a * 0.3, after = (z.hp - r) / z.maxHp; while (after < z.next10 && z.next10 > 0.05) { z.next10 -= 0.15; for (const o of bSpawnNear(z, 'dog', 3, 3)) { o.body.scale.setScalar(0.6); o.r = 0.22; } feed('¡Se sueltan las ratas!', 'red'); } return r; } },
   { id: 'grandpa', name: 'El Abuelo Inmortal', sub: 'Revive dos veces, cada vez más fuerte', hp: 6000, spd: 1.3, sc: 1.6, dmg: 42,
+    tick(z, dt, c) {   // lápidas que caen del cielo: una donde estás y más alrededor (más en cada vida)
+      z.bt += dt; if (z.bt > 6.5 && c.canAttack && c.dist < 30) {
+        z.bt = 0; const n = 3 + (z.lives | 0) * 2, pts = [{ x: c.tp.x, z: c.tp.z }];
+        for (let i = 1; i < n; i++) { const q = bSpot(c.tp.x, c.tp.z, 2.2, 6.5); if (q) pts.push(q); }
+        pts.forEach((q, i) => { const t = 1.5 + i * 0.12; bossEv('tgc', q.x, q.z, 1.8, t, Math.round(z.dmg * 0.55), 'rock'); bossEv('lob', q.x, q.z, q.x, q.z, t, 'rock'); });
+      }
+      return null;
+    },
     look(z) { bRecolor(z, 1, 0x6a5a4a); bRecolor(z, 2, 0x4a4038); addL(z.head, LG.box(0.3, 0.06, 0.31), LM(0xe8e8e8), 0, 0.15, 0); addL(z.head, LG.box(0.24, 0.14, 0.06), LM(0xe8e8e8), 0, -0.12, 0.13); if (z.armR) addL(z.armR, LG.cyl(0.02, 0.02, 0.9, 6), GMAT.wood, 0, -1.0, 0.05); },
     preDeath(z) {
       if ((z.lives | 0) >= 2) return false;
@@ -16720,9 +16765,20 @@ const BOSSES = [
     tick(z, dt, c) {
       z.bt += dt;
       if (z.bt > 3.8 && c.canAttack && c.dist < 45 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1)) { z.bt = 0; bossEv('laser', c.pos.x, c.pos.z, c.tp.x, c.tp.z, z.dmg); }
+      z.st = (z.st || 0) + dt;
+      if (z.st > 10 && c.canAttack) {   // bombardeo: cinco círculos que estallan uno tras otro
+        z.st = 0; for (let i = 0; i < 5; i++) { const q = i ? bSpot(c.tp.x, c.tp.z, 1.5, 7.5) : { x: c.tp.x, z: c.tp.z }; if (q) bossEv('tgc', q.x, q.z, 2.4, 1.2 + i * 0.3, Math.round(z.dmg * 0.55), 'boom'); }
+        feed('¡Bombardeo! Sal de los círculos rojos', 'red');
+      }
       return bKeepAway(c, 15, 26);
     } },
   { id: 'mass', name: 'La Masa', sub: 'Al morir se divide: 2, luego 4, luego 8', hp: 8000, spd: 1.0, sc: 2.4, dmg: 40,
+    tick(z, dt, c) {   // salta encima de ti y deja un charco que frena (solo las masas grandes)
+      const L = bLeapStep(z, dt, c); if (L) return L;
+      if ((z.gen | 0) >= 2) return null;
+      z.bt += dt; if (z.bt > 7 + (z.gen | 0) * 2 && c.dist > 2.5 && c.dist < 18 && c.canAttack) { z.bt = 0; bossEv('tgc', c.tp.x, c.tp.z, 3 - (z.gen | 0) * 0.7, 1.3, Math.round(z.dmg * 0.7), 'goo'); bLeap(z, c.tp.x, c.tp.z, 0.9, 0.4); }
+      return null;
+    },
     look(z) { bRecolor(z, 0, 0xc07a90); bRecolor(z, 1, 0x8a4a5a); z.torso.scale.set(1.5, 1.1, 1.6); for (let i = 0; i < 5; i++) addL(z.torso, ZG.belly, z.mats[0], rand(-0.2, 0.2), rand(-0.3, 0.2), rand(0, 0.15)).scale.setScalar(rand(0.6, 1.1)); },
     preDeath(z) {
       const g = z.gen | 0; if (g >= 3) return false;
@@ -16741,8 +16797,13 @@ const BOSSES = [
     } },
   // ayudantes de jefe (no salen solos)
   { id: 'lion', helper: true, name: 'El León', sub: '', hp: 6000, spd: 4.6, sc: 2.0, dmg: 40,
-    look(z) { bRecolor(z, 0, 0xb08040); if (z.head) addL(z.head, LG.box(0.36, 0.36, 0.16), LM(0x5a3010), 0, 0, -0.04); } },
-  { id: 'twin', helper: true, name: 'Gemelo', sub: '', hp: 4000, spd: 2.4, sc: 1.5, dmg: 35, look() {} },
+    look(z) { bRecolor(z, 0, 0xb08040); if (z.head) addL(z.head, LG.box(0.36, 0.36, 0.16), LM(0x5a3010), 0, 0, -0.04); },
+    tick(z, dt, c) {   // salta sobre ti: el círculo marca dónde cae
+      const L = bLeapStep(z, dt, c); if (L) return L; z.bt += dt;
+      if (z.bt > 6 && c.dist > 4 && c.dist < 16 && c.canAttack) { z.bt = 0; bossEv('tgc', c.tp.x, c.tp.z, 2.6, 1.1, Math.round(z.dmg * 0.8), 'slam'); bLeap(z, c.tp.x, c.tp.z, 0.75, 0.35); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.2)); }
+      return null;
+    } },
+  { id: 'twin', helper: true, name: 'Gemelo', sub: '', hp: 4000, spd: 2.4, sc: 1.5, dmg: 35, look() {}, tick: bGooTick },
   // Jefe final del rascacielos: cuatro fases (zeroTick y compañía, justo debajo de esta lista)
   { id: 'zero', helper: true, final: true, name: 'El Paciente Cero', sub: 'El origen de todo. Lee el suelo: lo rojo golpea, las ondas se saltan.', hp: 12000, spd: 1.25, sc: 3.0, dmg: 55,
     look(z) { zeroBuild(z); },
@@ -17513,9 +17574,78 @@ function bfxBeam(a, b, col, op = 0.9) {
   const m = new THREE.Mesh(bfxBeamGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, fog: false }));
   const d = b.clone().sub(a), len = d.length() || 0.01; m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(_up, d.divideScalar(len)); m.scale.set(1, len, 1); scene.add(m); return m;
 }
+// ---- Avisos en el suelo (jefes): el rojo se va llenando y al completarse golpea. Se ven igual en todos los teléfonos ----
+const TG = { col: 0xff3a2a, fill: 0.32, line: 0.85 };
+const tgRingGeo = new THREE.RingGeometry(0.93, 1, 40), tgDiskGeo = new THREE.CircleGeometry(1, 40), tgRectGeo = new THREE.PlaneGeometry(1, 1);
+const tgMat = op => new THREE.MeshBasicMaterial({ color: TG.col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, fog: false });
+const tgLobGeo = new THREE.SphereGeometry(0.42, 12, 10);
+function tgSpawn(kind, a) {
+  if (kind === 'tgc') {   // círculo: x, z, radio, tiempo, daño, efecto
+    const [x, z, r, t, dmg, fx] = a, g = new THREE.Group(); g.position.set(x, 0.06, z); g.rotation.x = -Math.PI / 2;
+    const ring = new THREE.Mesh(tgRingGeo, tgMat(TG.line)); ring.scale.setScalar(r); g.add(ring);
+    const fill = new THREE.Mesh(tgDiskGeo, tgMat(TG.fill)); fill.scale.setScalar(0.01); g.add(fill); scene.add(g);
+    BFX.push({ k: kind, tg: 1, g, fill, x, z, r, t, T: t, dmg, fx }); return true;
+  }
+  if (kind === 'tgl') {   // franja: de (x1,z1) a (x2,z2), ancho, tiempo, daño, efecto
+    const [x1, z1, x2, z2, w, t, dmg, fx] = a, len = Math.hypot(x2 - x1, z2 - z1) || 0.1, ang = Math.atan2(x2 - x1, z2 - z1), g = new THREE.Group();
+    g.position.set(x1, 0.06, z1); g.rotation.y = ang;
+    const bord = new THREE.Mesh(tgRectGeo, tgMat(TG.fill * 0.6)); bord.rotation.x = -Math.PI / 2; bord.scale.set(w, len, 1); bord.position.z = len / 2; g.add(bord);
+    const fill = new THREE.Mesh(tgRectGeo, tgMat(TG.fill + 0.15)); fill.rotation.x = -Math.PI / 2; fill.scale.set(w, 0.01, 1); g.add(fill); scene.add(g);
+    BFX.push({ k: kind, tg: 1, g, fill, x: x1, z: z1, x2, z2, w, len, t, T: t, dmg, fx }); return true;
+  }
+  if (kind === 'tga') {   // abanico delante del jefe: x, z, ángulo, radio, medio ancho, tiempo, daño
+    const [x, z, ang, r, half, t, dmg] = a, g = new THREE.Group(); g.position.set(x, 0.06, z);
+    const geo = new THREE.CircleGeometry(1, 28, -half, half * 2);   // se abre hacia +x del círculo; se gira para mirar a «ang»
+    const bord = new THREE.Mesh(geo, tgMat(TG.fill * 0.6)), fill = new THREE.Mesh(geo, tgMat(TG.fill + 0.15));
+    for (const m of [bord, fill]) { m.rotation.x = -Math.PI / 2; g.add(m); } bord.scale.setScalar(r); fill.scale.setScalar(0.01);
+    g.rotation.y = ang - Math.PI / 2; scene.add(g);
+    BFX.push({ k: kind, tg: 1, g, fill, geo, x, z, ang, r, half, t, T: t, dmg }); return true;
+  }
+  if (kind === 'lob') {   // algo que vuela en arco hasta donde marca el círculo: desde, hasta, tiempo, tipo
+    const [x1, z1, x2, z2, t, fx] = a, col = fx === 'fire' ? 0xff6a10 : fx === 'goo' ? 0x7a2a3a : fx === 'rock' ? 0x6a6a70 : 0x3a3028;
+    const m = new THREE.Mesh(tgLobGeo, new THREE.MeshLambertMaterial({ color: col, emissive: fx === 'fire' ? 0x802000 : 0x000000 })); m.position.set(x1, 2.5, z1); scene.add(m);
+    BFX.push({ k: kind, tg: 1, g: m, x: x1, z: z1, a: [x1, z1, x2, z2], t, T: t, fx, sky: fx === 'rock' }); return true;
+  }
+  return false;
+}
+function tgStep(f, dt, me) {
+  const u = Math.min(1, 1 - f.t / f.T), px = player.pos.x, pz = player.pos.z;
+  if (f.k === 'tgc') { f.fill.scale.setScalar(Math.max(0.01, f.r * u)); f.fill.material.opacity = TG.fill + (u > 0.8 ? 0.25 * Math.sin(f.t * 40) : 0); }
+  else if (f.k === 'tgl') { f.fill.scale.set(f.w, Math.max(0.01, f.len * u), 1); f.fill.position.z = f.len * u / 2; }
+  else if (f.k === 'tga') f.fill.scale.setScalar(Math.max(0.01, f.r * u));
+  else if (f.k === 'lob') { const [x1, z1, x2, z2] = f.a; f.g.position.set(x1 + (x2 - x1) * u, f.sky ? 14 * (1 - u) + 0.4 : 0.4 + Math.sin(u * Math.PI) * 7, z1 + (z2 - z1) * u); f.g.rotation.x += dt * 8; }
+  if (f.t > 0) return;
+  scene.remove(f.g); if (f.k !== 'lob') { f.g.traverse(o => { if (o.material) o.material.dispose(); }); if (f.geo) f.geo.dispose(); } else f.g.material.dispose();
+  if (f.k === 'lob') return;
+  // al completarse: golpe
+  let hit = false;
+  if (f.k === 'tgc') hit = Math.hypot(px - f.x, pz - f.z) < f.r;
+  else if (f.k === 'tgl') { const dx = f.x2 - f.x, dz = f.z2 - f.z, L2 = dx * dx + dz * dz || 1, k = clamp(((px - f.x) * dx + (pz - f.z) * dz) / L2, 0, 1); hit = Math.hypot(px - (f.x + dx * k), pz - (f.z + dz * k)) < f.w / 2 + 0.3; }
+  else if (f.k === 'tga') { const d = Math.hypot(px - f.x, pz - f.z), an = Math.atan2(px - f.x, pz - f.z); let df = an - f.ang; while (df > Math.PI) df -= TAU; while (df < -Math.PI) df += TAU; hit = d < f.r && Math.abs(df) < f.half + 0.12; }
+  const fx = f.fx, cx = f.k === 'tgl' ? (f.x + f.x2) / 2 : f.x, cz = f.k === 'tgl' ? (f.z + f.z2) / 2 : f.z;
+  if (f.k === 'tgl') { for (let i = 0; i <= 10; i++) { const k = i / 10, x = f.x + (f.x2 - f.x) * k, z = f.z + (f.z2 - f.z) * k; for (let j = 0; j < 3; j++) P.add(x, 0.15, z, rand(-1.5, 1.5), rand(1, 4), rand(-1.5, 1.5), 0.9, 0.18, fx === 'rats' ? 0.35 : 0.5, fx === 'rats' ? 0.25 : 0.4, fx === 'rats' ? 0.2 : 0.3, 1, 9.8, 1, 0, 0); } }
+  else for (let i = 0; i < 30; i++) { const t = rand(0, TAU), rr = rand(0, f.r || 3); P.add(cx + Math.cos(t) * rr, 0.15, cz + Math.sin(t) * rr, rand(-2, 2), rand(1.5, 5), rand(-2, 2), 0.9, 0.18, fx === 'fire' ? 1 : 0.5, fx === 'fire' ? 0.45 : 0.4, fx === 'fire' ? 0.1 : 0.3, 1, 9.8, 1.2, 0, 0); }
+  Sfx.thud(panOf({ x: cx, z: cz })); if (fx === 'boom' || fx === 'fire') Sfx.boom();
+  player.shake = Math.min(1, player.shake + Math.max(0, 0.5 - Math.hypot(px - cx, pz - cz) * 0.03));
+  if (fx === 'fire') BFX.push({ k: 'fire', x: f.x, z: f.z, t: 4 });
+  if (fx === 'goo') { const m = new THREE.Mesh(bfxWebGeo, new THREE.MeshBasicMaterial({ color: 0x8a2a4a, transparent: true, opacity: 0.5, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.scale.setScalar((f.r || 2) / 2.2); m.position.set(f.x, 0.05, f.z); scene.add(m); BFX.push({ k: 'web', m, x: f.x, z: f.z, t: 6 }); }
+  if (me && hit && f.dmg > 0) hurtPlayer(f.dmg, { x: f.k === 'tga' ? f.x : cx, z: f.k === 'tga' ? f.z : cz }, { knock: 9 });
+}
+// Salto o embestida del jefe hacia un punto marcado (lo mueve el anfitrión; los demás lo ven por la posición)
+function bLeap(z, x, zz, wait, dur) { z.lp = { x0: z.root.position.x, z0: z.root.position.z, x1: x, z1: zz, t: -wait, dur }; }
+function bLeapStep(z, dt, c) {
+  const L = z.lp; if (!L) return null; L.t += dt; z.atkCd = Math.max(z.atkCd || 0, 0.4);
+  if (L.t < 0) return { spd: 0 };
+  const u = Math.min(1, L.t / L.dur); c.pos.x = L.x0 + (L.x1 - L.x0) * u; c.pos.z = L.z0 + (L.z1 - L.z0) * u; resolve(c.pos, z.r);
+  if (u >= 1) z.lp = null;
+  return { spd: 0 };
+}
+const bAng = (c) => Math.atan2(c.tp.x - c.pos.x, c.tp.z - c.pos.z);
+function bFar(c, ang, len) { return { x: c.pos.x + Math.sin(ang) * len, z: c.pos.z + Math.cos(ang) * len }; }
 function bfxSpawn(kind, ...a) {
   if (!game) return;
   if (zfxSpawn(kind, a)) return;
+  if (tgSpawn(kind, a)) return;
   const me = !player.down;
   if (kind === 'slam') {
     const [x, z, r, dmg] = a; for (let i = 0; i < 36; i++) { const t = i / 36 * TAU; P.add(x, 0.1, z, Math.cos(t) * r * 1.4, rand(1, 3), Math.sin(t) * r * 1.4, 0.8, 0.14, 0.3, 0.24, 0.16, 1, 9.8, 1.5, 0, 0); }
@@ -17534,7 +17664,8 @@ function bfxSpawn(kind, ...a) {
   } else if (kind === 'hook') {
     const [x1, z1, x2, z2, pid] = a, A = new THREE.Vector3(x1, 1.8, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
     BFX.push({ k: kind, m: bfxBeam(A, Bv, 0x9aa0a8), t: 0.35 }); Sfx.whoosh(panOf(A));
-    if (me && (pid === Net.id || !Net.on)) { const dx = player.pos.x - x1, dz = player.pos.z - z1, d = Math.hypot(dx, dz) || 1; hurtPlayer(12, { x: player.pos.x + dx / d, z: player.pos.z + dz / d }, { knock: Math.min(22, d * 1.4) }); feed('¡Te engancharon!', 'red'); }
+    const sx = x2 - x1, sz = z2 - z1, sL = sx * sx + sz * sz || 1, sk = clamp(((player.pos.x - x1) * sx + (player.pos.z - z1) * sz) / sL, 0, 1), enLinea = Math.hypot(player.pos.x - (x1 + sx * sk), player.pos.z - (z1 + sz * sk)) < 1.3;
+    if (me && enLinea && (pid === Net.id || !Net.on)) { const dx = player.pos.x - x1, dz = player.pos.z - z1, d = Math.hypot(dx, dz) || 1; hurtPlayer(12, { x: player.pos.x + dx / d, z: player.pos.z + dz / d }, { knock: Math.min(22, d * 1.4) }); feed('¡Te engancharon!', 'red'); }
   } else if (kind === 'laser') {
     const [x1, z1, x2, z2, dmg] = a, A = new THREE.Vector3(x1, 2.0, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
     BFX.push({ k: kind, m: bfxBeam(A, Bv, 0xff1010, 0.75), t: 1.1, A, B: Bv, dmg });
@@ -17550,7 +17681,7 @@ function bfxSpawn(kind, ...a) {
 }
 function bossClear() {
   zeroReset();
-  for (const f of BFX) if (f.m) { scene.remove(f.m); f.m.material.dispose(); }
+  for (const f of BFX) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } if (f.g) scene.remove(f.g); }
   BFX.length = 0; player.webT = 0;
   if (game && game.plague) { player.maxHp += game.plague; game.plague = 0; }
   $('#dark').style.opacity = 0; $('#bossbar').hidden = true;
@@ -17603,6 +17734,7 @@ function bossFx(dt) {
   player.webT = Math.max(0, (player.webT || 0) - dt); player.frostT = Math.max(0, (player.frostT || 0) - dt);
   for (let i = BFX.length - 1; i >= 0; i--) {
     const f = BFX[i]; f.t -= dt; const d = Math.hypot(player.pos.x - (f.x || 0), player.pos.z - (f.z || 0)), me = !player.down && state === 'play'; if (f.zk) zfxStep(f, dt, d, me);
+    if (f.tg) { tgStep(f, dt, me); if (f.t <= 0) BFX.splice(i, 1); continue; }
     if (f.k === 'bomb') { f.m.material.emissive.setHex(Math.floor(f.t * 8) % 2 ? 0xff2000 : 0x300000); if (f.t <= 0) { for (let k = 0; k < 40; k++) P.add(f.x, 0.4, f.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.4), rand(0.15, 0.35), 1, 0.5, 0.15, 1, 2, 2.5, 0.5, 0); Sfx.boom(); if (me && d < 3.2) hurtPlayer(35 * (1 - d / 3.2 * 0.5), f, { knock: 8 }); } }
     else if (f.k === 'fire') { if (Math.random() < 0.7) PA.add(f.x + rand(-0.5, 0.5), 0.1, f.z + rand(-0.5, 0.5), rand(-0.2, 0.2), rand(1, 2.2), rand(-0.2, 0.2), rand(0.3, 0.6), rand(0.2, 0.35), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.2, 0); if (me && d < 1.1) hurtPlayer(16 * dt, f, { tick: true }); }
     else if (f.k === 'gas') {
@@ -21333,7 +21465,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 150';
+const GAME_BUILD = '15-oct-2026 · 151';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
