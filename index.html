@@ -1140,6 +1140,13 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #login .login-col{gap:10px}.login-prov{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.login-prov .btn2{min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px;font-size:14px;letter-spacing:.04em;min-width:0;width:auto}.login-prov svg{width:22px;height:22px;flex:none}
 .login-mail{display:flex;flex-direction:column;gap:8px}.login-mail input{min-height:48px;font-size:16px;padding:0 12px;border-radius:10px;border:2px solid #4a3628;background:#1d140f;color:#f6ead7}.login-mrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}.login-mrow .btn,.login-mrow .btn2{min-height:48px}
 @media (max-height:500px){#login .card{padding:10px 18px}#login .title{font-size:30px;margin:0}#login .tag{display:none}#login .note{font-size:14px;margin-top:6px}.login-mail{display:grid;grid-template-columns:1fr 1fr}.login-mail .login-mrow{grid-column:1/-1}#login .card:has(.login-mail:not([hidden])) .note{display:none}}
+.arb-n{transition:border-color .25s,background-color .25s,box-shadow .25s,transform .2s}.arb-n.sel{transform:translate(-50%,-50%) scale(1.08)}
+.arb-n.misterio{color:#c4ae94;border-style:dashed;background:#1a120d}.arb-n.misterio svg{opacity:.85}
+.arb-n.nuevo{animation:arbNuevo .6s cubic-bezier(.2,1.4,.4,1) both}@keyframes arbNuevo{0%{transform:translate(-50%,-50%) scale(0);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.arb-map line.nueva{animation:arbLinea .6s ease-out both}@keyframes arbLinea{0%{opacity:0}100%{opacity:1}}
+.arb-n.canje{animation:arbCanje .7s ease-out}@keyframes arbCanje{0%{box-shadow:0 0 0 0 rgba(255,210,122,.9)}100%{box-shadow:0 0 0 22px rgba(255,210,122,0)}}
+.arb-info>*{animation:arbInfo .28s ease-out both}@keyframes arbInfo{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.arb-n.nuevo,.arb-map line.nueva,.arb-n.canje,.arb-info>*{animation:none}}
 </style>
 </head>
 <body>
@@ -1962,6 +1969,8 @@ const Sfx = (() => {
     silbato(pan, vol = 1) { for (const [d, L] of [[0, 0.45], [0.55, 1.1]]) { tone({ type: 'square', f0: 622, f1: 600, dur: L, vol: 0.045 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'square', f0: 784, f1: 760, dur: L, vol: 0.035 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'triangle', f0: 932, f1: 900, dur: L, vol: 0.03 * vol, pan, delay: d, wet: 0.55 }); } burst({ ftype: 'bandpass', f0: 2400, q: 3, dur: 1.6, vol: 0.06 * vol, pan, wet: 0.4 }); },   // silbato del trenecito: dos pitidos de vapor
     megafono(pan, vol = 1) { tone({ type: 'triangle', f0: 784, dur: 0.7, vol: 0.12 * vol, pan, wet: 0.6 }); tone({ type: 'triangle', f0: 622, dur: 0.9, vol: 0.12 * vol, pan, delay: 0.45, wet: 0.6 }); for (let i = 0; i < 9; i++) burst({ ftype: 'bandpass', f0: rand(500, 1300), q: 4, dur: rand(0.08, 0.16), vol: 0.07 * vol, pan, delay: 1.3 + i * 0.13, wet: 0.5 }); },   // altavoz: «din, don» y una voz que ya no se entiende
     alarma(pan, vol = 1) { for (let i = 0; i < 8; i++) tone({ type: 'square', f0: i % 2 ? 1320 : 880, dur: 0.2, vol: 0.05 * vol, pan, delay: i * 0.24, wet: 0.5 }); },   // alarma de coche: dos notas que se alternan
+    ui() { tone({ type: 'triangle', f0: 880, f1: 560, dur: 0.05, vol: 0.07, wet: 0.08 }); tone({ type: 'sine', f0: 2400, dur: 0.02, vol: 0.025, delay: 0.004, wet: 0.05 }); },   // toque de botón: madera suave
+    canje() { this.cash(); [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.35, vol: 0.12, delay: 0.08 + i * 0.07, wet: 0.6 })); [2093, 2637].forEach((f, i) => tone({ f0: f, dur: 0.9, vol: 0.04, delay: 0.38 + i * 0.05, wet: 0.9, attack: 0.004 })); },   // canjear una mejora
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
     combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
     deadeye(on) {
@@ -26954,7 +26963,7 @@ function fusePreview() {
 // Para jugar por internet: pega aquí la dirección y la clave pública (anon) de un proyecto de Supabase.
 // Si se dejan vacías, el modo en grupo funciona solo entre pestañas del mismo navegador (para probar).
 const GAME_VER = 'B4';
-const GAME_BUILD = '15-oct-2026 · 161';
+const GAME_BUILD = '15-oct-2026 · 162';
 const SUPA = { url: 'https://hauiiqmhxgnhkspxobew.supabase.co', key: 'sb_publishable_-7WfoPB0cAHdsFYK64nYyw_XxHPjRz_' };
 // Cuentas con Google: solo se activan en el proyecto propio de Seis Balas (nunca en el de Knight Core)
 SUPA.cuentas = false;
@@ -28856,31 +28865,44 @@ function renderAltar() {
 function altArbol(D) {
   const N = nodosArbol(), W = 1000, H = 500, P = n => [n.x, n.y], K = innerWidth < 760 || innerHeight < 500 ? 1 : 1.3;   // el árbol es más grande que la pantalla: se arrastra con el dedo o el ratón
   const nv = n => n.A ? arb(n.k) : META.un[n.k] ? 1 : 0, top = n => n.A ? ARBOL_MAX : 1;
+  // se descubre poco a poco (pedido del dueño, 16-oct-2026): se ve lo comprado y lo que ya se puede comprar; lo siguiente sale como «?»; lo demás no se ve
+  const ver = n => nv(n) > 0 || nAbierto(n), padre = n => N.find(x => x.k === n.req);
+  const vis = n => ver(n) ? 'ver' : n.req && padre(n) && ver(padre(n)) ? 'niebla' : null;
   const est = n => nv(n) >= top(n) ? 'max' : nv(n) > 0 ? 'own' : nAbierto(n) ? 'can' : 'lock';
-  const sel = N.find(n => n.k === renderAltar.sel) || N.find(n => nAbierto(n) && nv(n) < top(n)) || N[0];
-  const lines = N.filter(n => n.req).map(n => { const Q = N.find(x => x.k === n.req); if (!Q) return ''; const [x1, y1] = P(Q), [x2, y2] = P(n), c = nv(n) > 0 ? '#eaa23a' : nAbierto(n) ? '#45b8aa' : '#4a3628'; return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="4"/>`; }).join('');
-  const nodes = N.map(n => { const [x, y] = P(n), lab = n.A ? `${arb(n.k)}/${ARBOL_MAX}` : META.un[n.k] ? '' : n.u.cost; return `<button class="arb-n ${est(n)}${n === sel ? ' sel' : ''}${n.A && !n.A.req ? ' raiz' : ''}${n.A ? '' : ' un'}" data-k="${n.k}" style="left:${x / W * 100}%;top:${y / H * 100}%;--r:${n.col}" aria-label="${n.A ? n.A.name : n.u.name}">${ico(n.ic)}${lab !== '' ? `<em>${lab}</em>` : ''}</button>`; }).join('');
-  const lv = nv(sel), max = lv >= top(sel), ok = nAbierto(sel), cost = sel.A ? ARBOL_COSTO[lv] || 1 : sel.u.cost, Pq = N.find(x => x.k === sel.req), nom = n => n.A ? n.A.name : n.u.name;
+  const VN = N.filter(n => vis(n));
+  const sel = VN.find(n => n.k === renderAltar.sel) || VN.find(n => nAbierto(n) && nv(n) < top(n)) || N[0], selN = vis(sel) === 'niebla';
+  META.arbVis = META.arbVis || {}; const nuevos = new Set(); let cambio = false;
+  for (const n of VN) { const id = (vis(n) === 'ver' ? 'v:' : 'm:') + n.k; if (!META.arbVis[id]) { META.arbVis[id] = 1; nuevos.add(n.k); cambio = true; } }
+  if (cambio && renderAltar.yaVisto) saveMeta(); else if (!renderAltar.yaVisto) nuevos.clear();   // la primera vez que se abre no hay animación de descubrimiento
+  renderAltar.yaVisto = 1;
+  const lines = VN.filter(n => n.req).map(n => { const Q = padre(n); if (!Q || !vis(Q)) return ''; const [x1, y1] = P(Q), [x2, y2] = P(n), m = vis(n) === 'niebla', c = nv(n) > 0 ? '#eaa23a' : nAbierto(n) ? '#45b8aa' : '#4a3628'; return `<line class="${nuevos.has(n.k) ? 'nueva' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="4"${m ? ' stroke-dasharray="10 10"' : ''}/>`; }).join('');
+  const nodes = VN.map(n => { const [x, y] = P(n), m = vis(n) === 'niebla', lab = m ? '' : n.A ? `${arb(n.k)}/${ARBOL_MAX}` : META.un[n.k] ? '' : n.u.cost; return `<button class="arb-n ${m ? 'lock misterio' : est(n)}${n === sel ? ' sel' : ''}${n.A && !n.A.req ? ' raiz' : ''}${n.A ? '' : ' un'}${nuevos.has(n.k) ? ' nuevo' : ''}" data-k="${n.k}" data-nosnd style="left:${x / W * 100}%;top:${y / H * 100}%;--r:${n.col}" aria-label="${m ? 'Mejora por descubrir' : n.A ? n.A.name : n.u.name}">${ico(m ? 'question' : n.ic)}${lab !== '' ? `<em>${lab}</em>` : ''}</button>`; }).join('');
+  const lv = nv(sel), max = lv >= top(sel), ok = nAbierto(sel), cost = sel.A ? ARBOL_COSTO[lv] || 1 : sel.u.cost, Pq = padre(sel), nom = n => n.A ? n.A.name : n.u.name;
   const ef = v => sel.A.f ? sel.A.f(v) : `+${pctTxt(v)} de probabilidad`;
   const rama = sel.A ? 'Rama de ' + ARBOL_RAMAS[sel.A.ram][0].toLowerCase() : (ALT_SECS.find(x => x[0] === sel.u.cat) || [0, 'Desbloqueo'])[1];
   const txt = max ? (sel.A ? 'Nivel máximo' : 'Desbloqueado') : !ok ? 'Bloqueada' : META.fichas >= cost ? `${sel.A ? 'Nivel ' + (lv + 1) : 'Desbloquear'} · ${cost} ${cost === 1 ? 'ficha' : 'fichas'}` : `Te faltan ${cost - META.fichas} ${cost - META.fichas === 1 ? 'ficha' : 'fichas'}`;
-  D.innerHTML = `<div class="arb-zona"><div class="arb-map"><div class="arb-lienzo" style="width:${W * K}px;height:${H * K}px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>${nodes}</div><span class="arb-mover">Arrastra para ver todo el árbol</span></div>
-    <div class="arb-info"><span class="arb-rama" style="color:${sel.col}">${rama}</span><b>${nom(sel)}</b><p>${sel.A ? sel.A.d : sel.u.what}</p>
+  const info = selN ? `<span class="arb-rama" style="color:#c4ae94">Por descubrir</span><b>¿?</b><p>Una mejora escondida.</p><p class="arb-req">${ico('lock')} ${Pq.A ? 'Mejora' : 'Desbloquea'} ${nom(Pq)} para descubrirla</p><button class="btn2" id="arb-buy" data-nosnd disabled>Bloqueada</button>`
+    : `<span class="arb-rama" style="color:${sel.col}">${rama}</span><b>${nom(sel)}</b><p>${sel.A ? sel.A.d : sel.u.what}</p>
     ${sel.A ? `<p class="arb-v">${lv ? 'Ahora: ' + ef(lv * sel.A.paso) : 'Sin mejorar'}${max ? '' : `<br>Siguiente nivel: ${ef((lv + 1) * sel.A.paso)}`}</p>` : ''}
     ${!ok && Pq ? `<p class="arb-req">${ico('lock')} Primero ${Pq.A ? 'mejora' : 'desbloquea'} ${nom(Pq)}</p>` : ''}
-    <button class="${max ? 'btn2' : 'btn'}" id="arb-buy"${max || !ok || META.fichas < cost ? ' disabled' : ''}>${txt}</button>
+    <button class="${max ? 'btn2' : 'btn'}" id="arb-buy" data-nosnd${max || !ok || META.fichas < cost ? ' disabled' : ''}>${txt}</button>`;
+  const ocultas = N.length - VN.length;
+  D.innerHTML = `<div class="arb-zona"><div class="arb-map"><div class="arb-lienzo" style="width:${W * K}px;height:${H * K}px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>${nodes}</div><span class="arb-mover">${ocultas ? `Quedan ${ocultas} mejoras por descubrir · arrastra para ver el árbol` : 'Arrastra para ver todo el árbol'}</span></div>
+    <div class="arb-info" data-k="${sel.k}">${info}
     <div class="arb-ley"><span class="o">Comprada</span><span class="c">Disponible</span><span class="l">Bloqueada</span></div></div></div>`;
   const M = D.querySelector('.arb-map'), Lz = D.querySelector('.arb-lienzo'), lim = () => ({ x: Math.min(0, M.clientWidth - W * K), y: Math.min(0, M.clientHeight - H * K) });
-  const pon = (x, y) => { const l = lim(); const pp = renderAltar.pan = { x: Math.max(l.x, Math.min(0, x)), y: Math.max(l.y, Math.min(0, y)) }; Lz.style.transform = `translate(${pp.x}px,${pp.y}px)`; };
+  const pon = (x, y, suave) => { const l = lim(); const pp = renderAltar.pan = { x: Math.max(l.x, Math.min(0, x)), y: Math.max(l.y, Math.min(0, y)) }; Lz.style.transition = suave ? 'transform .45s cubic-bezier(.2,.8,.2,1)' : 'none'; Lz.style.transform = `translate(${pp.x}px,${pp.y}px)`; };
   if (!renderAltar.pan || renderAltar.panK !== K) { renderAltar.panK = K; pon(M.clientWidth / 2 - 500 * K, M.clientHeight / 2 - 250 * K); } else pon(renderAltar.pan.x, renderAltar.pan.y);   // empieza centrado en Daño
+  if (renderAltar.foco) { const F = N.find(n => n.k === renderAltar.foco); renderAltar.foco = null; if (F) { void Lz.offsetWidth; pon(M.clientWidth / 2 - F.x * K, M.clientHeight / 2 - F.y * K, true); } }   // al tocar una mejora, el árbol se desliza suave hasta ella
   let arr = null, movio = false;
   M.addEventListener('pointerdown', e => { arr = { x: e.clientX, y: e.clientY, px: renderAltar.pan.x, py: renderAltar.pan.y }; movio = false; });
   M.addEventListener('pointermove', e => { if (!arr) return; const dx = e.clientX - arr.x, dy = e.clientY - arr.y; if (!movio && Math.hypot(dx, dy) > 6) { movio = true; M.classList.add('mueve'); try { M.setPointerCapture(e.pointerId); } catch (er) {} } if (movio) pon(arr.px + dx, arr.py + dy); });
   const suelta = () => { arr = null; M.classList.remove('mueve'); };
   M.addEventListener('pointerup', suelta); M.addEventListener('pointercancel', suelta);
   M.addEventListener('wheel', e => { e.preventDefault(); pon(renderAltar.pan.x - (e.shiftKey ? e.deltaY : e.deltaX), renderAltar.pan.y - (e.shiftKey ? 0 : e.deltaY)); }, { passive: false });
-  D.querySelectorAll('.arb-n').forEach(b => b.addEventListener('click', e => { if (movio) { e.preventDefault(); return; } renderAltar.sel = b.dataset.k; renderAltar(); }));
-  D.querySelector('#arb-buy').addEventListener('click', () => { if (max || !ok || META.fichas < cost) return; META.fichas -= cost; if (sel.A) { META.arbol = META.arbol || {}; META.arbol[sel.k] = lv + 1; } else META.un[sel.k] = 1; saveMeta(); Sfx.win(); renderAltar(); });
+  D.querySelectorAll('.arb-n').forEach(b => b.addEventListener('click', e => { if (movio) { e.preventDefault(); return; } Sfx.ui(); renderAltar.sel = renderAltar.foco = b.dataset.k; renderAltar(); }));
+  D.querySelector('#arb-buy').addEventListener('click', () => { if (selN || max || !ok || META.fichas < cost) return; META.fichas -= cost; if (sel.A) { META.arbol = META.arbol || {}; META.arbol[sel.k] = lv + 1; } else META.un[sel.k] = 1; saveMeta(); Sfx.canje(); renderAltar.canje = sel.k; renderAltar(); });
+  if (renderAltar.canje) { const b = D.querySelector(`.arb-n[data-k="${renderAltar.canje}"]`); renderAltar.canje = null; if (b) b.classList.add('canje'); }
 }
 function awardFichas(win) {
   if (!game || game.awarded) return 0; game.awarded = true;
@@ -29762,6 +29784,7 @@ function renderAcct() {
     else { el.innerHTML = `<span class="inv">Juegas como invitado</span><button class="btn2 gbtn acct-in"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="gl">Iniciar sesión</span></button>`; el.querySelector('.acct-in').onclick = () => { $('#login-mail').hidden = true; show('login'); }; }
   });
 }
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (!b || b.disabled || b.hasAttribute('data-nosnd') || state === 'play') return; try { Sfx.ui(); } catch (er) {} }, true);   // sonido suave al tocar cualquier botón de los menús
 $('#btn-guest').addEventListener('click', () => { store.set('sb_login', 'guest'); show('inicio'); });
 $('#btn-discord').addEventListener('click', () => Cuenta.oauth('discord', 'Discord'));
 $('#btn-mail').addEventListener('click', () => { const f = $('#login-mail'); f.hidden = !f.hidden; if (!f.hidden) $('#lm-correo').focus(); });
