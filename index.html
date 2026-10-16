@@ -106,6 +106,14 @@ body{font-family:var(--hud);font-size:16px}
 .ach.ok>i{background:#d8a838;color:#1a1008}
 .ach.ok b{color:#ffd47a}
 .ach-p{height:6px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:6px;overflow:hidden}.ach-p s,.ach-all s{display:block;height:100%;background:#d8a838;text-decoration:none}
+#ach-count b{font:800 22px var(--hud);color:#ffd47a;margin-right:6px}
+#ach-comp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 14px;max-width:760px;margin:8px auto 0;text-align:left}
+#ach-comp .cp{min-width:0}#ach-comp .cp>div{display:flex;justify-content:space-between;gap:6px;font-size:14px;line-height:1.25;color:var(--bone-dim)}
+#ach-comp .cp span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#ach-comp .cp b{font:700 14px var(--hud);color:#ffd47a;white-space:nowrap}
+#ach-comp .ach-p{height:4px;margin-top:3px}
+#ach-s #ach-list{max-height:max(120px,min(58vh,calc(100vh - 400px)))}
+@media (max-width:640px){#ach-comp{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px}#ach-s #ach-list{max-height:max(120px,calc(100vh - 415px))}}
+@media (max-height:480px) and (orientation:landscape){#ach-comp{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px 12px;margin-top:4px}#ach-s .card .title.sm{margin-bottom:0}#ach-s{padding-top:4px;padding-bottom:4px}#ach-s .card{padding-top:8px;padding-bottom:8px}#ach-s #ach-list{max-height:max(70px,calc(100vh - 325px));margin-top:8px}}
 .ach-all{height:8px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;max-width:420px;margin:4px auto 0}
 #ach-toast{position:fixed;z-index:23;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-20px);opacity:0;display:flex;gap:12px;align-items:center;padding:10px 16px;border-radius:12px;background:rgba(18,12,6,.96);border:2px solid #d8a838;box-shadow:0 0 30px rgba(255,190,70,.45);pointer-events:none;transition:opacity .35s,transform .35s;max-width:calc(100% - 32px)}
 #ach-toast.on{opacity:1;transform:translate(-50%,0)}
@@ -1088,6 +1096,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
       <h2 class="title sm">Logros</h2>
       <p class="tag" id="ach-count">0 conseguidos</p>
       <div class="ach-all"><s id="ach-bar"></s></div>
+      <div id="ach-comp"></div>
       <div id="ach-list"></div>
       <div class="row"><button class="btn" id="btn-ach-back">Volver</button></div>
     </div>
@@ -19435,8 +19444,8 @@ const FICHA_P = 0.08;
 const fichasTxt = n => `${n} ficha${n === 1 ? '' : 's'} de póker`;
 function pagaFicha() {
   if ((game.poker | 0) < 1) { hint('Necesitas una ficha de póker: las sueltan los zombis', 1800); Sfx.err(); return false; }
-  if (S('fichaGratis') && Math.random() < S('fichaGratis') / 100) { Sfx.coin(); feed('La moneda de dos caras: ¡no gastaste la ficha!', 'gold'); return true; }
-  game.poker--; Sfx.coin(); feed(`Usaste una ficha · te quedan ${game.poker}`, 'gold'); return true;
+  if (S('fichaGratis') && Math.random() < S('fichaGratis') / 100) { Sfx.coin(); feed('La moneda de dos caras: ¡no gastaste la ficha!', 'gold'); stMas('fichasJug'); return true; }
+  game.poker--; Sfx.coin(); feed(`Usaste una ficha · te quedan ${game.poker}`, 'gold'); stMas('fichasJug'); return true;
 }
 function makePickup(type, x, z, amount) {
   const g = new THREE.Group(); g.position.set(x, 0.6, z);
@@ -19762,7 +19771,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
   if (!opt.tick && S('shieldWave') && (game.shieldW || 0) < S('shieldWave')) { game.shieldW = (game.shieldW || 0) + 1; feed('La tapa de barril paró el golpe', 'blue'); Sfx.clang(0); return; }
   amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
-  player.hp -= amount; player.lastHurt = game.time;
+  player.hp -= amount; player.lastHurt = game.time; if (amount > 0) stMas('dano', amount);
   fx.dmg = Math.min(1, fx.dmg + amount / (opt.tick ? 60 : 22));
   if (opt.acid) fx.acid = Math.min(1, fx.acid + (opt.tick ? 0.05 : 0.9));
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
@@ -19836,7 +19845,7 @@ function updateBest() {
 function deadEye(on) {
   if (on === game.deOn) return;
   if (on && game.de < 20) { hint('El Ojo Muerto necesita más carga', 1200); return; }
-  game.deOn = on; Sfx.deadeye(on); if (on && !tuto) META.st.des = (META.st.des | 0) + 1;
+  game.deOn = on; Sfx.deadeye(on); if (on && !tuto) META.st.des = (META.st.des | 0) + 1; if (on) game.deK = 0;
   applySlowFx();
 }
 function applySlowFx() { const on = !!game && (game.deOn || game.slowT > 0); el.fxDe.style.opacity = on ? 1 : 0; canvas.style.filter = on ? 'sepia(.55) saturate(1.5) contrast(1.08)' : ''; }
@@ -19945,6 +19954,7 @@ function usarHab() {
   else if (H.k === 'furia') { game.habT = H.dur; fxFuria.style.opacity = '1'; banner(H.name, `¡${H.dur} segundos: daño triple y nada te hace daño!`, 1800, 'skull'); Sfx.roar(0, 1.4); Sfx.win(); }
   else if (H.k === 'rafaga') habRafaga(H);
   if (game.hab === gasto) { habExtras(); if (Net.on) Net.ev(['anim', 'hab']); }
+  game.habN = (game.habN | 0) + 1; stMas('hab');
   if (H.k === 'cruzado') { const hs = hands.filter(h => h.active && h.ammo > 0); const n = hs.reduce((s, h) => s + h.ammo, 0); if (!n) { game.hab = 100; hint('Necesitas balas en el tambor', 1400); Sfx.err(); return; } gs.cruz = { n, i: 0, t: 0 }; gs.aiming = false; banner(H.name, '', 1000, 'gun'); }
   renderChips();
 }
@@ -20138,8 +20148,8 @@ function shoot(h, fanned, yawOff = 0) {
   h.hudRot -= 360 / h.cap; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`;
   const adren = (lv('adren') && player.hp < player.maxHp * 0.35 ? 1 + 0.25 * lv('adren') : 1) * (lv('frenzy') && game.time - game.lastKill < 3 ? 1 + 0.2 * lv('frenzy') : 1);
   h.cdMax = m.cd / (1 + 0.18 * lv('rate')) / adren / ST.rateX / (h.model === sigGun() ? 1 + 0.2 * sigLv('gatillo') : 1) / (1 + 0.08 * forjaLv('equilibrar')); if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
-  game.shots++; game.w.shots++;
-  if (type !== 'normal' && type !== 'mala') game.specShots = (game.specShots || 0) + 1;
+  game.shots++; game.w.shots++; stMas('tiros');
+  if (type !== 'normal' && type !== 'mala') { game.specShots = (game.specShots || 0) + 1; stMas('tirosEsp'); if (!tuto && BULLETS[type]) { META.bt = META.bt || {}; META.bt[type] = 1; } }
   if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name, 'gold'); lastBulletFeed = game.time; }
   camera.updateMatrixWorld(); camera.getWorldPosition(_cp);
   const cam = camera.getWorldDirection(new THREE.Vector3());
@@ -20218,7 +20228,7 @@ function shoot(h, fanned, yawOff = 0) {
   }
   refreshChambers();
   const kills = ctx.kills;
-  if (kills >= 2) game.colls = (game.colls || 0) + 1;
+  if (kills >= 2) { game.colls = (game.colls || 0) + 1; stMas('colls'); }
   if (kills >= 2 && !m.auto && pellets <= 1 && type !== 'acme') { addGold(kills - 1, true); feed(`${kills >= 3 ? '¡Triple colateral!' : '¡Colateral!'} · +${kills - 1} $`, 'gold'); }
   if (h.full) {
     h.cShots++; if (kills > 0) h.cKills++;
@@ -20264,7 +20274,7 @@ function castBullet(o, d, ctx) {
       let crit = false; if (Math.random() < 0.08 * lv('crit') + S('critC') / 100 + (h.model === sigGun() ? 0.1 * sigLv('grabado') : 0)) { dd *= 3 + S('critX'); crit = true; }
       const hpBefore = z.hp; z.cLast = 0;
       const killed = damageZombie(z, dd, { negra: hasB(t, 'negra'), part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: ctx.fuego ? 'burn' : (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : t });
-      if (killed) ctx.kills++; else itemOnHit(z, hh.point, d, dd);
+      if (killed) { ctx.kills++; achTiro(t, hh.distance, crit, ctx); } else itemOnHit(z, hh.point, d, dd);
       if (hpBefore > 0) hitNum(z, Math.max(0, hpBefore - Math.max(0, z.hp)) || (z.net ? z.cLast : 0), dd / m.dmg, part === 'head', crit, killed, hh.point);
       if (h.model === 'viejo' && wlv('viejo') >= 3 && !killed) z.stagger = Math.max(z.stagger, 1);
       if (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15 && !killed) { z.burn = 3; z.burnDps = 20; }
@@ -20551,6 +20561,7 @@ function explode(c, r, dmgZ, dmgP, green) {
 function killZombie(z, info) {
   if (info && !info.remote && !z.net && game && info.weapon && sigOn(info.weapon, 'pinata') && Math.random() < 1 / 3) { const c = z.root.position.clone().setY(1); setTimeout(() => { if (!game) return; for (let i = 0; i < 40; i++) PA.add(c.x, c.y, c.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.8, 1.6), rand(0.05, 0.1), Math.random(), Math.random(), Math.random(), 1, 6, 0.4, 0, 0); Sfx.boom(); explode(c, 3, 70, 0, false); }, 60); }
   if (z.boss != null && !z.net && bossPreDeath(z, info)) return;
+  const ardia = z.burn > 0;
   z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false;
   const inGame = !!game && state !== 'menu';
   if (inGame) { game.alive--; game.kills++; }
@@ -20568,11 +20579,12 @@ function killZombie(z, info) {
   if (z.def.big) { Sfx.thud(panOf(p)); player.shake = Math.min(1, player.shake + 0.35); } else Sfx.splat(panOf(p), volOf(p, 0.6));
   if (z.type === 'bloater') { z.torso.getWorldPosition(_tmp); const c = _tmp.clone(); z.body.visible = false; Sfx.gas(panOf(p)); explode(c, 4.2, 140, inGame ? 26 : 0, true); makePuddle(c.x, c.z, 2.2, 4); }
   if (!inGame) return;
+  achMuerte(z, info, ardia);
   if (info && info.bullet && !info.remote && !info.ally && S('boomC') && Math.random() < S('boomC') / 100) { const c = p.clone().setY(1); Sfx.boom(); explode(c, 3, 70 * effSc(), 0, false); }
   if (z.frozen > 0) for (const o of nearestZombies(p, 2, 6, new Set([z]))) freeze(o, 2);
   if (z.poison > 0) for (const o of nearestZombies(p, 3, 5, new Set([z]))) { o.poison = 5; o.poisonDps = z.poisonDps; }
   if (head && info.bullet && (!info.ally || info.remote)) {
-    if (!info.remote) game.heads++;
+    if (!info.remote) { game.heads++; stMas('heads'); }
     z.head.getWorldPosition(_tmp);
     const boomLv = info.remote ? info.boom | 0 : lv('boom');
     if (boomLv) {
@@ -20634,7 +20646,7 @@ function startReload() {
   if (!game.box.length) { hint('No te quedan balas en la caja', 1500); return; }
   gs.tactic = lv('tactic') && totalAmmo() > 0 ? 1.5 : 1;
   gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul() / ST.reloadX / (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
-  Sfx.open();
+  Sfx.open(); stMas('recargas');
 }
 function reloadStep(dt) {
   const rs = ST.reloadX * (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * (game.clumsyWave === game.wave ? 0.7 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1) * (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1), act = activeHands();
@@ -21720,7 +21732,7 @@ function bossDied(z) {
   setTimeout(() => Sfx.jingle('boss'), 600);
   const B = z.B; if (!B) return;
   if (z.partner && !z.partner.dead) { const o = z.partner; o.speed *= 2; o.dmg *= 1.5; o.rage = 1e9; banner('¡Furia!', `${o.B.name} va el doble de rápido`, 2400); }
-  if (!B.helper) { feed(`${B.name} derrotado`, 'gold'); game.bossKills = (game.bossKills || 0) + 1; META.st.bosses++; checkUnlocks(); }
+  if (!B.helper) { feed(`${B.name} derrotado`, 'gold'); game.bossKills = (game.bossKills || 0) + 1; META.st.bosses++; if (!tuto && B.id) { META.jv = META.jv || {}; META.jv[B.id] = 1; } checkUnlocks(); }
 }
 // ---- Efectos de los jefes (se ven en todos los teléfonos; cada uno calcula el daño a su propio jugador) ----
 const BFX = [];
@@ -22624,7 +22636,7 @@ function downStep(dt) {
   game.revK += dt * (ST.revX || 1); const pc = Math.min(1, game.revK / REV_T);
   hint(`Levantando a ${tgt.name}… ${Math.round(pc * 100)} % · quédate a su lado`, 600);
   revSend -= dt; if (revSend <= 0) { revSend = 0.4; Net.ev(['revp', tgt.id, Math.round(pc * 100)]); }
-  if (pc >= 1) { Net.ev(['rev', tgt.id, S('revCura') | 0]); Net.flush(); if (S('revCura')) player.hp = Math.min(player.maxHp, player.hp + S('revCura')); feed(`Levantaste a ${tgt.name}`, 'gold'); Sfx.heart(); tgt.rv = 0; game.revTgt = null; game.revK = 0; }
+  if (pc >= 1) { Net.ev(['rev', tgt.id, S('revCura') | 0]); Net.flush(); if (S('revCura')) player.hp = Math.min(player.maxHp, player.hp + S('revCura')); feed(`Levantaste a ${tgt.name}`, 'gold'); Sfx.heart(); stMas('rev'); tgt.rv = 0; game.revTgt = null; game.revK = 0; }
 }
 function victory() {
   META.st.wins++; META.st['w_' + game.char] = 1; if ((game.skull | 0) >= 1) META.st.skullWin = 1; checkUnlocks(); checkAch();
@@ -22841,7 +22853,7 @@ function spawnChest(kind) {
 }
 function clearChests() { for (const c of chests) scene.remove(c.g); chests.length = 0; }
 function openChest(c) {
-  c.open = 0.001; if (useCur === c.use) { useCur = null; showUse(null); } const p = c.g.position, z = zoneOf(game.wave);
+  c.open = 0.001; if (useCur === c.use) { useCur = null; showUse(null); } const p = c.g.position, z = zoneOf(game.wave); stMas('cofres');
   if (c.kind === 'gold') {
     if (S('ganzua') && Math.random() < S('ganzua') / 100) feed('La ganzúa abrió el cofre: no gastaste la llave', 'gold'); else game.keys--;
     const g = Math.round((50 + 25 * z) * (ST.cofreX || 1)), b = bossBullet(), i = game.box.indexOf('normal'); addGold(g, true); if (i >= 0) game.box[i] = b;
@@ -23219,7 +23231,7 @@ function renderShop() {
     const more = `<p>${D.desc}</p><p class="mast">Cada nivel: ${per} y +25 % de vida.${D.gun ? ' Mejorar su arma: +25 % de daño y dispara más seguido.' : ''}</p>`;
     const c = shopCard('a:' + k, { pic: `<span class="sc-por" style="background-image:url(${allyPortrait(k)})"></span><span class="ally-ic" aria-hidden="true">${ico(ic)}</span>`, name: D.name, line: role, tag, more });
     if (offered) shopBtn(c.act, 'buy-ally-' + k, 'buy', !ok ? hireWhy(k) : cost(price), !ok || game.gold < price, () => {
-      const pr = shopP((ALLY[k].price + 15 * allyCount(k)) * (game.char === 'sheriff' ? 0.8 : 1)); if (!canHire(k) || game.gold < pr) return; game.gold -= pr; Sfx.cash();
+      const pr = shopP((ALLY[k].price + 15 * allyCount(k)) * (game.char === 'sheriff' ? 0.8 : 1)); if (!canHire(k) || game.gold < pr) return; game.gold -= pr; Sfx.cash(); stMas('ayud');
       if (Net.client) Net.ev(['cop', k, game.allyLv[k] || 1, game.allyGun[k] | 0]); else spawnCop(k); feed(`${D.short} se une a ti`, 'blue');
       renderShop(); renderChips();
     });
@@ -23367,6 +23379,7 @@ function updatePlayer(dt) {
   const sprint = wantSprint && player.st > 0 && player.stLock <= 0;
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
+  if (sprint && state === 'play') stMas('corre', 8 * len * dt);   // metros corridos (para «Piernas de acero»)
   const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
@@ -23956,6 +23969,7 @@ function updatePickups(dt) {
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
       if (Net.client && p.net) { Net.ev(['pk', p.id]); Net.gone.set(p.id, performance.now()); }
+      stMas('recoge'); if (p.type === 'health') stMas('botiq'); else if (p.type === 'key') stMas('llaves');
       if (p.type === 'health') { const h = Math.min(35, player.maxHp - player.hp); player.hp += h; feed(`Vida +${Math.round(h)}`, 'red'); }
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
       else if (p.type === 'bala') { const k = BKEYS[p.amount] || 'normal'; game.box.push(k); Sfx.insert(); feed(`¡${BULLETS[k].name}! Va a tu caja`, 'gold'); }
@@ -24453,7 +24467,7 @@ function abrirSobre(S_) {
     const pool = Object.keys(BULLETS).filter(k => BULLETS[k].rar === rar && !BULLETS[k].fused && !BULLETS[k].secreta && isOpen('b:' + k));
     const k = pool.length ? pick(pool) : null; if (k) colAdd(k); out.push(k);
   }
-  game.sobre = { name: S_.name, out, t: performance.now() };
+  game.sobre = { name: S_.name, out, t: performance.now() }; stMas('sobres'); stMas('mojadas', out.filter(k => !k).length);
   const buenas = out.filter(Boolean).length; Sfx.cash(); if (buenas) Sfx.insert(); else Sfx.err();
   feed(`${S_.name}: ${buenas} de 3 balas buenas${buenas < 3 ? ` · ${3 - buenas} mojada${3 - buenas > 1 ? 's' : ''}` : ''}`, buenas ? 'gold' : 'red');
 }
@@ -24484,14 +24498,14 @@ function doFuse(a, b) {
   if (!game || a === b || !fusable(a) || !fusable(b)) return false;
   colGuardar(); const C = game.col || {}; if (!(C[a] > 0) || !(C[b] > 0)) return false;
   C[a]--; C[b]--; if (!C[a]) delete C[a]; if (!C[b]) delete C[b];
-  const k = fuseKey(a, b); registerFused(k); colAdd(k); game.fuseN = (game.fuseN | 0) + 1; game.fuseUsed = game.fuseN >= 1 + S('fuseN');   // Crisol de bolsillo: 2 fusiones
+  const k = fuseKey(a, b); registerFused(k); colAdd(k); stMas('fusion'); game.fuseN = (game.fuseN | 0) + 1; game.fuseUsed = game.fuseN >= 1 + S('fuseN');   // Crisol de bolsillo: 2 fusiones
   Sfx.win(); Sfx.insert(); feed(`Fusión: ${BULLETS[k].name}`, 'gold');
   return k;
 }
 // Objetos al azar según la rareza
 function randItem(maxRar = 2, exclude = []) {
   const W = S('rareShop') ? [40, 40, 20] : [IRAR[0].w, IRAR[1].w, IRAR[2].w];
-  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !itemBloq(id) && isOpen('i:' + id) && !(ITEMS[id].once && game.items && game.items[id]));
+  const pool = ITEM_IDS.filter(id => ITEMS[id].rar <= maxRar && !exclude.includes(id) && !itemBloq(id) && !(ITEMS[id].once && game.items && game.items[id]));
   if (!pool.length) return null;
   let t = 0; pool.forEach(id => t += W[ITEMS[id].rar]); let r = Math.random() * t;
   for (const id of pool) if ((r -= W[ITEMS[id].rar]) < 0) return id;
@@ -24722,7 +24736,7 @@ function bjLocal() {
   const B = game.bj; if (!B) return; game.bjPag = game.bjPag || {};
   if (B.n && B.sent[bjYo()]) {
     const k = 'm' + B.n; if (!game.bjPag[k]) { game.bjPag[k] = 1; const pt = B.parte || B.apuesta; if (game.gold < pt) { game.bjPag['r' + B.n] = 1; hint(`No te alcanza para esta mano (${pt} $): miras sin apostar`, 2200); } else { game.gold -= pt; Sfx.coin(); } }
-    const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const pt = B.parte || B.apuesta, g = B.res === 'natural' ? Math.floor(pt * 2.5) : B.res === 'gana' ? pt * 2 : B.res === 'empate' ? pt : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); }
+    const kr = 'r' + B.n; if (B.res && !game.bjPag[kr]) { game.bjPag[kr] = 1; const pt = B.parte || B.apuesta, g = B.res === 'natural' ? Math.floor(pt * 2.5) : B.res === 'gana' ? pt * 2 : B.res === 'empate' ? pt : 0; if (g) { addGold(g, true); Sfx.cash(); } else Sfx.err(); if (B.res === 'gana' || B.res === 'natural') stMas('bj'); if (B.res === 'natural') stMas('bjNat'); }
   }
   if (state === 'bj') renderBj();
 }
@@ -25037,7 +25051,7 @@ function openHerrero(o) {
       if (state !== 'items' || o.used || game.gold < forgePrice() || forjaTotal() >= FORJA_MAX) return;
       game.gold -= forgePrice();
       if (id === 'afilar') game.forge = (game.forge | 0) + 1; else { game.forjas = game.forjas || {}; game.forjas[id] = forjaLv(id) + 1; }
-      game.roomUsed.forge = 1; o.used = true; if (o.coal) o.coal.color.setHex(0x401008);
+      game.roomUsed.forge = 1; o.used = true; stMas('herrero'); if (o.coal) o.coal.color.setHex(0x401008);
       Sfx.cash(); Sfx.clang(0); setTimeout(() => Sfx.clang(0), 180); setTimeout(() => Sfx.clang(0), 360); if (o.sparks) o.sparks();
       close(); banner(`¡${F.name}!`, `${forjaLv(id) * F.paso} ${F.u} en total`, 2400, F.ic);
     });
@@ -25177,7 +25191,7 @@ function openRamen(o) {
       b.innerHTML = `<span class="relic-ic" style="color:${rc}">${ico('heart')}</span><em style="color:${rc}">${rn}</em><b>${C.name}</b><span>${C.desc} +${C.max} de vida máxima${C.cura >= 999 ? ' y te cura por completo' : ` y cura ${C.cura}`}.</span><span class="tl-p">${comido ? 'Ya te lo comiste' : f >= pr ? `Comer · ${pr} ${pr === 1 ? 'ficha' : 'fichas'}` : `Te ${pr - f === 1 ? 'falta 1 ficha' : `faltan ${pr - f} fichas`}`}</span>`;
       b.addEventListener('click', () => {
         if (state !== 'items' || R.comido[i] || (game.poker | 0) < pr) return;
-        game.poker -= pr; R.comido[i] = 1; player.maxHp += C.max; player.hp = Math.min(player.maxHp, player.hp + C.cura);
+        game.poker -= pr; R.comido[i] = 1; stMas('ramen'); META.co = META.co || {}; META.co[C.id] = 1; player.maxHp += C.max; player.hp = Math.min(player.maxHp, player.hp + C.cura);
         if (o.platos && o.platos[i]) o.platos[i].visible = false;
         Sfx.cash(); Sfx.chew && Sfx.chew(); feed(`${C.name}: +${C.max} de vida máxima`, 'gold'); renderChips(); draw();
       });
@@ -25233,7 +25247,7 @@ function openRadio(o) {
     const Q = RADIO_SQ.find(x => x.id === id), b = document.createElement('button'); b.className = 'perk item r1';
     b.disabled = f < 1;
     b.innerHTML = `<span class="relic-ic">${ico(Q.ic)}</span><em>3 refuerzos</em><b>${Q.name}</b><span>${Q.desc}</span><span class="tl-p">${f > 0 ? 'Llamar · 1 ficha' : 'Sin fichas de póker'}</span>`;
-    b.addEventListener('click', () => { if (state !== 'items' || (game.poker | 0) < 1 || o.used) return; game.poker--; game.radioAlly = id; game.roomUsed.radio = 1; o.used = true; Sfx.bell(); feed(`${Q.name}: llegan en la próxima oleada`, 'blue'); close(); });
+    b.addEventListener('click', () => { if (state !== 'items' || (game.poker | 0) < 1 || o.used) return; game.poker--; game.radioAlly = id; game.roomUsed.radio = 1; o.used = true; stMas('radio'); Sfx.bell(); feed(`${Q.name}: llegan en la próxima oleada`, 'blue'); close(); });
     box.appendChild(b);
   }
   $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Ahora no';
@@ -25393,6 +25407,7 @@ function playSlot(o) {
   const run = game, wi = world.idx;
   setTimeout(() => {
     if (game !== run || world.idx !== wi) return; o.busy = false;
+    if (res === 3) stMas('slot3');
     if (res === 3) { const txt = premio.go(); banner(premio.t, txt, premio.s === 'seven' ? 4000 : 2800, premio.s === 'seven' ? 'coins' : premio.s === 'ficha' ? 'chip' : 'star'); Sfx.win(); Sfx.cash(); if (premio.s === 'seven') { setTimeout(() => Sfx.cash(), 300); setTimeout(() => Sfx.win(), 600); } o.win = premio.s === 'seven' ? 6 : 3; renderChips(); }
     else if (res === 2) { addGold(SLOT_PAR.oro); feed(`Dos iguales · +${SLOT_PAR.oro} $`, 'gold'); Sfx.cash(); o.win = 1.2; }
     else feed('Nada esta vez', 'blue');
@@ -25436,7 +25451,7 @@ function playWheel(o) {
   const run = game, wi = world.idx;
   setTimeout(() => {
     if (game !== run || world.idx !== wi) return; o.busy = false; o.used = true; const S_ = WHEEL_SEG[k];
-    if (S_.go) { const extra = S_.go(); banner('Ruleta', extra ? `${S_.t}: ${extra}` : S_.t, 2200); Sfx.cash(); renderChips(); }
+    if (S_.go) { stMas('ruleta'); const extra = S_.go(); banner('Ruleta', extra ? `${S_.t}: ${extra}` : S_.t, 2200); Sfx.cash(); renderChips(); }
     else feed('Ruleta: nada esta vez', 'blue');
   }, 3300);
 }
@@ -27124,7 +27139,66 @@ const ACH = [
   { id: 'todos', ic: 'star', name: 'Todos los forajidos', d: 'Gana con todos los personajes', n: CHAR_KEYS.length, v: () => Object.keys(CHARS).filter(k => META.st['w_' + k]).length },
   { id: 'lugares10', ic: 'compass', name: 'Trotamundos', d: 'Pelea en 10 lugares distintos', n: 10, v: () => Object.keys(META.pl || {}).length },
   { id: 'lugares20', ic: 'map', name: 'Turista del apocalipsis', d: 'Pelea en 20 lugares distintos', n: 20, v: () => Object.keys(META.pl || {}).length },
-  { id: 'partidas', ic: 'cards', name: 'Cliente habitual', d: 'Juega 10 partidas', n: 10, v: () => META.st.runs | 0 }
+  { id: 'partidas', ic: 'cards', name: 'Cliente habitual', d: 'Juega 10 partidas', n: 10, v: () => META.st.runs | 0 },
+  // Objetos solo por logros (pedido del dueño, 16-oct-2026): cada objeto que antes se vendía en la Tienda calavera tiene su propio logro
+  { id: 'bj25', ic: 'cards', name: 'Contador de cartas', d: 'Gana 25 manos de blackjack', n: 25, v: () => META.st.bj | 0 },
+  { id: 'fusion10', ic: 'lantern', name: 'Alquimista de pólvora', d: 'Fusiona 10 balas en la mesa de fusión', n: 10, v: () => META.st.fusion | 0 },
+  { id: 'colat50', ic: 'burst', name: 'Dos pájaros de un tiro', d: 'Haz 50 colaterales: 2 o más zombis de un solo disparo', n: 50, v: () => META.st.colls | 0 },
+  { id: 'k_viejo', ic: 'hammer', name: 'Pólvora negra', d: 'Mata 200 zombis con el Revólver viejo', n: 200, v: () => META.st.k_viejo | 0 },
+  { id: 'radio3', ic: 'heli', name: '¡Refuerzos!', d: 'Pide refuerzos por la radio de rescate 3 veces', n: 3, v: () => META.st.radio | 0 },
+  { id: 'lejos100', ic: 'target', name: 'Tirador lejano', d: 'Mata 100 zombis a más de 20 metros', n: 100, v: () => META.st.kLejos | 0 },
+  { id: 'hab20', ic: 'bullets', name: 'Talento natural', d: 'Usa la habilidad de tu personaje 20 veces', n: 20, v: () => META.st.hab | 0 },
+  { id: 'alfilo', ic: 'heart', name: 'Al filo de la muerte', d: 'Mata 50 zombis con menos del 35 % de vida', n: 50, v: () => META.st.kAdren | 0 },
+  { id: 'elite10', ic: 'lasso', name: 'Domador de élites', d: 'Mata 10 zombis élite en una partida', n: 10, run: () => game.eliteKills | 0 },
+  { id: 'sobres10', ic: 'gem', name: 'Coleccionista de sobres', d: 'Abre 10 sobres de balas', n: 10, v: () => META.st.sobres | 0 },
+  { id: 'oroZ3', ic: 'tooth', name: 'Fiebre del oro', d: 'Mata 3 zombis de oro', n: 3, v: () => META.st.oroZ | 0 },
+  { id: 'recargas300', ic: 'belt', name: 'Manos rápidas', d: 'Recarga 300 veces', n: 300, v: () => META.st.recargas | 0 },
+  { id: 'cabezas500', ic: 'eye', name: 'Cazacabezas', d: 'Haz 500 tiros a la cabeza sumando todas tus partidas', n: 500, v: () => META.st.heads | 0 },
+  { id: 'intacto', ic: 'shield', name: 'Intocable', d: 'Termina un lugar entero (3 oleadas) sin que te hagan daño', n: 1, v: () => META.st.clean | 0 },
+  { id: 'ramen5', ic: 'canteen', name: 'Buen provecho', d: 'Come 5 platos en el puesto de ramen', n: 5, v: () => META.st.ramen | 0 },
+  { id: 'k_tesla', ic: 'orb', name: 'Electricista', d: 'Mata 150 zombis con el Revólver Tesla', n: 150, v: () => META.st.k_tesla | 0 },
+  { id: 'hab5', ic: 'burst', name: 'Grito de batalla', d: 'Usa tu habilidad 5 veces en una partida', n: 5, run: () => game.habN | 0 },
+  { id: 'esp300', ic: 'cards', name: 'Caja de sorpresas', d: 'Mata 300 zombis con balas especiales', n: 300, v: () => META.st.kEsp | 0 },
+  { id: 'tiros5000', ic: 'bullets', name: 'Gatillo incansable', d: 'Dispara 5000 balas sumando todas tus partidas', n: 5000, v: () => META.st.tiros | 0 },
+  { id: 'cerca150', ic: 'gun', name: 'A quemarropa', d: 'Mata 150 zombis a menos de 5 metros', n: 150, v: () => META.st.kCerca | 0 },
+  { id: 'oro2000', ic: 'coins', name: 'Rey Midas', d: 'Gana 2000 $ en una sola partida', n: 2000, run: () => game.goldTotal | 0 },
+  { id: 'botiq50', ic: 'plus', name: 'Siempre con vida', d: 'Recoge 50 botiquines del suelo', n: 50, v: () => META.st.botiq | 0 },
+  { id: 'kills250', ic: 'heart', name: 'Corazón frío', d: 'Mata 250 zombis en una sola partida', n: 250, run: () => game.kRun | 0 },
+  { id: 'llaves10', ic: 'key', name: 'Llavero lleno', d: 'Recoge 10 llaves del suelo', n: 10, v: () => META.st.llaves | 0 },
+  { id: 'slot3', ic: 'dice', name: 'Tres iguales', d: 'Saca tres iguales en la tragamonedas', n: 1, v: () => META.st.slot3 | 0 },
+  { id: 'k_bazuca', ic: 'dynamite', name: '¡Kabum!', d: 'Mata 100 zombis con el Revólver bazuca', n: 100, v: () => META.st.k_bazuca | 0 },
+  { id: 'ruleta5', ic: 'clover', name: 'La rueda de la fortuna', d: 'Gana 5 premios en la ruleta', n: 5, v: () => META.st.ruleta | 0 },
+  { id: 'k_corto', ic: 'revolver', name: 'Rápido y ligero', d: 'Mata 150 zombis con el Revólver corto', n: 150, v: () => META.st.k_corto | 0 },
+  { id: 'ultima50', ic: 'bullet', name: 'La última palabra', d: 'Mata 50 zombis con la última bala del tambor', n: 50, v: () => META.st.kUlt | 0 },
+  { id: 'fichas20', ic: 'coins', name: 'Jugador de casino', d: 'Juega 20 fichas de póker en la tragamonedas, la ruleta o la garra', n: 20, v: () => META.st.fichasJug | 0 },
+  { id: 'mojadas10', ic: 'rain', name: 'Pólvora mojada', d: 'Saca 10 balas mojadas de los sobres', n: 10, v: () => META.st.mojadas | 0 },
+  { id: 'col30', ic: 'bag', name: 'Caja repleta', d: 'Junta 30 balas especiales en tu colección en una partida', n: 30, run: () => colTotal() },
+  { id: 'elite50', ic: 'medal', name: 'Cazador de élite', d: 'Mata 50 zombis élite sumando todas tus partidas', n: 50, v: () => META.st.elite | 0 },
+  { id: 'correr2k', ic: 'spur', name: 'Piernas de acero', d: 'Corre 2 km sumando todas tus partidas', n: 2000, v: () => Math.floor(META.st.corre || 0) },
+  { id: 'kb_vampira', ic: 'blood', name: 'Sed de sangre', d: 'Mata 50 zombis con balas vampiras', n: 50, v: () => META.st.kb_vampira | 0 },
+  { id: 'recoge500', ic: 'backpack', name: 'Urraca', d: 'Recoge 500 cosas del suelo (oro, balas, vida, llaves…)', n: 500, v: () => META.st.recoge | 0 },
+  { id: 'kb_trebol', ic: 'clover', name: 'Golpe de suerte', d: 'Mata 50 zombis con balas trébol', n: 50, v: () => META.st.kb_trebol | 0 },
+  { id: 'dano3000', ic: 'vest', name: 'Piel dura', d: 'Aguanta 3000 de daño sumando todas tus partidas', n: 3000, v: () => Math.floor(META.st.dano || 0) },
+  { id: 'herrero2', ic: 'hammer', name: 'Cliente del Herrero', d: 'Encarga 2 trabajos al Herrero', n: 2, v: () => META.st.herrero | 0 },
+  { id: 'tirosesp150', ic: 'flask', name: 'Fundidor', d: 'Dispara 150 balas especiales', n: 150, v: () => META.st.tirosEsp | 0 },
+  { id: 'kojo100', ic: 'watch', name: 'Tiempo de sobra', d: 'Mata 100 zombis con el Ojo Muerto activado', n: 100, v: () => META.st.kOjo | 0 },
+  { id: 'pers5', ic: 'rosary', name: 'Muchas caras', d: 'Juega con 5 personajes distintos', n: 5, v: () => Object.keys(META.cu || {}).length },
+  { id: 'tipos8', ic: 'book', name: 'Variedad', d: 'Ten 8 tipos distintos de balas especiales en tu colección en una partida', n: 8, run: () => Object.keys((game && game.col) || {}).filter(k => game.col[k] > 0).length },
+  { id: 'bjnat', ic: 'cards', name: '¡Blackjack!', d: 'Saca 21 con las dos primeras cartas en el blackjack', n: 1, v: () => META.st.bjNat | 0 },
+  { id: 'k_ballesta', ic: 'knife', name: 'Atraviesafilas', d: 'Mata 150 zombis con el Revólver ballesta', n: 150, v: () => META.st.k_ballesta | 0 },
+  { id: 'k_magnum', ic: 'bounce', name: 'Calibre grueso', d: 'Mata 200 zombis con el Revólver Magnum', n: 200, v: () => META.st.k_magnum | 0 },
+  { id: 'rev3', ic: 'medic', name: 'Compañero fiel', d: 'Levanta 3 veces a un compañero caído (jugando en grupo)', n: 3, v: () => META.st.rev | 0 },
+  { id: 'fuego100', ic: 'candle', name: 'Pirómano', d: 'Mata 100 zombis mientras arden', n: 100, v: () => META.st.kFuego | 0 },
+  { id: 'k_cowboy', ic: 'hat', name: 'Duelo al mediodía', d: 'Mata 200 zombis con el Cowboy revolver', n: 200, v: () => META.st.k_cowboy | 0 },
+  { id: 'cofres20', ic: 'chest', name: 'Buscatesoros', d: 'Abre 20 cofres', n: 20, v: () => META.st.cofres | 0 },
+  { id: 'quieto100', ic: 'mask', name: 'Firme como una roca', d: 'Mata 100 zombis sin moverte del sitio', n: 100, v: () => META.st.kQuieto | 0 },
+  { id: 'ayud5', ic: 'badge', name: 'Patrón', d: 'Contrata 5 ayudantes en Apocalipsis Delivery', n: 5, v: () => META.st.ayud | 0 },
+  { id: 'bolsa1000', ic: 'coins', name: 'Bolsillos de plomo', d: 'Ten 1000 $ en el bolsillo a la vez', n: 1000, run: () => game.gold | 0 },
+  { id: 'duro10', ic: 'watch', name: 'Sin miedo', d: 'Llega a la oleada 10 en Difícil o Apocalipsis', n: 10, run: () => game.diff && game.diff !== 'normal' ? game.wave | 0 : 0 },
+  { id: 'primera100', ic: 'bullet', name: 'Recién cargado', d: 'Mata 100 zombis con la primera bala después de recargar', n: 100, v: () => META.st.kPrim | 0 },
+  { id: 'tipos15', ic: 'scroll', name: 'Álbum completo', d: 'Dispara 15 tipos distintos de balas especiales sumando todas tus partidas', n: 15, v: () => Object.keys(META.bt || {}).length },
+  { id: 'crit100', ic: 'eye', name: 'Golpe certero', d: 'Mata 100 zombis con un golpe crítico', n: 100, v: () => META.st.kCrit | 0 },
+  { id: 'ojo10', ic: 'moon', name: 'Sangre fría', d: 'Mata 10 zombis en un solo Ojo Muerto', n: 10, run: () => game.deMax | 0 }
 ];
 META.ach = META.ach || {}; META.ab = META.ab || {};
 // Reinicio de logros pedido por el dueño (15-oct-2026): se borra el avance de logros y las cuentas que los alimentan, una sola vez por jugador
@@ -27133,17 +27207,51 @@ if (META.reinicioLogros !== 1) { META.reinicioLogros = 1; META.ach = {}; META.ab
 const ACH_ITEM = { sangre: 'p_vamp', cazador: 'trofeo', exterm: 'p_execute', leyenda: 'garra', punteria: 'p_head', halcon: 'p_boom', ol5: 'p_second', ol15: 'tambor_doble', ol30: 'infierno', gana: 'r_calavera', sinfin: 'menos',
   jefe1: 'r_vela', jefe10: 'p_crit', jefe50: 'cena', combo5: 'racha', combo10: 'p_frenzy', seis: 'r_herradura', seis5: 'r_polvora', ahorro: 'avaro', rico: 'midas2', resc1: 'corneta', resc5: 'r_biblia',
   abanico: 'espejo', ojo: 'calma', objetos: 'sonrisa', grupo: 'medalla_equipo', gallina: 'lingote', taller: 'piedra', saq: 'desesperado', calavera: 'rosario', sheriff: 'hierro', todos: 'llave_dueno',
-  lugares10: 'rastreador', lugares20: 'bendita', partidas: 'pandora' };
+  lugares10: 'rastreador', lugares20: 'bendita', partidas: 'pandora',
+  bj25: 'contador', fusion10: 'crisol', colat50: 'metralla', k_viejo: 'yunque', radio3: 'silbato', lejos100: 'gafas', hab20: 'eco', alfilo: 'p_adren', elite10: 'r_lazo', sobres10: 'lupa_joyero', oroZ3: 'r_diente', recargas300: 'r_cinturon', cabezas500: 'r_ojo', intacto: 'tapa', ramen5: 'r_cantimplora', k_tesla: 'pararrayos', hab5: 'grito', esp300: 'p_deck', tiros5000: 'tambor_xl', cerca150: 'escopetero', oro2000: 'p_midas', botiq50: 'p_regen', kills250: 'r_corazon', llaves10: 'ganzua', slot3: 'r_dados', k_bazuca: 'petardo', ruleta5: 'trebol_negro', k_corto: 'p_tactic', ultima50: 'ultima', fichas20: 'dos_caras', mojadas10: 'secador', col30: 'bandolera', elite50: 'cazador_elite', correr2k: 'r_espuelas', kb_vampira: 'vampiro', recoge500: 'p_magpie', kb_trebol: 'r_trebol', dano3000: 'p_thorns', herrero2: 'cupon_herrero', tirosesp150: 'molde', kojo100: 'arena', pers5: 'r_escapulario', tipos8: 'coleccion', bjnat: 'as_manga', k_ballesta: 'p_pierce', k_magnum: 'p_ricochet', rev3: 'bandera', fuego100: 'p_fire', k_cowboy: 'p_quick', cofres20: 'doble_fondo', quieto100: 'estatua', ayud5: 'r_reloj', bolsa1000: 'moneda_muerto', duro10: 'reloj_bolsillo', primera100: 'primera', tipos15: 'album', crit100: 'lupa', ojo10: 'p_cold' };
 const ITEM_ACH = Object.fromEntries(Object.entries(ACH_ITEM).map(([a, i]) => [i, a]));
 const itemBloq = id => !!ITEM_ACH[id] && !META.ach[ITEM_ACH[id]];
+// Objetos solo por logros (16-oct-2026): quien ya compró objetos en la Tienda calavera recupera sus fichas y se queda con el objeto (su logro queda conseguido). Una sola vez por jugador.
+if (META.objLogros !== 1) {
+  META.objLogros = 1; META.un = META.un || {};
+  for (const k of Object.keys(META.un)) {
+    if (!k.startsWith('i:')) continue; const id = k.slice(2), I = ITEMS[id];
+    if (META.un[k] && I) { META.fichas = (META.fichas | 0) + ([2, 3, 5][I.rar] || 3); const a = ITEM_ACH[id]; if (a && !META.ach[a]) META.ach[a] = Date.now(); }
+    delete META.un[k];
+  }
+  try { store.set(META_KEY, META); } catch (e) {}
+}
 // el logro que tienes más cerca (para «Te falta poco» al terminar la partida)
 function logroCerca() { let best = null, br = -1; for (const A of ACH) { if (META.ach[A.id]) continue; const r = Math.min(0.99, achVal(A) / A.n); if (r > br) { br = r; best = A; } } return best ? { A: best, r: br, v: Math.min(best.n, achVal(best)) } : null; }
 const achVal = A => A.run ? Math.max(META.ab[A.id] | 0, game ? A.run() : 0) : A.v();
 const achQ = []; let achBusy = false, achT = 0;
+function stMas(k, n = 1) { if (tuto || !game) return; META.st[k] = (META.st[k] || 0) + n; }   // suma a una cuenta de logros (de por vida)
+// cada muerte tuya (no de aliados ni de compañeros): cuentas para los logros de objetos
+function achMuerte(z, info, ardia) {
+  if (tuto || !game || !info || info.remote || info.ally) return;
+  game.kRun = (game.kRun | 0) + 1;
+  if (ardia) stMas('kFuego');
+  if (game.deOn) { stMas('kOjo'); game.deK = (game.deK | 0) + 1; game.deMax = Math.max(game.deMax | 0, game.deK); }
+  if (player.hp < player.maxHp * 0.35) stMas('kAdren');
+  if (z.elite) stMas('elite');
+  if (z.def === ZDEF.oro) stMas('oroZ');
+  if (Math.hypot(player.vx, player.vz) < 0.4) stMas('kQuieto');
+  if (info.weapon && MODELS[info.weapon]) stMas('k_' + info.weapon);
+}
+// muerte con una bala tuya: distancia, tipo de bala, crítico, primera o última del tambor
+function achTiro(t, dist, crit, ctx) {
+  if (tuto || !game) return;
+  if (dist > 20) stMas('kLejos'); else if (dist < 5) stMas('kCerca');
+  if (crit) stMas('kCrit');
+  if (ctx.first) stMas('kPrim');
+  if (ctx.last) stMas('kUlt');
+  if (t !== 'normal' && t !== 'mala') { stMas('kEsp'); for (const b of String(t).split('+')) stMas('kb_' + b); }
+}
 function checkAch(dt) {
   if (tuto) return;
   if (dt !== undefined) { achT -= dt; if (achT > 0) return; achT = 1; }
   if (game && Net.on && (game.wave | 0) >= 4) META.st.coop = 1;
+  if (game && game.char && CHARS[game.char]) { META.cu = META.cu || {}; META.cu[game.char] = 1; }   // personajes con los que jugaste
   let any = false;
   for (const A of ACH) {
     if (A.run && game) { const v = A.run(); if (v > (META.ab[A.id] | 0)) { META.ab[A.id] = v; any = true; } }
@@ -27158,10 +27266,27 @@ function achShow() {
   el_.classList.remove('on'); void el_.offsetWidth; el_.classList.add('on'); Sfx.coin(); setTimeout(() => Sfx.bell(), 120);
   setTimeout(() => { el_.classList.remove('on'); setTimeout(() => { el_.hidden = true; achBusy = false; achShow(); }, 400); }, 4600);
 }
+// partes del juego para el «% del juego completado»: [nombre, conseguido, total]
+function juegoCompletado() {
+  const lugares = MAPS.map((_, i) => i).filter(i => i !== ROOM_IDX && !MAP_WIP.has(i)), jefes = BOSSES.filter(B => !B.helper);
+  const arbN = ARBOL.reduce((a, A) => a + arb(A.k), 0), unN = UNLOCKS.filter(u => META.un[u.k]).length;
+  return [
+    ['Logros', ACH.filter(A => META.ach[A.id]).length, ACH.length],
+    ['Objetos', ITEM_IDS.filter(id => !itemBloq(id)).length, ITEM_IDS.length],
+    ['Platos probados', COMIDAS.filter(C => (META.co || {})[C.id]).length, COMIDAS.length],
+    ['Jefes vencidos', jefes.filter(B => (META.jv || {})[B.id]).length, jefes.length],
+    ['Lugares visitados', lugares.filter(i => (META.pl || {})[i]).length, lugares.length],
+    ['Personajes con victoria', CHAR_KEYS.filter(k => META.st['w_' + k]).length, CHAR_KEYS.length],
+    ['Tienda calavera', arbN + unN, ARBOL.length * ARBOL_MAX + UNLOCKS.length]
+  ].map(([t, v, n]) => [t, Math.min(v, n), Math.max(1, n)]);
+}
 function renderAch() {
   const done = ACH.filter(A => META.ach[A.id]).length;
-  $('#ach-count').textContent = `${done} de ${ACH.length} conseguidos`;
-  $('#ach-bar').style.width = `${Math.round(done / ACH.length * 100)}%`;
+  // % del juego completado (pedido del dueño, 16-oct-2026): promedio de varias partes, cada una con su propio %
+  const secs = juegoCompletado(), tot = Math.floor(secs.reduce((a, x) => a + x[1] / x[2], 0) / secs.length * 100);
+  $('#ach-count').innerHTML = `<b>${tot} %</b><span>del juego completado</span>`;
+  $('#ach-bar').style.width = `${tot}%`;
+  $('#ach-comp').innerHTML = secs.map(([t, v, n]) => { const pc = Math.floor(v / n * 100); return `<div class="cp" title="${v} / ${n}"><div><span>${t}</span><b>${pc} %</b></div><div class="ach-p"><s style="width:${pc}%"></s></div></div>`; }).join('');
   $('#ach-list').innerHTML = ACH.map(A => { const ok = !!META.ach[A.id], v = Math.min(A.n, achVal(A)); const it = ACH_ITEM[A.id] && ITEMS[ACH_ITEM[A.id]]; return `<div class="ach${ok ? ' ok' : ''}"><i>${ico(A.ic)}</i><div><b>${A.name}</b><span>${A.d}</span>${it ? `<span class="ach-it">${ok ? 'Desbloqueaste' : 'Desbloquea'}: <b>${it.name}</b></span>` : ''}${ok ? '<em>Conseguido</em>' : A.n > 1 ? `<div class="ach-p"><s style="width:${Math.round(v / A.n * 100)}%"></s></div><em class="pr">${v.toLocaleString('es')} / ${A.n.toLocaleString('es')}</em>` : '<em class="pr">Pendiente</em>'}</div></div>`; }).join('');
 }
 const luck = (p, m) => game && game.char === 'johnny' ? Math.min(0.95, p * m) : p;
@@ -27204,13 +27329,13 @@ const UNLOCKS = [
   { k: 't:herrero', name: 'El Herrero', what: 'A veces aparece en la Trastienda: te ofrece 3 trabajos para tus armas (daño, cadencia, puntería o daño contra jefes) y eliges uno', cost: 5 }
 ];
 // Tienda calavera (pedido del dueño, 15-oct-2026): el 40 % del contenido de la tienda se desbloquea con fichas de calavera, con precio según la rareza.
+// Los objetos ya no se venden aquí: desde el 16-oct-2026 se consiguen solo con logros.
 // Se eligen siempre los mismos (los más raros primero), así todos los jugadores ven la misma lista.
 {
   const hash = s => { let h = 7; for (const c of String(s.id || s)) h = (h * 31 + c.charCodeAt(0)) % 100003; return h; };
   const elige = (ids, rar, frac) => ids.slice().sort((a, b) => rar(b) - rar(a) || hash(a) - hash(b)).slice(0, Math.round(ids.length * frac));
   const ya = new Set(UNLOCKS.map(u => u.k));
   const add = (k, name, what, cost, cat) => { if (!ya.has(k)) { UNLOCKS.push({ k, name, what, cost, cat }); ya.add(k); } };
-  { const libres = ITEM_IDS.filter(id => !ITEM_ACH[id]); for (const id of elige(libres, id => ITEMS[id].rar, Math.min(1, ITEM_IDS.length * 0.4 / libres.length))) add('i:' + id, ITEMS[id].name, ITEMS[id].desc || 'Objeto', [2, 3, 5][ITEMS[id].rar] || 3, 'obj'); }
   const BS = Object.keys(BULLETS).filter(k => BULLETS[k].rar > 0 && !BULLETS[k].fused && !BULLETS[k].secreta);
   for (const id of elige(BS, k => BULLETS[k].rar, 0.4)) add('b:' + id, BULLETS[id].name, BULLETS[id].desc || 'Bala especial', [0, 2, 3, 5, 8][BULLETS[id].rar] || 3, 'bala');
   for (const u of UNLOCKS) if (u.k.startsWith('b:')) u.cat = 'bala';
