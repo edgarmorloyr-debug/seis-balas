@@ -31,15 +31,15 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 21. **Estilo Mesa del saloon en todas las pantallas** y **sin scroll** (se cortó a medias por el límite de uso; se retoma).
 22. **Logros por clases** con botones y páginas.
 23. **Tarjetas de personaje del inicio** con diseño de carta de póker y el personaje en blanco y negro.
-24. **5 estrellas vacías de progreso** por cuenta: en el menú principal y en la elección de personaje.
-25. **Quitar el botón de Google** (el juego va para Steam).
+24. **5 estrellas de progreso** en el menú principal y en la elección de personaje (decisión del dueño, 17-oct-2026): empiezan vacías y cada una se va pintando según en qué dificultad pasaste el juego: amarilla si lo pasaste en fácil, naranja si también en normal, y dorado neón más brillante con una calavera en el centro si lo pasaste en las 3 dificultades. **Las dificultades se desbloquean según el avance del jugador; ya no se eligen libres.** (Por aclarar: qué marca cada una de las 5 estrellas y cuáles son las 3 dificultades, hoy son Normal, Difícil y Apocalipsis.)
+25. **Quitar las cuentas** (decisión del dueño, 17-oct-2026: el juego va para Steam): se quitan Google, Discord y correo; el progreso queda guardado en el aparato y más adelante se usará la cuenta de Steam. (Por aclarar: qué pasa con «Top mejores jugadores», que hoy usa Supabase.)
 26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
 27. **Boceto del nombre alternativo «Zombie's and Gamblers».**
 28. **Encuesta de diseños para las fichas de póker.**
 29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección.
 
 ## Etapa 3 · Estructura del juego y final (con diagrama antes de construir)
-30. **Partidas que se alargan:** el final 1 es al mapa 5; luego 7, 9 y 10 mapas por partida.
+30. **Partidas que se alargan según el jefe** (decisión del dueño, 17-oct-2026): jefe 1 del casino al final del mapa 5, jefe 2 a los 7 mapas, jefe 3 a los 9, jefe 4 a los 10, y los 5 jefes seguidos también a los 10.
 31. **BIG NEON CASINO es el mapa final:** una ciudad casino con 5 oleadas y un jefe propio en cada una, cada uno más difícil:
     1. El Crupier de Hielo y Fuego
     2. Ludo Cheng (humano, 2 revólveres minigun, ataca por turnos, mucha movilidad)
@@ -49,9 +49,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
     - 1.ª vez en el casino: solo el jefe 1; 2.ª: el 2; 3.ª: el 3; 4.ª: el 4; la última: los 5 seguidos, una oleada tras otra.
 32. **Cada jefe vencido desbloquea 4 mapas nuevos** y el siguiente jefe, hasta tener todos los mapas y ganar el juego venciendo a Big Slot Machine Zombie. Logros: «Gana el juego por primera vez», «Desbloquea 4 mapas nuevos», «Nuevo jefe»…
 33. **Ludo Cheng, personaje nuevo:** sale bloqueado como «???» y se desbloquea al vencerlo en el casino.
-34. **Personajes que se desbloquean** (el dueño dio 2 versiones; por decidir):
-    - Versión 1: Lilith venciendo al jefe 1, Geronimo al jefe 2, Françoise al jefe 3.
-    - Versión 2: Johnny supera el nivel 1, Velorio el nivel 3, Lilith el nivel 4, Geronimo mata 500 zombis, Françoise completa el nivel 5 del Maid Café.
+34. **Personajes que se desbloquean por jefes del casino** (decisión del dueño, 17-oct-2026): Lilith venciendo al jefe 1, Geronimo al jefe 2, Françoise al jefe 3 (Ludo Cheng al vencerlo en el casino).
 35. **Diagrama de todo el sistema de progresión** para aclarar dudas antes de construir.
 
 ## Etapa 4 · Combate y contenido
@@ -71,6 +69,5 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 47. Ideas extra: empujón, ruido, golpes que empujan, objetos rompibles, balas que atraviesan.
 
 ## Del dueño (fuera del código)
-- Activar Discord en Supabase (si se mantienen las cuentas tras quitar Google).
 - Subir el .zip con las 14 animaciones de Mixamo.
 - Borrar el proyecto viejo de Supabase cuando todo lleve unos días bien.
