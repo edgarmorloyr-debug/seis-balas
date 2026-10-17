@@ -11205,8 +11205,10 @@ function llvOleada(n) {
   if (!game.llv.on) llvSoltar();
   llvBotin(); llvFichas();
 }
-// Botín escondido en los puntos de llaves: en cada oleada, 8 % de que aparezca una llave de cofre, 8 % una bala especial y 8 % una ficha de miembro
+// Botín escondido en los puntos de llaves: en cada oleada, 2 % de que aparezca una llave de cofre, 8 % una bala especial y 8 % una ficha de miembro
 const LLV_BOTIN = { p: 0.08, vida: 120 };
+// Llaves doradas (pedido del dueño, 17-oct-2026: salían demasiadas, 84 en la oleada 7): 2 % en cada ocasión de soltar una
+const LLAVE_P = 0.02;
 function llvLugar(lejos) {
   const S = world.llvSpots; if (!S || !S.length) return null;
   const L = game.llv, ps = llvJugadores();
@@ -11215,7 +11217,7 @@ function llvLugar(lejos) {
 }
 function llvBotin() {
   for (const [t, a] of [['key', 0], ['bala', 1], ['ficha', 0]]) {
-    if (Math.random() >= LLV_BOTIN.p * (ST.botinX || 1)) continue;
+    if (Math.random() >= (t === 'key' ? LLAVE_P : LLV_BOTIN.p) * (ST.botinX || 1)) continue;
     const S = llvLugar(20); if (!S) continue;
     makePickup(t, S.x + rand(-0.4, 0.4), S.z + rand(-0.4, 0.4), t === 'bala' ? BKEYS.indexOf(randomBullet()) : a);
     pickups[pickups.length - 1].life = LLV_BOTIN.vida;
@@ -21936,7 +21938,7 @@ function killZombie(z, info) {
   }
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
-  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; if (S('llavero') || Math.random() < 0.4) makePickup('key', p.x - 0.8, p.z, 0); makePickup('bag', p.x, p.z + 0.8, ((6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2) * (S('eliteOro') || 1)); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
+  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; if (Math.random() < LLAVE_P * (S('llavero') ? 3 : 1)) makePickup('key', p.x - 0.8, p.z, 0); makePickup('bag', p.x, p.z + 0.8, ((6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2) * (S('eliteOro') || 1)); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
   if (z.mini && !z.net) miniDied(z, p);
   // La Masa: solo el último pedazo cuenta como jefe muerto y suelta el botín (antes cada pedazo daba su bolsa de oro)
   if (z.boss != null && z.B && z.B.id === 'mass' && zombies.some(o => o !== z && !o.dead && o.B && o.B.id === 'mass')) return;
@@ -23545,7 +23547,7 @@ function miniFx(z, dt) {
 }
 function miniDied(z, p) {
   const M = z.mini; game.miniKills = (game.miniKills || 0) + 1;
-  makePickup('bag', p.x + 1, p.z, 20 + 8 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (Math.random() < 0.5) makePickup('key', p.x, p.z + 1, 0);
+  makePickup('bag', p.x + 1, p.z, 20 + 8 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (Math.random() < LLAVE_P) makePickup('key', p.x, p.z + 1, 0);
   banner(`${M.name} cayó`, 'Recoge su bolsa de oro', 2400, 'skull');
   if (M.ab === 'split') { for (let i = 0; i < MINI_AB.split.n; i++) { const a = i / MINI_AB.split.n * TAU, x = p.x + Math.cos(a) * 1.4, zz = p.z + Math.sin(a) * 1.4; if (!insideArena(x, zz, 0.5) || pointBlocked(x, zz, 0.4)) continue; const o = spawnZombie(M.base === 'bloater' ? 'crawler' : 'runner', x, zz, diffW(game.wave), false); o.state = 'chase'; o.rage = 1e9; game.alive++; }
     feed(`¡${M.name} se partió en pedazos!`, 'red'); }
@@ -25713,7 +25715,7 @@ const NEW_ITEMS = [
   ['dos_caras', 1, 'coins', 'Moneda de dos caras', '25 % de que jugar a la tragamonedas, la ruleta o la garra no gaste tu ficha.', { fichaGratis: 25 }],
   ['as_manga', 1, 'cards', 'As bajo la manga', 'En el blackjack, la primera vez que la mesa se pasa de 21 se quita la última carta.', { bjAs: 1 }],
   ['contador', 2, 'eye', 'Contador de cartas', 'En el blackjack ves la carta oculta de la banca.', { bjVer: 1 }],
-  ['llavero', 0, 'key', 'Llavero', 'Los zombis élite siempre sueltan una llave de cofre.', { llavero: 1 }],
+  ['llavero', 0, 'key', 'Llavero', 'Los zombis élite sueltan llaves de cofre con el triple de probabilidad.', { llavero: 1 }],
   ['ganzua', 1, 'key', 'Ganzúa', '25 % de abrir un cofre dorado sin gastar la llave.', { ganzua: 25 }],
   ['pala', 0, 'chest', 'Pala', 'Los cofres aparecen un 50 % más seguido.', { cofreC: 50 }],
   ['doble_fondo', 1, 'chest', 'Cofre de doble fondo', 'Los cofres te dan un 50 % más de oro.', { cofreX: 1.5 }],
