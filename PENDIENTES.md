@@ -1,4 +1,4 @@
-# Zombie Gambler · Plan de trabajo
+# Zombie's and Gamblers · Plan de trabajo
 
 Plan ordenado con el dueño (17-oct-2026). Lo de arriba va primero. Cualquier error que reporte el dueño se arregla antes que todo.
 La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
@@ -34,7 +34,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 24. **5 estrellas de progreso** en el menú principal y en la elección de personaje (decisión del dueño, 17-oct-2026): **una estrella por cada jefe del casino**; empieza vacía y su color marca cómo lo venciste: amarilla en Normal, naranja si también en Difícil, y dorado neón brillante con una calavera en el centro si lo venciste en las 3 dificultades (Normal, Difícil y Apocalipsis). **Las dificultades se desbloquean según el avance; ya no se eligen libres.**
 25. **Quitar las cuentas** (decisión del dueño, 17-oct-2026: el juego va para Steam): se quitan Google, Discord y correo; el progreso queda guardado en el aparato y más adelante se usará la cuenta de Steam. **«Top mejores jugadores» se quita hasta que esté Steam.**
 26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
-27. **Boceto del nombre alternativo «Zombie's and Gamblers».**
+27. ~~Nombre nuevo «Zombie's and Gamblers»~~ (hecho, 17-oct-2026: es el nombre definitivo del juego).
 28. **Encuesta de diseños para las fichas de póker.**
 29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección.
 
