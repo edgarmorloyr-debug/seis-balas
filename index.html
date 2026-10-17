@@ -28230,12 +28230,14 @@ function p3dUna(I, name, fade = 0.15) {
 function p3dAnim(I, name, fade = 0.25) { if (I.cur === name) return; const a = I.acts[name]; if (!a) return; a.setLoop(THREE.LoopRepeat, Infinity); a.clampWhenFinished = false; a.reset().setEffectiveWeight(1).fadeIn(fade).play(); if (I.cur && I.acts[I.cur]) I.acts[I.cur].fadeOut(fade); I.cur = name; }
 // apunta un hueso hacia donde apunta una pieza del muñeco de bloques (para que el brazo apunte con el revólver)
 const _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion(), _pv = new THREE.Vector3(), _pd = new THREE.Vector3(), _py = new THREE.Vector3(0, 1, 0);
-function p3dApunta(I, n, pieza, signo) {
+function p3dApunta(I, n, pieza, signo, w = 1) {
   const b = I.B[n]; if (!b || !pieza) return;
   b.updateMatrixWorld(true); pieza.getWorldQuaternion(_pq); _pd.set(0, signo, 0).applyQuaternion(_pq);
   b.getWorldQuaternion(_pq2); _pv.copy(_py).applyQuaternion(_pq2);
   _pq.setFromUnitVectors(_pv, _pd).multiply(_pq2);
-  b.parent.getWorldQuaternion(_pq2); b.quaternion.copy(_pq2.invert().multiply(_pq)); b.updateMatrixWorld(true);
+  b.parent.getWorldQuaternion(_pq2); _pq.premultiply(_pq2.invert());
+  if (w >= 0.999) b.quaternion.copy(_pq); else b.quaternion.slerp(_pq, w);   // w: cuánto de la pose de apuntar (el resto, la animación)
+  b.updateMatrixWorld(true);
 }
 // el compañero deja de ser de bloques: se ve su personaje 3D (el revólver sigue en la mano)
 function avatar3d(av, p) {
@@ -28251,7 +28253,8 @@ P3D.giro = -Math.PI / 2;   // el modelo de Tripo mira hacia +x; el muñeco, haci
 P3D.invisible = new THREE.MeshBasicMaterial({ visible: false });
 function avatar3dPaso(av, p, spd, dt) {
   const I = av.p3d; if (!I) return;
-  const now = performance.now(); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7; const mueve = I.mueve;   // con margen: no parpadea entre caminar y quieto I.unaR = (I.unaR || 0) - dt; I.aimR = (I.aimR || 0) - dt; I.varR = I.varR == null ? rand(5, 10) : I.varR - dt;
+  const now = performance.now(); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7; const mueve = I.mueve;   // con margen: no parpadea entre caminar y quieto
+  I.unaR = (I.unaR || 0) - dt; I.aimR = (I.aimR || 0) - dt; I.varR = I.varR == null ? rand(5, 10) : I.varR - dt;
   // golpe recibido: se dobla (si está quieto)
   if (p.hp != null) { if (I.hpAntes != null && p.hp < I.hpAntes - 3 && !p.down && !mueve) p3dUna(I, 'hit_to_body_01'); I.hpAntes = p.hp; }
   if (p.down) { if (I.cur !== 'fall') p3dUna(I, 'fall'); }
@@ -28267,9 +28270,12 @@ function avatar3dPaso(av, p, spd, dt) {
   I.mix.update(dt);
   av.root.updateMatrixWorld(true);
   // apunta con el revólver al moverse o al disparar; con retroceso en cada disparo
-  if (!p.down && I.aimR > 0 && !(I.una && I.una !== 'hit_to_body_01' && I.unaR > 0)) {   // apunta solo al disparar; al caminar, los brazos se balancean
-    p3dApunta(I, 'R_Upperarm', av.armRG, -1); p3dApunta(I, 'R_Forearm', av.armRG, -1);
-    if (p.dual) { p3dApunta(I, 'L_Upperarm', av.armLG, -1); p3dApunta(I, 'L_Forearm', av.armLG, -1); }
+  // (los contadores de arriba estuvieron un tiempo dentro del comentario: el compañero se quedaba apuntando para siempre y los brazos temblaban con cada mensaje)
+  const apunta = !p.down && I.aimR > 0 && !(I.una && I.una !== 'hit_to_body_01' && I.unaR > 0);
+  I.aimW = damp(I.aimW || 0, apunta ? 1 : 0, 12, dt);   // entra y sale de la pose de apuntar con suavidad, sin saltos
+  if (I.aimW > 0.01) {   // apunta solo al disparar; al caminar, los brazos se balancean
+    p3dApunta(I, 'R_Upperarm', av.armRG, -1, I.aimW); p3dApunta(I, 'R_Forearm', av.armRG, -1, I.aimW);
+    if (p.dual) { p3dApunta(I, 'L_Upperarm', av.armLG, -1, I.aimW); p3dApunta(I, 'L_Forearm', av.armLG, -1, I.aimW); }
     if (I.kick > 0.01) { for (const n of p.dual ? ['R_Forearm', 'L_Forearm'] : ['R_Forearm']) { const b = I.B[n]; if (b) { b.rotateX(-0.5 * I.kick); b.updateMatrixWorld(true); } } }
   }
   I.kick = (I.kick || 0) * Math.exp(-14 * dt);
@@ -28376,7 +28382,8 @@ function updateRemotes(dt) {
     av.root.rotation.y += angDif(yObj, av.root.rotation.y) * Math.min(1, dt * 9);
     av.legL.rotation.x = sw * 0.6 * (spd > 0.3 ? 1 : 0); av.legR.rotation.x = -av.legL.rotation.x;
     setAvGun(av, p);
-    av.armRG.rotation.x = -1.5 - (p.pitch || 0); av.armLG.rotation.x = p.dual ? -1.5 - (p.pitch || 0) : -sw * 0.4;
+    av.pitchS = av.pitchS == null ? (p.pitch || 0) : damp(av.pitchS, p.pitch || 0, 14, dt);   // la inclinación del brazo se suaviza: no salta con cada mensaje
+    av.armRG.rotation.x = -1.5 - av.pitchS; av.armLG.rotation.x = p.dual ? -1.5 - av.pitchS : -sw * 0.4;
     av.label.visible = Math.hypot(r.x - player.pos.x, r.z - player.pos.z) > 4 && !(spec.on && specTargets()[spec.i % Math.max(1, specTargets().length)] === p);
     if (!av.p3d) { av.fall.rotation.x = damp(av.fall.rotation.x, p.down ? -Math.PI / 2 * 0.95 : 0, 6, dt); av.fall.position.y = p.down ? 0.15 : 0; } else { av.fall.rotation.x = 0; av.fall.position.y = 0; }
     avatar3dPaso(av, p, spd, dt);
