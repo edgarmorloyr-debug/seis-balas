@@ -24662,6 +24662,7 @@ function travel(ni, w, then) {
 }
 function renderChips() {
   if (!game) return;
+  game._pkR = game.poker | 0; game._kyR = game.keys | 0;   // lo que muestra el HUD (si cambia por otro lado, el bucle vuelve a dibujar)
   const out = [];
   if (game.vest) out.push(`<span class="chip">Chaleco ${ROMAN[game.vest]}</span>`);
   if (game.silver) out.push('<span class="chip">Balas de plata</span>');
@@ -26525,20 +26526,23 @@ function openCaja() {
     const P = game.poker | 0;
     $('#items-say').textContent = `«Cada ficha de calavera vale 3 de miembro, y 3 de miembro te dan una de calavera para la tienda de afuera.» Tienes ${f} de calavera y ${P} de miembro.`;
     const opc = [[1, 'Cambiar 1 calavera', 1], [f, `Cambiar todas (${f})`, 1], [3, 'Cambiar 3 de miembro', -1], [P - P % 3, `Cambiar todas las de miembro (${P - P % 3})`, -1]];
-    for (const [n, txt, dir] of opc) {
-      if (dir > 0 && n === f && f === 1) continue; if (dir < 0 && n === P - P % 3 && n === 3) continue;
+    opc.forEach(([n, txt, dir], i) => {
+      if ((i === 1 && n <= 1) || (i === 3 && n <= 3)) return;   // «Cambiar todas» solo si son más de las del botón de 1 (antes, con 1 de calavera o 3-5 de miembro desaparecían los dos botones)
       const b = document.createElement('button'); b.className = 'perk item r0';
       b.disabled = dir > 0 ? (!n || f < n) : (n < 3 || P < n);
       b.innerHTML = dir > 0 ? `<span class="relic-ic">${fichaCal()}</span><em>1 calavera = 3 de miembro</em><b>${txt}</b><span>${n} de calavera → ${n * 3} de miembro</span>`
         : `<span class="relic-ic">${ico('chip')}</span><em>3 de miembro = 1 calavera</em><b>${txt}</b><span>${n} de miembro → ${Math.floor(n / 3)} de calavera</span>`;
       b.addEventListener('click', () => {
         if (state !== 'items') return;
-        if (dir > 0) { const k = Math.min(n, META.fichas | 0); if (!k) return; META.fichas -= k; game.poker = (game.poker | 0) + k * 3; feed(`Cambiaste ${k} de calavera por ${k * 3} de miembro`, 'gold'); }
-        else { const k = Math.floor(Math.min(n, game.poker | 0) / 3); if (!k) return; game.poker -= k * 3; META.fichas = (META.fichas | 0) + k; feed(`Cambiaste ${k * 3} de miembro por ${k} de calavera`, 'gold'); }
+        const antes = game.poker | 0;
+        if (dir > 0) { const k = Math.min(n, META.fichas | 0); if (!k) return; META.fichas -= k; game.poker = antes + k * 3; feed(`Cambiaste ${k} de calavera por ${k * 3} de miembro`, 'gold'); }
+        else { const k = Math.floor(Math.min(n, antes) / 3); if (!k) return; game.poker = antes - k * 3; META.fichas = (META.fichas | 0) + k; feed(`Cambiaste ${k * 3} de miembro por ${k} de calavera`, 'gold'); }
+        // las fichas de calavera se guardan al instante: la partida guardada («Continuar») recibe el mismo cambio, si no al seguir la partida volvían las fichas de miembro ya cambiadas (o se perdían)
+        if (!tuto && !Net.on && (game.wave | 0) >= 2) { const sv = store.get(SAVE_KEY, null); if (sv && sv.v && sv.char === game.char) { sv.poker = Math.max(0, (sv.poker | 0) + (game.poker - antes)); store.set(SAVE_KEY, sv); } }
         saveMeta(); Sfx.coin(); renderChips(); draw();
       });
       box.appendChild(b);
-    }
+    });
   };
   draw();
   $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
@@ -29803,6 +29807,7 @@ function frame() {
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
+  if (game && state !== 'menu' && ((game.poker | 0) !== game._pkR || (game.keys | 0) !== game._kyR)) renderChips();   // el contador de fichas de miembro y llaves nunca se queda atrasado
   Net.tick(Math.min(rawDt, 0.25)); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
