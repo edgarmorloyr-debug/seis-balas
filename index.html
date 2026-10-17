@@ -1605,10 +1605,10 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
       <div id="inv-items"></div>
       <div id="inv-fuse" hidden>
       <h3 class="sec">Mesa de fusión</h3>
-      <p class="note left">Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una fusión por visita.</p>
+      <p class="note left">Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Cada fusión cuesta 1 ficha de miembro; puedes fusionar todas las veces que quieras.</p>
       <div class="fuse-row"><label>Bala 1 <select id="fuse-a"></select></label><span class="fuse-plus">+</span><label>Bala 2 <select id="fuse-b"></select></label></div>
       <p class="note left" id="fuse-out"></p>
-      <div class="row" style="justify-content:flex-start"><button class="btn2" id="btn-fuse">Fusionar</button></div>
+      <div class="row" style="justify-content:flex-start"><button class="btn2" id="btn-fuse">Fusionar · 1 ficha</button></div>
       </div>
       <h3 class="sec">Tus balas</h3>
       <div id="inv-bullets"></div>
@@ -25790,7 +25790,7 @@ const NEW_ITEMS = [
   ['secador', 1, 'burst', 'Secador', 'Cada bala mojada de un sobre se convierte en una bala especial común.', { secar: 1 }],
   ['lupa_joyero', 1, 'eye', 'Lupa de joyero', 'En los sobres, +10 % de que salga una legendaria.', { sobreLeg: 10 }],
   ['sobre_sorpresa', 0, 'cards', 'Sobre sorpresa', 'El primer sobre de cada visita a la tienda cuesta un 25 % menos.', { sobreDesc: 25 }],
-  ['crisol', 2, 'lantern', 'Crisol de bolsillo', 'En la mesa de fusión puedes fusionar 2 veces por visita.', { fuseN: 1 }],
+  ['crisol', 2, 'lantern', 'Crisol de bolsillo', 'En la mesa de fusión, tu primera fusión de cada visita no gasta ficha.', { fuseN: 1 }],
   ['molde', 1, 'hammer', 'Molde de balas', 'Al terminar cada oleada, 10 % de que una especial que disparaste se duplique en tu colección.', { moldeC: 10 }],
   ['album', 1, 'cards', 'Álbum de cromos', '+4 % de daño por cada tipo distinto de bala especial en tu colección.', { albumDmg: 4 }],
   ['reserva', 0, 'coins', 'Bala de reserva', 'Cada especial que no disparaste en la oleada te da 3 $ al volver a tu colección.', { reservaOro: 3 }],
@@ -25807,7 +25807,7 @@ const NEW_ITEMS = [
   ['brujula', 0, 'compass', 'Brújula', 'En los mapas con llaves de colores ves los metros exactos hasta la llave.', { brujula: 1 }],
   ['rastreador', 1, 'paw', 'Perro rastreador', 'El botín escondido (llave de cofre, bala o ficha) aparece el doble de seguido.', { botinX: 2 }],
   ['tarjeta', 0, 'scroll', 'Tarjeta de cliente', 'Cambiar las ofertas (la campanita y la tienda) cuesta la mitad.', { rerollX: 0.5 }],
-  ['cupon_herrero', 1, 'hammer', 'Cupón del herrero', 'Los trabajos del herrero cuestan un 30 % menos.', { forgeX: 0.7 }],
+  ['cupon_herrero', 1, 'hammer', 'Cupón del herrero', 'El herrero tiene un 30 % de hacerte el trabajo sin cobrarte la ficha.', { forgeX: 0.7 }],
   ['silbato', 1, 'heli', 'Silbato', 'La radio de rescate sale el doble de seguido en la Trastienda.', { radioX: 2 }],
   ['llave_dueno', 2, 'key', 'Llave del dueño', 'Las 3 puertas del fondo de la Trastienda siempre están abiertas.', { puertas: 1 }],
   ['talisman', 0, 'star', 'Talismán', 'Tu habilidad se carga un 25 % más rápido.', { habX: 1.25 }],
@@ -25951,8 +25951,11 @@ function colSacar() {
 function doFuse(a, b) {
   if (!game || a === b || !fusable(a) || !fusable(b)) return false;
   colGuardar(); const C = game.col || {}; if (!(C[a] > 0) || !(C[b] > 0)) return false;
+  // cada fusión cuesta 1 ficha de miembro, sin límite (pedido del dueño, 17-oct-2026); el Crisol de bolsillo hace gratis la primera de cada visita
+  if (S('fuseN') && game.fuseFreeW !== game.wave) { game.fuseFreeW = game.wave; feed('Crisol de bolsillo: esta fusión no gastó ficha', 'gold'); }
+  else if (!pagaFicha()) return false;
   C[a]--; C[b]--; if (!C[a]) delete C[a]; if (!C[b]) delete C[b];
-  const k = fuseKey(a, b); registerFused(k); colAdd(k); stMas('fusion'); game.fuseN = (game.fuseN | 0) + 1; game.fuseUsed = game.fuseN >= 1 + S('fuseN');   // Crisol de bolsillo: 2 fusiones
+  const k = fuseKey(a, b); registerFused(k); colAdd(k); stMas('fusion'); game.fuseN = (game.fuseN | 0) + 1; renderChips();
   Sfx.win(); Sfx.insert(); feed(`Fusión: ${BULLETS[k].name}`, 'gold');
   return k;
 }
@@ -26111,7 +26114,7 @@ function prepRoom() {
   game.roomRamen = Math.random() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
   game.roomTaller = Math.random() < 0.25 + arbP('taller');   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
   game.roomTiro = Math.random() < 0.05;
-  game.roomFuse = Math.random() < 0.30; game.fuseUsed = false; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
+  game.roomFuse = Math.random() < 0.30; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
   game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
   game.roomRoute = null;
 }
@@ -26136,7 +26139,6 @@ const FORJAS = [
 const FORJA_MAX = 8;
 const forjaLv = id => id === 'afilar' ? (game.forge | 0) : ((game.forjas || {})[id] | 0);
 const forjaTotal = () => FORJAS.reduce((a, F) => a + forjaLv(F.id), 0);
-const forgePrice = () => Math.round(shopP(40 + 20 * forjaTotal()) * (ST.forgeX || 1));
 /* ===== Blackjack en equipo (evento de la Trastienda, 5 %) =====
    Todos se sientan para empezar. Se vota la apuesta de la mesa (mínimo 100 $), que se paga a partes iguales entre los presentes, y en cada mano se vota pedir o plantarse. Juegan UNA mano entre todos
    contra la banca; si ganan, cada uno cobra su parte y se vota otra mano o retirarse. Al perder una mano, la mesa se cierra.
@@ -26200,6 +26202,10 @@ function abrirBj() {
   if (!game.bj) { hint('La mesa todavía se está preparando…', 1200); return; }
   if (game.bj.f === 'fin') { hint('La mesa ya se cerró en esta visita', 1400); return; }
   if (game.gold < bjParte(BJ.apuestas[0])) { hint(`Para sentarte necesitas al menos ${bjParte(BJ.apuestas[0])} $`, 1600); Sfx.err(); return; }
+  if (game.bjFichaW !== game.wave) {   // sentarse cuesta 1 ficha de miembro por jugador (cada uno paga la suya, una vez por visita)
+    if ((game.poker | 0) < 1) { hint('Para sentarte a la mesa necesitas 1 ficha de miembro', 1800); Sfx.err(); return; }
+    game.poker--; game.bjFichaW = game.wave; Sfx.coin(); feed(`Pagaste 1 ficha de miembro por tu silla · te quedan ${game.poker}`, 'gold'); renderChips();
+  }
   state = 'bj'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
   if (!game.bj.sent[bjYo()]) bjMandar('sit', bjObjetos());
   show('bj-s'); renderBj();
@@ -26495,18 +26501,19 @@ function openHerrero(o) {
   $('#items-hd').innerHTML = ico('hammer'); $('#items-t').textContent = 'El Herrero';
   const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
   if (!game.forjaOfertas || game.forjaOfertas.w !== game.wave) game.forjaOfertas = { w: game.wave, ids: FORJAS.map(x => x.id).sort(() => Math.random() - 0.5).slice(0, 3) };
-  const pr = forgePrice();
-  $('#items-say').textContent = `«Un solo trabajo por visita, forastero. Elige bien.» Cada trabajo cuesta ${pr} $ y sirve para todas tus armas. Llevas ${forjaTotal()} de ${FORJA_MAX}. Tienes ${game.gold} $.`;
+  const fi = game.poker | 0;
+  $('#items-say').textContent = `«Un solo trabajo por visita, forastero. Elige bien.» Cada trabajo cuesta 1 ficha de miembro y sirve para todas tus armas. Llevas ${forjaTotal()} de ${FORJA_MAX}. Tienes ${fichasTxt(fi)}.`;
   for (const id of game.forjaOfertas.ids) {
     const F = FORJAS.find(x => x.id === id), l = forjaLv(id), b = document.createElement('button'); b.className = 'perk item r1';
-    b.disabled = game.gold < pr;
-    b.innerHTML = `<span class="relic-ic">${ico(F.ic)}</span><em>${l ? `Llevas ${l * F.paso} ${F.u}` : 'Trabajo nuevo'}</em><b>${F.name}</b><span>${F.desc}</span><span class="tl-p">${game.gold >= pr ? `Encargar · ${pr} $` : `Faltan ${pr - game.gold} $`}</span>`;
+    b.disabled = fi < 1;
+    b.innerHTML = `<span class="relic-ic">${ico(F.ic)}</span><em>${l ? `Llevas ${l * F.paso} ${F.u}` : 'Trabajo nuevo'}</em><b>${F.name}</b><span>${F.desc}</span><span class="tl-p">${fi > 0 ? `Encargar · 1 ${ico('chip')}` : 'Sin fichas de miembro'}</span>`;
     b.addEventListener('click', () => {
-      if (state !== 'items' || o.used || game.gold < forgePrice() || forjaTotal() >= FORJA_MAX) return;
-      game.gold -= forgePrice();
+      if (state !== 'items' || o.used || (game.poker | 0) < 1 || forjaTotal() >= FORJA_MAX) return;
+      if (ST.forgeX && ST.forgeX < 1 && Math.random() < 1 - ST.forgeX) feed('Cupón del herrero: ¡este trabajo no te costó la ficha!', 'gold');   // Cupón del herrero: 30 % de trabajos gratis
+      else { game.poker--; feed(`Pagaste 1 ficha de miembro · te quedan ${game.poker}`, 'gold'); }
       if (id === 'afilar') game.forge = (game.forge | 0) + 1; else { game.forjas = game.forjas || {}; game.forjas[id] = forjaLv(id) + 1; }
       game.roomUsed.forge = 1; o.used = true; stMas('herrero'); if (o.coal) o.coal.color.setHex(0x401008);
-      Sfx.cash(); Sfx.clang(0); setTimeout(() => Sfx.clang(0), 180); setTimeout(() => Sfx.clang(0), 360); if (o.sparks) o.sparks();
+      Sfx.coin(); renderChips(); Sfx.clang(0); setTimeout(() => Sfx.clang(0), 180); setTimeout(() => Sfx.clang(0), 360); if (o.sparks) o.sparks();
       close(); banner(`¡${F.name}!`, `${forjaLv(id) * F.paso} ${F.u} en total`, 2400, F.ic);
     });
     box.appendChild(b);
@@ -26900,7 +26907,7 @@ function buildWheel(x, z) {
   return o;
 }
 function playWheel(o) {
-  o.busy = true; Sfx.dice(); game.roomUsed.wheel = 1;
+  o.busy = true; Sfx.dice();   // sin límite: se juega todas las veces que quieras, 1 ficha de miembro por tirada
   const n = WHEEL_SEG.length, a = Math.PI * 2 / n;
   let k = Math.floor(Math.random() * n);
   if (!WHEEL_SEG[k].go && Math.random() < luck(0, 1) + (game.char === 'johnny' ? 0.3 : 0)) k = pick(WHEEL_SEG.map((s, i) => s.go ? i : -1).filter(i => i >= 0));
@@ -26908,7 +26915,7 @@ function playWheel(o) {
   o.from = o.ang; o.to = o.ang + Math.PI * 2 * 4 + (((want - cur) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); o.t = 0; o.dur = 3.2;
   const run = game, wi = world.idx;
   setTimeout(() => {
-    if (game !== run || world.idx !== wi) return; o.busy = false; o.used = true; const S_ = WHEEL_SEG[k];
+    if (game !== run || world.idx !== wi) return; o.busy = false; const S_ = WHEEL_SEG[k];
     if (S_.go) { stMas('ruleta'); const extra = S_.go(); banner('Ruleta', extra ? `${S_.t}: ${extra}` : S_.t, 2200); Sfx.cash(); renderChips(); }
     else feed('Ruleta: nada esta vez', 'blue');
   }, 3300);
@@ -26968,7 +26975,7 @@ function buildShopRoom() {
   if (game && game.roomRadio) R.objs.push(buildRadio(-HX + 0.6, 6.2, !!(game.roomUsed || {}).radio));
   if (game && game.roomForge) R.objs.push(buildForge(-HX + 0.9, -5.8, !!(game.roomUsed || {}).forge));
   // cada evento tiene su lugar fijo: fusión al frente a la izquierda, blackjack al frente a la derecha
-  if (game && game.roomFuse) R.objs.push(buildFusion(-4.6, 5.0, !!(game.roomUsed || {}).fuse));
+  if (game && game.roomFuse) R.objs.push(buildFusion(-4.6, 5.0, false));
   if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
   if (game && game.roomTaller) R.objs.push(buildTaller(-HX + 2.15, 1.5, true));
@@ -27007,16 +27014,16 @@ function useLabel(o) {
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
-  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold >= mn ? 'Sentarse' : `Necesitas ${mn} $`, ok: !cerr && game.gold >= mn }; }
-  if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, used = o.used || game.fuseUsed; return { key: 'fu' + n + used, t: 'Mesa de fusión', r: '', d: 'Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Una vez por visita.', b: used ? 'Ya fusionaste' : n >= 2 ? 'Fusionar balas' : 'Necesitas 2 especiales distintas', ok: !used && n >= 2 }; }
-  if (o.kind === 'forge') { const pr = forgePrice(), n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && game.gold >= pr; return { key: 'fg' + game.gold + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? `Ver trabajos · ${pr} $` : `Faltan ${pr - game.gold} $`, ok }; }
+  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
+  if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, f = game.poker | 0, gratis = S('fuseN') && game.fuseFreeW !== game.wave; return { key: 'fu' + n + '_' + f + gratis, t: 'Mesa de fusión', r: '', d: `Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Cada fusión cuesta 1 ficha de miembro, sin límite (tienes ${f}).`, b: n < 2 ? 'Necesitas 2 especiales distintas' : f > 0 || gratis ? 'Fusionar balas · 1 ficha' : 'Sin fichas de miembro', ok: n >= 2 && (f > 0 || gratis) }; }
+  if (o.kind === 'forge') { const f = game.poker | 0, n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && f > 0; return { key: 'fg' + f + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Cada trabajo cuesta 1 ficha de miembro (tienes ${f}). Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? 'Ver trabajos · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `1 ficha de calavera = 3 de miembro, y 3 de miembro = 1 de calavera (para la tienda de afuera). Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: f || (game.poker | 0) >= 3 ? 'Cambiar fichas' : 'Sin fichas para cambiar', ok: f > 0 || (game.poker | 0) >= 3 }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide un refuerzo: 2 para elegir, solo durante la próxima oleada. Cuesta 1 ficha de miembro (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
-  if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `777: 1000 $. Tres fichas: 3 fichas de miembro. Tres diamantes: un objeto. Tres campanas: 3 balas especiales. Tres BAR: 50 $. Tres cerezas: te cura. Dos iguales: 12 $. Se juega con 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de miembro', ok }; }
-  if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada. Se juega con 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
+  if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `777: 1000 $. Tres fichas: 3 fichas de miembro. Tres diamantes: un objeto. Tres campanas: 3 balas especiales. Tres BAR: 50 $. Tres cerezas: te cura. Dos iguales: 12 $. Cada jugada cuesta 1 ficha de miembro, sin límite (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de miembro', ok }; }
+  if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Premios pequeños: fichas de dinero, fichas de miembro, balas de cada tipo o curación. Solo dos casillas no dan nada. Cada tirada cuesta 1 ficha de miembro y puedes girar todas las veces que quieras (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'reroll') { const rp = Math.ceil(game.rerollP * (ST.rerollX || 1)); return { key: 'rr' + rp + game.gold, t: 'Campanita', r: '', d: 'Cambia los objetos que no compraste.', b: game.gold >= rp ? `Cambiar · ${rp} $` : `Faltan ${rp - game.gold} $`, ok: game.gold >= rp }; }
   return null;
 }
@@ -27060,9 +27067,10 @@ function useObj(o) {
   } else if (o.kind === 'bj') {
     useCur = null; showUse(null); abrirBj();
   } else if (o.kind === 'fusion') {
-    if (o.used || game.fuseUsed) return; useCur = null; showUse(null); game.fuseOpen = true; openInv(); setTimeout(() => { const f = $('#inv-fuse'); if (f) f.scrollIntoView({ block: 'start' }); }, 60);
+    if (!((game.poker | 0) > 0) && !(S('fuseN') && game.fuseFreeW !== game.wave)) { hint('Cada fusión cuesta 1 ficha de miembro y no tienes', 1800); Sfx.err(); return; }
+    useCur = null; showUse(null); game.fuseOpen = true; openInv(); setTimeout(() => { const f = $('#inv-fuse'); if (f) f.scrollIntoView({ block: 'start' }); }, 60);
   } else if (o.kind === 'forge') {
-    const pr = forgePrice(); if (forjaTotal() >= FORJA_MAX) { hint('Tus armas ya no aguantan más trabajo en esta partida', 1600); Sfx.err(); return; } if (o.used) return; if (game.gold < pr) { hint(`Te faltan ${pr - game.gold} $`, 1400); Sfx.err(); return; }
+    if (forjaTotal() >= FORJA_MAX) { hint('Tus armas ya no aguantan más trabajo en esta partida', 1600); Sfx.err(); return; } if (o.used) return; if ((game.poker | 0) < 1) { hint('El Herrero cobra 1 ficha de miembro por trabajo y no tienes', 1800); Sfx.err(); return; }
     useCur = null; showUse(null); openHerrero(o);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
@@ -27155,7 +27163,7 @@ function fusePreview() {
   const a = $('#fuse-a').value, b = $('#fuse-b').value, btn = $('#btn-fuse'), out = $('#fuse-out');
   if (!a || !b || $('#fuse-a').options.length < 2) { out.textContent = 'Necesitas 2 balas especiales distintas en tu colección para fusionar.'; btn.disabled = true; return; }
   if (a === b) { out.textContent = 'Elige dos balas distintas.'; btn.disabled = true; return; }
-  const k = fuseKey(a, b); registerFused(k); out.innerHTML = `Resultado: <b>${BULLETS[k].name}</b> · ${BULLETS[k].desc} <em>Gastas 1 de cada una y recibes 1.</em>`; btn.disabled = false;
+  const k = fuseKey(a, b); registerFused(k); const gratis = S('fuseN') && game.fuseFreeW !== game.wave, f = game.poker | 0; out.innerHTML = `Resultado: <b>${BULLETS[k].name}</b> · ${BULLETS[k].desc} <em>Gastas 1 de cada una y recibes 1. ${gratis ? 'Esta fusión es gratis (Crisol de bolsillo).' : `Cuesta 1 ficha de miembro (tienes ${f}).`}</em>`; btn.disabled = !gratis && f < 1;
 }
 
 /* ===================== EN GRUPO: red cooperativa ===================== */
@@ -29739,7 +29747,7 @@ $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
 // sin el botón de la bolsa: tocar la fila de objetos o el contador de balas abre el inventario
 for (const id of ['#iicons', '#box-n']) $(id).addEventListener('click', e => { e.preventDefault(); openInv(); });
 $('#fuse-a').addEventListener('change', fusePreview); $('#fuse-b').addEventListener('change', fusePreview);
-$('#btn-fuse').addEventListener('click', () => { if (game && game.fuseUsed) return; if (doFuse($('#fuse-a').value, $('#fuse-b').value)) { if (game.fuseUsed) { game.fuseOpen = false; if (game.roomUsed) game.roomUsed.fuse = 1; } renderInv(); } });
+$('#btn-fuse').addEventListener('click', () => { if (!game || !game.fuseOpen) return; if (doFuse($('#fuse-a').value, $('#fuse-b').value)) renderInv(); });
 $('#btn-cards-go').addEventListener('click', () => { if (state === 'cards') continueAfter(); });
 $('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && !game.cardDone) continueAfter(); });
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } else if (!$('#shop').hidden) { show(null); if (game && world.idx === ROOM_IDX && game.phase !== 'wait') backToRoom(); else { state = 'play'; requestLock(); canvas.focus(); } } });
