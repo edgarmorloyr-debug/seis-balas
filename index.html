@@ -840,6 +840,14 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #shop.vend .shop2{width:min(600px,56vw);max-height:none;height:100%;border-width:0 0 0 2px;border-color:var(--vend,#6ae08a);outline:none;box-shadow:-12px 0 40px rgba(0,0,0,.65);padding-top:0}
 #shop.vend .sh-head{border-bottom-color:var(--vend,#6ae08a)}
 #shop.vend .sh-open{color:var(--vend,#6ae08a);border-color:var(--vend,#6ae08a);text-shadow:0 0 6px var(--vend,#6ae08a);box-shadow:0 0 8px rgba(0,0,0,.3)}
+#shop.vend #sh-bullets>.row{display:none}#shop.vend.vt-balas #sh-bullets>.row{display:flex;margin-top:6px}#shop.vend #sh-bullets>.row .btn2{min-height:48px}
+body.vend-on #hud,body.vend-on #feed,body.vend-on #hint,body.vend-on #ach-toast{visibility:hidden}
+.vd-tabs{grid-column:1/-1;display:flex;gap:6px}.vd-tab{flex:1;min-height:48px;border-radius:8px;border:1.5px solid rgba(214,165,75,.45);background:rgba(0,0,0,.35);color:var(--bone);font:700 15px var(--hud);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.vd-tab.on{background:var(--vend,#6ae08a);border-color:var(--vend,#6ae08a);color:#120c06}
+#shop.vend .sobre-res{position:fixed;z-index:5;left:12px;top:calc(12px + env(safe-area-inset-top,0px));width:calc(100vw - min(600px,56vw) - 24px);max-width:440px;background:rgba(10,7,4,.9);transition:opacity .4s}#shop.vend .sobre-res.fuera{opacity:0;pointer-events:none}#shop.vend .sobre-res>div{flex-wrap:nowrap}#shop.vend .sobre-res .sb-c{flex:1 1 0;width:auto;min-width:0}
+#shop.vend .card.shop2{gap:10px}
+@media (max-height:520px),(max-width:520px){#shop.vend .card.shop2{padding:0 12px;gap:6px}#shop.vend .sh-sub{display:none}#shop.vend .sh-head{padding:6px 12px 6px;margin:0 -12px}#shop.vend .sc-l{display:none}#shop.vend .sc-tag{display:block;font-size:13px}#shop.vend .sc-pic{height:44px}#shop.vend .sc-pic .sobre-pic{transform:scale(.56)}#shop.vend .sc-dot{width:26px;height:26px}#shop.vend .sc{padding:6px 4px;gap:2px}#shop.vend .sc-n{font-size:15px}#shop.vend .sc-act{padding-top:2px}#shop.vend .sc-act .buy{min-height:48px;font-size:14px;padding:0 4px}#shop.vend .sh-go{padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));margin-top:2px}#shop.vend .sh-go .btn{min-height:48px;padding-top:0;padding-bottom:0}#shop.vend .sobre-res{width:calc(100vw - min(560px,58vw) - 24px)}}
+@media (max-height:380px){#shop.vend .sc-pic{height:32px}#shop.vend .sc-pic .sobre-pic{transform:scale(.42)}#shop.vend.vt-balas #sh-bullets>.row{margin-top:0}#shop.vend .card.shop2{gap:4px}#shop.vend .sh-go{padding:0 0 env(safe-area-inset-bottom,0px);margin-top:0}#shop.vend .sc{gap:0}#shop.vend .sh-grid{gap:6px}}
+@media (max-aspect-ratio:1/1){#shop.vend{align-items:flex-end;justify-content:stretch;background:linear-gradient(180deg,rgba(7,9,12,0) 0%,rgba(7,9,12,0) 42%,rgba(7,9,12,.6) 52%)}#shop.vend .card.shop2{width:100%;height:auto;max-height:56%;border-width:2px 0 0}#shop.vend .sobre-res{left:8px;right:8px;width:auto;max-width:none;bottom:auto;top:calc(8px + env(safe-area-inset-top,0px))}}
 #shop.vend #sh-bullets>:not(.sh-grid):not(.row){display:none}
 #shop.vend .sh-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 #shop.vend .sc-pic{height:64px}#shop.vend .sobre-res{padding:6px}#shop.vend .sobre-res>b{margin-bottom:4px;font-size:15px}#shop.vend .sc-pic .sobre-pic{transform:scale(.72)}#shop.vend .sh-top .title.sm{font-size:30px;line-height:1.05}#shop.vend .sh-sec{display:block;text-align:left}#shop.vend .sh-sec small{margin-left:8px}
@@ -24445,15 +24453,18 @@ function openVend(o) {
   game.vendO = o; game.shopVend = o.v; game.lastDoor = { x: o.x, z: o.z + 0.3, vend: true };
   if (!game.offers || !game.offers.length) rollOffers();
   // la cámara mira de frente a la máquina y gira a la derecha lo justo para que la máquina quede en el centro del espacio libre a la izquierda del panel
-  { const panel = Math.min(innerHeight <= 520 ? 560 : 600, innerWidth * (innerHeight <= 520 ? 0.58 : 0.56)), libre = 1 - panel / innerWidth, xn = libre - 1, th = Math.tan(camera.fov * Math.PI / 360) * camera.aspect;
+  if (innerHeight > innerWidth) {   // teléfono en vertical: el panel va abajo y la máquina arriba, de frente
+    const d = 3.6, px = o.v === 'espiral' ? o.mx - 0.7 : o.mx, tv = Math.tan(camera.fov * Math.PI / 360), yc = 1.6 - 1.25;   // (al lado de la caja, un poco a la izquierda)
+    player.pos.set(px, 0, o.mz + d); player.vx = player.vz = 0; player.yaw = -Math.atan((o.mx - px) / d); player.pitch = -(Math.atan(yc / d) + Math.atan(0.5 * tv));
+  } else { const panel = Math.min(innerHeight <= 520 ? 560 : 600, innerWidth * (innerHeight <= 520 ? 0.58 : 0.56)), libre = 1 - panel / innerWidth, xn = libre - 1, th = Math.tan(camera.fov * Math.PI / 360) * camera.aspect;
     player.pos.set(o.mx, 0, o.mz + 2.8); player.vx = player.vz = 0; player.yaw = -Math.atan(-xn * th); player.pitch = 0.02; }
   state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null; input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#shop').classList.add('vend'); $('#shop').style.setProperty('--vend', VEND[o.v].css);
+  $('#shop').classList.add('vend'); $('#shop').style.setProperty('--vend', VEND[o.v].css); game.vendTab = 'sobres'; document.body.classList.add('vend-on');   // sin el HUD encima de la máquina
   try { renderShop(); } catch (e) { noteErr(e, 'expendedora'); }
   show('shop'); Sfx.open(); setTimeout(() => $('#btn-shop-go').focus(), 50);
 }
-function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null; game.shopVend = null; $('#shop').classList.remove('vend');
+function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null; game.shopVend = null; $('#shop').classList.remove('vend'); document.body.classList.remove('vend-on');
   // si algo falla al dibujar la tienda, igual se abre (con lo que se pudo dibujar) y queda anotado el error
   try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(allyOk)).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
   show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
@@ -24623,18 +24634,23 @@ function renderShop() {
     shopBtn(c.act, 'buy-ammo-' + n, 'buy', cost(price), game.gold < price, () => { if (game.gold < price) return; game.gold -= price; for (let k = 0; k < n; k++) game.box.push('normal'); Sfx.cash(); Sfx.insert(); renderShop(); });
     bl.appendChild(c.d);
   }
-  { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Paquetes de balas especiales<small>3 balas al azar por sobre</small>'; bl.appendChild(h); }
+  // en la máquina expendedora, dos pestañas («Sobres» y «Balas sueltas») para que todo quepa sin desplazar la pantalla en el teléfono
+  const vt = VD ? (game.vendTab === 'balas' ? 'balas' : 'sobres') : null; $('#shop').classList.toggle('vt-balas', vt === 'balas');
+  if (VD) { const tb = document.createElement('div'); tb.className = 'vd-tabs'; tb.setAttribute('role', 'tablist');
+    for (const [k, txt] of [['sobres', 'Sobres'], ['balas', 'Balas sueltas']]) { const b = document.createElement('button'); b.className = 'vd-tab' + (vt === k ? ' on' : ''); b.id = 'vd-tab-' + k; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', vt === k); b.textContent = txt; b.addEventListener('click', () => { if (game.vendTab === k) return; game.vendTab = k; Sfx.ui(); renderShop(); }); tb.appendChild(b); }
+    bl.appendChild(tb); }
+  if (!VD) { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Paquetes de balas especiales<small>3 balas al azar por sobre</small>'; bl.appendChild(h); }
   // ---- Sobres de balas especiales: 3 espacios; cada uno puede salir mojado (no sirve) ----
-  if (game.sobre) { const R_ = game.sobre, fresh = performance.now() - R_.t < 1500, res = document.createElement('div'); res.className = 'sobre-res' + (fresh ? ' anim' : '');
+  if (game.sobre && (!VD || performance.now() - game.sobre.t < 5000)) { const R_ = game.sobre, fresh = performance.now() - R_.t < 1500, res = document.createElement('div'); res.className = 'sobre-res' + (fresh ? ' anim' : '');
     res.innerHTML = `<b>${R_.name}</b><div>${R_.out.map((k, i) => k ? `<span class="sb-c r${BULLETS[k].rar}" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:${BULLETS[k].col};box-shadow:0 0 14px ${BULLETS[k].col}"></i><em>${BULLETS[k].name}</em><small>${RAR[BULLETS[k].rar].name}</small></span>` : `<span class="sb-c moj" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:#4a5a6a"></i><em>Bala mojada</em><small>No sirve</small></span>`).join('')}</div>`;
-    bl.appendChild(res); }
-  for (const S_ of SOBRES) {
-    const c = shopCard('sobre:' + S_.k, { pic: `<span class="sobre-pic" style="--c:${S_.col}">${ico('bullets')}<s>${S_.name.replace('Sobre ', '')}</s></span>`, name: S_.name, line: S_.d, tag: `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % de que cada una salga mojada` });
+    bl.appendChild(res); if (VD) setTimeout(() => { if (res.isConnected) res.classList.add('fuera'); }, Math.max(0, 5000 - (performance.now() - R_.t))); }   // en la máquina, el resultado flota sobre la vista y se va solo
+  if (vt !== 'balas') for (const S_ of SOBRES) {
+    const c = shopCard('sobre:' + S_.k, { pic: `<span class="sobre-pic" style="--c:${S_.col}">${ico('bullets')}<s>${S_.name.replace('Sobre ', '')}</s></span>`, name: S_.name, line: S_.d, tag: VD ? `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % mojadas` : `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % de que cada una salga mojada` });
     const sp = sobrePrecio(S_); shopBtn(c.act, 'sobre-' + S_.k, 'buy', cost(sp), game.gold < sp, () => { if (game.gold < sp) return; game.gold -= sp; abrirSobre(S_); vende({ t: 'sobre', k: S_.k, col: S_.col }); renderShop(); });
     bl.appendChild(c.d);
   }
-  { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas especiales sueltas<small>Ofertas de esta visita · se quedan en tu colección</small>'; bl.appendChild(h); }
-  game.offers.forEach((o, i) => {
+  if (!VD) { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas especiales sueltas<small>Ofertas de esta visita · se quedan en tu colección</small>'; bl.appendChild(h); }
+  if (vt !== 'sobres') game.offers.forEach((o, i) => {
     const B = BULLETS[o.id], R0 = RAR[B.rar], price = B.rar === 4 ? COL_PRECIO[4] : shopP(COL_PRECIO[B.rar]), tengo = (game.col || {})[o.id] | 0;
     const c = shopCard('b:' + i, { pic: `<i class="sc-dot" style="background:${B.col};box-shadow:0 0 18px ${B.col}"></i>`, name: B.name, line: B.desc, tag: `<span class="rar-${B.rar}">${R0.name}</span> · tienes ${tengo}`, cls: 'r' + B.rar });
     shopBtn(c.act, 'buyb-' + i, 'buy', cost(price), game.gold < price, () => {
@@ -27408,7 +27424,7 @@ function useObj(o) {
 }
 function backToRoom() {
   show(null); state = 'play'; game.phase = 'room';
-  const vend = game.lastDoor && game.lastDoor.vend; $('#shop').classList.remove('vend'); game.shopVend = null;
+  const vend = game.lastDoor && game.lastDoor.vend; $('#shop').classList.remove('vend'); document.body.classList.remove('vend-on'); game.shopVend = null;
   if (game.lastDoor) { player.pos.set(game.lastDoor.x, 0, game.lastDoor.z); player.vx = player.vz = 0; player.yaw = 0; }
   // las puertas usadas quedan cerradas: se vuelve a dibujar la habitación tal cual (las máquinas expendedoras no cambian: no hace falta)
   if (vend && world.room) { for (const o of world.room.objs) { if (o.surtir) o.surtir(); if (o.auto) o.wait = true; } }
