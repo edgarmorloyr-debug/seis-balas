@@ -31,8 +31,8 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 21. **Estilo Mesa del saloon en todas las pantallas** y **sin scroll** (se cortó a medias por el límite de uso; se retoma).
 22. **Logros por clases** con botones y páginas.
 23. **Tarjetas de personaje del inicio** con diseño de carta de póker y el personaje en blanco y negro.
-24. **5 estrellas de progreso** en el menú principal y en la elección de personaje (decisión del dueño, 17-oct-2026): empiezan vacías y cada una se va pintando según en qué dificultad pasaste el juego: amarilla si lo pasaste en fácil, naranja si también en normal, y dorado neón más brillante con una calavera en el centro si lo pasaste en las 3 dificultades. **Las dificultades se desbloquean según el avance del jugador; ya no se eligen libres.** (Por aclarar: qué marca cada una de las 5 estrellas y cuáles son las 3 dificultades, hoy son Normal, Difícil y Apocalipsis.)
-25. **Quitar las cuentas** (decisión del dueño, 17-oct-2026: el juego va para Steam): se quitan Google, Discord y correo; el progreso queda guardado en el aparato y más adelante se usará la cuenta de Steam. (Por aclarar: qué pasa con «Top mejores jugadores», que hoy usa Supabase.)
+24. **5 estrellas de progreso** en el menú principal y en la elección de personaje (decisión del dueño, 17-oct-2026): **una estrella por cada jefe del casino**; empieza vacía y su color marca cómo lo venciste: amarilla en Normal, naranja si también en Difícil, y dorado neón brillante con una calavera en el centro si lo venciste en las 3 dificultades (Normal, Difícil y Apocalipsis). **Las dificultades se desbloquean según el avance; ya no se eligen libres.**
+25. **Quitar las cuentas** (decisión del dueño, 17-oct-2026: el juego va para Steam): se quitan Google, Discord y correo; el progreso queda guardado en el aparato y más adelante se usará la cuenta de Steam. **«Top mejores jugadores» se quita hasta que esté Steam.**
 26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
 27. **Boceto del nombre alternativo «Zombie's and Gamblers».**
 28. **Encuesta de diseños para las fichas de póker.**
