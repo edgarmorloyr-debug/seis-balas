@@ -19650,7 +19650,9 @@ function mkHand(side) {
   const flash = new THREE.Group();
   { const a = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), flashMat); flash.add(a); const b = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.32), flashMat); b.rotation.y = Math.PI / 2; b.position.z = -0.12; flash.add(b); const c = b.clone(); c.rotation.set(Math.PI / 2, 0, Math.PI / 2); flash.add(c); }
   flash.visible = false;
-  const flashLight = new THREE.PointLight(0xffc27a, 0, 14, 1.8);
+  // la luz del fogonazo va siempre en la cámara (aunque esa mano esté guardada): si aparecía o desaparecía una luz al sacar la segunda arma,
+  // la tarjeta gráfica tenía que rehacer todos los materiales y el juego se trababa (por ejemplo, con las dos MP5 de Lilith)
+  const flashLight = new THREE.PointLight(0xffc27a, 0, 14, 1.8); flashLight.position.set(side ? -0.14 : 0.14, -0.08, -0.55); camera.add(flashLight);
   return { side, root, k, flash, flashLight, caps: [], loaded: [], idx: 0, ammo: 6, cap: 6, cd: 0, cdMax: 0.32, kick: 0, fl: 0, cylRot: 0, cylTarget: 0, active: side === 0, full: true, cShots: 0, cKills: 0, hud: null, hudRot: 0, model: 'paci' };
 }
 const hands = [mkHand(0), mkHand(1)];
@@ -19899,7 +19901,7 @@ function buildGun(h, id) {
   P_(cyl(0.032, 0.036, 0.05, 14), GM.gloveD, 0.02, -0.12, 0.15, hand).rotation.x = Math.PI / 2 - 0.45;
   P_(cyl(0.04, 0.042, 0.3, 14), GM.sleeve, 0.04, -0.16, 0.3, hand).rotation.x = Math.PI / 2 - 0.45;
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, muzzleY, muzzleZ); h.k.add(muzzle);
-  muzzle.add(h.flash); muzzle.add(h.flashLight);
+  muzzle.add(h.flash);
   const gunG = new THREE.Group(); for (const c of h.k.children.slice()) if (c !== hand) gunG.add(c); h.k.add(gunG); h.gunG = gunG;
   h.k.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 1; } });
   Object.assign(h, { cylG, cylSpin, hammer, muzzle, spinG, spinV: 0, model: id, cap: N });
@@ -21338,6 +21340,18 @@ function prestarArma(id, dur, dos) {
   if (dos) game.owned[id] = 2;
   game.habT = dur; game.mag[id] = [lleno(), lleno()]; equip(id); gs.draw = 0.15;   // llega cargada: no toma balas de tu caja
   for (const h of hands) if (h.active) { for (let i = 0; i < h.cap; i++) if (!isLoaded(h.loaded[i])) h.loaded[i] = 'normal'; h.ammo = h.cap; }
+}
+// Las armas que presta la habilidad (el dado de Johnny, el revólver minigun de Carlos, las MP5 de Lilith) se preparan al cargar el lugar,
+// detrás de la pantalla negra: así la primera vez que se usa la habilidad no hay que preparar sus materiales y no se traba.
+const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'] };
+function precalentarHab() {
+  const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
+  const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
+  try {
+    for (const id of ids) { if (!MODELS[id]) continue; const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D() }; buildGun(h, id); holder.add(h.k); }
+    holder.updateMatrixWorld(true); renderer.compile(scene, camera);
+  } catch (e) {}
+  camera.remove(holder); holder.traverse(o => { if (o.geometry) o.geometry.dispose(); });
 }
 function habMinigun(H) { prestarArma('minigun', H.dur); banner(H.name, `¡${H.dur} segundos sin parar de disparar!`, 1800, 'gun'); Sfx.win(); }
 function finMinigun() {
@@ -24653,7 +24667,7 @@ function travel(ni, w, then) {
   $('#fade-s').textContent = room ? `Oleada ${game.wave} superada` : z < MAP_COUNT ? `Nivel ${z + 1}` : `Sin fin · nivel ${z + 1}`; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc + (C ? ` · ${C.name}: ${C.desc}` : '');
   el.fade.classList.add('on');
   setTimeout(() => {
-    clearActors(); buildMap(ni); try { renderer.compile(scene, camera); } catch (e) {}
+    clearActors(); buildMap(ni); precalentarHab(); try { renderer.compile(scene, camera); } catch (e) {}
     player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
     for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead || (cops[i].indep && !cops[i].radio)) removeCop(i);
     cops.forEach((c, i) => { c.root.position.set(world.start.x + (i - 1) * 1.5, 0, world.start.z + 2); resolve(c.root.position, 0.35); });
@@ -29585,6 +29599,7 @@ function startGameNow(sv) {
   $('#me-pic').src = charPic(game.char);
   renderChips(); requestLock(); canvas.focus();
 }
+  precalentarHab();
 function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
