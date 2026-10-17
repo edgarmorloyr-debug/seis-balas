@@ -26880,24 +26880,59 @@ function playSlot(o) {
 }
 const bulletOfRar = r => { const ids = Object.keys(BULLETS).filter(k => BULLETS[k].rar === r && !BULLETS[k].fused && !BULLETS[k].secreta && isOpen('b:' + k)); return ids.length ? pick(ids) : randomBullet(); };
 const wheelBullet = r => () => { const b = bulletOfRar(r); game.box.push(b); return BULLETS[b].name; };
+// Ruleta de 12 casillas (pedido del dueño, 17-oct-2026: 2 casillas más y cada una con su dibujo). im = el dibujo de la casilla
 const WHEEL_SEG = [
-  { t: 'Nada', c: '#2a2a2e' }, { t: '+15 $', c: '#c8a030', go() { addGold(15); } }, { t: 'Bala común', c: '#5a5a62', go: wheelBullet(1) }, { t: '10 balas', c: '#3a6a3a', go() { for (let i = 0; i < 10; i++) game.box.push('normal'); } },
-  { t: 'Bala rara', c: '#2a5a9a', go: wheelBullet(2) }, { t: 'Curación', c: '#2a8a6a', go() { player.hp = Math.min(player.maxHp, player.hp + Math.round(player.maxHp * 0.4)); } }, { t: 'Nada', c: '#7a1a1a' }, { t: '+25 $', c: '#d8b040', go() { addGold(25); } },
-  { t: 'Bala legendaria', c: '#b07a10', go: wheelBullet(3) }, { t: 'Bala especial', c: '#7a3aa0', go() { const b = randomBullet(); game.box.push(b); return BULLETS[b].name; } }
+  { t: 'Nada', c: '#2a2a2e', im: 'nada' }, { t: '+15 $', c: '#1f4a9a', im: 'din', ch: [10, 5], go() { addGold(15); } }, { t: 'Bala común', c: '#5a5a62', im: 'bala', bc: '#d8d0c0', go: wheelBullet(1) },
+  { t: 'Ficha de miembro', c: '#8a1418', im: 'miembro', go() { game.poker = (game.poker | 0) + 1; return 'vuelves a girar gratis'; } },
+  { t: '10 balas', c: '#3a6a3a', im: 'balas', go() { for (let i = 0; i < 10; i++) game.box.push('normal'); } }, { t: 'Bala rara', c: '#2a5a9a', im: 'bala', bc: '#6ab0ff', go: wheelBullet(2) },
+  { t: 'Curación', c: '#2a8a6a', im: 'vida', go() { player.hp = Math.min(player.maxHp, player.hp + Math.round(player.maxHp * 0.4)); } }, { t: 'Nada', c: '#7a1a1a', im: 'nada' },
+  { t: '+25 $', c: '#1f6a34', im: 'din', ch: [25], go() { addGold(25); } }, { t: 'Bala legendaria', c: '#8a5a08', im: 'bala', bc: '#ffc040', go: wheelBullet(3) },
+  { t: 'Ficha de calavera', c: '#3a1238', im: 'calavera', go() { META.fichas = (META.fichas | 0) + 1; saveMeta(); return 'se guarda para la tienda de afuera'; } },
+  { t: 'Bala especial', c: '#5a2a80', im: 'bala', bc: '#c070ff', go() { const b = randomBullet(); game.box.push(b); return BULLETS[b].name; } }
 ];
+// una ficha de póker dibujada en un lienzo: color, color de las marcas del borde y, si se quiere, una letra o una calavera en el centro
+function fichaLienzo(g, cx, cy, r, col, marca, centro) {
+  g.save(); g.fillStyle = col; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+  g.fillStyle = marca; for (let i = 0; i < 8; i++) { g.save(); g.translate(cx, cy); g.rotate(i * Math.PI / 4); g.fillRect(-r * 0.13, -r, r * 0.26, r * 0.3); g.restore(); }
+  g.strokeStyle = marca; g.lineWidth = Math.max(1.5, r * 0.08); g.beginPath(); g.arc(cx, cy, r * 0.62, 0, 7); g.stroke();
+  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = Math.max(1, r * 0.06); g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke();
+  if (centro === 'J') { g.fillStyle = marca; g.font = `900 ${Math.round(r * 0.9)}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('J', cx, cy + r * 0.05); }
+  else if (centro === 'cal') { g.fillStyle = '#f6ead7'; g.beginPath(); g.arc(cx, cy - r * 0.08, r * 0.36, 0, 7); g.fill(); g.fillRect(cx - r * 0.2, cy + r * 0.12, r * 0.4, r * 0.24); g.fillStyle = '#1d0f1a'; g.beginPath(); g.arc(cx - r * 0.14, cy - r * 0.08, r * 0.1, 0, 7); g.arc(cx + r * 0.14, cy - r * 0.08, r * 0.1, 0, 7); g.fill(); }
+  g.restore();
+}
+function balaLienzo(g, cx, cy, s, punta) {   // una bala de pie: casquillo de latón y punta del color de su rareza
+  g.save(); g.translate(cx, cy); g.fillStyle = '#c89a3a'; g.fillRect(-s * 0.22, -s * 0.05, s * 0.44, s * 0.6); g.fillStyle = '#8a6420'; g.fillRect(-s * 0.26, s * 0.5, s * 0.52, s * 0.1);
+  g.fillStyle = punta; g.beginPath(); g.moveTo(-s * 0.22, -s * 0.05); g.quadraticCurveTo(-s * 0.22, -s * 0.5, 0, -s * 0.62); g.quadraticCurveTo(s * 0.22, -s * 0.5, s * 0.22, -s * 0.05); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(-s * 0.14, -s * 0.02, s * 0.07, s * 0.5); g.restore();
+}
+function ruletaDibujo(g, S_, r) {   // el dibujo de cada casilla, centrado en (0, 0)
+  const im = S_.im;
+  if (im === 'din') { const ch = S_.ch || [10]; ch.forEach((v, i) => { const M = MONEDAS.find(m => m[0] === v), claro = v === 1 || v === 5; fichaLienzo(g, (i - (ch.length - 1) / 2) * r * 0.9, (i - (ch.length - 1) / 2) * r * 0.25, r * (ch.length > 1 ? 0.78 : 1), M[2], claro ? '#c8382c' : '#fff4e0'); }); }
+  else if (im === 'miembro') fichaLienzo(g, 0, 0, r, '#d8242c', '#fff4e0', 'J');
+  else if (im === 'calavera') { g.save(); g.shadowColor = '#d678ff'; g.shadowBlur = r * 0.6; fichaLienzo(g, 0, 0, r, '#4a1d44', '#f6ead7', 'cal'); g.restore(); }
+  else if (im === 'bala') balaLienzo(g, 0, 0, r * 1.5, S_.bc);
+  else if (im === 'balas') { for (const dx of [-0.55, 0, 0.55]) balaLienzo(g, dx * r, 0, r * 1.15, '#a8a8b0'); }
+  else if (im === 'vida') { g.save(); g.fillStyle = '#ff4a5a'; g.strokeStyle = '#fff'; g.lineWidth = r * 0.1; g.beginPath(); g.moveTo(0, r * 0.75); g.bezierCurveTo(-r * 1.2, -r * 0.1, -r * 0.6, -r * 0.95, 0, -r * 0.4); g.bezierCurveTo(r * 0.6, -r * 0.95, r * 1.2, -r * 0.1, 0, r * 0.75); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.fillRect(-r * 0.1, -r * 0.35, r * 0.2, r * 0.6); g.fillRect(-r * 0.3, -r * 0.15, r * 0.6, r * 0.2); g.restore(); }
+  else { g.save(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = r * 0.16; g.lineCap = 'round'; g.beginPath(); g.moveTo(-r * 0.5, -r * 0.5); g.lineTo(r * 0.5, r * 0.5); g.moveTo(r * 0.5, -r * 0.5); g.lineTo(-r * 0.5, r * 0.5); g.stroke(); g.restore(); }
+}
 function buildWheel(x, z) {
   const P = Grp(x, z, -Math.PI / 2), q = { p: P };
   const wood = lam(0x5a3a20), gold = lam(0xd8a838, { emissive: 0x3a2a04 });
   M(bx(0.9, 0.5, 0.7), wood, 0, 0.25, 0, { solid: true, p: P }); addBox(x, z, 0.4, 0.5);
   M(bx(0.14, 1.4, 0.14), wood, 0, 1.0, -0.12, q);
-  const n = WHEEL_SEG.length, a = Math.PI * 2 / n, cv = document.createElement('canvas'); cv.width = cv.height = 512; const g = cv.getContext('2d');
-  for (let i = 0; i < n; i++) { g.fillStyle = WHEEL_SEG[i].c; g.beginPath(); g.moveTo(256, 256); g.arc(256, 256, 250, i * a - Math.PI / 2, (i + 1) * a - Math.PI / 2); g.closePath(); g.fill(); g.strokeStyle = '#d8a838'; g.lineWidth = 4; g.stroke();
-    g.save(); g.translate(256, 256); g.rotate((i + 0.5) * a - Math.PI / 2); g.textAlign = 'right'; g.textBaseline = 'middle'; g.font = `700 ${WHEEL_SEG[i].t.length > 12 ? 23 : WHEEL_SEG[i].t.length > 9 ? 26 : 32}px Arial, sans-serif`; g.fillStyle = '#fff'; g.shadowColor = '#000'; g.shadowBlur = 4; g.fillText(WHEEL_SEG[i].t, 236, 0); g.restore(); }
-  g.fillStyle = '#d8a838'; g.beginPath(); g.arc(256, 256, 34, 0, Math.PI * 2); g.fill();
-  const disc = M(new THREE.CircleGeometry(0.85, 48), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }), 0, 1.75, 0.02, q);
-  M(new THREE.TorusGeometry(0.87, 0.05, 8, 40), gold, 0, 1.75, 0.02, q);
-  const ptr = M(new THREE.ConeGeometry(0.1, 0.24, 8), lam(0xe02020, { emissive: 0x400000 }), 0, 2.66, 0.08, q); ptr.rotation.x = Math.PI;
-  lampLight(0, 2.3, 0.9, 0xffc060, 0.6, 4, P);
+  const n = WHEEL_SEG.length, a = Math.PI * 2 / n, cv = document.createElement('canvas'); cv.width = cv.height = 768; const g = cv.getContext('2d'), C = 384, R = 378;
+  for (let i = 0; i < n; i++) { const S_ = WHEEL_SEG[i]; g.fillStyle = S_.c; g.beginPath(); g.moveTo(C, C); g.arc(C, C, R, i * a - Math.PI / 2, (i + 1) * a - Math.PI / 2); g.closePath(); g.fill(); g.strokeStyle = '#d8a838'; g.lineWidth = 6; g.stroke();
+    g.save(); g.translate(C, C); g.rotate((i + 0.5) * a - Math.PI / 2);
+    g.save(); g.translate(R * 0.74, 0); g.rotate(Math.PI / 2); ruletaDibujo(g, S_, 44); g.restore();   // el dibujo, hacia el borde
+    const tx = S_.t.replace(' $', ''); g.textAlign = 'right'; g.textBaseline = 'middle'; g.font = `700 ${tx.length > 13 ? 21 : tx.length > 9 ? 25 : 30}px Arial, sans-serif`; g.fillStyle = '#fff'; g.shadowColor = '#000'; g.shadowBlur = 5;
+    if (S_.im === 'din') g.fillText(tx, R * 0.56, 0); else { const w = tx.split(' '); if (w.length > 1 && tx.length > 9) { g.fillText(w[0], R * 0.56, -14); g.fillText(w.slice(1).join(' '), R * 0.56, 14); } else g.fillText(tx, R * 0.56, 0); }
+    g.restore(); }
+  g.fillStyle = '#d8a838'; g.beginPath(); g.arc(C, C, 52, 0, Math.PI * 2); g.fill(); g.fillStyle = '#5a3a10'; g.beginPath(); g.arc(C, C, 20, 0, Math.PI * 2); g.fill();
+  const disc = M(new THREE.CircleGeometry(0.95, 60), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }), 0, 1.85, 0.02, q);
+  M(new THREE.TorusGeometry(0.97, 0.05, 8, 48), gold, 0, 1.85, 0.02, q);
+  for (let i = 0; i < n; i++) { const an = i * a; M(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe0a0 }), Math.sin(an) * 0.97, 1.85 + Math.cos(an) * 0.97, 0.06, { cast: false, p: P }); }   // bombillas del aro
+  const ptr = M(new THREE.ConeGeometry(0.1, 0.24, 8), lam(0xe02020, { emissive: 0x400000 }), 0, 2.86, 0.08, q); ptr.rotation.x = Math.PI;
+  lampLight(0, 2.4, 0.9, 0xffc060, 0.6, 4, P);
   const o = { kind: 'wheel', x: x - 1.1, z, r: 1.1, busy: false, disc, ang: 0, from: 0, to: 0, t: 0, dur: 0 };
   disc.rotation.z = 0;
   world.anims.push(dt => {
