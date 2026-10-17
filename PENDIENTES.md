@@ -1,24 +1,76 @@
-# Zombie Gambler · Pendientes
+# Zombie Gambler · Plan de trabajo
 
-Lista de lo que falta, para retomar en cualquier sesión. Lo primero de la lista va primero.
+Plan ordenado con el dueño (17-oct-2026). Lo de arriba va primero. Cualquier error que reporte el dueño se arregla antes que todo.
+La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 
-1. **HECHO y publicado: estética general** «Feria del oeste» con logo nuevo, rango de la D a la S, selección de personaje con la foto grande, estrella dorada en la Tienda calavera, niveles del árbol a 1 ficha y canje 1 calavera = 3 de póker.
-2. **HECHO (16-oct-2026): mecánicas nuevas para los jefes**. Los 10 jefes grandes y los 16 minijefes de la lista tienen su ataque con aviso en el suelo (círculos, franjas y abanicos rojos que se llenan antes del golpe). Falta que el dueño los pruebe. Pedido original: que obliguen a moverse y no quedarse quietos disparando. Ejemplos: embestida (el jefe carga en línea recta), bolas de fuego, lanzamiento de proyectiles y saltos que caen en un punto. Todo con **marcas en el suelo antes del golpe** (círculos o líneas que avisan dónde va a caer), para que los jugadores tengan tiempo de reaccionar y esquivar.
-   - Encuesta del dueño (16-oct-2026). **Reciben mecánicas nuevas:**
-     - Jefes grandes (10): Domador y su León, Bombero en Llamas, Coloso Blindado, Jinete sin Cabeza, Gemelos Siameses, Carnicero Mayor, Rey Rata, Abuelo Inmortal, Francotirador Zombi, La Masa.
-     - Minijefes (16): Capitán Náufrago, Comisario, Espantapájaros, Astronauta, Rey Duende, Campeón del Arcade, Comandante Selene, Luchador de Sumo, Pirómano, Fontanero, Payaso Mayor, Guardia de Seguridad, Rey de Atlantis, El Sonriente, Ángel Caído, Fan Número Uno.
-   - **Se quedan como están:** Sepulturero Gigante, Novia Llorona, Granjero Motosierra, Reina Colmena, Payaso de las Cajas, El Proyeccionista, Tiburón de Arena, Doctora Plaga, Araña de Carne, El Espejo, Paciente Cero; minijefes Enterrador, Gerente, Gorila, Hombre Pez y Forzudo.
-3. **Tecla O: cámara sobre el hombro** (tercera persona) que se activa y desactiva con la O.
-4. **Llaves de colores en los demás mapas**: como el Cementerio, cada mapa se agranda unas 4 veces con 3 zonas nuevas donde aparecen las llaves, fichas y cofres. Un mapa a la vez, con boceto de las 3 zonas aprobado antes de construir. **La Granja: HECHA (16-oct-2026)** con maizal-laberinto (y cosechadora), granero grande con silos y molino, pantano con muelle y choza, y huerto. **El Supermercado: HECHO (16-oct-2026)** con estacionamiento, almacén de carga con cámara fría y gasolinera con autolavado. **El Circo: HECHO (16-oct-2026)** con caravanas y tren del circo, jaulas de las fieras con la elefanta Bombón, feria de rarezas con casa de los espejos y calíope. **El Zoológico: HECHO (16-oct-2026)** con reptilario y acuario, sabana con el tren y selva con aviario y templo del tigre. **La Estación de Policía: HECHA (16-oct-2026)** con depósito de vehículos y prensa de coches, cárcel con torre y sirena, academia con campo de tiro y torreta del blindado. **Tokio: HECHO (16-oct-2026)** con templo (túnel de toriis, pagoda, estanque y campana), estación con tren bala y vagón abierto, y mercado de pescado con puestos de comida y callejones. Los mapas sin terminar están guardados fuera del juego (`MAP_EN_OBRA`) hasta tener su versión grande. **El Parque de Atracciones: HECHO (16-oct-2026)** con la zona del terror (mansión con tren fantasma, laberinto y cementerio falso), los rápidos (canal de troncos y montaña) y la avenida de los juegos (casetas, torre de caída y autos de choque). Siguen: el resto, uno a la vez. El sistema de zonas ya es general (`world.zonas`), así que los próximos mapas solo necesitan su construcción.
-5. **Los 10 ayudantes de la tienda con esqueleto de Mixamo** (dedos): el dueño los pasa por Mixamo más adelante.
-6. **Zombi deformado en grupo** (Escupidor tirado en el suelo): falta saber si le habían volado las piernas o si es un error del juego en grupo.
-7. **Entrar con Google**: el dueño tiene que activar Google en el proyecto de Supabase de Brasil.
-8. **Borrar el proyecto viejo seis-balas de Supabase** (pausado), cuando todo lleve unos días funcionando con el de Brasil.
+## Etapa 0 · Errores urgentes (lo primero)
+1. **Android:** algunos textos durante la partida tapan la pantalla.
+2. **Multijugador:** zombis invisibles (un jugador ve un zombi que el otro no ve) y el invitado recibe daño de zombis que no ve.
+3. **Multijugador:** las manos/armas de los compañeros se ven inestables.
+4. **Fichas de miembro:** el contador no suma bien; parece fallar después de usar la caja registradora. Con 3 fichas no deja cambiar por fichas de calavera (a veces sí, luego ya no).
+5. **Lugar de Madame (cargas):** se pueden seguir agarrando cargas aunque ya aparece cerrado y ya se usó.
+6. **Radio:** da 3 ayudantes de cada escuadra; debe dar 1. Cada opción con su imagen.
+7. **Estación de Policía:** hay un cuadro invisible que estorba.
+8. **Lag al activar la habilidad** (se nota con Johnny, pasa con todos).
+9. **Llaves doradas:** salen demasiadas (84 en la oleada 7). Pasan a 2 % de probabilidad.
+10. **Cofres:** en 3 mapas no aparece ninguno; revisar dónde salen.
+11. **Al empezar la partida:** transición suave que no deje el juego congelado.
+12. **Botón «Menú» al morir:** decidir si va al menú principal o a elegir personaje.
 
-- **Sin scroll en toda la interfaz** (pedido del dueño, 16-oct-2026): ninguna pantalla del juego debe necesitar desplazarse, ni en teléfono ni en computadora. La Tienda calavera ya cumple.
-- **Menú principal horizontal** inspirado en el de Balatro, con toque propio, cómodo en teléfono (pedido del dueño, 16-oct-2026): primero bocetos.
+## Etapa 1 · Fichas y Trastienda (reglas nuevas)
+13. **Todo lo que se paga con dinero se muestra con el símbolo de ficha.** Analizar la economía del pago con fichas.
+14. **Fichas de miembro (rojas):** blackjack = 1 ficha por jugador; Herrero = 1 ficha (hoy cobra la ficha y además dinero: debe ser solo la ficha); mesa de fusión = 1 ficha por fusión, sin límite; tragamonedas y ruleta = con tus fichas, sin límite.
+15. **Ruleta:** 2 casillas más y con imágenes (un tipo de ficha por casilla).
+16. **Máquina expendedora en lugar de Apocalipsis Delivery:** con su modelo 3D y animación para los sobres. Vende sobres de balas y 3 tipos de bala sueltas. Se quita la puerta verde y la expendedora va en ese lugar.
+17. **Se quitan las puertas del tarot y del diablo.** En su lugar pueden salir (o no) otras máquinas expendedoras con lo mismo, cada una con su animación 3D.
+18. **Rediseño de la tienda:** cada cosa en un lugar fijo, salga una o varias, sin estorbarse.
+19. **Eventos nuevos:** carreras de caballos 6 % (en equipo e individual) y duelos de dados 5 %.
+20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar).
 
-- **Hecho (16-oct-2026):** menú principal «Cartel de feria» (estilo Balatro con toque propio) y pantalla Jugar con «Nueva partida» / «Continuar partida» (retrato en blanco y negro, oro, llaves, fichas, zombis y objetos); árbol gigante de la Tienda calavera que se arrastra con el dedo; los objetos ya no se venden: salen por 58 logros nuevos (se devolvieron las fichas a quien los había comprado); % del juego completado en Logros; inicio de sesión con Google, Discord o correo, o como invitado; marcas de golpe en pantalla (estilo House of the Dead) y quejidos de dolor por personaje.
-- **Falta del dueño:** activar Discord en Supabase (pasos en el chat) y subir el .zip con las 14 animaciones de Mixamo.
-- **En espera:** voces de la habilidad definitiva con un actor de voz profesional (Johnny «Wooooh», Lilith «mi turno», Sheriff radio, Velorio grito de guerra, Geronimo «vengan con papi / vengan malditos, hora de matar», Françoise whoosh).
-- **Sigue:** sin scroll en todas las pantallas; manos en primera persona por personaje; poses de disparo con las dos manos; animaciones de batalla (con las de Mixamo).
+## Etapa 2 · Interfaz y presentación
+21. **Estilo Mesa del saloon en todas las pantallas** y **sin scroll** (se cortó a medias por el límite de uso; se retoma).
+22. **Logros por clases** con botones y páginas.
+23. **Tarjetas de personaje del inicio** con diseño de carta de póker y el personaje en blanco y negro.
+24. **5 estrellas vacías de progreso** por cuenta: en el menú principal y en la elección de personaje.
+25. **Quitar el botón de Google** (el juego va para Steam).
+26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
+27. **Boceto del nombre alternativo «Zombie's and Gamblers».**
+28. **Encuesta de diseños para las fichas de póker.**
+29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección.
+
+## Etapa 3 · Estructura del juego y final (con diagrama antes de construir)
+30. **Partidas que se alargan:** el final 1 es al mapa 5; luego 7, 9 y 10 mapas por partida.
+31. **BIG NEON CASINO es el mapa final:** una ciudad casino con 5 oleadas y un jefe propio en cada una, cada uno más difícil:
+    1. El Crupier de Hielo y Fuego
+    2. Ludo Cheng (humano, 2 revólveres minigun, ataca por turnos, mucha movilidad)
+    3. El Crupier Mayor
+    4. Escolta Zombi
+    5. Big Big Slot Machine Zombie: muchas habilidades y convoca seguido; saca 2 cartas de blackjack al aire, si disparas la tapada se voltea y suma (blackjack en vivo); si le ganas la mano llora y queda vulnerable 3 s (cada bala hace 5000 + tu daño). Tiene 1 millón de vida.
+    - 1.ª vez en el casino: solo el jefe 1; 2.ª: el 2; 3.ª: el 3; 4.ª: el 4; la última: los 5 seguidos, una oleada tras otra.
+32. **Cada jefe vencido desbloquea 4 mapas nuevos** y el siguiente jefe, hasta tener todos los mapas y ganar el juego venciendo a Big Slot Machine Zombie. Logros: «Gana el juego por primera vez», «Desbloquea 4 mapas nuevos», «Nuevo jefe»…
+33. **Ludo Cheng, personaje nuevo:** sale bloqueado como «???» y se desbloquea al vencerlo en el casino.
+34. **Personajes que se desbloquean** (el dueño dio 2 versiones; por decidir):
+    - Versión 1: Lilith venciendo al jefe 1, Geronimo al jefe 2, Françoise al jefe 3.
+    - Versión 2: Johnny supera el nivel 1, Velorio el nivel 3, Lilith el nivel 4, Geronimo mata 500 zombis, Françoise completa el nivel 5 del Maid Café.
+35. **Diagrama de todo el sistema de progresión** para aclarar dudas antes de construir.
+
+## Etapa 4 · Combate y contenido
+36. **Sonidos de los zombis al recibir balazos.**
+37. **Animación 2D de un dado** para la habilidad de Johnny.
+38. **Animaciones de entrada para los jefes.**
+39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia).
+40. **Zombi raro (1 %) con tragamonedas:** al matarlo gira y se transforma en otro zombi (no jefe) al azar.
+41. **Animaciones de Mixamo, poses a dos manos y mano en primera persona por personaje** (falta el .zip con las 14 animaciones del dueño).
+42. Voces de las habilidades definitivas con un actor de voz (en espera).
+43. Renders 3D de todos los zombis.
+
+## Etapa 5 · Mundo
+44. **Agrandar los mapas guardados** (Calles en Caos, Estación Espacial, Backrooms, La Luna, El Cielo, Isla de los Náufragos, Tierra de los Duendes, Planeta Océano, Planeta Arcade, Backrooms Nivel 2, Atlantis, Maid Café). Uno a la vez.
+45. **Mapas nuevos:** Backrooms 3 (y revisar Backrooms 2).
+46. **Puertas secretas y easter eggs** en distintos lugares.
+47. Ideas extra: empujón, ruido, golpes que empujan, objetos rompibles, balas que atraviesan.
+
+## Del dueño (fuera del código)
+- Activar Discord en Supabase (si se mantienen las cuentas tras quitar Google).
+- Subir el .zip con las 14 animaciones de Mixamo.
+- Borrar el proyecto viejo de Supabase cuando todo lleve unos días bien.
