@@ -29558,7 +29558,26 @@ $('#btn-tuto-skip').addEventListener('pointerdown', e => e.stopPropagation());
 $('#btn-tu-play').addEventListener('click', () => { tutoStop(); startGame(); });
 $('#btn-tu-again').addEventListener('click', () => { tutoStop(); tutoStart(); });
 $('#btn-tu-menu').addEventListener('click', () => toMenu());
+// Al empezar la partida: primero se ve la pantalla negra con el nombre del lugar y después se construye el mapa
+// (antes el menú se quedaba congelado uno o dos segundos mientras se armaba). En grupo se arma enseguida, como antes, y solo se aclara con un fundido.
+let arrancando = false;
+function fundidoAntes(sv) {
+  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[mapForWave(w0, sv && sv.route)] || MAPS[0];
+  $('#fade-s').textContent = sv && sv.wave ? `Oleada ${w0}` : 'Nivel 1'; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc || '';
+  el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = '';
+}
+function fundidoDespues() {
+  if (!el.fade.classList.contains('on')) { el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = ''; }
+  try { renderer.compile(scene, camera); } catch (e) {}
+  setTimeout(() => { if (state !== 'trans') el.fade.classList.remove('on'); }, 120);
+}
 function startGame(sv) {
+  if (Net.on || tuto) { fundidoAntes(sv); startGameNow(sv); fundidoDespues(); return; }
+  if (arrancando) return; arrancando = true;
+  Sfx.init(); Music.init(); fundidoAntes(sv);
+  requestAnimationFrame(() => requestAnimationFrame(() => { arrancando = false; startGameNow(sv); fundidoDespues(); }));   // dos cuadros: el negro ya se pintó
+}
+function startGameNow(sv) {
   Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff });
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
