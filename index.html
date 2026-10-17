@@ -834,6 +834,16 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .shop2 .sc-pic{border-radius:8px;background:radial-gradient(ellipse at 50% 62%,rgba(255,170,70,.22),rgba(0,0,0,0) 68%),linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0))}
 .shop2 .sc-act .buy{border-radius:8px}
 @media (prefers-reduced-motion:reduce){.sh-open{animation:none}.shop2 .sc{transition:none}.shop2 .sc:hover{transform:none}}
+.caja-sec{grid-column:1/-1;margin:10px 0 0;padding-bottom:4px;border-bottom:1px solid rgba(214,165,75,.35);font:700 15px var(--hud);letter-spacing:.1em;text-transform:uppercase;color:#ffd060;text-align:left}
+/* Máquina expendedora de la Trastienda: la tienda va en un panel a la derecha y a la izquierda se ve la máquina (para ver caer lo que compras) */
+#shop.vend{justify-content:flex-end;align-items:stretch;padding:0 env(safe-area-inset-right,0px) 0 0;background:linear-gradient(90deg,rgba(7,9,12,0) 0%,rgba(7,9,12,0) 38%,rgba(7,9,12,.45) 48%,rgba(7,9,12,.7) 100%)}
+#shop.vend .shop2{width:min(600px,56vw);max-height:none;height:100%;border-width:0 0 0 2px;border-color:var(--vend,#6ae08a);outline:none;box-shadow:-12px 0 40px rgba(0,0,0,.65);padding-top:0}
+#shop.vend .sh-head{border-bottom-color:var(--vend,#6ae08a)}
+#shop.vend .sh-open{color:var(--vend,#6ae08a);border-color:var(--vend,#6ae08a);text-shadow:0 0 6px var(--vend,#6ae08a);box-shadow:0 0 8px rgba(0,0,0,.3)}
+#shop.vend #sh-bullets>:not(.sh-grid):not(.row){display:none}
+#shop.vend .sh-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#shop.vend .sc-pic{height:64px}#shop.vend .sobre-res{padding:6px}#shop.vend .sobre-res>b{margin-bottom:4px;font-size:15px}#shop.vend .sc-pic .sobre-pic{transform:scale(.72)}#shop.vend .sh-top .title.sm{font-size:30px;line-height:1.05}#shop.vend .sh-sec{display:block;text-align:left}#shop.vend .sh-sec small{margin-left:8px}
+@media (max-height:520px){#shop.vend .shop2{width:min(560px,58vw);gap:8px}#shop.vend .sh-head{padding-top:8px}#shop.vend .sh-top .title.sm{font-size:20px}#shop.vend .sh-top .purse{font-size:24px}#shop.vend .sc-pic{height:46px}#shop.vend .sc-pic .sobre-pic{transform:scale(.62)}#shop.vend .sc-l{display:none}#shop.vend .sc-tag{font-size:13px}#shop.vend .sc{padding:6px}#shop.vend .sc-n{font-size:15px}#shop.vend .sh-go{padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));margin-top:4px}#shop.vend .sh-sec{margin:4px 0 0}#shop.vend .sobre-res .sb-c{padding:3px 6px;min-width:0}#shop.vend .sobre-res .sb-c small{display:none}#shop.vend .sobre-res .sc-dot{width:18px;height:18px}#shop.vend .sobre-res em{font-size:13px}#shop.vend .sc-tag{display:none}}
 .gun-pic{display:block;width:100%;max-width:320px;aspect-ratio:16/9;object-fit:contain;margin:-4px auto 2px;background:radial-gradient(ellipse at 50% 55%,rgba(120,90,50,.45),rgba(0,0,0,0) 70%);border-radius:8px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (max-width:640px){.grid2{grid-template-columns:1fr}}
@@ -2122,6 +2132,10 @@ const Sfx = (() => {
     fichaJ() { if (smp('chips', { vol: 0.55, rate: rand(0.95, 1.05), wet: 0.15 })) return; this.coin(); },   // la ficha de JUGAR
     atras() { tone({ type: 'triangle', f0: 620, f1: 380, dur: 0.07, vol: 0.06, wet: 0.08 }); },   // volver / cerrar
     ui() { tone({ type: 'triangle', f0: 880, f1: 560, dur: 0.05, vol: 0.07, wet: 0.08 }); tone({ type: 'sine', f0: 2400, dur: 0.02, vol: 0.025, delay: 0.004, wet: 0.05 }); },   // toque de botón: madera suave
+    vendMotor(d = 1) { tone({ type: 'sawtooth', f0: 70, f1: 82, dur: d, vol: 0.07, wet: 0.08, attack: 0.05 }); burst({ ftype: 'lowpass', f0: 420, dur: d, vol: 0.12, wet: 0.08, attack: 0.05 }); for (let i = 0; i < 6; i++) burst({ f0: 2600, q: 6, dur: 0.02, vol: 0.06, delay: i * d / 6, wet: 0.05 }); },   // la espiral de la expendedora girando
+    vendThunk() { tone({ f0: 150, f1: 55, dur: 0.18, vol: 0.45, wet: 0.15 }); burst({ ftype: 'lowpass', f0: 900, f1: 200, dur: 0.12, vol: 0.4, wet: 0.15 }); },   // lo comprado cae a la bandeja
+    capsula() { for (let i = 0; i < 10; i++) burst({ f0: 3000, q: 5, dur: 0.025, vol: 0.14, delay: i * 0.11, wet: 0.08 }); tone({ type: 'triangle', f0: 1200, f1: 900, dur: 0.06, vol: 0.06, delay: 1.12, wet: 0.2 }); },   // manivela de la máquina de cápsulas
+    garra(d = 3) { tone({ type: 'square', f0: 340, f1: 360, dur: d * 0.3, vol: 0.025, wet: 0.1, attack: 0.03 }); tone({ type: 'square', f0: 300, f1: 260, dur: d * 0.2, vol: 0.025, delay: d * 0.32, wet: 0.1 }); tone({ type: 'square', f0: 260, f1: 320, dur: d * 0.2, vol: 0.025, delay: d * 0.6, wet: 0.1 }); },   // motores de la garra
     canje() { this.cash(); [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.35, vol: 0.12, delay: 0.08 + i * 0.07, wet: 0.6 })); [2093, 2637].forEach((f, i) => tone({ f0: f, dur: 0.9, vol: 0.04, delay: 0.38 + i * 0.05, wet: 0.9, attack: 0.004 })); },   // canjear una mejora
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
     combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
@@ -23837,7 +23851,7 @@ const RELICS = {
   cinturon: { ic: 'belt', name: 'Cinturón de balas', desc: 'Recargas un 40 % más rápido.' },
   ojo: { ic: 'eye', name: 'Ojo de vidrio', desc: 'Los tiros a la cabeza hacen +50 % de daño.' },
   iman: { ic: 'compass', name: 'Brújula imantada', desc: 'Los objetos vuelan hacia ti desde 8 metros.' },
-  reloj: { ic: 'watch', name: 'Reloj de bolsillo', desc: 'Todo en Apocalipsis Delivery cuesta un 20 % menos.' },
+  reloj: { ic: 'watch', name: 'Reloj de bolsillo', desc: 'Todo en la tienda y en las máquinas expendedoras cuesta un 20 % menos.' },
   lazo: { ic: 'lasso', name: 'Lazo de vaquero', desc: 'El zombi que te golpea queda aturdido 1 segundo.' },
   vela: { ic: 'candle', name: 'Vela negra', desc: 'Los zombis élite salen el doble y su bolsa de oro vale el triple.' },
   corazon: { ic: 'heart', name: 'Corazón de zombi', desc: 'Te curas 2 de vida por cada zombi que matas.' },
@@ -24426,7 +24440,20 @@ function rollOffers() {
   }
   game.offers = out.map(id => ({ id, bought: false }));
 }
-function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null;
+// La máquina expendedora: la tienda se abre como un panel a la derecha y la máquina se ve a la izquierda, para ver caer lo que compras
+function openVend(o) {
+  game.vendO = o; game.shopVend = o.v; game.lastDoor = { x: o.x, z: o.z + 0.3, vend: true };
+  if (!game.offers || !game.offers.length) rollOffers();
+  // la cámara mira de frente a la máquina y gira a la derecha lo justo para que la máquina quede en el centro del espacio libre a la izquierda del panel
+  { const panel = Math.min(innerHeight <= 520 ? 560 : 600, innerWidth * (innerHeight <= 520 ? 0.58 : 0.56)), libre = 1 - panel / innerWidth, xn = libre - 1, th = Math.tan(camera.fov * Math.PI / 360) * camera.aspect;
+    player.pos.set(o.mx, 0, o.mz + 2.8); player.vx = player.vz = 0; player.yaw = -Math.atan(-xn * th); player.pitch = 0.02; }
+  state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null; input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  $('#shop').classList.add('vend'); $('#shop').style.setProperty('--vend', VEND[o.v].css);
+  try { renderShop(); } catch (e) { noteErr(e, 'expendedora'); }
+  show('shop'); Sfx.open(); setTimeout(() => $('#btn-shop-go').focus(), 50);
+}
+function openShop() { state = 'shop'; game.shopTab = 'bullets'; renderShop.g = null; game.sobre = null; game.shopVend = null; $('#shop').classList.remove('vend');
   // si algo falla al dibujar la tienda, igual se abre (con lo que se pudo dibujar) y queda anotado el error
   try { rollOffers(); game.allyOffers = shuffled(ALLY_POOL.filter(allyOk)).slice(0, 3); game.reroll = 5; renderShop(); } catch (e) { noteErr(e, 'tienda'); }
   show('shop'); setTimeout(() => $('#btn-shop-go').focus(), 50); }
@@ -24571,6 +24598,9 @@ function renderShop() {
   }
   renderShop.g = game.gold;
   $('#btn-shop-go').textContent = 'Volver a la trastienda';
+  const VD = game.shopVend && VEND[game.shopVend], vende = pr => { if (VD && game.vendO && game.vendO.vender) game.vendO.vender(pr); };   // en la máquina expendedora, lo comprado cae a la bandeja
+  $('#shop .sh-top .title').textContent = VD ? VD.name : 'Apocalipsis Delivery';
+  $('#shop .sh-sub').innerHTML = VD ? `<i class="sh-open">Máquina expendedora</i> ${VD.sub}` : '<i class="sh-open">Abierto</i> Envíos al fin del mundo, incluso hoy';
   const cost = (p, txt) => game.gold >= p ? `${txt ? txt + ' · ' : ''}${p} $` : `Faltan ${p - game.gold} $`;
   // ---- Armas ----
   const guns = $('#shop-guns'); guns.innerHTML = '';
@@ -24587,8 +24617,8 @@ function renderShop() {
   // ---- Balas ----
   const normals = game.box.filter(b => b === 'normal').length;
   const bl = $('#shop-bullets'); bl.innerHTML = '';
-  { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas normales<small>Se suman a tu caja</small>'; bl.appendChild(h); }
-  for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {
+  if (!VD) { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas normales<small>Se suman a tu caja</small>'; bl.appendChild(h); }
+  if (!VD) for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {   // en la Trastienda, las balas normales se venden en la caja registradora
     const price = shopP(pr), c = shopCard('ammo' + n, { pic: `<span class="sc-emo">${ico('bullets')}</span>`, name: `${n} balas normales`, line: 'Se suman a tu caja', tag: `Tienes ${game.box.length}` });
     shopBtn(c.act, 'buy-ammo-' + n, 'buy', cost(price), game.gold < price, () => { if (game.gold < price) return; game.gold -= price; for (let k = 0; k < n; k++) game.box.push('normal'); Sfx.cash(); Sfx.insert(); renderShop(); });
     bl.appendChild(c.d);
@@ -24600,7 +24630,7 @@ function renderShop() {
     bl.appendChild(res); }
   for (const S_ of SOBRES) {
     const c = shopCard('sobre:' + S_.k, { pic: `<span class="sobre-pic" style="--c:${S_.col}">${ico('bullets')}<s>${S_.name.replace('Sobre ', '')}</s></span>`, name: S_.name, line: S_.d, tag: `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % de que cada una salga mojada` });
-    const sp = sobrePrecio(S_); shopBtn(c.act, 'sobre-' + S_.k, 'buy', cost(sp), game.gold < sp, () => { if (game.gold < sp) return; game.gold -= sp; abrirSobre(S_); renderShop(); });
+    const sp = sobrePrecio(S_); shopBtn(c.act, 'sobre-' + S_.k, 'buy', cost(sp), game.gold < sp, () => { if (game.gold < sp) return; game.gold -= sp; abrirSobre(S_); vende({ t: 'sobre', k: S_.k, col: S_.col }); renderShop(); });
     bl.appendChild(c.d);
   }
   { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas especiales sueltas<small>Ofertas de esta visita · se quedan en tu colección</small>'; bl.appendChild(h); }
@@ -24609,7 +24639,7 @@ function renderShop() {
     const c = shopCard('b:' + i, { pic: `<i class="sc-dot" style="background:${B.col};box-shadow:0 0 18px ${B.col}"></i>`, name: B.name, line: B.desc, tag: `<span class="rar-${B.rar}">${R0.name}</span> · tienes ${tengo}`, cls: 'r' + B.rar });
     shopBtn(c.act, 'buyb-' + i, 'buy', cost(price), game.gold < price, () => {
       if (game.gold < price) return;
-      colAdd(o.id); game.gold -= price; Sfx.cash(); Sfx.insert(); feed(`${B.name} va a tu colección (es tuya toda la partida)`, 'gold'); renderShop();
+      colAdd(o.id); game.gold -= price; Sfx.cash(); Sfx.insert(); feed(`${B.name} va a tu colección (es tuya toda la partida)`, 'gold'); vende({ t: 'bala', i, k: o.id, col: B.col }); renderShop();
     });
     bl.appendChild(c.d);
   });
@@ -25809,7 +25839,7 @@ const NEW_ITEMS = [
   ['tarjeta', 0, 'scroll', 'Tarjeta de cliente', 'Cambiar las ofertas (la campanita y la tienda) cuesta la mitad.', { rerollX: 0.5 }],
   ['cupon_herrero', 1, 'hammer', 'Cupón del herrero', 'El herrero tiene un 30 % de hacerte el trabajo sin cobrarte la ficha.', { forgeX: 0.7 }],
   ['silbato', 1, 'heli', 'Silbato', 'La radio de rescate sale el doble de seguido en la Trastienda.', { radioX: 2 }],
-  ['llave_dueno', 2, 'key', 'Llave del dueño', 'Las 3 puertas del fondo de la Trastienda siempre están abiertas.', { puertas: 1 }],
+  ['llave_dueno', 2, 'key', 'Llave del dueño', 'Las 3 máquinas expendedoras de la Trastienda siempre están.', { puertas: 1 }],
   ['talisman', 0, 'star', 'Talismán', 'Tu habilidad se carga un 25 % más rápido.', { habX: 1.25 }],
   ['reloj_bolsillo', 1, 'watch', 'Reloj de bolsillo', 'Las habilidades que duran un tiempo duran un 40 % más.', { habDurX: 1.4 }],
   ['eco', 1, 'revolver', 'Eco del disparo', 'Al usar tu habilidad se recarga tu tambor gratis.', { habRecarga: 1 }],
@@ -26097,24 +26127,24 @@ function rvFin(opt, azar) {
   Sfx.bell(); hint(azar ? `¡Empate! La suerte eligió: ${MAPS[opt.map].name}` : `El grupo eligió: ${MAPS[opt.map].name}`, 2600);
 }
 const ROOM_IDX = 17;
-const ROOM_DOORS = {
-  cards: { name: 'Madame Zafira', sub: 'Cartas del destino', col: 0x9a4aff, css: '#b07aff', ic: 'cards' },
-  devil: { name: 'El Diablo', sub: 'Objetos a cambio de vida', col: 0xff2a1a, css: '#ff6a5a', ic: 'devil' },
-  shop: { name: 'Apocalipsis Delivery', sub: 'Balas', col: 0x3ad06a, css: '#6ae08a', ic: 'cart' }
-};
+// En grupo, lo que sale en la Trastienda es igual para todos: el azar sale de la sala y de la oleada (como la mesa de blackjack)
+function azarSala(txt) { let h = 2166136261; for (const ch of txt) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function prepRoom() {
   const ex = []; game.roomItems = [];
   const nIt = 1 + Math.floor(Math.random() * 3), slots = shuffled([0, 1, 2]).slice(0, nIt);
   for (let i = 0; i < 3; i++) { const id = slots.includes(i) ? randItem(2, ex) : null; if (id) ex.push(id); game.roomItems.push(id ? { id, sold: false } : { id: null, empty: true }); }
-  const d = Object.keys(ROOM_DOORS).filter(k => Math.random() < (k === 'shop' ? 0.7 : 0.5));
-  game.roomDoors = S('puertas') ? Object.keys(ROOM_DOORS) : d; game.roomUsed = {}; game.rerollP = 5;   // Llave del dueño: las tres puertas abiertas
+  const rr = Net.on ? azarSala(String(Net.room || '') + ':sala:' + game.wave) : Math.random;
+  game.roomUsed = {}; game.rerollP = 5;
+  // ya no hay puertas del tarot, del diablo ni de Apocalipsis Delivery: la expendedora principal está siempre y las otras dos salen a veces (la Llave del dueño las trae siempre)
+  game.roomVendCap = S('puertas') > 0 || rr() < VEND.capsulas.p; game.roomVendGarra = S('puertas') > 0 || rr() < VEND.garra.p;
+  rollOffers(); game.reroll = 5; game.sobre = null;   // las 3 balas sueltas de las máquinas: las mismas toda la visita (se ven dentro de las máquinas)
   const cas = unl('t:maquinas') ? 2 : 1;
-  game.lastDoor = null; game.roomSlot = Math.random() < 0.15 * cas + arbP('slot'); game.roomWheel = Math.random() < 0.10 * cas + arbP('ruleta'); game.roomRadio = Math.random() < arbP('radio') + 0.06 * (unl('t:radio') ? 2 : 1) * (ST.radioX || 1);
-  game.roomForge = unl('t:herrero') && Math.random() < 0.45;
-  game.roomRamen = Math.random() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
-  game.roomTaller = Math.random() < 0.25 + arbP('taller');   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
-  game.roomTiro = Math.random() < 0.05;
-  game.roomFuse = Math.random() < 0.30; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
+  game.lastDoor = null; game.roomSlot = rr() < 0.15 * cas + arbP('slot'); game.roomWheel = rr() < 0.10 * cas + arbP('ruleta'); game.roomRadio = rr() < arbP('radio') + 0.06 * (unl('t:radio') ? 2 : 1) * (ST.radioX || 1);
+  game.roomForge = unl('t:herrero') && rr() < 0.45;
+  game.roomRamen = rr() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
+  game.roomTaller = rr() < 0.25 + arbP('taller');   // el taller es el único lugar con mejoras para tu revólver: sale 1 de cada 4 visitas
+  game.roomTiro = rr() < 0.05;
+  game.roomFuse = rr() < 0.30; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
   game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
   game.roomRoute = null;
 }
@@ -26124,7 +26154,7 @@ function enterRoom() {
   if (document.pointerLockElement && state !== 'play') document.exitPointerLock();
   show(null); travel(ROOM_IDX, game.wave, () => {
     state = 'play'; game.phase = 'room'; renderChips(); requestLock(); canvas.focus();
-    hint(game.roomRoute ? 'La Trastienda · compra lo que quieras y, a tus espaldas, elige la puerta de color de tu camino' : 'La Trastienda · compra objetos, prueba las puertas del fondo y sal por la puerta de atrás', 4200);
+    hint(game.roomRoute ? 'La Trastienda · compra lo que quieras y, a tus espaldas, elige la puerta de color de tu camino' : 'La Trastienda · compra objetos y balas en las máquinas expendedoras del fondo y sal por la puerta de atrás', 4200);
   });
 }
 // ---- Tragamonedas y ruleta de la Trastienda: se juegan con 1 ficha de miembro y dan poco (es para divertirse) ----
@@ -26328,7 +26358,7 @@ function shopRoomDecor(HX, HZ, H) {
     M(bx(1, 0.9, 1), crateM, x, 0.45, z, { solid: true }); M(bx(0.8, 0.7, 0.8), crateM, x + 0.1 * sx, 1.25, z - 0.05, { ry: 0.3 }); addBox(x, z, 0.55, 0.55);
   }
   // macetas y apliques de luz en las paredes laterales
-  for (const [x, z] of [[-HX + 0.5, -2.2], [HX - 0.5, -2.2], [-HX + 0.5, 4.1], [HX - 0.5, 4.1]]) { M(cyl(0.22, 0.17, 0.4, 10), lam(0x8a4a2a), x, 0.2, z, {}); for (let i = 0; i < 6; i++) M(new THREE.ConeGeometry(0.09, 0.6, 5), lam(0x2a6a2a, { emissive: 0x041004 }), x + rand(-0.12, 0.12), 0.65, z + rand(-0.12, 0.12), { rx: rand(-0.4, 0.4), rz: rand(-0.4, 0.4), cast: false }); addCircle(x, z, 0.25); }
+  for (const [x, z] of [[-HX + 0.5, -0.8], [HX - 0.5, -2.2], [-HX + 0.5, 4.1], [HX - 0.5, 4.1]]) { M(cyl(0.22, 0.17, 0.4, 10), lam(0x8a4a2a), x, 0.2, z, {}); for (let i = 0; i < 6; i++) M(new THREE.ConeGeometry(0.09, 0.6, 5), lam(0x2a6a2a, { emissive: 0x041004 }), x + rand(-0.12, 0.12), 0.65, z + rand(-0.12, 0.12), { rx: rand(-0.4, 0.4), rz: rand(-0.4, 0.4), cast: false }); addCircle(x, z, 0.25); }
   for (const s_ of [-1, 1]) for (const z of [-3.8, 3.8]) { M(bx(0.12, 0.3, 0.2), lam(0xc8a040, { emissive: 0x2a1c04 }), s_ * (HX - 0.06), 2.55, z, { cast: false }); M(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd890 }), s_ * (HX - 0.2), 2.75, z, { cast: false }); }
   // letrero de neón sobre el mostrador
   const neon = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.55), new THREE.MeshBasicMaterial({ map: canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.shadowColor = '#ff4060'; g.shadowBlur = 18; g.strokeStyle = '#ff7088'; g.lineWidth = 5; g.font = 'italic bold 66px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.strokeText('Abierto 24 h', w / 2, h / 2); g.fillStyle = '#ffd0d8'; g.fillText('Abierto 24 h', w / 2, h / 2); }), transparent: true, depthWrite: false }));
@@ -26614,7 +26644,7 @@ function openCaja() {
   const draw = () => {
     box.innerHTML = ''; const f = META.fichas | 0;
     const P = game.poker | 0;
-    $('#items-say').textContent = `«Cada ficha de calavera vale 3 de miembro, y 3 de miembro te dan una de calavera para la tienda de afuera.» Tienes ${f} de calavera y ${P} de miembro.`;
+    $('#items-say').textContent = `«Cada ficha de calavera vale 3 de miembro, y 3 de miembro te dan una de calavera para la tienda de afuera. También vendo balas normales y te compro tus balas especiales.» Tienes ${f} de calavera, ${P} de miembro y ${game.gold} $.`;
     const opc = [[1, 'Cambiar 1 calavera', 1], [f, `Cambiar todas (${f})`, 1], [3, 'Cambiar 3 de miembro', -1], [P - P % 3, `Cambiar todas las de miembro (${P - P % 3})`, -1]];
     opc.forEach(([n, txt, dir], i) => {
       if ((i === 1 && n <= 1) || (i === 3 && n <= 3)) return;   // «Cambiar todas» solo si son más de las del botón de 1 (antes, con 1 de calavera o 3-5 de miembro desaparecían los dos botones)
@@ -26633,6 +26663,23 @@ function openCaja() {
       });
       box.appendChild(b);
     });
+    // el mostrador también vende balas normales y te compra las especiales (antes estaba en Apocalipsis Delivery)
+    const sec = t => { const h = document.createElement('p'); h.className = 'caja-sec'; h.textContent = t; box.appendChild(h); };
+    sec(`Balas normales · tienes ${game.box.filter(b => b === 'normal').length} en tu caja`);
+    for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {
+      const price = shopP(pr), b = document.createElement('button'); b.className = 'perk item r0'; b.disabled = game.gold < price;
+      b.innerHTML = `<span class="relic-ic">${ico('bullets')}</span><em>Se suman a tu caja</em><b>${n} balas normales</b><span class="tl-p">${game.gold >= price ? `Comprar · ${price} $` : `Faltan ${price - game.gold} $`}</span>`;
+      b.addEventListener('click', () => { if (state !== 'items' || game.gold < price) return; game.gold -= price; for (let k = 0; k < n; k++) game.box.push('normal'); Sfx.cash(); Sfx.insert(); feed(`+${n} balas normales`, 'gold'); draw(); });
+      box.appendChild(b);
+    }
+    colGuardar(); const cnt = Object.assign({}, game.col || {}); game.box.forEach(k => { if (k === 'mala') cnt[k] = (cnt[k] || 0) + 1; });
+    if (Object.keys(cnt).length) sec('Vender balas de tu colección');
+    for (const k of Object.keys(cnt)) {
+      const B = BULLETS[k]; if (!B) continue; const refund = k === 'mala' ? 1 : Math.max(1, Math.floor((COL_PRECIO[B.rar] || 20) / 2)), b = document.createElement('button'); b.className = 'perk item r0';
+      b.innerHTML = `<span class="relic-ic"><i class="dot" style="display:inline-block;width:26px;height:26px;border-radius:50%;background:${B.col};box-shadow:0 0 10px ${B.col}"></i></span><em>Tienes ${cnt[k]}</em><b>${B.name}</b><span class="tl-p">${k === 'mala' ? 'Quitar' : 'Vender'} · +${refund} $</span>`;
+      b.addEventListener('click', () => { if (state !== 'items') return; if (k === 'mala') { const i = game.box.indexOf(k); if (i < 0) return; game.box[i] = 'normal'; } else { if (!(game.col[k] > 0)) return; if (!--game.col[k]) delete game.col[k]; } game.gold += refund; Sfx.coin(); draw(); });
+      box.appendChild(b);
+    }
   };
   draw();
   $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
@@ -26955,6 +27002,235 @@ function playWheel(o) {
     else feed('Ruleta: nada esta vez', 'blue');
   }, 3300);
 }
+/* ===================== MÁQUINAS EXPENDEDORAS DE LA TRASTIENDA (pedido del dueño, 17-oct-2026) =====================
+   Reemplazan a Apocalipsis Delivery y a su puerta verde: venden los 3 sobres de balas y 3 balas especiales sueltas (las ofertas de la visita).
+   La principal (de espirales) está siempre, donde estaba la puerta verde. Donde estaban las puertas del tarot y del diablo pueden salir (o no)
+   otras dos con lo mismo, cada una con su aspecto y su animación: la de cápsulas y la de la garra. Lo que compras cae a la bandeja. */
+const VEND = {
+  espiral: { name: 'Expendedora Apocalipsis', sub: 'Sobres y balas sueltas', cuerpo: 0x0e3a30, borde: 0x2a9a6a, luz: 0x7affc0, css: '#6ae08a', letrero: 'APOCALIPSIS' },
+  capsulas: { name: 'Cápsulas del Fin del Mundo', sub: 'Sobres y balas en cápsula', cuerpo: 0x7a1450, borde: 0xe85aa8, luz: 0xff8ad8, css: '#ff8ad8', letrero: 'CÁPSULAS', p: 0.5 },
+  garra: { name: 'La Garra', sub: 'La garra te alcanza sobres y balas', cuerpo: 0x16245a, borde: 0x4a7ae0, luz: 0x8ac0ff, css: '#8ac0ff', letrero: 'LA GARRA', p: 0.5 }
+};
+// lo que vende cada máquina: los 3 sobres y las 3 balas sueltas de la visita
+const vendProd = () => SOBRES.map(S_ => ({ t: 'sobre', k: S_.k, col: S_.col })).concat(((game && game.offers) || []).map((o, i) => ({ t: 'bala', i, k: o.id, col: BULLETS[o.id] ? BULLETS[o.id].col : '#cccccc' })));
+const vendIgual = (a, b) => a && b && a.t === b.t && (a.t === 'sobre' ? a.k === b.k : a.i === b.i);
+// la figura de cada producto: un sobre de su color o una bala de pie con la punta del color de la bala
+function vendFigura(pr, s = 1) {
+  const g = new THREE.Group(), o = { p: g, cast: false };
+  if (pr.t === 'sobre') {
+    const c = hexCol(pr.col); M(bx(0.17 * s, 0.24 * s, 0.035 * s), lam(c, { emissive: c, emissiveIntensity: 0.3 }), 0, 0, 0, o);
+    M(bx(0.172 * s, 0.045 * s, 0.037 * s), lam(0xf4ead8, { emissive: 0x2a2418 }), 0, 0.075 * s, 0, o); M(bx(0.07 * s, 0.07 * s, 0.038 * s), bsc(0xfff4d0), 0, -0.035 * s, 0, o);
+  } else if (pr.t === 'caja') { M(bx(0.16 * s, 0.11 * s, 0.1 * s), lam(0x6a6a5a, { emissive: 0x101008 }), 0, 0, 0, o); M(bx(0.162 * s, 0.03 * s, 0.102 * s), lam(0xc8a040), 0, 0.02 * s, 0, o); }
+  else { const c = hexCol(pr.col); M(cyl(0.034 * s, 0.034 * s, 0.11 * s, 10), lam(0xc89a3a, { emissive: 0x2a1c04 }), 0, -0.03 * s, 0, o); const pu = M(new THREE.SphereGeometry(0.035 * s, 10, 8), lam(c, { emissive: c, emissiveIntensity: 0.7 }), 0, 0.035 * s, 0, o); pu.scale.y = 1.6; }
+  return g;
+}
+// letrero luminoso de cada máquina
+function vendLetrero(V, w, h) {
+  return new THREE.MeshBasicMaterial({ map: canvasTex(512, Math.round(512 * h / w), (g, W, H) => {
+    g.fillStyle = '#08060a'; g.fillRect(0, 0, W, H); g.strokeStyle = V.css; g.lineWidth = 6; g.strokeRect(6, 6, W - 12, H - 12);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = V.css; g.shadowBlur = 22; g.fillStyle = '#fff6e8'; g.font = `900 ${Math.round(H * 0.5)}px Georgia, serif`;
+    g.fillText(V.letrero, W / 2, H * 0.5, W - 40); g.shadowBlur = 0;
+  }) });
+}
+// la ranura de las fichas: marco dorado, ranura negra y una ficha de dinero dibujada encima
+function vendRanura(P, x, y, z) {
+  M(bx(0.14, 0.1, 0.03), lam(0xd8a838, { emissive: 0x2a1c04 }), x, y, z, { p: P, cast: false }); M(bx(0.09, 0.016, 0.034), bsc(0x050505), x, y, z, { p: P, cast: false });
+  M(new THREE.PlaneGeometry(0.09, 0.09), new THREE.MeshBasicMaterial({ map: canvasTex(64, 64, g => fichaDinLienzo(g, 32, 32, 28)), transparent: true }), x, y + 0.11, z + 0.018, { p: P, cast: false });
+}
+// la hélice de alambre de cada estante (a lo largo del eje z)
+let vendHelixG = null;
+function vendHelix() {
+  if (vendHelixG) return vendHelixG;
+  const pts = []; for (let i = 0; i <= 64; i++) { const a = i / 64 * TAU * 3; pts.push(new THREE.Vector3(Math.cos(a) * 0.075, Math.sin(a) * 0.075, 0.27 - i / 64 * 0.56)); }
+  return (vendHelixG = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, 0.007, 5, false));
+}
+// cola de animaciones de cada máquina: una compra tras otra (si compras rápido, van más rápido)
+function vendCola(o) {
+  o.cola = []; world.anims.push(dt => { if (!o.cola.length) return; if (o.cola[0](dt * (o.cola.length > 1 ? 1.8 : 1))) o.cola.shift(); });
+}
+// lo comprado espera en la bandeja brillando un momento y desaparece
+function vendEnBandeja(f, t, t0 = 1.6) {
+  if (t < t0) { const k = 1 + Math.sin(t * 9) * 0.06; f.scale.setScalar(k); return false; }
+  const k = Math.max(0, 1 - (t - t0) / 0.35); f.scale.setScalar(k); return k <= 0;
+}
+
+/* --- La principal: vitrina con estantes de espirales, panel iluminado, ranura de fichas y bandeja abajo --- */
+function buildVendEspiral(x, z) {
+  const V = VEND.espiral, W = 1.36, H = 2.1, D = 0.86, fz = D / 2, P = Grp(x, z, 0), q = { p: P };
+  const cuerpo = lam(V.cuerpo), borde = lam(V.borde, { emissive: V.borde, emissiveIntensity: 0.3 }), negro = lam(0x0c0e10), metal = lam(0xc8ccd4, { emissive: 0x24262a });
+  M(bx(W, H, 0.05), cuerpo, 0, H / 2, -fz + 0.025, q);
+  for (const s of [-1, 1]) { M(bx(0.06, H, D), cuerpo, s * (W / 2 - 0.03), H / 2, 0, q); M(bx(0.02, H - 0.2, 0.04), borde, s * (W / 2 - 0.005), H / 2 + 0.05, fz - 0.03, q); }
+  M(bx(W + 0.06, 0.08, D + 0.06), borde, 0, H + 0.04, 0, q); M(bx(W, 0.18, D), negro, 0, 0.09, 0, q);
+  addBox(x, z, W / 2 + 0.04, fz + 0.04);
+  // letrero de la marca encima
+  M(bx(W - 0.04, 0.34, 0.12), negro, 0, H + 0.26, 0.1, q); M(new THREE.PlaneGeometry(W - 0.08, 0.3), vendLetrero(V, W - 0.08, 0.3), 0, H + 0.26, 0.161, { p: P, cast: false });
+  // frente: vitrina a la izquierda, panel a la derecha y la bandeja abajo
+  const VX0 = -W / 2 + 0.06, VX1 = W / 2 - 0.44, VY0 = 0.74, VY1 = 2.0, vw = VX1 - VX0, vcx = (VX0 + VX1) / 2;
+  M(bx(0.44, H - 0.18, 0.06), cuerpo, W / 2 - 0.22, 0.18 + (H - 0.18) / 2, fz - 0.03, q);
+  M(bx(vw, H - VY1, 0.06), cuerpo, vcx, VY1 + (H - VY1) / 2, fz - 0.03, q);
+  M(bx(vw, VY0 - 0.5, 0.06), cuerpo, vcx, 0.5 + (VY0 - 0.5) / 2, fz - 0.03, q);
+  M(bx(vw, 0.1, 0.06), borde, vcx, 0.23, fz - 0.03, q);
+  for (const [w, h, xx, yy] of [[vw + 0.03, 0.03, vcx, VY0], [vw + 0.03, 0.03, vcx, VY1], [0.03, VY1 - VY0, VX0, (VY0 + VY1) / 2], [0.03, VY1 - VY0, VX1, (VY0 + VY1) / 2]]) M(bx(w, h, 0.07), metal, xx, yy, fz - 0.01, q);
+  M(bx(vw, VY1 - VY0, 0.02), lam(0x1a3036, { emissive: 0x06100e }), vcx, (VY0 + VY1) / 2, -fz + 0.07, q);
+  M(bx(vw - 0.04, 0.025, 0.03), bsc(0xeaffff), vcx, VY1 - 0.035, fz - 0.1, { p: P, cast: false });
+  // la bandeja: hueco oscuro con fondo inclinado
+  M(bx(vw - 0.04, 0.02, 0.34), negro, vcx, 0.29, fz - 0.19, q); M(bx(vw - 0.04, 0.24, 0.02), negro, vcx, 0.4, fz - 0.36, q); M(bx(vw - 0.04, 0.02, 0.3), negro, vcx, 0.5, fz - 0.17, q);
+  // panel de la derecha: pantallita, teclado, ranura de fichas y devolución
+  const PX = W / 2 - 0.22;
+  M(new THREE.PlaneGeometry(0.32, 0.16), new THREE.MeshBasicMaterial({ map: canvasTex(128, 64, (g, w, h) => { g.fillStyle = '#031a0e'; g.fillRect(0, 0, w, h); g.fillStyle = '#7affc0'; g.shadowColor = '#7affc0'; g.shadowBlur = 8; g.font = 'bold 24px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ELIGE', w / 2, h / 2); }) }), PX, 1.74, fz + 0.002, { p: P, cast: false });
+  const teclas = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) teclas.push(M(bx(0.07, 0.05, 0.02), bsc(0xd8e8e0), PX - 0.09 + c * 0.09, 1.52 - r * 0.075, fz + 0.005, { p: P, cast: false }));
+  vendRanura(P, PX, 1.05, fz + 0.005);
+  M(bx(0.16, 0.1, 0.03), negro, PX, 0.62, fz + 0.005, q); M(bx(0.1, 0.012, 0.035), metal, PX, 0.66, fz + 0.007, q);
+  // vidrio con brillo
+  M(new THREE.PlaneGeometry(vw, VY1 - VY0), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.08, depthWrite: false }), vcx, (VY0 + VY1) / 2, fz + 0.004, { p: P, cast: false });
+  M(new THREE.PlaneGeometry(0.08, VY1 - VY0), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false }), vcx - vw * 0.25, (VY0 + VY1) / 2, fz + 0.006, { p: P, cast: false, rz: 0.08 });
+  // estantes con espirales: arriba los 3 sobres, en medio las 3 balas sueltas, abajo cajas de balas (adorno)
+  const cols = [0, 1, 2].map(i => VX0 + vw * (i + 0.5) / 3), filas = [1.62, 1.22, 0.83], slots = [], prods = vendProd();
+  filas.forEach((y, fi) => {
+    M(bx(vw, 0.02, D - 0.2), lam(0x506068, { emissive: 0x0a1012 }), vcx, y - 0.01, -0.02, q);
+    cols.forEach((cx, ci) => {
+      const coil = new THREE.Mesh(vendHelix(), metal); coil.position.set(cx, y + 0.075, -0.02); P.add(coil);
+      const pr = fi === 2 ? { t: 'caja' } : prods[fi * 3 + ci] || { t: 'caja' }, items = [];
+      for (let k = 0; k < 3; k++) { const f = vendFigura(pr); f.position.set(cx, y + (pr.t === 'sobre' ? 0.13 : 0.075), 0.19 - k * 0.19); P.add(f); items.push(f); }
+      slots.push({ coil, items, pr, x: cx, y });
+    });
+  });
+  lampLight(vcx, 1.5, fz + 0.6, V.luz, 0.55, 3.4, P);
+  const o = { kind: 'vend', v: 'espiral', x, z: z + fz + 0.8, r: 1.0, mx: x, mz: z + fz, P, slots };
+  vendCola(o);
+  o.surtir = () => { const pr = vendProd(); slots.forEach((s, i) => { if (i >= 6 || !pr[i] || vendIgual(s.pr, pr[i])) return; s.pr = pr[i]; s.items.forEach((f, k) => { const n = vendFigura(pr[i]); n.position.copy(f.position); n.position.y = s.y + (pr[i].t === 'sobre' ? 0.13 : 0.075); P.remove(f); P.add(n); s.items[k] = n; }); }); };
+  o.vender = pr => {
+    const s = slots.find(s => vendIgual(s.pr, pr)); if (!s) return;
+    const tecla = teclas[(Math.random() * teclas.length) | 0];
+    let t = 0, fase = 0, vy = 0, cae = null; const z0 = s.items.map(f => f.position.z);
+    o.cola.push(dt => {
+      t += dt;
+      if (fase === 0) { fase = 1; Sfx.vendMotor(1.0); tecla.material.color.setHex(0x7affc0); cae = vendFigura(s.pr); cae.position.copy(s.items[0].position); P.add(cae); s.items[0].visible = false; }
+      if (fase === 1) {   // la espiral gira una vuelta y empuja todo hacia adelante
+        const k = Math.min(1, t / 1.0); s.coil.rotation.z = -k * TAU; s.items.forEach((f, i) => { if (i) f.position.z = z0[i] + k * 0.19; }); cae.position.z = z0[0] + k * 0.15;
+        if (k >= 1) { fase = 2; t = 0; s.coil.rotation.z = 0; s.items.forEach((f, i) => { f.position.z = z0[i]; f.visible = true; }); tecla.material.color.setHex(0xd8e8e0); }
+      } else if (fase === 2) {   // cae a la bandeja dando vueltas
+        vy -= 9.8 * dt; cae.position.y += vy * dt; cae.position.z = Math.min(fz - 0.16, cae.position.z + dt * 0.35); cae.rotation.x -= dt * 7;
+        const piso = 0.33; if (cae.position.y <= piso) { cae.position.y = piso; if (vy < -1.4) { vy = -vy * 0.28; Sfx.vendThunk(); } else { fase = 3; t = 0; cae.rotation.set(-Math.PI / 2, 0, s.pr.t === 'bala' ? Math.PI / 2 : 0.2); if (s.pr.t === 'bala') cae.rotation.set(0, 0, Math.PI / 2); } }
+      } else if (fase === 3 && vendEnBandeja(cae, t)) { P.remove(cae); return true; }
+      return false;
+    });
+  };
+  return o;
+}
+
+/* --- Máquina de cápsulas: cúpula de vidrio llena de cápsulas, manivela y una cápsula que rueda a la bandeja y se abre --- */
+function buildVendCapsulas(x, z) {
+  const V = VEND.capsulas, P = Grp(x, z, 0), q = { p: P }, D = 0.8, fz = D / 2;
+  const cuerpo = lam(V.cuerpo), borde = lam(V.borde, { emissive: V.borde, emissiveIntensity: 0.3 }), metal = lam(0xd0d4dc, { emissive: 0x24262a }), negro = lam(0x0c0a0c);
+  M(bx(1.0, 1.05, D), cuerpo, 0, 0.525, 0, q); M(bx(1.04, 0.06, D + 0.04), borde, 0, 1.06, 0, q); M(bx(1.04, 0.08, D + 0.04), negro, 0, 0.04, 0, q);
+  for (const s of [-1, 1]) M(bx(0.04, 0.9, 0.04), borde, s * 0.5, 0.55, fz, q);
+  addBox(x, z, 0.54, fz + 0.04);
+  M(cyl(0.3, 0.36, 0.12, 20), metal, 0, 1.15, 0, q);
+  // la cúpula con las cápsulas
+  const CY = 1.66, CR = 0.5;
+  M(new THREE.SphereGeometry(CR, 28, 18), new THREE.MeshBasicMaterial({ color: 0xffe0f4, transparent: true, opacity: 0.16, depthWrite: false }), 0, CY, 0, { p: P, cast: false });
+  M(cyl(0.14, 0.2, 0.12, 16), borde, 0, CY + CR + 0.02, 0, q); M(new THREE.SphereGeometry(0.06, 10, 8), bsc(0xffd0f0), 0, CY + CR + 0.12, 0, q);
+  const paleta = [0xff4a6a, 0xffd040, 0x4ad0ff, 0x7aff7a, 0xc070ff, 0xff8a30], medG = new THREE.SphereGeometry(0.075, 12, 8, 0, TAU, 0, Math.PI / 2), caps = [];
+  const blancoM = lam(0xf4f0ea);
+  for (let i = 0; i < 26; i++) {
+    let p; do { p = new THREE.Vector3(rand(-0.4, 0.4), rand(-0.42, 0.08), rand(-0.4, 0.4)); } while (p.length() > 0.4);
+    const g = new THREE.Group(); g.position.set(p.x, CY + p.y, p.z); g.rotation.set(rand(0, TAU), rand(0, TAU), rand(0, TAU));
+    const c = paleta[i % paleta.length]; g.add(new THREE.Mesh(medG, lam(c, { emissive: c, emissiveIntensity: 0.25 }))); const b = new THREE.Mesh(medG, blancoM); b.rotation.x = Math.PI; g.add(b);
+    P.add(g); caps.push({ g, y0: g.position.y, x0: g.position.x });
+  }
+  // frente: letrero, ranura, manivela y la bandeja
+  M(new THREE.PlaneGeometry(0.86, 0.2), vendLetrero(V, 0.86, 0.2), 0, 0.92, fz + 0.002, { p: P, cast: false });
+  vendRanura(P, 0.28, 0.66, fz + 0.005);
+  const man = new THREE.Group(); man.position.set(-0.12, 0.62, fz + 0.03); P.add(man);
+  M(cyl(0.14, 0.14, 0.05, 20), metal, 0, 0, 0, { p: man, rx: Math.PI / 2 }); M(bx(0.26, 0.05, 0.05), metal, 0, 0, 0.04, { p: man }); M(cyl(0.03, 0.03, 0.1, 8), lam(0xe02060), 0.11, 0, 0.09, { p: man, rx: Math.PI / 2 });
+  M(bx(0.26, 0.2, 0.03), negro, 0, 0.32, fz + 0.002, q);   // la boca de salida
+  M(bx(0.4, 0.03, 0.26), metal, 0, 0.17, fz + 0.12, q); for (const s of [-1, 1]) M(bx(0.03, 0.08, 0.26), metal, s * 0.2, 0.2, fz + 0.12, q); M(bx(0.4, 0.08, 0.03), metal, 0, 0.2, fz + 0.25, q);
+  lampLight(0, 1.4, fz + 0.6, V.luz, 0.55, 3.2, P);
+  const o = { kind: 'vend', v: 'capsulas', x, z: z + fz + 0.8, r: 1.0, mx: x, mz: z + fz, P };
+  vendCola(o); o.surtir = () => {};
+  o.vender = pr => {
+    let t = 0, fase = 0, cap = null, tapa = null, fig = null;
+    o.cola.push(dt => {
+      t += dt;
+      if (fase === 0) { fase = 1; Sfx.capsula(); }
+      if (fase === 1) {   // dos vueltas de manivela; las cápsulas se sacuden
+        const k = Math.min(1, t / 1.1); man.rotation.z = -k * TAU * 2; caps.forEach((c, i) => { c.g.position.y = c.y0 + Math.abs(Math.sin(t * 14 + i)) * 0.03 * (1 - k); c.g.position.x = c.x0 + Math.sin(t * 11 + i * 2) * 0.015 * (1 - k); });
+        if (k >= 1) {
+          fase = 2; t = 0; man.rotation.z = 0; const c = hexCol(pr.col);
+          cap = new THREE.Group(); const arr = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10, 0, TAU, 0, Math.PI / 2), lam(c, { emissive: c, emissiveIntensity: 0.3 })), ab = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10, 0, TAU, 0, Math.PI / 2), blancoM);
+          ab.rotation.x = Math.PI; tapa = new THREE.Group(); tapa.add(arr); cap.add(tapa, ab); cap.position.set(0, 0.3, fz - 0.02); P.add(cap); Sfx.vendThunk();
+        }
+      } else if (fase === 2) {   // rueda a la bandeja
+        const k = Math.min(1, t / 0.55); cap.position.z = fz - 0.02 + k * 0.16; cap.position.y = 0.3 - Math.sin(k * Math.PI / 2) * 0.01; cap.rotation.x = k * 5;
+        if (k >= 1) { fase = 3; t = 0; cap.rotation.x = 0; }
+      } else if (fase === 3) {   // se abre y sale lo que compraste
+        const k = Math.min(1, t / 0.4); tapa.position.y = k * 0.1; tapa.rotation.z = k * 1.2; tapa.position.x = k * 0.08;
+        if (k >= 1 && !fig) { fig = vendFigura(pr, 0.9); fig.position.set(0, 0.36, fz + 0.14); P.add(fig); Sfx.pickup(); }
+        if (fig) { fig.position.y = 0.36 + Math.min(0.12, (t - 0.4) * 0.4); fig.rotation.y += dt * 3; }
+        if (t > 0.4 && vendEnBandeja(fig, t - 0.4, 1.5)) { P.remove(cap); P.remove(fig); return true; }
+      }
+      return false;
+    });
+  };
+  return o;
+}
+
+/* --- Máquina de la garra: vitrina con premios, una garra que baja, agarra y lo suelta por el hueco --- */
+function buildVendGarra(x, z) {
+  const V = VEND.garra, W = 1.25, D = 1.05, fz = D / 2, P = Grp(x, z, 0), q = { p: P };
+  const cuerpo = lam(V.cuerpo), borde = lam(V.borde, { emissive: V.borde, emissiveIntensity: 0.3 }), metal = lam(0xd0d4dc, { emissive: 0x24262a }), negro = lam(0x0a0a10);
+  M(bx(W, 0.95, D), cuerpo, 0, 0.475, 0, q); M(bx(W + 0.04, 0.05, D + 0.04), borde, 0, 0.96, 0, q); addBox(x, z, W / 2 + 0.04, fz + 0.04);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) M(bx(0.05, 1.15, 0.05), metal, sx * (W / 2 - 0.025), 1.55, sz * (fz - 0.025), q);
+  M(bx(W + 0.04, 0.3, D + 0.04), cuerpo, 0, 2.27, 0, q); M(bx(W + 0.06, 0.04, D + 0.06), borde, 0, 2.12, 0, q);
+  M(new THREE.PlaneGeometry(W - 0.06, 0.26), vendLetrero(V, W - 0.06, 0.26), 0, 2.27, fz + 0.023, { p: P, cast: false });
+  M(bx(W - 0.06, 1.15, 0.02), lam(0x10183a, { emissive: 0x060a20 }), 0, 1.55, -fz + 0.04, q);   // fondo oscuro
+  const vid = new THREE.MeshBasicMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.1, depthWrite: false });
+  M(new THREE.PlaneGeometry(W - 0.06, 1.15), vid, 0, 1.55, fz - 0.01, { p: P, cast: false });
+  for (const s of [-1, 1]) M(new THREE.PlaneGeometry(D - 0.06, 1.15), vid, s * (W / 2 - 0.01), 1.55, 0, { p: P, cast: false, ry: s * Math.PI / 2 });
+  // montón de premios y el hueco de salida (adelante a la derecha)
+  const HX_ = W / 2 - 0.22, HZ_ = fz - 0.22, prods = vendProd();
+  for (let i = 0; i < 16; i++) { const f = vendFigura(prods[i % prods.length] || { t: 'caja' }, 1.15); let px, pz; do { px = rand(-W / 2 + 0.12, W / 2 - 0.12); pz = rand(-fz + 0.12, fz - 0.12); } while (Math.hypot(px - HX_, pz - HZ_) < 0.3); f.position.set(px, 1.04 + rand(0, 0.06), pz); f.rotation.set(rand(-1.2, 1.2), rand(0, TAU), rand(-0.5, 0.5)); P.add(f); }
+  for (const [w, d, xx, zz] of [[0.32, 0.02, HX_, HZ_ - 0.16], [0.32, 0.02, HX_, HZ_ + 0.16], [0.02, 0.32, HX_ - 0.16, HZ_], [0.02, 0.32, HX_ + 0.16, HZ_]]) M(bx(w, 0.22, d), new THREE.MeshBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0.3, depthWrite: false }), xx, 1.08, zz, { p: P, cast: false });
+  M(bx(0.3, 0.01, 0.3), negro, HX_, 0.98, HZ_, q);
+  // riel, carro y garra
+  for (const s of [-1, 1]) M(bx(W - 0.1, 0.03, 0.03), metal, 0, 2.08, s * (fz - 0.08), q);
+  const puente = new THREE.Group(); puente.position.set(HX_, 2.06, 0); P.add(puente); M(bx(0.05, 0.04, D - 0.12), metal, 0, 0, 0, { p: puente });
+  const carro = new THREE.Group(); carro.position.set(0, -0.03, HZ_); puente.add(carro); M(bx(0.1, 0.06, 0.1), borde, 0, 0, 0, { p: carro });
+  const cable = M(cyl(0.006, 0.006, 1, 5), lam(0x202020), 0, -0.5, 0, { p: carro, cast: false }), cabeza = new THREE.Group(); carro.add(cabeza);
+  M(cyl(0.045, 0.06, 0.08, 10), metal, 0, 0, 0, { p: cabeza }); const dedos = [];
+  for (let i = 0; i < 3; i++) { const piv = new THREE.Group(); piv.rotation.y = i * TAU / 3; cabeza.add(piv); const d = new THREE.Group(); d.position.set(0.04, -0.03, 0); piv.add(d); M(bx(0.014, 0.13, 0.02), metal, 0.02, -0.06, 0, { p: d }); dedos.push(d); }
+  const largo = L => { cable.scale.y = L; cable.position.y = -L / 2; cabeza.position.y = -L - 0.04; };
+  const abrir = a => dedos.forEach(d => d.rotation.z = a);   // 0 = cerrada, 0.6 = abierta
+  largo(0.12); abrir(0.35);
+  // tablero: palanca, botón, ranura de fichas y la puerta del premio
+  const palanca = new THREE.Group(); palanca.position.set(-0.3, 0.98, fz - 0.14); P.add(palanca); M(cyl(0.012, 0.012, 0.16, 6), metal, 0, 0.08, 0, { p: palanca }); M(new THREE.SphereGeometry(0.04, 10, 8), lam(0xe02020, { emissive: 0x400000 }), 0, 0.17, 0, { p: palanca });
+  const boton = M(cyl(0.05, 0.05, 0.03, 14), lam(0xffd040, { emissive: 0x3a2a00 }), -0.1, 0.99, fz - 0.14, q);
+  vendRanura(P, -0.3, 0.68, fz + 0.005);
+  M(bx(0.3, 0.24, 0.02), negro, HX_, 0.36, fz + 0.002, q); M(bx(0.32, 0.03, 0.12), metal, HX_, 0.23, fz + 0.06, q);
+  lampLight(0, 1.9, fz + 0.5, V.luz, 0.6, 3.2, P);
+  const o = { kind: 'vend', v: 'garra', x, z: z + fz + 0.8, r: 1.0, mx: x, mz: z + fz, P };
+  vendCola(o); o.surtir = () => {};
+  o.vender = pr => {
+    let t = 0, fase = 0, fig = null, vy = 0; const ox = rand(-0.4, 0.15), oz = rand(-0.3, 0.15), mov = (a, b, k) => a + (b - a) * (k * k * (3 - 2 * k));
+    o.cola.push(dt => {
+      t += dt;
+      if (fase === 0) { fase = 1; t = 0; Sfx.garra(3.2); boton.position.y = 0.975; }
+      if (fase === 1) { const k = Math.min(1, t / 0.9); puente.position.x = mov(HX_, ox, k); carro.position.z = mov(HZ_, oz, k); palanca.rotation.z = Math.sin(t * 9) * 0.3; if (k >= 1) { fase = 2; t = 0; palanca.rotation.z = 0; boton.position.y = 0.99; } }
+      else if (fase === 2) { const k = Math.min(1, t / 0.7); largo(mov(0.12, 0.92, k)); abrir(0.35 + k * 0.3); if (k >= 1) { fase = 3; t = 0; fig = vendFigura(pr, 1.15); fig.position.set(0, -0.14, 0); cabeza.add(fig); } }
+      else if (fase === 3) { const k = Math.min(1, t / 0.3); abrir(0.65 - k * 0.6); if (k >= 1) { fase = 4; t = 0; } }
+      else if (fase === 4) { const k = Math.min(1, t / 0.6); largo(mov(0.92, 0.12, k)); if (k >= 1) { fase = 5; t = 0; } }
+      else if (fase === 5) { const k = Math.min(1, t / 0.9); puente.position.x = mov(ox, HX_, k); carro.position.z = mov(oz, HZ_, k); if (k >= 1) { fase = 6; t = 0; abrir(0.6); const w = new THREE.Vector3(); fig.getWorldPosition(w); cabeza.remove(fig); P.worldToLocal(w); fig.position.copy(w); P.add(fig); } }
+      else if (fase === 6) {   // cae por el hueco y sale por la puerta del premio
+        vy -= 9.8 * dt; fig.position.y += vy * dt; fig.rotation.x += dt * 5;
+        if (fig.position.y < 0.34) { fase = 7; t = 0; Sfx.vendThunk(); fig.position.set(HX_, 0.3, fz + 0.06); fig.rotation.set(0, 0, 0); abrir(0.35); }
+      } else if (fase === 7 && vendEnBandeja(fig, t, 1.6)) { P.remove(fig); return true; }
+      return false;
+    });
+  };
+  return o;
+}
+const VEND_BUILD = { espiral: buildVendEspiral, capsulas: buildVendCapsulas, garra: buildVendGarra };
 function buildShopRoom() {
   const HX = 9, HZ = 8;
   world.arena = { t: 'r', hx: HX - 0.5, hz: HZ - 0.5 }; world.start = { x: 0, z: 4.6 }; world.indoor = true;
@@ -26965,19 +27241,22 @@ function buildShopRoom() {
   for (const s of [-1, 1]) M(bx(0.5, H, HZ * 2 + 1), wall, s * (HX + 0.25), H / 2, 0, { solid: true });
   M(new THREE.PlaneGeometry(HX * 2 + 1, HZ * 2 + 1), lam(0x2a1a10, { side: THREE.DoubleSide }), 0, H, 0, { rx: Math.PI / 2, cast: false });
   for (let x = -HX; x <= HX; x += 3) M(bx(0.25, 0.25, HZ * 2 + 1), trim, x, H - 0.15, 0, { cast: false });
-  /* Distribución fija de la Trastienda (cada cosa en su sitio):
-     fondo: las 3 puertas · fondo izquierda: herrero y campanita · fondo derecha: la caja con la gata y la tragamonedas
-     centro: los 3 objetos sobre la alfombra · pared izquierda: taller y radio · pared derecha: tiro al blanco y ruleta
-     frente: estantes a los lados de la salida · frente izquierda: mesa de fusión · frente derecha: blackjack */
+  /* Distribución fija de la Trastienda (pedido del dueño, 17-oct-2026): cada cosa tiene SU lugar reservado, salga sola o con todas las demás,
+     así nunca se tapan entre sí ni tapan las puertas o los pasillos. Mirando al fondo desde la entrada:
+     pared del fondo: máquina de cápsulas (x −5) · máquina de la garra (x 0) · expendedora principal (x 5, siempre)
+     esquina del fondo izquierda: el Herrero · pared izquierda: ramen (atrás), taller (en medio) y radio (adelante)
+     esquina del fondo derecha: tragamonedas · la caja con la gata (delante de la expendedora) · pared derecha: tiro al blanco (en medio) y ruleta (adelante)
+     centro: los 3 objetos sobre la alfombra y la campanita a su izquierda · frente: mesa de fusión (izquierda) y blackjack (derecha)
+     pared de la salida: la puerta (o las 3 puertas del camino en x −3,4 · 0 · 3,4) y los estantes en los costados, entre las puertas y las cajas de las esquinas */
   M(new THREE.PlaneGeometry(9, 5.4), lam(0x7a1a1a), 0, 0.01, -0.6, { rx: -Math.PI / 2, cast: false });
   M(new THREE.PlaneGeometry(8.4, 4.8), lam(0xb08a3a), 0, 0.012, -0.6, { rx: -Math.PI / 2, cast: false }); M(new THREE.PlaneGeometry(8, 4.4), lam(0x6a1414), 0, 0.014, -0.6, { rx: -Math.PI / 2, cast: false });
   // zócalo oscuro alrededor de las paredes
   for (const [x, z, w, d] of [[0, -HZ + 0.03, HX * 2, 0.06], [0, HZ - 0.03, HX * 2, 0.06], [-HX + 0.03, 0, 0.06, HZ * 2], [HX - 0.03, 0, 0.06, HZ * 2]]) M(bx(w, 1.1, d), trim, x, 0.55, z, { cast: false });
   // estantes con frascos y cajas de balas en la pared de la salida
   for (const s of [-1, 1]) {
-    const sx = s * 4.7, sz = HZ - 0.32;
-    M(bx(3.2, 2.5, 0.5), dark, sx, 1.25, sz, { solid: true }); addBox(sx, sz, 1.65, 0.3);
-    for (let lv = 0; lv < 3; lv++) { M(bx(3.1, 0.06, 0.46), lam(0x5a3a20), sx, 0.5 + lv * 0.75, sz - 0.04, { cast: false }); for (let i = 0; i < 7; i++) { const x = sx - 1.3 + i * 0.43 + rand(-0.05, 0.05); if ((i + lv) % 3 === 0) M(bx(0.32, 0.22, 0.22), lam(pick([0x8a5a30, 0x6a4020, 0xa07a40]), { emissive: 0x0a0602 }), x, 0.65 + lv * 0.75, sz - 0.1, { cast: false }); else M(cyl(0.1, 0.1, 0.28, 8), lam(pick([0x4a8a3a, 0x8a3a2a, 0x3a5a8a, 0xc8a040, 0x8a5aa0]), { emissive: 0x1a1008 }), x, 0.67 + lv * 0.75, sz - 0.1, { cast: false }); } }
+    const sx = s * 6.35, sz = HZ - 0.32;   // estantes angostos entre las puertas del camino y las cajas de las esquinas
+    M(bx(2.2, 2.5, 0.5), dark, sx, 1.25, sz, { solid: true }); addBox(sx, sz, 1.15, 0.3);
+    for (let lv = 0; lv < 3; lv++) { M(bx(2.1, 0.06, 0.46), lam(0x5a3a20), sx, 0.5 + lv * 0.75, sz - 0.04, { cast: false }); for (let i = 0; i < 5; i++) { const x = sx - 0.86 + i * 0.43 + rand(-0.05, 0.05); if ((i + lv) % 3 === 0) M(bx(0.32, 0.22, 0.22), lam(pick([0x8a5a30, 0x6a4020, 0xa07a40]), { emissive: 0x0a0602 }), x, 0.65 + lv * 0.75, sz - 0.1, { cast: false }); else M(cyl(0.1, 0.1, 0.28, 8), lam(pick([0x4a8a3a, 0x8a3a2a, 0x3a5a8a, 0xc8a040, 0x8a5aa0]), { emissive: 0x1a1008 }), x, 0.67 + lv * 0.75, sz - 0.1, { cast: false }); } }
   }
   // la caja: mostrador de madera con tapa, caja registradora dorada y su cartel
   M(bx(2.6, 1.05, 1), lam(0x4a2a16), 6, 0.52, -3.2, { solid: true }); addBox(6, -3.2, 1.35, 0.55);
@@ -27002,34 +27281,30 @@ function buildShopRoom() {
     if (it.sold) sp.visible = glow.visible = lab.visible = false;
     R.objs.push({ kind: 'item', x, z: z + 1.3, r: 1.2, it, sp, glow, lab });
   });
-  // Campanita para cambiar las ofertas
-  M(cyl(0.3, 0.3, 0.9, 10), dark, -6, 0.45, -3.2, { solid: true }); addCircle(-6, -3.2, 0.35);
-  M(new THREE.SphereGeometry(0.2, 12, 8, 0, TAU, 0, Math.PI / 2), lam(0xd8b040), -6, 0.9, -3.2, {});
-  R.objs.push({ kind: 'reroll', x: -6, z: -2.4, r: 1.1 });
-  // Juegos de azar (a veces): tragamonedas y ruleta, solo para entretener
-  if (game && game.roomRadio) R.objs.push(buildRadio(-HX + 0.6, 6.2, !!(game.roomUsed || {}).radio));
+  // Campanita para cambiar las ofertas: a la izquierda de los objetos
+  M(cyl(0.3, 0.3, 0.9, 10), dark, -5.6, 0.45, -1.5, { solid: true }); addCircle(-5.6, -1.5, 0.35);
+  M(new THREE.SphereGeometry(0.2, 12, 8, 0, TAU, 0, Math.PI / 2), lam(0xd8b040), -5.6, 0.9, -1.5, {});
+  R.objs.push({ kind: 'reroll', x: -5.6, z: -0.75, r: 1.0 });
+  // Cada evento en su lugar reservado (ver la distribución de arriba): nunca cambia de sitio según qué otros salgan
   if (game && game.roomForge) R.objs.push(buildForge(-HX + 0.9, -5.8, !!(game.roomUsed || {}).forge));
-  // cada evento tiene su lugar fijo: fusión al frente a la izquierda, blackjack al frente a la derecha
-  if (game && game.roomFuse) R.objs.push(buildFusion(-4.6, 5.0, false));
-  if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
-  if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
+  if (game && game.roomRamen) R.objs.push(buildRamen(-HX + 1.0, -3.0, true));
   if (game && game.roomTaller) R.objs.push(buildTaller(-HX + 2.15, 1.5, true));
-  // puesto de ramen: en el hueco entre las macetas de la pared que esté libre (izquierda si no está el taller; si no, derecha)
-  if (game && game.roomRamen) { const izq = !game.roomTaller, libre = izq || !game.roomTiro; if (libre) R.objs.push(buildRamen(izq ? -HX + 1.0 : HX - 1.0, 1.0, izq)); }
-  // van en la pared de la derecha al entrar, mirando al centro
-  { const spots = [[HX - 0.55, -5.8], [HX - 0.55, 6.2]]; if (game && game.roomSlot) R.objs.push(buildSlot(...spots.shift())); if (game && game.roomWheel) { const w = buildWheel(...spots.shift()); w.used = !!(game.roomUsed || {}).wheel; R.objs.push(w); } }
-  // Puertas del fondo: aparecen al azar (todas, algunas o ninguna)
-  const doorAt = roomDoor;
-  const used = game ? game.roomUsed || {} : {};
-  ['cards', 'devil', 'shop'].forEach((k, i) => {
-    const x = (i - 1) * 5, D = ROOM_DOORS[k], on = game && game.roomDoors && game.roomDoors.includes(k);
-    doorAt(x, -HZ + 0.05, 0, D.col, D.css, on ? D.name : 'Cerrada', on ? (k === 'shop' ? D.sub : `${D.sub} · 1 ficha`) : 'Hoy no abre', on && !used[k]);
-    if (on) R.objs.push({ kind: 'door', door: k, x, z: -HZ + 0.9, r: 0.9, auto: true, used: !!used[k] });   // la que ya se usó queda cerrada de verdad (antes se redibujaba cerrada pero se podía volver a entrar)
-  });
+  if (game && game.roomRadio) R.objs.push(buildRadio(-HX + 0.6, 6.2, !!(game.roomUsed || {}).radio));
+  if (game && game.roomSlot) R.objs.push(buildSlot(HX - 0.55, -5.8));
+  if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
+  if (game && game.roomWheel) R.objs.push(buildWheel(HX - 0.55, 6.2));
+  if (game && game.roomFuse) R.objs.push(buildFusion(-5.2, 4.6, false));
+  if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
+  // Máquinas expendedoras en la pared del fondo: la principal siempre (donde estaba la puerta verde); las otras dos, a veces (donde estaban el tarot y el diablo)
+  if (game) for (const [k, vx, on] of [['capsulas', -5, game.roomVendCap], ['garra', 0, game.roomVendGarra], ['espiral', 5, true]]) {
+    if (!on) continue;
+    const o = VEND_BUILD[k](vx, -HZ + (k === 'garra' ? 0.555 : k === 'capsulas' ? 0.43 : 0.46)); R.objs.push(o);
+  }
   // Salida: una puerta, o las tres puertas de color del camino al terminar un lugar
+  const doorAt = roomDoor;
   if (game && game.roomRoute) {
     game.roomRoute.forEach((o, i) => {
-      const x = (i - 1) * 5, C = ROUTE_MODS[o.k], tz = zoneOf(game.wave) + 2 + (o.skip ? 1 : 0);
+      const x = (i - 1) * 3.4, C = ROUTE_MODS[o.k], tz = zoneOf(game.wave) + 2 + (o.skip ? 1 : 0);
       doorAt(x, HZ - 0.05, Math.PI, hexCol(C.col), C.col, MAPS[o.map].name.replace(/^(El|La|Las|Los) /, ''), o.skip ? `Atajo · lugar ${tz}` : C.name, true);
       R.objs.push({ kind: 'route', opt: o, x, z: HZ - 0.9, r: 0.9, auto: true });
     });
@@ -27048,12 +27323,13 @@ function useLabel(o) {
     return { key: 'rv' + o.opt.k + v, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' ' + v, b: null }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
+  if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.', b: 'Comprar', ok: true }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
   if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
   if (o.kind === 'fusion') { const n = Object.keys(game.col || {}).filter(k => fusable(k) && game.col[k] > 0).length, f = game.poker | 0, gratis = S('fuseN') && game.fuseFreeW !== game.wave; return { key: 'fu' + n + '_' + f + gratis, t: 'Mesa de fusión', r: '', d: `Junta 2 balas especiales distintas de tu colección: sale 1 bala con los dos efectos. Cada fusión cuesta 1 ficha de miembro, sin límite (tienes ${f}).`, b: n < 2 ? 'Necesitas 2 especiales distintas' : f > 0 || gratis ? 'Fusionar balas · 1 ficha' : 'Sin fichas de miembro', ok: n >= 2 && (f > 0 || gratis) }; }
   if (o.kind === 'forge') { const f = game.poker | 0, n = forjaTotal(), lleno = n >= FORJA_MAX, ok = !lleno && f > 0; return { key: 'fg' + f + '_' + n, t: 'El Herrero', r: '', d: lleno ? 'Tus armas ya no aguantan más trabajo en esta partida.' : `Te ofrece 3 trabajos y eliges uno. Cada trabajo cuesta 1 ficha de miembro (tienes ${f}). Una vez por visita. Llevas ${n} de ${FORJA_MAX}.`, b: lleno ? 'Al máximo' : ok ? 'Ver trabajos · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y un objeto raro si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
-  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `1 ficha de calavera = 3 de miembro, y 3 de miembro = 1 de calavera (para la tienda de afuera). Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: f || (game.poker | 0) >= 3 ? 'Cambiar fichas' : 'Sin fichas para cambiar', ok: f > 0 || (game.poker | 0) >= 3 }; }
+  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
   if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide un refuerzo: 2 para elegir, solo durante la próxima oleada. Cuesta 1 ficha de miembro (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
@@ -27110,7 +27386,6 @@ function useObj(o) {
   } else if (o.kind === 'tiro') {
     tiroStart(o);
   } else if (o.kind === 'caja') {
-    if (!(META.fichas > 0) && (game.poker | 0) < 3) { hint('Necesitas 1 ficha de calavera o 3 de miembro para cambiar', 1800); Sfx.err(); return; }
     useCur = null; showUse(null); openCaja();
   } else if (o.kind === 'ramen') {
     useCur = null; showUse(null); openRamen(o);
@@ -27123,16 +27398,8 @@ function useObj(o) {
     if (!pagaFicha()) return;
     useCur = null; showUse(null);
     if (o.kind === 'slot') playSlot(o); else playWheel(o);
-  } else if (o.kind === 'door') {
-    if (o.used || (o.door !== 'shop' && game.roomUsed && game.roomUsed[o.door])) { o.used = true; return; }   // Madame Zafira y El Diablo: una sola vez por visita
-    if (o.door !== 'shop') {   // Madame Zafira y El Diablo cobran 1 ficha de miembro por entrar (la tienda de balas es gratis)
-      if (!((game.poker | 0) > 0)) { o.wait = true; hint(`${ROOM_DOORS[o.door].name} cobra 1 ficha de miembro por entrar y no tienes`, 2200); Sfx.err(); return; }
-      game.poker--; Sfx.coin(); feed(`Pagaste 1 ficha de miembro · te quedan ${game.poker}`, 'gold'); renderChips();
-    }
-    game.roomUsed[o.door] = (o.door !== 'shop'); if (o.door !== 'shop') o.used = true;
-    game.lastDoor = { x: o.x, z: o.z + 1.8 }; Sfx.door(true);
-    input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
-    if (o.door === 'cards') openCards(); else if (o.door === 'devil') openItemPick('devil'); else openShop();
+  } else if (o.kind === 'vend') {
+    useCur = null; showUse(null); openVend(o);
   } else if (o.kind === 'exit') {
     o.used = true; leaveTogether();
   } else if (o.kind === 'route') {
@@ -27141,9 +27408,11 @@ function useObj(o) {
 }
 function backToRoom() {
   show(null); state = 'play'; game.phase = 'room';
+  const vend = game.lastDoor && game.lastDoor.vend; $('#shop').classList.remove('vend'); game.shopVend = null;
   if (game.lastDoor) { player.pos.set(game.lastDoor.x, 0, game.lastDoor.z); player.vx = player.vz = 0; player.yaw = 0; }
-  // las puertas usadas quedan cerradas: se vuelve a dibujar la habitación tal cual
-  if (world.idx === ROOM_IDX) { const p = player.pos.clone(); buildMap(ROOM_IDX); player.pos.copy(p); for (const o of world.room.objs) if (o.auto) o.wait = true; }
+  // las puertas usadas quedan cerradas: se vuelve a dibujar la habitación tal cual (las máquinas expendedoras no cambian: no hace falta)
+  if (vend && world.room) { for (const o of world.room.objs) { if (o.surtir) o.surtir(); if (o.auto) o.wait = true; } }
+  else if (world.idx === ROOM_IDX) { const p = player.pos.clone(); buildMap(ROOM_IDX); player.pos.copy(p); for (const o of world.room.objs) if (o.auto) o.wait = true; }
   releaseInput();
   renderChips(); requestLock(); canvas.focus();
 }
@@ -28713,7 +28982,7 @@ const ACH = [
   { id: 'k_cowboy', ic: 'hat', name: 'Duelo al mediodía', d: 'Mata 200 zombis con el Cowboy revolver', n: 200, v: () => META.st.k_cowboy | 0 },
   { id: 'cofres20', ic: 'chest', name: 'Buscatesoros', d: 'Abre 20 cofres', n: 20, v: () => META.st.cofres | 0 },
   { id: 'quieto100', ic: 'mask', name: 'Firme como una roca', d: 'Mata 100 zombis sin moverte del sitio', n: 100, v: () => META.st.kQuieto | 0 },
-  { id: 'ayud5', ic: 'badge', name: 'Patrón', d: 'Contrata 5 ayudantes en Apocalipsis Delivery', n: 5, v: () => META.st.ayud | 0 },
+  { id: 'ayud5', ic: 'badge', name: 'Patrón', d: 'Contrata 5 ayudantes', n: 5, v: () => META.st.ayud | 0 },
   { id: 'bolsa1000', ic: 'coins', name: 'Bolsillos de plomo', d: 'Ten 1000 $ en el bolsillo a la vez', n: 1000, run: () => game.gold | 0 },
   { id: 'duro10', ic: 'watch', name: 'Sin miedo', d: 'Llega a la oleada 10 en Difícil o Apocalipsis', n: 10, run: () => game.diff && game.diff !== 'normal' ? game.wave | 0 : 0 },
   { id: 'primera100', ic: 'bullet', name: 'Recién cargado', d: 'Mata 100 zombis con la primera bala después de recargar', n: 100, v: () => META.st.kPrim | 0 },
@@ -28867,7 +29136,7 @@ const UNLOCKS = [
 }
 const unl = k => !!META.un[k];
 const isOpen = k => { const u = UNLOCKS.find(x => x.k === k); return !u || !!META.un[k]; };
-const SKULLS = ['Los jefes tienen +25 % de vida', 'Los zombis élite tienen un 25 % más de vida', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'Apocalipsis Delivery es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
+const SKULLS = ['Los jefes tienen +25 % de vida', 'Los zombis élite tienen un 25 % más de vida', 'Los zombis élite salen el doble', 'Empiezas con 25 de vida menos', 'Los zombis son un 10 % más rápidos', 'La tienda es un 15 % más cara', 'Las oleadas traen un 20 % más de zombis', 'Ya no te curas al terminar cada oleada'];
 const sk = n => game && (game.skull | 0) >= n;
 // Dificultad de la partida: Normal, Difícil y Apocalipsis (sin mira en la pantalla)
 const DIFF = {
@@ -29622,7 +29891,7 @@ const TU_STEPS = [
     keys: () => IS_TOUCH ? 'Inventario: toca BALAS EN LA CAJA' : 'Inventario: Tab o I',
     step() { const ok = tuto.inv && state === 'play'; return { p: ok ? 'Inventario visto' : tuto.inv ? 'Vuelve al juego' : (IS_TOUCH ? 'Toca BALAS EN LA CAJA' : 'Pulsa Tab'), done: ok }; } },
   { n: 8, t: 'La Trastienda', info: 6,
-    txt: () => 'Al terminar cada oleada pasas a la Trastienda: gasta tu oro en Apocalipsis Delivery (balas, armas y ayudantes) y vuelve a la pelea.',
+    txt: () => 'Al terminar cada oleada pasas a la Trastienda: gasta tu oro en las máquinas expendedoras (sobres y balas sueltas), en los objetos y en los juegos, y vuelve a la pelea.',
     keys: () => '' }
 ];
 { let k = 0; for (const st of TU_STEPS) if (!(st.pc && IS_TOUCH)) st.n = ++k; TU_N = k; }
@@ -29788,7 +30057,7 @@ $('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && 
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } else if (!$('#shop').hidden) { show(null); if (game && world.idx === ROOM_IDX && game.phase !== 'wait') backToRoom(); else { state = 'play'; requestLock(); canvas.focus(); } } });
 for (const id of ['#box-grid', '#box-list']) { const e_ = $(id); e_.addEventListener('click', boxPick); e_.addEventListener('mouseover', boxPick); e_.addEventListener('mouseleave', () => boxInfo(game && game.boxSel)); }
 document.querySelectorAll('.sh-tab').forEach(b => b.addEventListener('click', () => { if (!game) return; game.shopOpen = null; shopTab(b.dataset.t); Sfx.holster(); }));
-$('#btn-reroll').addEventListener('click', () => { const rrp = Math.ceil(game.reroll * (ST.rerollX || 1)); if (state !== 'shop' || game.gold < rrp) return; game.gold -= rrp; game.reroll += 3; rollOffers(); Sfx.dice(); renderShop(); });
+$('#btn-reroll').addEventListener('click', () => { const rrp = Math.ceil(game.reroll * (ST.rerollX || 1)); if (state !== 'shop' || game.gold < rrp) return; game.gold -= rrp; game.reroll += 3; rollOffers(); Sfx.dice(); if (world.room) for (const o of world.room.objs) if (o.surtir) o.surtir(); renderShop(); });
 $('#sens').addEventListener('input', e => { settings.sens = +e.target.value; store.set('sb_sens', settings.sens); });
 $('#vol').addEventListener('input', e => { settings.vol = +e.target.value; store.set('sb_vol', settings.vol); Sfx.setVol(settings.vol * settings.gvol); });
 $('#gvol').addEventListener('input', e => { settings.gvol = +e.target.value; store.set('sb_gvol', settings.gvol); Sfx.setVol(settings.vol * settings.gvol); Music.setVol(settings.mvol * settings.gvol); Voice.setVol(settings.vvol); });
