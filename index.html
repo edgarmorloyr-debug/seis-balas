@@ -20302,6 +20302,7 @@ function buildZombie(type) {
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
+  if (Z3D.on && type === 'walker') z3dPoner(z);
   return z;
 }
 
@@ -25009,6 +25010,7 @@ function retarget(z, canAttack) {
 }
 const _zp = new THREE.Vector3();
 function updateZombies(dt, canAttack) {
+  if (Z3D.list.length) z3dPaso(dt);
   for (let k = zombies.length - 1; k >= 0; k--) {
     const z = zombies[k]; z.t += dt;
     if (z.flash > 0) z.flash -= dt;
@@ -28535,7 +28537,7 @@ function p3dSanear(m) {
     const g = o.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
     const bp = o.skeleton.boneInverses.map(x => new THREE.Vector3().setFromMatrixPosition(x.clone().invert()));
     const box = new THREE.Box3().setFromBufferAttribute(P), lim = 0.32 * (box.max.y - box.min.y || 1);
-    const nom = o.skeleton.bones.map(x => x.name), mano = nom.map(n => /Hand|Forearm/.test(n)), brazo = nom.map(n => /Hand|Forearm|Upperarm|Clavicle/.test(n));
+    const nom = o.skeleton.bones.map(x => x.name), suelto = nom.map(n => n === 'neutral_bone'), mano = nom.map(n => /Hand|Forearm/.test(n)), brazo = nom.map(n => /Hand|Forearm|Upperarm|Clavicle/.test(n));
     for (let i = 0; i < P.count; i++) {
       v.fromBufferAttribute(P, i).applyMatrix4(o.bindMatrix);
       const ix = [SI.getX(i), SI.getY(i), SI.getZ(i), SI.getW(i)], w = [SW.getX(i), SW.getY(i), SW.getZ(i), SW.getW(i)];
@@ -28543,6 +28545,7 @@ function p3dSanear(m) {
       for (let k = 0; k < 4; k++) {
         if (w[k] > 0 && v.distanceTo(bp[ix[k]]) > lim) { w[k] = 0; mal = true; }
         else if (w[k] > 0 && mano[ix[k]] && !brazo[top]) { w[k] = 0; mal = true; }   // la ropa del cuerpo no sigue a la mano (se estiraba como un hilo al levantar el brazo)
+        else if (w[k] > 0 && suelto[ix[k]]) { w[k] = 0; mal = true; }   // hueso fuera del esqueleto (neutral_bone de Tripo): no se mueve y estiraba unos puntos como espinas
         tot += w[k];
       }
       if (!mal) continue; n++;
@@ -28562,7 +28565,7 @@ function p3dSanear(m) {
   return n;
 }
 function p3dCargar(ch, cb) {
-  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : null;
+  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !dir) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
@@ -28577,7 +28580,7 @@ function p3dCargar(ch, cb) {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {})
       // animaciones de combate de Mixamo (compartidas por todos los modelos); si no llegan, quedan las de antes
-      .then(() => Promise.all(ANIM_GRUPOS.map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
+      .then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
       .finally(listo);
   }, undefined, () => {});
 }
@@ -28589,11 +28592,11 @@ function p3dCopia(C, alto) {
   const rest = new Map(); for (const n in B) rest.set(B[n], B[n].quaternion.clone());
   return { m, mix, acts, B, rest, cur: null, O: C.O };
 }
-function p3dUna(I, name, fade = 0.15) {
+function p3dUna(I, name, fade = 0.15, vel = 1) {
   const a = I.acts[name]; if (!a) return false;
-  a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1); a.fadeIn(fade).play();
+  a.reset(); a.timeScale = vel; a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.setEffectiveWeight(1); a.fadeIn(fade).play();
   if (I.cur && I.cur !== name && I.acts[I.cur]) I.acts[I.cur].fadeOut(fade);
-  I.cur = name; I.una = name; I.unaR = a.getClip().duration; return true;
+  I.cur = name; I.una = name; I.unaR = a.getClip().duration / vel; return true;
 }
 function p3dAnim(I, name, fade = 0.25) { if (I.cur === name) return; const a = I.acts[name]; if (!a) return; a.setLoop(THREE.LoopRepeat, Infinity); a.clampWhenFinished = false; a.reset().setEffectiveWeight(1).fadeIn(fade).play(); if (I.cur && I.acts[I.cur]) I.acts[I.cur].fadeOut(fade); I.cur = name; }
 // apunta un hueso hacia donde apunta una pieza del muñeco de bloques (para que el brazo apunte con el revólver)
@@ -28680,6 +28683,7 @@ function avAgarre(I, g, s, av) {
    Se bajan una vez; las rotaciones se comparten entre todos los modelos y solo la cadera se ajusta a la altura de cada uno. */
 const ANIM = { v: 1, datos: {} };
 const ANIM_GRUPOS = ['comun', 'corta', 'larga'];
+const ANIM_CUERPO = new Set(['carnicero', 'dinamitero', 'contador', 'recargador', 'ursula']);   // estos además caminan sin arma o con el machete («cuerpo»)
 const ANIM_MUERTES = ['die1', 'die2', 'die3', 'die4', 'die5', 'die6', 'die7'];
 const ARMA_LARGA = new Set(['mp5', 'minigun', 'escopeta', 'sniper', 'tommy', 'ak47', 'bazuca', 'ballesta']);   // se llevan con las dos manos (juego de animaciones de rifle)
 function animBajar(g) {
@@ -28702,35 +28706,49 @@ function animLeer(j) {
   }
   return out;
 }
-// Cada modelo tiene su propio giro de reposo en cada hueso (brazos en A, muñecas giradas…): se calcula una corrección O por hueso
-// para que el hueso apunte como en la animación sin torcerse sobre sí mismo. Rotación del modelo = O(padre)⁻¹ · rotación de Mixamo · O(hueso).
+// Cada modelo tiene su propio reposo (brazos en A, muñecas giradas, otros huesos en medio como la pelvis de Tripo…). Por cada hueso
+// se calcula una corrección O para que apunte como en la animación sin torcerse sobre sí mismo, y lo que hay entre él y su padre.
+// Rotación del modelo = Pre · rotación de Mixamo · O(hueso), con Pre = (huesos intermedios)⁻¹ · O(padre)⁻¹.
+// Todo se mide en el marco del modelo mirando hacia +z (como Mixamo): el modelo del juego mira hacia +x.
+const _rotY90 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
 function animCorreccion(C, rw) {
-  const O = {}, Y = new THREE.Vector3(0, 1, 0), base = new THREE.Quaternion(); let hip = null;
-  C.m.updateMatrixWorld(true); C.m.traverse(o => { if (o.isBone && o.name === 'Hip') hip = o; }); if (!hip) return O;
-  hip.parent.getWorldQuaternion(base).invert();
-  C.m.traverse(o => {
-    if (!o.isBone || !rw[o.name]) return;
-    const T0 = base.clone().multiply(o.getWorldQuaternion(new THREE.Quaternion())), S0 = rw[o.name];
-    const al = new THREE.Quaternion().setFromUnitVectors(Y.clone().applyQuaternion(T0), Y.clone().applyQuaternion(S0));
-    O[o.name] = S0.clone().invert().multiply(al).multiply(T0);
+  const Y = new THREE.Vector3(0, 1, 0), M = C.m; M.updateMatrixWorld(true);
+  const Fi = M.getWorldQuaternion(new THREE.Quaternion()).multiply(_rotY90).invert();
+  const FMi = new THREE.Matrix4().copy(M.matrixWorld).multiply(new THREE.Matrix4().makeRotationFromQuaternion(_rotY90)).invert();
+  const W = o => Fi.clone().multiply(o.getWorldQuaternion(new THREE.Quaternion()));   // giro de reposo en el marco del modelo
+  const O = {}, pre = {}; let hip = null;
+  M.traverse(o => { if (!o.isBone || !rw[o.name]) return; if (o.name === 'Hip') hip = o;
+    const T0 = W(o), S0 = rw[o.name];
+    O[o.name] = S0.clone().invert().multiply(new THREE.Quaternion().setFromUnitVectors(Y.clone().applyQuaternion(T0), Y.clone().applyQuaternion(S0))).multiply(T0);
   });
-  return O;
+  M.traverse(o => { if (!O[o.name]) return;
+    let a = o.parent; while (a && !(a.isBone && O[a.name])) a = a.parent;
+    const R = a ? W(a).invert().multiply(W(o.parent)) : W(o.parent);   // lo que hay entre el padre animado y este hueso
+    pre[o.name] = R.invert().multiply(a ? O[a.name].clone().invert() : new THREE.Quaternion());
+  });
+  const out = { O, pre };
+  if (hip) {   // la cadera: «altos de cadera» de Mixamo → medidas del modelo, en el espacio de su padre
+    const hp = hip.getWorldPosition(new THREE.Vector3()).applyMatrix4(FMi);
+    out.hipH = hp.y - C.minY; out.y0 = C.minY; out.hipM = new THREE.Matrix4().copy(hip.parent.matrixWorld).invert().multiply(new THREE.Matrix4().copy(FMi).invert());
+  }
+  return out;
 }
-// las animaciones para un modelo: solo con los huesos que tiene (sin avisos) y la cadera a su altura (en «altos de cadera»)
+// las animaciones para un modelo: solo con los huesos que tiene (sin avisos) y ajustadas a su reposo
 function animParaModelo(C, grupos) {
-  const B = {}; let hipY = 0;
-  C.m.traverse(o => { if (o.isBone) { B[o.name] = o; if (o.name === 'Hip') hipY = o.position.y; } });
-  if (!hipY || B.Pelvis || !grupos.length) return [];   // esqueleto de Tripo (otros ejes): por ahora sigue con sus animaciones
-  const O = C.O = animCorreccion(C, grupos[0].rw), I0 = new THREE.Quaternion(), qa = new THREE.Quaternion(), clips = [];
+  const B = {}; C.m.traverse(o => { if (o.isBone) B[o.name] = o; });
+  if (!B.Hip || !grupos.length) return [];
+  const K = C.K = animCorreccion(C, grupos[0].rw), qa = new THREE.Quaternion(), v3 = new THREE.Vector3(), clips = [];
+  if (!K.hipM) return [];
+  C.O = K.O;
   for (const g of grupos) for (const n in g.clips) {
     const a = g.clips[n], tr = [];
     for (const [b, times, vals] of a.q) {
-      if (!B[b] || DEDO.test(b)) continue;   // los dedos de cada modelo tienen otros ejes: se cierran aparte
-      const Ob = O[b] || I0, Op = (B[b].parent && O[B[b].parent.name]) || I0, Opi = Op.clone().invert(), v = new Float32Array(vals.length);
-      for (let i = 0; i < vals.length; i += 4) { qa.fromArray(vals, i); qa.premultiply(Opi).multiply(Ob); qa.toArray(v, i); }
+      if (!B[b] || !K.O[b] || DEDO.test(b) || (B.Pelvis && /ToeBase/.test(b))) continue;   // los dedos de cada modelo tienen otros ejes: se cierran aparte (en Tripo, los de los pies se estiran)
+      const Ob = K.O[b], P = K.pre[b], v = new Float32Array(vals.length);
+      for (let i = 0; i < vals.length; i += 4) { qa.fromArray(vals, i); qa.premultiply(P).multiply(Ob); qa.toArray(v, i); }
       tr.push(new THREE.QuaternionKeyframeTrack(b + '.quaternion', times, v));
     }
-    if (a.hip) tr.push(new THREE.VectorKeyframeTrack('Hip.position', a.hip[0], a.hip[1].map(v => v * hipY)));
+    if (a.hip) { const s = a.hip[1], v = new Float32Array(s.length); for (let i = 0; i < s.length; i += 3) { v3.set(s[i] * K.hipH, s[i + 1] * K.hipH + K.y0, s[i + 2] * K.hipH).applyMatrix4(K.hipM); v3.toArray(v, i); } tr.push(new THREE.VectorKeyframeTrack('Hip.position', a.hip[0], v)); }
     const c = new THREE.AnimationClip(n, a.d, tr); c.v = a.v; c.vuelta = a.loop; clips.push(c);
   }
   return clips;
@@ -28751,14 +28769,14 @@ function p3dCombate(I, o, dt) {
   if (I.muerto) { I.muerto = null; I.una = null; }   // lo levantaron
   I.unaR = (I.unaR || 0) - dt;
   const spd = Math.hypot(o.vx, o.vz); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7;
-  if (!(I.una && I.unaR > 0 && !I.mueve)) {   // los gestos (golpe, recarga, festejo…) terminan solos; si empieza a moverse, se cortan
+  if (!(I.una && I.unaR > 0 && (!I.mueve || /^(m_atk|u_throw)/.test(I.una)))) {   // los gestos (golpe, recarga, festejo…) terminan solos; si empieza a moverse, se cortan (los ataques no)
     I.una = null; let n;
     if (I.mueve) {
       I.m.parent.getWorldQuaternion(_cq); _cf.set(0, 0, 1).applyQuaternion(_cq);
       const a = Math.atan2(o.vx * _cf.z - o.vz * _cf.x, o.vx * _cf.x + o.vz * _cf.z), corre = spd > 3.6;   // a: hacia dónde va respecto de donde mira (+ a su izquierda)
       n = S + (Math.abs(a) > 2.2 ? (corre ? '_runback' : '_back') : Math.abs(a) > 0.9 ? (a > 0 ? '_left' : '_right') : corre ? '_run' : '_walk');
     } else n = S + (o.apunta ? (S === 'r' && o.tiro < 0.3 ? '_fire' : '_aim') : '_idle');
-    if (!A[n]) n = A[S + '_idle'] ? S + '_idle' : 'idle';
+    if (!A[n]) n = I.mueve && A[S + '_walk'] ? S + '_walk' : A[S + '_idle'] ? S + '_idle' : 'idle';
     p3dAnim(I, n, 0.2);
     const ac = A[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(spd / c.v, 0.6, 1.6) : 1;   // los pies no patinan: el paso va a la velocidad real
   }
@@ -28842,6 +28860,50 @@ function p3dTorso(I, pitch, kick) {
   for (const n of ['Spine01', 'Spine02']) { const b = I.B[n]; if (b) b.rotateX(-a); }
   I.m.updateMatrixWorld(true);
 }
+/* ===== Zombi común en 3D con las animaciones de zombi de Mixamo (de prueba: se activa con ?zombi3d en el enlace) =====
+   Cada zombi elige su forma de caminar, de correr y de atacar, y camina a su propio ritmo (no se ven todos iguales).
+   El cuerpo de bloques queda invisible pero sigue recibiendo los tiros; si le arrancan un brazo, una pierna o la cabeza, al modelo también. */
+const Z3D = { on: /[?&]zombi3d\b/.test(location.search), list: [] };
+if (Z3D.on) setTimeout(() => p3dCargar('zombi_comun'), 0);
+function z3dPoner(z) {
+  const C = P3D.cache.zombi_comun; if (!C || !C.mx) { p3dCargar('zombi_comun'); return; }
+  const I = p3dCopia(C, 1.78 * (z.s || 1)); I.m.rotation.y = P3D.giro; z.root.add(I.m);
+  z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id)) o.visible = false; });
+  z.root.updateMatrixWorld(true);
+  const lado = n => { const v = new THREE.Vector3(); I.B[n].getWorldPosition(v); z.root.worldToLocal(v); return v.x; };
+  const brazo = lado('L_Upperarm') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' }, pierna = lado('L_Thigh') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' };
+  const A = { I, brazo, pierna, partes: { armL: z.armLG, armR: z.armRG, legL: z.legL, legR: z.legR, head: z.head }, vistas: {},
+    walk: pick(['z_walk1', 'z_walk2', 'z_walk4']), run: pick(['z_run1', 'z_run2']), atk: pick(['z_attack1', 'z_attack2', 'z_punch', 'z_bite']), hit: pick(['z_hit1', 'z_hit2']), ritmo: rand(0.85, 1.15), px: z.root.position.x, pz: z.root.position.z, v: 0, acc: 0 };
+  z.z3d = A; Z3D.list.push(z);
+}
+function z3dPaso(dt) {
+  for (let i = Z3D.list.length - 1; i >= 0; i--) {
+    const z = Z3D.list[i], A = z.z3d, I = A.I, p = z.root.position;
+    if (!z.root.parent) { Z3D.list.splice(i, 1); continue; }
+    const v = Math.hypot(p.x - A.px, p.z - A.pz) / Math.max(dt, 1e-3); A.px = p.x; A.pz = p.z; A.v = damp(A.v, v, 8, dt);
+    // los lejanos se animan menos seguido (en el teléfono hay muchos zombis)
+    const lejos = Math.hypot(p.x - camera.position.x, p.z - camera.position.z) > 30; A.acc += dt; if (lejos && A.acc < 0.12) continue; const d = A.acc; A.acc = 0;
+    I.unaR = (I.unaR || 0) - d;
+    const sinPierna = z.lost && (z.lost.legL || z.lost.legR);
+    if (z.dead) { if (!A.muerto) { A.muerto = sinPierna ? 'z_die2' : pick(['z_die1', 'z_die2']); p3dUna(I, A.muerto, 0.15, 1.2); } }
+    else if (z.state === 'rise') { if (I.cur !== 'z_standup') { p3dUna(I, 'z_standup', 0.05, 3.1 * 0.5 / (z.riseDur || 1.3)); I.acts.z_standup.time = 3.1 * 0.5; } }
+    else if (z.grabbing) p3dAnim(I, 'z_bite', 0.15);
+    else if (z.scream > 0) { if (I.una !== 'z_scream') p3dUna(I, 'z_scream', 0.1, 2.4); }
+    else if (z.windup > 0) { if (!A.ataca) { A.ataca = true; p3dUna(I, A.atk, 0.1, A.atk === 'z_punch' ? 1.3 : 2); } }
+    else if (z.stagger > 0.2 && !(I.una && I.unaR > 0)) p3dUna(I, A.hit, 0.08, 1.6);
+    else if (!(I.una && I.unaR > 0)) {
+      A.ataca = false;
+      const n = sinPierna ? (A.v > 1.5 ? 'z_crawlrun' : 'z_crawl') : A.v < 0.12 ? 'z_idle' : A.v > 2.6 ? A.run : A.walk;
+      p3dAnim(I, n, 0.25); const ac = I.acts[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(A.v / c.v, 0.5, 1.7) : A.ritmo;
+    }
+    if (!z.windup) A.ataca = false;
+    I.mix.update(d);
+    // partes arrancadas: se esconden en el modelo y el pedazo de bloques que sale volando se ve
+    const esconde = (k, n) => { const b = I.B[n]; if (!b) return; if (!A.vistas[k]) { A.vistas[k] = 1; const pz = A.partes[k]; if (pz) pz.traverse(o => { if (o.isMesh) o.visible = true; }); } b.scale.setScalar(0.001); };
+    if (z.head && z.head.parent !== z.neck) esconde('head', 'Head');
+    if (z.lost) { if (z.lost.armL) esconde('armL', A.brazo.L + 'Upperarm'); if (z.lost.armR) esconde('armR', A.brazo.R + 'Upperarm'); if (z.lost.legL) esconde('legL', A.pierna.L + 'Thigh'); if (z.lost.legR) esconde('legR', A.pierna.R + 'Thigh'); }
+  }
+}
 // policía, SWAT, soldado y ayudante del sheriff con su modelo 3D: el muñeco de bloques se vuelve invisible y el arma pasa a la mano del modelo
 function ally3d(c) {
   const f = NPC3D[c.kind]; if (!f) return;
@@ -28870,9 +28932,12 @@ function avatar3dMx(av, p, dt) {
   I.kick = (I.kick || 0) * Math.exp(-14 * dt);
 }
 // juego de animaciones de cada ayudante según su arma
-const ALLY_SET = { rifle: 'r', smg: 'r', shotgun: 'r' };
+const ALLY_SET = { rifle: 'r', smg: 'r', shotgun: 'r', machete: 'm', dynamite: 'u' };
 function ally3dMx(c, spd, dt) {
-  const I = c.p3d, D = c.D || ALLY.cop, set = c.kind === 'pandillero' ? 'p' : ALLY_SET[D.gun] || 'p';
+  const I = c.p3d, D = c.D || ALLY.cop, set0 = c.kind === 'pandillero' ? 'p' : !D.gun ? 'u' : ALLY_SET[D.gun] || 'p', set = I.acts[set0 + '_idle'] ? set0 : 'p';
+  // machetazo y lanzamiento de dinamita
+  if (c.swing > 0 && !(I.swingAntes > 0)) p3dUna(I, D.aoe ? 'u_throw' : pick(['m_atk1', 'm_atk2', 'm_atk3']), 0.1, D.aoe ? 1.6 : 1.5);
+  I.swingAntes = c.swing;
   if (c.hpAntes != null && c.hp < c.hpAntes - 3 && !I.mueve) p3dGesto(I, 'golpe'); c.hpAntes = c.hp;
   I.tiro = (I.tiro == null ? 9 : I.tiro) + dt;
   const vx = c.root.position.x - (c.px == null ? c.root.position.x : c.px), vz = c.root.position.z - (c.pz == null ? c.root.position.z : c.pz); c.px = c.root.position.x; c.pz = c.root.position.z;
