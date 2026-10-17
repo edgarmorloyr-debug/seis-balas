@@ -24169,14 +24169,16 @@ function spawnChest(kind) {
     const ps = llvJugadores();
     const C_ = world.llvSpots.filter((q, i) => !(game.llv.on && game.llv.on.i === i)).concat(llvFichaSpots().map(q => ({ x: q.x, z: q.z, zona: q.nombre })))
       .filter(q => !lugarOcupado(q.x, q.z) && Math.min(...ps.map(p => Math.hypot(p.x - q.x, p.z - q.z))) > 8 && !pointBlocked(q.x, q.z, 0.8) && nav.mainDist[cellOf(q.x, q.z)] < 1e9);
-    if (C_.length) { const q = pick(C_); spot = { x: q.x, z: q.z, zona: q.zona }; }
+    // en los mapas grandes, mejor uno que se alcance a ver (el haz de luz) que uno en la otra punta: a menos de 40 m, o si no, uno de los 5 más cercanos
+    const dq = q => Math.min(...ps.map(p => Math.hypot(p.x - q.x, p.z - q.z))), cerca = C_.filter(q => dq(q) < 40);
+    if (C_.length) { const q = pick(cerca.length ? cerca : C_.sort((a, b) => dq(a) - dq(b)).slice(0, 5)); spot = { x: q.x, z: q.z, zona: q.zona }; }
   }
   for (let k = 0; k < 120 && !spot; k++) {
     const x = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hx, a.hx), z = a.t === 'c' ? rand(-a.r, a.r) : rand(-a.hz, a.hz), d = Math.hypot(x - player.pos.x, z - player.pos.z);
     if (d < 8 || d > 28 || !insideArena(x, z, 2) || pointBlocked(x, z, 0.8) || nav.mainDist[cellOf(x, z)] >= 1e9) continue;
     spot = { x, z };
   }
-  if (!spot) return;
+  if (!spot) return false;
   if (!kind) { let t = 0; for (const k in CHESTS) t += CHESTS[k].w; let r = Math.random() * t; for (const k in CHESTS) { kind = k; if ((r -= CHESTS[k].w) < 0) break; } }
   const C = CHESTS[kind], g = new THREE.Group(), mb = new THREE.MeshLambertMaterial({ color: C.body, emissive: C.body, emissiveIntensity: 0.15 }), mt = new THREE.MeshLambertMaterial({ color: C.trim, emissive: C.trim, emissiveIntensity: kind === 'curse' ? 0.8 : 0.2 });
   const base = new THREE.Mesh(bx(0.9, 0.5, 0.6), mb); base.position.y = 0.25; g.add(base);
@@ -24192,6 +24194,7 @@ function spawnChest(kind) {
     use() { if (c.open) return; if (c.kind === 'gold' && !(game.keys > 0)) { hint('Cofre dorado cerrado: necesitas una llave (la sueltan los zombis élite)', 2600); Sfx.err(); return; } if (c.kind === 'bone' && player.hp <= 20) { hint('Cofre de hueso: abrirlo cuesta 15 de vida y no te alcanza', 2200); Sfx.err(); return; } openChest(c); } };
   chests.push(c);
   feed(`Apareció un ${C.name.toLowerCase()} ${spot.zona || 'en el mapa'}`, 'gold');
+  return true;
 }
 function clearChests() { for (const c of chests) scene.remove(c.g); chests.length = 0; }
 function openChest(c) {
@@ -24221,7 +24224,9 @@ function updateChests(dt) {
   if (!game) return;
   if (state === 'play' && game.phase === 'fight' && game.chestWave !== game.wave) {
     game.chestWave = game.wave;
-    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && Math.random() < (0.35 + (game.keys > 0 ? 0.15 : 0)) * (1 + S('cofreC') / 100)) spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null);
+    // cada lugar trae al menos un cofre (antes era solo 35 % por oleada y en algunos lugares no salía ninguno); luego, 35 % en cada oleada
+    const zn = zoneOf(game.wave), primero = game.chestZ !== zn;
+    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && (primero || Math.random() < (0.35 + (game.keys > 0 ? 0.15 : 0)) * (1 + S('cofreC') / 100))) { if (spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null)) game.chestZ = zn; }
   }
   for (let i = chests.length - 1; i >= 0; i--) {
     const c = chests[i]; c.t += dt; c.warnT -= dt;
