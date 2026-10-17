@@ -1257,6 +1257,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #altar #altar-f{display:inline-flex;align-items:center;gap:8px;margin:2px auto 6px;padding:4px 16px;border-radius:999px;background:rgba(234,162,58,.14);border:2px solid #eaa23a;color:#ffd27a;font:700 22px var(--hud);letter-spacing:.06em}#altar #altar-f svg{width:24px;height:24px}
 @media (prefers-reduced-motion:reduce){.arb-pop.sale{animation:none}}
 .fcal{display:inline-grid;place-items:center;width:1.5em;height:1.5em;border-radius:50%;vertical-align:-.38em;flex:none;background:radial-gradient(circle,#4a1d44 0 52%,#2a0f28 53% 100%);border:.14em dashed #f6ead7;box-shadow:0 0 .35em .08em rgba(214,120,255,.85),0 0 .9em .2em rgba(234,162,58,.45);animation:fcalBrilla 1.6s ease-in-out infinite}
+.fdin{display:inline-block;width:1.02em;height:1.02em;border-radius:50%;vertical-align:-.17em;flex:none;margin:0 .06em;background:radial-gradient(circle,#f2c230 0 46%,#c8382c 47% 55%,#f2c230 56% 70%,transparent 71%),repeating-conic-gradient(from -11.25deg,#c8382c 0 22.5deg,#f2c230 22.5deg 45deg);box-shadow:0 0 0 .07em rgba(40,20,0,.7),0 .06em .14em rgba(0,0,0,.45)}
 .fcal svg{width:80%;height:80%;filter:drop-shadow(0 0 2px rgba(255,240,220,.9))}
 #altar .fcal svg,.arb-pop .btn .fcal svg,#fichas .fcal svg{width:86%;height:86%}.arb-pop .btn .fcal{font-size:22px}
 @keyframes fcalBrilla{50%{box-shadow:0 0 .55em .18em rgba(214,120,255,1),0 0 1.3em .35em rgba(234,162,58,.6)}}
@@ -1736,6 +1737,39 @@ if (LANG === 'en') {
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
       .observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label', 'placeholder'] });
   }).catch(() => {});
+}
+/* Dinero con fichas (pedido del dueño, 17-oct-2026): en toda la interfaz, el «$» de un precio o de tu oro se dibuja como una ficha de póker de dinero.
+   Los textos siguen escritos con «$» (así no se tocan cientos de líneas ni las traducciones): cada texto que aparece en pantalla con un número junto a un «$»
+   se traduce primero (si el juego está en inglés) y luego el «$» se cambia por la ficha. Los números y los precios no cambian. */
+const fichaDin = () => '<span class="fdin" aria-hidden="true"></span>';
+const DIN_RX = /(?<=\d\s?)\$|\$(?=\s?[+\-−]?\d)/g, DIN_SKIP = /^(SCRIPT|STYLE|OPTION|SELECT|TEXTAREA|TITLE)$/;
+function dinNodo(n) {
+  if (n.nodeType === 1) { if (DIN_SKIP.test(n.tagName) || (n.classList && n.classList.contains('nodin'))) return; if (n.textContent.indexOf('$') < 0) return; for (const c of [...n.childNodes]) dinNodo(c); return; }
+  if (n.nodeType !== 3 || n.data.indexOf('$') < 0) return;
+  const pa = n.parentNode; if (!pa || pa.nodeType !== 1 || pa.namespaceURI !== 'http://www.w3.org/1999/xhtml' || DIN_SKIP.test(pa.tagName) || pa.closest('.nodin')) return;
+  if (LANG === 'en' && I18N.d) { const r = i18nTxt(n.data); if (r != null && r !== n.data) n.data = r; }
+  const t = n.data; DIN_RX.lastIndex = 0; if (!DIN_RX.test(t)) return;
+  const fr = document.createDocumentFragment(); let last = 0; DIN_RX.lastIndex = 0;
+  for (let m; (m = DIN_RX.exec(t));) { if (m.index > last) fr.appendChild(document.createTextNode(t.slice(last, m.index))); const sp = document.createElement('span'); sp.className = 'fdin'; sp.setAttribute('aria-hidden', 'true'); fr.appendChild(sp); last = m.index + 1; }
+  if (last < t.length) fr.appendChild(document.createTextNode(t.slice(last)));
+  pa.replaceChild(fr, n);
+}
+dinNodo(document.body);
+new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') dinNodo(m.target); else for (const n of m.addedNodes) dinNodo(n); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
+// la misma ficha de dinero dibujada en un lienzo (carteles 3D de la Trastienda)
+function fichaDinLienzo(g, cx, cy, r) {
+  g.save(); g.fillStyle = '#f2c230'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+  g.fillStyle = '#c8382c'; for (let i = 0; i < 8; i++) { g.save(); g.translate(cx, cy); g.rotate(i * Math.PI / 4); g.fillRect(-r * 0.13, -r, r * 0.26, r * 0.3); g.restore(); }
+  g.strokeStyle = '#c8382c'; g.lineWidth = Math.max(1.5, r * 0.08); g.beginPath(); g.arc(cx, cy, r * 0.62, 0, 7); g.stroke();
+  g.strokeStyle = 'rgba(40,20,0,.6)'; g.lineWidth = Math.max(1, r * 0.06); g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke(); g.restore();
+}
+// escribe un texto centrado en un lienzo cambiando cada «$» de dinero por la ficha
+function textoDinLienzo(g, txt, cx, cy, maxW) {
+  const partes = txt.split(DIN_RX), fs = parseFloat(g.font.match(/(\d+)px/)[1]), r = fs * 0.42, gap = fs * 0.12;
+  const ws = partes.map(t => g.measureText(t).width); let tot = ws.reduce((a, b) => a + b, 0) + (partes.length - 1) * (2 * r + gap * 2);
+  const k = maxW && tot > maxW ? maxW / tot : 1; g.save(); g.translate(cx, cy); g.scale(k, 1); const al = g.textAlign; g.textAlign = 'left';
+  let x = -tot / 2; partes.forEach((t, i) => { g.fillText(t, x, 0); x += ws[i]; if (i < partes.length - 1) { x += gap; fichaDinLienzo(g, x + r, -fs * 0.33, r); x += 2 * r + gap; } });
+  g.textAlign = al; g.restore();
 }
 const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25938,7 +25972,7 @@ function itemLabel(id) {
   return canvasTex(512, 128, g => {
     g.fillStyle = 'rgba(16,10,5,.88)'; g.fillRect(4, 4, 504, 120); g.strokeStyle = col; g.lineWidth = 5; g.strokeRect(4, 4, 504, 120);
     g.textAlign = 'center'; g.fillStyle = col; g.font = 'bold 44px serif'; g.fillText(I.name, 256, 56, 480);
-    g.fillStyle = '#ffd060'; g.font = 'bold 36px sans-serif'; g.fillText(`${itemPrice(id)} $ · ${IRAR[I.rar].name}`, 256, 104, 480);
+    g.fillStyle = '#ffd060'; g.font = 'bold 36px sans-serif'; textoDinLienzo(g, `${itemPrice(id)} $ · ${IRAR[I.rar].name}`, 256, 104, 480);
   });
 }
 // Dibujo del icono del objeto para el pedestal (textura con el mismo icono de la interfaz)
