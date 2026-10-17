@@ -28685,9 +28685,10 @@ const ARMA_LARGA = new Set(['mp5', 'minigun', 'escopeta', 'sniper', 'tommy', 'ak
 function animBajar(g) {
   return ANIM.datos[g] || (ANIM.datos[g] = fetch(`modelos/anim/${g}.json?v=${ANIM.v}`).then(r => r.ok ? r.json() : null).then(j => j && animLeer(j)).catch(() => null));
 }
-// el archivo guarda enteros (valor × 10000) y solo los cuadros que hacen falta; aquí se vuelven pistas de three.js
+// el archivo guarda enteros (valor × 10000) y solo los cuadros que hacen falta; aquí se vuelven números
 function animLeer(j) {
-  const out = {}, F = j.fps || 30;
+  const out = { clips: {}, rw: {} }, F = j.fps || 30;
+  for (const b in j.rw || {}) out.rw[b] = new THREE.Quaternion(...j.rw[b].map(v => v / 1e4)).normalize();
   for (const n in j.clips) {
     const c = j.clips[n], d = c.d, q = []; let hip = null;
     for (const [b, k, ts, vs] of c.tr) {
@@ -28695,20 +28696,40 @@ function animLeer(j) {
       let times = ts ? ts.map(f => f / F) : Array.from({ length: nk }, (_, i) => i / F), vals = new Float32Array(vs.length);
       for (let i = 0; i < vs.length; i++) vals[i] = vs[i] / 1e4;
       if (nk === 1) { times = [0, d]; const v2 = new Float32Array(st * 2); v2.set(vals); v2.set(vals, st); vals = v2; }
-      if (k === 'q') q.push([b, new THREE.QuaternionKeyframeTrack(b + '.quaternion', times, vals)]); else hip = [times, vals];
+      if (k === 'q') q.push([b, times, vals]); else hip = [times, vals];
     }
-    out[n] = { d, loop: !!c.loop, v: c.v || 0, q, hip };
+    out.clips[n] = { d, loop: !!c.loop, v: c.v || 0, q, hip };
   }
   return out;
 }
+// Cada modelo tiene su propio giro de reposo en cada hueso (brazos en A, muñecas giradas…): se calcula una corrección O por hueso
+// para que el hueso apunte como en la animación sin torcerse sobre sí mismo. Rotación del modelo = O(padre)⁻¹ · rotación de Mixamo · O(hueso).
+function animCorreccion(C, rw) {
+  const O = {}, Y = new THREE.Vector3(0, 1, 0), base = new THREE.Quaternion(); let hip = null;
+  C.m.updateMatrixWorld(true); C.m.traverse(o => { if (o.isBone && o.name === 'Hip') hip = o; }); if (!hip) return O;
+  hip.parent.getWorldQuaternion(base).invert();
+  C.m.traverse(o => {
+    if (!o.isBone || !rw[o.name]) return;
+    const T0 = base.clone().multiply(o.getWorldQuaternion(new THREE.Quaternion())), S0 = rw[o.name];
+    const al = new THREE.Quaternion().setFromUnitVectors(Y.clone().applyQuaternion(T0), Y.clone().applyQuaternion(S0));
+    O[o.name] = S0.clone().invert().multiply(al).multiply(T0);
+  });
+  return O;
+}
 // las animaciones para un modelo: solo con los huesos que tiene (sin avisos) y la cadera a su altura (en «altos de cadera»)
 function animParaModelo(C, grupos) {
-  const B = new Set(); let hipY = 0;
-  C.m.traverse(o => { if (o.isBone) { B.add(o.name); if (o.name === 'Hip') hipY = o.position.y; } });
-  if (!hipY || B.has('Pelvis')) return [];   // esqueleto de Tripo (otros ejes): por ahora sigue con sus animaciones
-  const clips = [];
-  for (const g of grupos) for (const n in g) {
-    const a = g[n], tr = a.q.filter(x => B.has(x[0]) && !DEDO.test(x[0])).map(x => x[1]);   // los dedos de cada modelo tienen otros ejes: se cierran aparte
+  const B = {}; let hipY = 0;
+  C.m.traverse(o => { if (o.isBone) { B[o.name] = o; if (o.name === 'Hip') hipY = o.position.y; } });
+  if (!hipY || B.Pelvis || !grupos.length) return [];   // esqueleto de Tripo (otros ejes): por ahora sigue con sus animaciones
+  const O = animCorreccion(C, grupos[0].rw), I0 = new THREE.Quaternion(), qa = new THREE.Quaternion(), clips = [];
+  for (const g of grupos) for (const n in g.clips) {
+    const a = g.clips[n], tr = [];
+    for (const [b, times, vals] of a.q) {
+      if (!B[b] || DEDO.test(b)) continue;   // los dedos de cada modelo tienen otros ejes: se cierran aparte
+      const Ob = O[b] || I0, Op = (B[b].parent && O[B[b].parent.name]) || I0, Opi = Op.clone().invert(), v = new Float32Array(vals.length);
+      for (let i = 0; i < vals.length; i += 4) { qa.fromArray(vals, i); qa.premultiply(Opi).multiply(Ob); qa.toArray(v, i); }
+      tr.push(new THREE.QuaternionKeyframeTrack(b + '.quaternion', times, v));
+    }
     if (a.hip) tr.push(new THREE.VectorKeyframeTrack('Hip.position', a.hip[0], a.hip[1].map(v => v * hipY)));
     const c = new THREE.AnimationClip(n, a.d, tr); c.v = a.v; c.vuelta = a.loop; clips.push(c);
   }
