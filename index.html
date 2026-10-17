@@ -427,6 +427,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #items-opts.radio-opts .perk{padding:10px;gap:4px}
 #items-opts.radio-opts .perk b{font-size:19px}
 #items-opts.radio-opts .perk span{font-size:14px}
+#items-opts.radio-opts .perk .radio-por{display:block;width:96px;height:96px;margin:0 auto;background-size:cover;background-position:center;border-radius:10px;background-color:rgba(0,0,0,.25)}
 #items-opts .tl-p{margin-top:4px;font-weight:700;color:#ffd47a;letter-spacing:.04em}
 #items-opts .perk:disabled{opacity:.55}
 #items-opts .tl-sec{grid-column:1/-1;display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:8px 10px;border-top:2px solid #7a2a1a;color:#e8d8c0}
@@ -26586,15 +26587,15 @@ function buildRadio(x, z, used) {
   return { kind: 'radio', x: x + 1.0, z, r: 1.1, used };
 }
 // Escuadras de la radio: 3 por llamada, pelean solas (no te siguen), a la mitad de velocidad y con más daño
-const RADIO_SQ = [
-  { id: 'swat', k: 'swat', ic: 'shield', name: 'Equipo SWAT', desc: '3 SWAT con MP5 y chaleco: ráfagas rápidas y aguantan mucho.' },
-  { id: 'policia', k: 'cop', ic: 'badge', name: 'Policía', desc: '3 oficiales con pistola. Disparan seguido y cubren mucho terreno.' },
-  { id: 'ejercito', k: 'bill', ic: 'medal', name: 'Ejército', desc: '3 soldados con fusil M16 en ráfagas de 3 balas.' },
-  { id: 'contador', k: 'contador', ic: 'bag', name: 'Contadores', desc: '3 contadores: no pelean, pero al terminar la oleada cada uno te paga oro, y cada zombi que matas te da más.' },
-  { id: 'medico', k: 'ursula', ic: 'medic', name: 'Médicos', desc: '3 médicos que curan a quien tengan cerca y disparan con pistola.' },
-  { id: 'ayudante', k: 'ayudante', ic: 'hat', name: 'Ayudantes del sheriff', desc: '3 ayudantes con revólver: daño y puntería moderados.' }
+const RADIO_SQ = [   // la radio manda 1 refuerzo (pedido del dueño, 17-oct-2026: antes llegaban 3)
+  { id: 'swat', k: 'swat', ic: 'shield', name: 'Equipo SWAT', uno: 'Un SWAT', desc: 'Un SWAT con MP5 y chaleco: ráfagas rápidas y aguanta mucho.' },
+  { id: 'policia', k: 'cop', ic: 'badge', name: 'Policía', uno: 'Un policía', desc: 'Un oficial con pistola. Dispara seguido y cubre mucho terreno.' },
+  { id: 'ejercito', k: 'bill', ic: 'medal', name: 'Ejército', uno: 'Un soldado', desc: 'Un soldado con fusil M16 en ráfagas de 3 balas.' },
+  { id: 'contador', k: 'contador', ic: 'bag', name: 'Contadores', uno: 'Un contador', desc: 'Un contador: no pelea, pero al terminar la oleada te paga oro, y cada zombi que matas te da más.' },
+  { id: 'medico', k: 'ursula', ic: 'medic', name: 'Médicos', uno: 'Un médico', desc: 'Un médico que cura a quien tenga cerca y dispara con pistola.' },
+  { id: 'ayudante', k: 'ayudante', ic: 'hat', name: 'Ayudantes del sheriff', uno: 'Un ayudante', desc: 'Un ayudante con revólver: daño y puntería moderados.' }
 ];
-const RADIO_N = 3, RADIO_VEL = 0.5, RADIO_DANO = 1.6;
+const RADIO_N = 1, RADIO_VEL = 0.5, RADIO_DANO = 1.6;
 function radioSquad(id, owner = null) {
   const Q = RADIO_SQ.find(x => x.id === id); if (!Q) return;
   const b = owner && Net.peers.get(owner) && Net.peers.get(owner).pos || player.pos, a0 = rand(0, TAU);
@@ -26609,14 +26610,15 @@ function openRadio(o) {
   const box = $('#items-opts'); box.innerHTML = ''; box.classList.add('radio-opts');
   $('#items-hd').innerHTML = ico('heli'); $('#items-t').textContent = 'Radio de rescate';
   const f = game.poker | 0;
-  $('#items-say').textContent = `«Aquí base, te escuchamos. ¿A quién mandamos?» Llegan 3 al empezar la próxima oleada, pelean por su cuenta y se van al terminarla. Cuesta 1 ficha de miembro (tienes ${f}).`;
+  $('#items-say').textContent = `«Aquí base, te escuchamos. ¿A quién mandamos?» Llega 1 al empezar la próxima oleada, pelea por su cuenta y se va al terminarla. Cuesta 1 ficha de miembro (tienes ${f}).`;
   const close = () => { box.classList.remove('radio-opts'); show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
   if (!game.radioOfertas || game.radioOfertas.w !== game.wave) game.radioOfertas = { w: game.wave, ids: RADIO_SQ.map(x => x.id).filter(id => isOpen('r:' + id)).sort(() => Math.random() - 0.5).slice(0, 2) };
   for (const id of game.radioOfertas.ids) {
     const Q = RADIO_SQ.find(x => x.id === id), b = document.createElement('button'); b.className = 'perk item r1';
     b.disabled = f < 1;
-    b.innerHTML = `<span class="relic-ic">${ico(Q.ic)}</span><em>3 refuerzos</em><b>${Q.name}</b><span>${Q.desc}</span><span class="tl-p">${f > 0 ? 'Llamar · 1 ficha' : 'Sin fichas de miembro'}</span>`;
-    b.addEventListener('click', () => { if (state !== 'items' || (game.poker | 0) < 1 || o.used) return; game.poker--; game.radioAlly = id; game.roomUsed.radio = 1; o.used = true; stMas('radio'); Sfx.bell(); feed(`${Q.name}: llegan en la próxima oleada`, 'blue'); close(); });
+    const por = allyPortrait(Q.k);   // la foto del ayudante, hecha con su modelo 3D
+    b.innerHTML = `${por ? `<span class="radio-por" style="background-image:url(${por})"></span>` : `<span class="relic-ic">${ico(Q.ic)}</span>`}<em>1 refuerzo</em><b>${Q.uno}</b><span>${Q.desc}</span><span class="tl-p">${f > 0 ? 'Llamar · 1 ficha' : 'Sin fichas de miembro'}</span>`;
+    b.addEventListener('click', () => { if (state !== 'items' || (game.poker | 0) < 1 || o.used) return; game.poker--; game.radioAlly = id; game.roomUsed.radio = 1; o.used = true; stMas('radio'); Sfx.bell(); feed(`${Q.uno}: llega en la próxima oleada`, 'blue'); close(); });
     box.appendChild(b);
   }
   $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Ahora no';
@@ -26698,12 +26700,12 @@ function updateChicken(dt) {
 function radioArrive(n) {
   const Q = RADIO_SQ.find(x => x.id === game.radioAlly); game.radioAlly = null; if (!Q) return; game.radioK = Q.id; game.radioW = n;
   if (Net.client) Net.ev(['rsq', Q.id]); else radioSquad(Q.id);
-  setTimeout(() => { if (game && game.radioW === n) { banner('¡Llegaron los refuerzos!', `${Q.name}: 3 pelean por su cuenta esta oleada`, 2600, 'heli'); Sfx.bell(); } }, 2500);
+  setTimeout(() => { if (game && game.radioW === n) { banner('¡Llegó el refuerzo!', `${Q.uno} pelea por su cuenta esta oleada`, 2600, 'heli'); Sfx.bell(); } }, 2500);
 }
 function radioLeave() {
   if (!game.radioK || game.radioW !== game.wave) return; const k = game.radioK; game.radioK = null; game.radioW = 0;
   if (Net.client) Net.ev(['tdis']); else dropTemp(Net.id);
-  const Q = RADIO_SQ.find(x => x.id === k); feed(`${Q ? Q.name : 'Los refuerzos'}: vuelven a la base`, 'blue');
+  const Q = RADIO_SQ.find(x => x.id === k); feed(`${Q ? Q.uno : 'El refuerzo'}: vuelve a la base`, 'blue');
 }
 // quita solo los refuerzos de la radio (nunca a un ayudante contratado)
 // hacia un punto: en línea recta si no hay nada en medio
@@ -26925,7 +26927,7 @@ function useLabel(o) {
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `1 ficha de calavera = 3 de miembro, y 3 de miembro = 1 de calavera (para la tienda de afuera). Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: f || (game.poker | 0) >= 3 ? 'Cambiar fichas' : 'Sin fichas para cambiar', ok: f > 0 || (game.poker | 0) >= 3 }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'taller') return { key: 'tl', t: 'Taller de armas', r: '', d: 'Modificaciones para tu revólver: más balas, más daño, más cadencia y piezas raras.', b: 'Ver mejoras', ok: true };
-  if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide refuerzos: 2 escuadras para elegir, 3 hombres cada una, solo durante la próxima oleada. Cuesta 1 ficha de miembro (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
+  if (o.kind === 'radio') return { key: 'ra' + (game.poker | 0), t: 'Radio de rescate', r: '', d: `Pide un refuerzo: 2 para elegir, solo durante la próxima oleada. Cuesta 1 ficha de miembro (tienes ${game.poker | 0}).`, b: (game.poker | 0) > 0 ? 'Usar la radio' : 'Ver la radio', ok: true };
   if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `777: 1000 $. Tres fichas: 3 fichas de miembro. Tres diamantes: un objeto. Tres campanas: 3 balas especiales. Tres BAR: 50 $. Tres cerezas: te cura. Dos iguales: 12 $. Se juega con 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Una sola tirada. Premios pequeños: oro, balas de cada tipo o curación. Solo dos casillas no dan nada. Se juega con 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'reroll') { const rp = Math.ceil(game.rerollP * (ST.rerollX || 1)); return { key: 'rr' + rp + game.gold, t: 'Campanita', r: '', d: 'Cambia los objetos que no compraste.', b: game.gold >= rp ? `Cambiar · ${rp} $` : `Faltan ${rp - game.gold} $`, ok: game.gold >= rp }; }
