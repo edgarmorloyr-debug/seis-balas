@@ -2991,7 +2991,8 @@ const MAPS = [
   { name: 'El Planeta Arcade', desc: 'Un planeta entero convertido en sala de juegos. La partida nunca terminó: los jugadores siguen aquí, y ya no tienen fichas.' },
   { name: 'Los Backrooms: Nivel 2', desc: 'Túneles de tuberías calientes que no terminan. Si oyes pasos, no son tuyos.' },
   { name: 'Atlantis', desc: 'La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.' },
-  { name: 'El Maid Café', desc: 'Lazos rosas, tartas de fresa y neón de Akihabara. Las camareras no cerraron: ahora sirven a balazos.' }
+  { name: 'El Maid Café', desc: 'Lazos rosas, tartas de fresa y neón de Akihabara. Las camareras no cerraron: ahora sirven a balazos.' },
+  { name: 'BIG NEON CASINO', casino: true, desc: 'La ciudad casino que nunca duerme. Aquí te esperan los jefes: la casa siempre gana… hasta esta noche.' }
 ];
 function lam(color, o) { return new THREE.MeshLambertMaterial(Object.assign({ color }, o || {})); }
 function bsc(color, o) { return new THREE.MeshBasicMaterial(Object.assign({ color }, o || {})); }
@@ -3237,7 +3238,8 @@ const ECHO = [
   [0.07, 0.22, 0.4, 4000],   // El Planeta Arcade
   [0.06, 0.2, 0.5, 2500],   // Los Backrooms: Nivel 2
   [0.45, 0.3, 0.4, 1300],   // Atlantis: la plaza bajo el mar, eco largo y apagado
-  [0.1, 0.24, 0.34, 3800]
+  [0.1, 0.24, 0.34, 3800],
+  [0.2, 0.3, 0.35, 3200]   // BIG NEON CASINO: rebota en las fachadas
 ];
 const ACOUSTIC = [
   { sec: 1.8, decay: 3, wet: 0.4, step: 'grass' },               // cementerio: noche abierta
@@ -3270,7 +3272,8 @@ const ACOUSTIC = [
   { sec: 2.4, decay: 2.2, wet: 0.75, step: 'concrete' },   // El Planeta Arcade
   { sec: 1.2, decay: 1.6, wet: 1, step: 'concrete' },   // Los Backrooms: Nivel 2
   { sec: 3.2, decay: 1.7, wet: 0.85, lp: 4500, step: 'snow' },   // Atlantis: bajo el agua, todo suena hondo y apagado
-  { sec: 1.6, decay: 2.6, wet: 0.5, step: 'wood' }
+  { sec: 1.6, decay: 2.6, wet: 0.5, step: 'wood' },
+  { sec: 2, decay: 2.4, wet: 0.5, step: 'carpet' }   // BIG NEON CASINO: alfombra de casino
 ];
 // DESC: La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.
 // ---- Lugar nuevo: Atlantis
@@ -4536,7 +4539,7 @@ function buildMap(i) {
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null; world.zonas = null;
   world.idx = i; world.maidSpots = null; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
-  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
+  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
   moonMesh.visible = moonHalo.visible = !world.noMoon;
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -4555,6 +4558,106 @@ function buildMap(i) {
 // ---- Lugar nuevo: Las Vegas
 // ---- Lugar nuevo: El Planeta Arcade
 // ---- Lugar nuevo: Los Backrooms: Nivel 2
+
+// ---- BIG NEON CASINO (Etapa 3, decisión del dueño 19-oct-2026): el mapa final, una plaza de la ciudad casino rodeada de casinos encendidos.
+// Liviano para el teléfono: pocas mallas, edificios instanciados, brillos en vez de luces (solo 4 luces de verdad) y nada importado.
+function buildCasino() {
+  const A = 34;
+  world.arena = { t: 'r', hx: A, hz: A }; world.start = { x: 0, z: 25 }; world.noMoon = true;
+  world.shirts = [0x14141a, 0x8a1a2a, 0x2a1a4a, 0xd8d8d8, 0x1a3a4a, 0x6a1a5a]; world.hat = 'tophat'; world.hatP = 0.08;
+  world.mix = { runner: 1.3, screamer: 1.2, axer: 1.2 };
+  env({ fog: 0x1c0a26, dens: 0.0105, top: 0x06020c, hemiS: 0xc8a0ff, hemiG: 0x2a1028, hemiI: 0.8, moonC: 0xff9ad8, moonI: 0.4, moonDir: new THREE.Vector3(0.3, 0.9, 0.25), lantern: 1.15, wind: 0.03 });
+  const glow = (x, y, z, col, s, op = 0.6) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); world.group.add(sp); return sp; };
+  const NEON = [0xff3fd0, 0x3ff0ff, 0xffd040, 0x7a5aff, 0xff5a3a, 0x50ff8a];
+  // ---- suelo: alfombra de casino (rombos dorados sobre granate) en la plaza y asfalto morado alrededor
+  addGround(240, canvasTex(512, 512, (g, w) => {
+    g.fillStyle = '#2a1424'; g.fillRect(0, 0, w, w);
+    for (let i = 0; i < 1600; i++) { g.fillStyle = ['#321a2c', '#24101e', '#3a2032'][i % 3]; g.globalAlpha = 0.5; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); }
+    g.globalAlpha = 1;
+  }, 30));
+  overlayPlane(A * 2 + 2, (g, w) => {
+    g.fillStyle = '#5a1020'; g.fillRect(0, 0, w, w);
+    const n = 16, s = w / n; g.strokeStyle = 'rgba(255,200,90,.55)'; g.lineWidth = 3;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const x = i * s + s / 2, y = j * s + s / 2; g.beginPath(); g.moveTo(x, y - s * 0.42); g.lineTo(x + s * 0.42, y); g.lineTo(x, y + s * 0.42); g.lineTo(x - s * 0.42, y); g.closePath(); g.stroke(); g.fillStyle = (i + j) % 2 ? 'rgba(255,190,70,.22)' : 'rgba(120,20,40,.6)'; g.fill(); }
+    g.strokeStyle = '#ffd060'; g.lineWidth = 10; g.strokeRect(6, 6, w - 12, w - 12);
+  }, 1024);
+  // ---- casinos alrededor: bloques instanciados con ventanas de colores
+  const winT = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#0a0610'; g.fillRect(0, 0, w, h);
+    for (let r = 0; r < 16; r++) for (let c = 0; c < 8; c++) { if (Math.random() < 0.68) continue; g.fillStyle = pick(['#ff6ad8', '#6af0ff', '#ffd27a', '#b48aff', '#fff0d0']); g.globalAlpha = rand(0.4, 1); g.fillRect(c * 32 + 5, r * 16 + 3, 22, 10); }
+    g.globalAlpha = 1;
+  });
+  winT.wrapS = winT.wrapT = THREE.RepeatWrapping; winT.repeat.set(3, 6);
+  const facM = lam(0x120a18, { emissive: 0xffffff, emissiveMap: winT, emissiveIntensity: 0.6 });
+  const blocks = [];
+  for (let i = 0; i < 28; i++) {   // un anillo de casinos más allá del borde (no se llega a ellos)
+    const side = i % 4, t = (Math.floor(i / 4) + 0.5) / 7 * 2 - 1, d = A + sr(9, 20), h = sr(14, 40), w = sr(9, 15);
+    const x = side === 0 ? t * 62 : side === 1 ? d : side === 2 ? t * 62 : -d, z = side === 0 ? -d : side === 1 ? t * 62 : side === 2 ? d : t * 62;
+    if (side === 0 && Math.abs(x) < 20) continue;   // ahí va el casino grande
+    blocks.push([x, h / 2, z, w, h]);
+  }
+  { const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), facM, blocks.length), O = new THREE.Object3D();
+    blocks.forEach(([x, y, z, w, h], i) => { O.position.set(x, y, z); O.scale.set(w, h, w); O.updateMatrix(); m.setMatrixAt(i, O.matrix); });
+    world.group.add(m);
+    // franjas de neón en lo alto de cada casino
+    const strip = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.5, 1), bsc(0xffffff), blocks.length);
+    blocks.forEach(([x, y, z, w, h], i) => { O.position.set(x, h - 1.4, z); O.scale.set(w + 0.3, 1, w + 0.3); O.updateMatrix(); strip.setMatrixAt(i, O.matrix); strip.setColorAt(i, new THREE.Color(NEON[i % NEON.length])); });
+    world.group.add(strip);
+  }
+  // ---- el casino grande al fondo con el cartel BIG NEON CASINO y sus bombillas que se prenden en ola
+  const FZ = -A - 7;
+  M(bx(40, 22, 10), lam(0x1a0c22, { emissive: 0xffffff, emissiveMap: winT, emissiveIntensity: 0.55 }), 0, 11, FZ, { cast: false });
+  M(bx(14, 7, 1.2), lam(0x0c060e), 0, 3.5, FZ + 5.4, { cast: false });   // la puerta
+  M(bx(14, 0.4, 3), bsc(0xffd060), 0, 7.2, FZ + 6.2, { cast: false });   // marquesina
+  const signT = canvasTex(1024, 256, (g, w, h) => {
+    g.fillStyle = '#12061a'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ff3fd0'; g.lineWidth = 10; g.shadowColor = '#ff3fd0'; g.shadowBlur = 24; g.strokeRect(14, 14, w - 28, h - 28);
+    g.font = '900 120px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.shadowColor = '#3ff0ff'; g.shadowBlur = 30; g.fillStyle = '#e8fdff'; g.fillText('BIG NEON', w / 2, h * 0.36);
+    g.font = '900 86px Georgia, serif'; g.shadowColor = '#ff3fd0'; g.fillStyle = '#ffe2f6'; g.fillText('CASINO', w / 2, h * 0.76);
+  });
+  M(new THREE.PlaneGeometry(26, 6.5), bsc(0xffffff, { map: signT, fog: false }), 0, 15, FZ + 5.05, { cast: false, recv: false });
+  glow(0, 15, FZ + 6, 0xff3fd0, 38, 0.45); glow(0, 15, FZ + 6.2, 0x3ff0ff, 22, 0.25);
+  const bulbs = []; const bulbG = new THREE.SphereGeometry(0.22, 6, 4);
+  for (let i = 0; i < 44; i++) { const t = i / 44, per = 2 * (26 + 6.5), d = t * per; let x, y; if (d < 26) { x = -13 + d; y = 18.4; } else if (d < 32.5) { x = 13; y = 18.4 - (d - 26); } else if (d < 58.5) { x = 13 - (d - 32.5); y = 11.6; } else { x = -13; y = 11.6 + (d - 58.5); }
+    const m = M(bulbG, bsc(0xfff0b0, { fog: false }), x, y, FZ + 5.3, { cast: false, recv: false }); bulbs.push(m); }
+  world.anims.push((dt, t) => { const k = Math.floor(t * 8); bulbs.forEach((b, i) => { const on = (i + k) % 4 !== 0; b.material.color.setHex(on ? 0xfff0b0 : 0x5a4020); }); });
+  addBox(0, FZ, 20, 5.5);
+  // ---- la ruleta gigante del centro (gira; los jefes pelean a su alrededor)
+  {
+    const g = Grp(0, -8);
+    M(cyl(3.6, 3.9, 0.9, 28), lam(0x3a1a0c), 0, 0.45, 0, { p: g, solid: true });
+    const rt = canvasTex(256, 256, (c, w) => { const n = 18; for (let i = 0; i < n; i++) { c.fillStyle = i === 0 ? '#1a8a3a' : i % 2 ? '#c01818' : '#141414'; c.beginPath(); c.moveTo(w / 2, w / 2); c.arc(w / 2, w / 2, w / 2, i / n * TAU, (i + 1) / n * TAU); c.fill(); } c.fillStyle = '#d0a040'; c.beginPath(); c.arc(w / 2, w / 2, w * 0.18, 0, TAU); c.fill(); });
+    const top = M(new THREE.CircleGeometry(3.4, 28), lam(0xffffff, { map: rt, emissive: 0x220a10 }), 0, 0.92, 0, { p: g, rx: -Math.PI / 2, cast: false });
+    M(cyl(0.12, 0.3, 1.6, 8), lam(0xd0a040, { emissive: 0x302008 }), 0, 1.6, 0, { p: g });
+    world.anims.push(dt => { top.rotation.z += dt * 0.6; });
+    lampLight(0, 4.5, -8, 0xff60d0, 1.6, 22);
+    addCircle(0, -8, 3.9);
+  }
+  // ---- coberturas: máquinas tragamonedas, mesas de cartas, dados gigantes y pilas de fichas
+  const slotBody = lam(0x8a1a2a, { emissive: 0x200408 }), slotScr = [bsc(0x3ff0ff), bsc(0xffd040), bsc(0xff3fd0)];
+  const slotRow = (x, z, ry, n) => { const g = Grp(x, z, ry); for (let i = 0; i < n; i++) { const lx = (i - (n - 1) / 2) * 1.25; M(bx(1.1, 2.2, 0.9), slotBody, lx, 1.1, 0, { p: g, solid: true }); M(bx(0.8, 0.5, 0.05), slotScr[i % 3], lx, 1.5, 0.46, { p: g, cast: false }); M(bx(0.9, 0.18, 0.06), bsc(0xfff0b0), lx, 2.12, 0.46, { p: g, cast: false }); } addBox(x, z, n * 0.63, 0.5, ry); };
+  slotRow(-22, -16, 0.35, 4); slotRow(22, -16, -0.35, 4); slotRow(-26, 8, Math.PI / 2, 3); slotRow(26, 8, -Math.PI / 2, 3);
+  const felt = lam(0x0e5a2a), wood = lam(0x3a1a0c);
+  for (const [x, z, ry] of [[-12, 6, 0.4], [12, 6, -0.4], [-6, 16, 0], [8, -22, 0.2]]) {
+    const g = Grp(x, z, ry); M(cyl(1.9, 1.9, 0.2, 18), felt, 0, 1.0, 0, { p: g, solid: true }); M(cyl(2.05, 2.05, 0.16, 18), wood, 0, 0.92, 0, { p: g }); M(cyl(0.3, 0.5, 0.9, 8), wood, 0, 0.45, 0, { p: g, solid: true });
+    for (let k = 0; k < 3; k++) M(bx(0.5, 0.02, 0.7), bsc(0xf8f0e0), sr(-0.9, 0.9), 1.11, sr(-0.9, 0.9), { p: g, cast: false, ry: sr(0, TAU) });
+    addCircle(x, z, 2.05);
+  }
+  const dieT = canvasTex(128, 128, (c, w) => { c.fillStyle = '#f8f2e4'; c.fillRect(0, 0, w, w); c.fillStyle = '#b0201c'; for (const [x, y] of [[0.28, 0.28], [0.72, 0.72], [0.5, 0.5], [0.72, 0.28], [0.28, 0.72]]) { c.beginPath(); c.arc(x * w, y * w, w * 0.09, 0, TAU); c.fill(); } });
+  const dieM = lam(0xffffff, { map: dieT });
+  for (const [x, z, ry] of [[-17, -2, 0.5], [18, -4, 1.1], [-4, -26, 0.2], [16, 20, 0.8], [-18, 22, 1.3]]) { M(bx(2.4, 2.4, 2.4), dieM, x, 1.2, z, { ry, solid: true }); addBox(x, z, 1.25, 1.25, ry); }
+  const chipM = NEON.map(c => lam(c, { emissive: c, emissiveIntensity: 0.15 }));
+  for (const [x, z, n] of [[-28, -26, 6], [27, -27, 5], [-29, 25, 4], [28, 26, 6], [3, 8, 3]]) { for (let k = 0; k < n; k++) M(cyl(0.9, 0.9, 0.28, 16), chipM[(k + n) % chipM.length], x, 0.14 + k * 0.3, z, { ry: k * 0.4, solid: k === 0 }); addCircle(x, z, 0.95); }
+  // ---- farolas de neón (solo algunas con luz de verdad) y brillos en el piso
+  [[-30, -30], [30, -30], [-30, 30], [30, 30], [-30, 0], [30, 0], [14, 31]].forEach(([x, z], i) => streetLamp(x, z, NEON[i % NEON.length], i < 3, Math.atan2(-z, -x) - Math.PI / 2));
+  for (let i = 0; i < 6; i++) glow(sr(-28, 28), 0.15, sr(-28, 28), NEON[i], 9, 0.18);
+  // confeti y destellos de la ciudad que nunca duerme
+  world.anims.push(() => { if (Math.random() < (FAST() ? 0.1 : 0.25)) { const c = new THREE.Color(pick(NEON)); PA.add(rand(-A, A), rand(8, 14), rand(-A, A), rand(-0.3, 0.3), rand(-1.2, -0.5), rand(-0.3, 0.3), rand(4, 7), 0.08, c.r, c.g, c.b, 1, 0.2, 0.2, 0, 0); } });
+  // ---- por dónde salen: de las puertas de los casinos y de la alfombra
+  for (let i = 0; i < 12; i++) { const a = (i + 0.5) / 12 * TAU; const x = clamp(Math.cos(a) * 46, -A + 1.5, A - 1.5), z = clamp(Math.sin(a) * 46, -A + 1.5, A - 1.5); world.spawns.push({ x, z, rise: i % 3 === 0 }); }
+  world.spawns.push({ x: -4, z: FZ + 7.5, rise: false }, { x: 4, z: FZ + 7.5, rise: false });
+}
 
 // ---- Lugar 1: el cementerio
 function ringFence(R, mat) {
@@ -21425,7 +21528,7 @@ function buildZombie(type) {
     const h2 = new THREE.Mesh(ZG.head, skin); h2.scale.setScalar(0.7); h2.position.set(-0.3, 0.32, 0.02); h2.rotation.z = 0.5; z.torso.add(h2);
     const e2 = new THREE.Mesh(ZG.eye, eyeMats.abom); e2.position.set(0, 0.03, 0.151); h2.add(e2);
   }
-  if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)]); LOOKS[z.look](z); }
+  if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)] || ['Cajero', 'Novia', 'Vaquero', 'Oficinista', 'Chef']); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
   if (Z3D.on && type === 'walker') z3dPoner(z);
   return z;
@@ -21706,7 +21809,8 @@ const NPC_LOOK = [
   { name: 'La campeona del arcade', obj: 'a la campeona del arcade', shirt: 0x7a2ab0, pants: 0x1a1a2e, hat: 'cap' },
   { name: 'El técnico', obj: 'al técnico', shirt: 0x6a5a2a, pants: 0x3a3a30, hat: 'cap' },
   { name: 'La arqueóloga submarina', obj: 'a la arqueóloga submarina', shirt: 0x2a6a7a, pants: 0x1a2a3a, hat: null },
-  { name: 'El otaku', obj: 'al otaku', shirt: 0x7a2a2a, pants: 0x3a4a6a, hat: null }
+  { name: 'El otaku', obj: 'al otaku', shirt: 0x7a2a2a, pants: 0x3a4a6a, hat: null },
+  { name: 'La crupier', obj: 'a la crupier', shirt: 0x1a1a1e, pants: 0x1a1a1e, hat: null }
 ];
 const beamGeo = new THREE.CylinderGeometry(0.45, 0.45, 30, 12, 1, true);
 const npcEyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
@@ -22560,7 +22664,7 @@ function newGame(sv, run) {
   game.slot = game.slot || []; game.balTemp = game.balTemp || {}; game.nextRescue = 1e9; calcStats();
   game.prog0 = progresoFoto();
   if (!sv && !tuto) {   // Etapa 3: cuántos mapas tiene esta partida y con qué mapa empieza (al azar entre los abiertos)
-    game.visita = run && run.visita != null ? run.visita : visitaDe(game.diff); game.nMap = VISITA_MAPAS[game.visita];
+    game.visita = run && run.visita != null ? run.visita : PRUEBA_CASINO ? PRUEBA_CASINO.v : visitaDe(game.diff); game.nMap = VISITA_MAPAS[game.visita];
     game.route = [run && run.mapa0 != null ? run.mapa0 : pick(mapasAbiertos())];
   }
   sigApply();
@@ -22634,7 +22738,7 @@ function startWave(n) {
   waveSupplies(n);
   game.waveMod = game.nextMod || null; game.nextMod = null;
   waveStartLocal(n);
-  if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
+  if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && !casN(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
     if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
@@ -22661,6 +22765,14 @@ function casOlaFin(w) {
   game.casV = game.casV || []; if (game.casV.includes(j)) return; game.casV.push(j);
   jefeVencido(game.char, j, game.diff); renderEstrellasIni();
   feed(`¡Venciste ${aJefe(j)}!`, 'gold');
+}
+// Gancho de prueba (?casino=1..5 en la dirección, &ola=1..5): empieza la partida directo en el casino de esa visita
+const PRUEBA_CASINO = (() => { try { const q = new URLSearchParams(location.search); return q.has('casino') ? { v: clamp((+q.get('casino') || 1) - 1, 0, 4), ola: clamp(+q.get('ola') || 1, 1, CAS_OLEADAS) } : null; } catch (e) { return null; } })();
+function irAlCasino(ola = 1) {
+  const N = runN(); if (!N || Net.client) return false;
+  game.route = [game.route[0]]; for (let z = 1; z < N; z++) game.route[z] = game.route[0]; game.route[N] = CASINO_IDX;
+  clearActors(); buildMap(CASINO_IDX); player.pos.set(world.start.x, 0, world.start.z); player.yaw = 0;
+  game.alive = 0; game.routeWave = casIni() - 1; startWave(casIni() + ola - 1); return true;
 }
 function chooseType(n) {
   if (game.bossQ.length) return game.bossQ.shift();
@@ -27557,7 +27669,7 @@ function renderTeam(dt) {
   if (html !== teamKey) { teamKey = html; box.innerHTML = html; } box.hidden = false;
 }
 const AMB = ['grillos', 'grillos', 'sirena', 'zumbido', 'feria', 'zumbido', 'olas', 'sirena', 'feria', 'viento', 'goteo', 'zumbido', 'zumbido', 'grillos', 'grillos', null, 'viento', 'fuego', 'viento', 'olas', 'grillos', 'zumbido', 'olas', 'sirena', 'goteo', 'sirena', 'feria', 'feria', 'zumbido', 'goteo',
-  'zumbido'];
+  'zumbido', 'feria'];
 let moodT = 0;
 function moodStep(dt) {
   if (!game || state === 'menu') return; Sfx.amb(state === 'play' ? AMB[world.idx] : null, dt);
@@ -27816,7 +27928,7 @@ function rvFin(opt, azar) {
   Sfx.bell(); hint(azar ? `¡Empate! La suerte eligió: ${MAPS[opt.map].name}` : `El grupo eligió: ${MAPS[opt.map].name}`, 2600);
 }
 const ROOM_IDX = 17;
-let CASINO_IDX = 9;   // el mapa del casino (lo fija el mapa «casino» al definirse)
+const CASINO_IDX = MAPS.findIndex(m => m.casino);   // el mapa del casino (BIG NEON CASINO, el último de la lista)
 // En grupo, lo que sale en la Trastienda es igual para todos: el azar sale de la sala y de la oleada (como la mesa de blackjack)
 function azarSala(txt) { let h = 2166136261; for (const ch of txt) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function prepRoom() {
@@ -30723,7 +30835,7 @@ const Music = (() => {
       const on = game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state) && settings.music !== 'off';
       const can = on && world.idx !== ROOM_IDX ? ((runN() ? casN(game.wave) : game.wave > (MAP_COUNT - 1) * WAVES_PER_MAP && game.wave <= LAST_WAVE) ? 'final' : MUSICA_MAPA[world.idx]) : null;
       const menu = !game && settings.music !== 'off';   // la canción del menú suena solo fuera de la partida (no en las tiendas ni en la Trastienda)   // menús: suena la canción de Tokio hasta entrar a la partida (pedido del dueño, 16-oct-2026)
-      play(menu ? 'tokio' : on ? can ? can : (settings.music === 'map' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 3, 5, 1, 0, 6, 1, 9, 6, 2, 8, 9, 7, 2, 7, 4, 3, 3, 6, 8][Math.max(0, world.idx)] : +settings.music) : null);
+      play(menu ? 'tokio' : on ? can ? can : (settings.music === 'map' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 3, 5, 1, 0, 6, 1, 9, 6, 2, 8, 9, 7, 2, 7, 4, 3, 3, 6, 8, 9][Math.max(0, world.idx)] : +settings.music) : null);
     },
     // amenaza 0..1 (zombis cerca), si hay jefe vivo y si estamos en calma (Trastienda)
     mood(x, b, c) { tension += (x - tension) * 0.25; boss = b; calm = c; },
@@ -32011,6 +32123,7 @@ function startGameNow(sv) {
   Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : Object.assign({ char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff }, Net.on && Net.run0 ? Net.run0 : {}));
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
+  if (PRUEBA_CASINO && !(sv && sv.wave) && !Net.client && !tuto) irAlCasino(PRUEBA_CASINO.ola);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   $('#me-pic').src = charPic(game.char);
   renderChips(); requestLock(); canvas.focus();
