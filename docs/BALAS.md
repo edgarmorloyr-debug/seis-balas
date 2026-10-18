@@ -26,4 +26,9 @@ El dueño eligió las 16 candidatas (hacen falta 12; por decidir qué pasa con l
 
 ### Decisión (18-oct-2026)
 - Pasan a ser **fusiones** (no son base): Puntería, Espuelas, Imán, Mercenaria, Alcancía y Usurero.
-- **Pasivas base confirmadas (10 de 12):** Robot, Suerte, Rey, Oro, Caramelo, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora y Fénix. Faltan 2.
+- **12 pasivas base confirmadas:** Robot, Suerte, Rey, Oro, Caramelo, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora, Fénix, Dado cargado y Tahúr.
+
+| Nueva | Rango | Efecto |
+|---|---|---|
+| Dado cargado | A | Al empezar cada oleada, una bala al azar de tu slot sube 1 nivel solo por esa oleada |
+| Tahúr | B | Cuando te sale una activa en el cañón, 1 de 4 de que se repita gratis |
