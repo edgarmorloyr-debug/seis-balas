@@ -20109,44 +20109,299 @@ const MASTERY = {
 };
 const WLV = [0, 25, 70, 150];
 const hexCol = c => parseInt(c.slice(1), 16);
-/* ===================== CAJA DE BALAS: 30 balas especiales ===================== */
+/* ===================== SISTEMA DE BALAS (Etapa 1B, docs/BALAS.md · decisiones del dueño del 18-oct-2026) =====================
+   TODAS las cifras de las balas están aquí, en BAL (reglas generales) y en BALAS (cada bala): para rebalancear se cambia solo este bloque.
+   El modelo:
+   · SLOT: tus balas (pasivas y activas). Tamaño según el personaje y algunas balas. Una bala repetida no ocupa otro espacio: sube de nivel (1 a 4).
+   · CAJA: las balas normales (50; 60 con el Cinturón) y, mezcladas, 1 copia por nivel de cada activa de tu slot.
+   · CAÑÓN: el tambor del revólver (tu «mano»): al recargar, cada recámara saca una bala al azar de la caja.
+     Al disparar una activa se aplica su efecto y luego vuelve a la caja o se rompe (pierde 1 nivel; con nivel 0 sale del slot).
+   · FUSIÓN: solo balas del mismo rango; la receta es fija y el resultado sube un rango (S + S = secreta). Sale en nivel 1. */
+const BAL = {
+  rangos: {   // rar: orden de rareza (compatible con el código de antes) · col: color del rango
+    C: { rar: 1, name: 'Rango C', col: '#b0b0b0', fondo: '#3a3a3a', texto: '#e8e8e8' },
+    B: { rar: 2, name: 'Rango B', col: '#4aa3ff', fondo: '#13304d', texto: '#bfe0ff' },
+    A: { rar: 3, name: 'Rango A', col: '#b06aff', fondo: '#331a4d', texto: '#e5ccff' },
+    S: { rar: 4, name: 'Rango S', col: '#ffc43a', fondo: '#4d3a0d', texto: '#ffe9b0', brillo: true },
+    X: { rar: 5, name: 'Secreta', col: '#ff3d6e', fondo: '#4d0d1e', texto: '#ffd0dc', brillo: true }   // secreta: carmesí con brillo (elegido por Claude: distinto de los otros cuatro)
+  },
+  subeRango: { C: 'B', B: 'A', A: 'S', S: 'X' },
+  slotBase: 6,
+  slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6 },   // carlos = Geronimo
+  balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro' },
+  caja: 50,                 // balas normales que caben en la caja (el Cinturón suma)
+  nivelMax: 4,
+  nivelMul: [1, 1.5, 2, 3], // nivel 1, 2, 3 y 4 (el 4 además «despierta»: por definir con el dueño)
+  probMax: 0.95,            // ninguna probabilidad pasa de aquí
+  precio: { C: 20, B: 40, A: 80, S: 300 },   // balas sueltas (la S solo se vende si alguna vez sale en una máquina)
+  venta: 0.5,               // vender devuelve la mitad (por cada nivel)
+  sueltas: { n: 3, peso: { C: 55, B: 33, A: 12 } },   // máquina · Sueltas: 3 por visita, de C a A
+  mojada: 0.25,             // cada espacio de un sobre sale mojado (no sirve)
+  sobres: [
+    { k: 'standard', name: 'Sobre Standard', price: 50, peso: { C: 70, B: 25, A: 5 }, col: '#c8a868', d: '3 balas, casi todas de rango C.' },
+    { k: 'terminator', name: 'Sobre Terminator', price: 100, peso: { C: 40, B: 45, A: 15 }, col: '#ff5a3a', d: '3 balas: más de rango B y alguna A.' },
+    { k: 'especial', name: 'Sobre Especial', price: 300, peso: { C: 10, B: 50, A: 40 }, col: '#c070ff', d: '3 balas: muchas de rango A.' }
+  ],
+  cofre: { C: 60, B: 40 },  // cada cofre da 1 bala C o B
+  jefeMapa: 'A',            // jefe de mapa: 1 bala A segura
+  jefeCasino: 'S',          // jefe del casino: 1 bala S segura (los jefes del casino todavía no existen en el juego)
+  fusionFichas: 1,          // cada fusión cuesta 1 ficha de miembro
+  familiaMin: 3,
+  familia: {
+    comida: { name: 'Comida', bono: 'te curas 5 por cada zombi que matas', cura: 5 },
+    casino: { name: 'Casino', bono: 'probabilidades +10 %', prob: 1.1 },
+    oro: { name: 'Oro', bono: '+20 % de oro', oro: 1.2 },
+    maquina: { name: 'Máquina', bono: '+1 espacio en el slot', esp: 1 },
+    celestial: { name: 'Celestial', bono: 'aura que cura al equipo', r: 6, cura: 2 },
+    elementos: { name: 'Elementos', bono: 'los efectos duran el doble', dura: 2 },
+    oscura: { name: 'Oscura', bono: 'los zombis que matas dejan sombras que pelean por ti', t: 10, max: 3 }
+  },
+  caballero: { vida: 300, dano: 40 },   // el caballero que invocan Invocación, Legión, Ángel guardián, Duelo y Caballero del tiempo (antes del nivel)
+  arbolEspacio: { max: 2, coste: [8, 15] }   // Tienda calavera: espacios de slot extra (caros)
+};
+// t: 'p' pasiva · 'a' activa · vuelve: true = vuelve a la caja, false = se rompe · f: familia · c: nombre corto para el slot y el cañón
+// v: sus cifras · up: qué cifras crecen con el nivel (×1,5 / ×2 / ×3). Una activa sin «up» hace más daño con el nivel.
+const BALAS = {
+  // ---- 24 balas base (6 por rango)
+  oro: { n: 'Oro', r: 'C', t: 'p', f: 'oro', c: 'Oro', d: '1 de 5 de ganar {oro} de oro por cada muerte.', v: { p: 0.2, oro: 2 }, up: ['oro'] },
+  cinturon: { n: 'Cinturón', r: 'C', t: 'p', c: 'Cin', d: 'Tu caja pasa de 50 a {caja} balas.', v: { extra: 10 }, up: ['extra'] },
+  polvora: { n: 'Pólvora fina', r: 'C', t: 'p', c: 'Pól', d: '+{dano%} de daño.', v: { dano: 0.12 }, up: ['dano'] },
+  pluma: { n: 'Gatillo de pluma', r: 'C', t: 'p', f: 'maquina', c: 'Gat', d: 'Disparas un {cad%} más rápido.', v: { cad: 0.12 }, up: ['cad'] },
+  cantimplora: { n: 'Cantimplora', r: 'C', t: 'p', f: 'comida', c: 'Can', d: 'Curas {cura} de vida al empezar cada oleada.', v: { cura: 15 }, up: ['cura'] },
+  apuesta: { n: 'Apuesta', r: 'C', t: 'a', vuelve: true, f: 'casino', c: 'Apu', d: 'Doble o nada: la mitad de las veces hace ×{x} de daño; la otra mitad no hace nada.', v: { p: 0.5, x: 3 }, up: ['x'] },
+  robot: { n: 'Robot', r: 'B', t: 'p', f: 'maquina', c: 'Rob', d: '+{esp} espacios en el slot.', v: { esp: 2 }, up: ['esp'] },
+  caramelo: { n: 'Caramelo', r: 'B', t: 'p', f: 'comida', c: 'Car', d: '×{x} de daño si es la única bala de comida en tu slot.', v: { x: 3 }, up: ['x'] },
+  tahur: { n: 'Tahúr', r: 'B', t: 'p', f: 'casino', c: 'Tah', d: 'Cuando te sale una activa en el cañón, {p%} de que se repita gratis.', v: { p: 0.25 }, up: ['p'] },
+  escarcha: { n: 'Escarcha', r: 'B', t: 'a', vuelve: true, f: 'elementos', c: 'Esc', d: 'Congela al zombi y todo en {r} m por {t} s.', v: { r: 4, t: 2 }, up: ['t'] },
+  relampago: { n: 'Relámpago', r: 'B', t: 'a', vuelve: true, f: 'elementos', c: 'Rel', d: 'Un rayo salta a {n} zombis, les hace {dano} de daño y los aturde.', v: { n: 4, dano: 45, aturde: 0.8 }, up: ['dano'] },
+  bumeran: { n: 'Bumerán', r: 'B', t: 'a', vuelve: true, c: 'Bum', d: 'Si impacta, vuelve al cañón al instante.', v: {} },
+  suerte: { n: 'Suerte', r: 'A', t: 'p', f: 'casino', c: 'Sue', d: 'La bala de su izquierda en el slot activa su efecto con ×{x} de probabilidad.', v: { x: 2 }, up: ['x'] },
+  dadocargado: { n: 'Dado cargado', r: 'A', t: 'p', f: 'casino', c: 'DCa', d: 'Al empezar cada oleada, {n} bala al azar de tu slot sube 1 nivel solo por esa oleada.', v: { n: 1 }, up: ['n'] },
+  invocacion: { n: 'Invocación', r: 'A', t: 'a', vuelve: false, f: 'oscura', c: 'Inv', d: 'Un caballero pelea por ti hasta morir.', v: { vida: 1, dano: 1 }, up: ['vida', 'dano'] },
+  hipnotica: { n: 'Hipnótica', r: 'A', t: 'a', vuelve: true, f: 'oscura', c: 'Hip', d: 'El zombi pelea de tu lado {t} s.', v: { t: 10 }, up: ['t'] },
+  reloj: { n: 'Reloj', r: 'A', t: 'a', vuelve: false, c: 'Rlj', d: 'El tiempo se frena {t} s.', v: { t: 4 }, up: ['t'] },
+  ruleta: { n: 'Ruleta rusa', r: 'A', t: 'a', vuelve: false, f: 'casino', c: 'Rul', d: '{p%} de matar a todo lo que atraviesa; si no, se encasquilla.', v: { p: 1 / 3 }, up: ['p'] },
+  rey: { n: 'Rey', r: 'S', t: 'p', f: 'oro', c: 'Rey', d: 'Cada {cada} zombis muertos te da una bala B al azar.', v: { cada: 50 }, baja: ['cada'] },
+  fenix: { n: 'Fénix', r: 'S', t: 'p', f: 'celestial', c: 'Fén', d: 'Una vez por partida revives con {vida%} de vida; luego se rompe.', v: { vida: 0.5 }, up: ['vida'] },
+  angel: { n: 'Ángel', r: 'S', t: 'a', vuelve: false, f: 'celestial', c: 'Áng', d: 'Si mata: +{vida%} de vida máxima toda la partida.', v: { vida: 0.1 }, up: ['vida'] },
+  agujero: { n: 'Agujero negro', r: 'S', t: 'a', vuelve: true, f: 'oscura', c: 'Agu', d: 'En la cabeza: atrae a todos en {r} m y los elimina en {t} s.', v: { r: 8, t: 3 }, up: ['r'] },
+  tragamonedas: { n: 'Tragamonedas', r: 'S', t: 'a', vuelve: false, f: 'casino', c: 'Tra', d: '3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +{oro} de oro.', v: { oro: 10, sim: 5, r: 7, dano: 260 }, up: ['oro', 'dano'] },
+  espejo: { n: 'Espejo', r: 'S', t: 'a', vuelve: true, c: 'Esp', d: 'Copia el efecto de la última activa disparada.', v: {} },
+  // ---- C + C = B
+  iman: { n: 'Imán', r: 'B', t: 'p', f: 'oro', c: 'Imá', d: 'Recoges oro y cosas del suelo desde {r} m.', v: { r: 6 }, up: ['r'] },
+  alcancia: { n: 'Alcancía', r: 'B', t: 'p', f: 'oro', c: 'Alc', d: '+{oro} de oro por oleada sobrevivida.', v: { oro: 7 }, up: ['oro'] },
+  usurero: { n: 'Usurero', r: 'B', t: 'p', f: 'oro', c: 'Usu', d: '{pct%} de interés sobre tu oro al terminar la oleada (máx. {max}).', v: { pct: 0.01, max: 10 }, up: ['pct', 'max'] },
+  mercenaria: { n: 'Mercenaria', r: 'B', t: 'p', f: 'oro', c: 'Mer', d: '+{esp} espacios en el slot; −{coste} de oro al empezar cada oleada.', v: { esp: 2, coste: 10 }, up: ['esp'] },
+  dado: { n: 'Dado', r: 'B', t: 'a', vuelve: true, f: 'casino', c: 'Dad', d: 'Dispara de {min} a {max} balas a la vez.', v: { min: 1, max: 6 } },
+  racimo: { n: 'Racimo', r: 'B', t: 'a', vuelve: true, c: 'Rac', d: 'Al impactar se parte en {n} perdigones.', v: { n: 6, dano: 0.45 }, up: ['dano'] },
+  junior: { n: 'Junior', r: 'B', t: 'a', vuelve: true, f: 'maquina', c: 'Jun', d: 'Si impacta, recarga todo el tambor.', v: {} },
+  espuelas: { n: 'Espuelas', r: 'B', t: 'p', c: 'Spu', d: 'Caminas un {vel%} más rápido.', v: { vel: 0.15 }, up: ['vel'] },
+  bolsa: { n: 'Bolsa sin fondo', r: 'B', t: 'p', f: 'casino', c: 'Bol', d: 'Al recargar, {p%} de que una normal salga como una activa al azar.', v: { p: 0.25 }, up: ['p'] },
+  taladro: { n: 'Taladro', r: 'B', t: 'a', vuelve: true, c: 'Tal', d: 'Atraviesa a todos en línea.', v: {} },
+  vampira: { n: 'Vampira', r: 'B', t: 'a', vuelve: true, c: 'Vam', d: 'Cada impacto te cura {cura} de vida.', v: { cura: 8 }, up: ['cura'] },
+  frita: { n: 'Frita', r: 'B', t: 'a', vuelve: true, f: 'elementos', c: 'Fri', d: 'Explota al impactar.', v: { r: 3.4, dano: 90 }, up: ['dano'] },
+  segundoaire: { n: 'Segundo aire', r: 'B', t: 'p', c: 'SAi', d: 'Con menos de 25 % de vida disparas un {cad%} más rápido.', v: { hp: 0.25, cad: 0.3 }, up: ['cad'] },
+  punteria: { n: 'Puntería', r: 'B', t: 'p', c: 'Pun', d: '{p%} de crítico (doble daño).', v: { p: 0.1, x: 2 }, up: ['p'] },
+  trago: { n: 'Trago de valor', r: 'B', t: 'a', vuelve: true, f: 'comida', c: 'Trg', d: 'Cura {cura} y el próximo tiro hace doble daño.', v: { cura: 20, x: 2 }, up: ['cura'] },
+  // ---- B + B = A
+  chicles: { n: 'Máquina de chicles', r: 'A', t: 'a', vuelve: true, f: 'comida', c: 'Chi', d: '{n} bolas de chicle que pegan a los zombis al suelo {t} s.', v: { n: 5, t: 3 }, up: ['t'] },
+  crupier: { n: 'Crupier mecánico', r: 'A', t: 'p', f: 'maquina', c: 'Cru', d: '+{esp} espacio en el slot y {p%} de que una activa se repita.', v: { esp: 1, p: 1 / 3 }, up: ['p'] },
+  congelador: { n: 'Congelador', r: 'A', t: 'p', f: 'maquina', c: 'Con', d: 'Cada tiro: {p%} de congelar {t} s.', v: { p: 1 / 8, t: 2 }, up: ['p'] },
+  tesla: { n: 'Bobina Tesla', r: 'A', t: 'p', f: 'maquina', c: 'Bob', d: 'Cada {cada} s un rayo sale de ti a los {n} zombis más cercanos.', v: { cada: 10, n: 3, dano: 40 }, up: ['dano'] },
+  dron: { n: 'Dron', r: 'A', t: 'a', vuelve: true, f: 'maquina', c: 'Dro', d: 'Un dron que dispara solo {t} s.', v: { t: 10, dano: 20, cad: 0.5 }, up: ['t'] },
+  golosina: { n: 'Golosina de la suerte', r: 'A', t: 'p', f: 'comida', c: 'Gol', d: '{p%} de que un zombi suelte un dulce: cura {cura} y +{dano%} de daño en la oleada.', v: { p: 1 / 50, cura: 10, dano: 0.05 }, up: ['p'] },
+  helado: { n: 'Helado', r: 'A', t: 'a', vuelve: true, f: 'comida', c: 'Hel', d: 'Congela a todos en {r} m por {t} s; los congelados reciben ×{x} de daño.', v: { r: 6, t: 3, x: 2 }, up: ['t'] },
+  chicleelec: { n: 'Chicle eléctrico', r: 'A', t: 'a', vuelve: true, f: 'comida', c: 'ChE', d: 'Se pega al zombi y da descargas de {dano} a los cercanos {t} s.', v: { t: 5, dano: 25, r: 4, cada: 0.5 }, up: ['dano'] },
+  pinata: { n: 'Piñata', r: 'A', t: 'a', vuelve: false, f: 'comida', c: 'Piñ', d: 'El zombi que muere con ella suelta {oro} de oro y 1 bala al azar.', v: { oro: 30 }, up: ['oro'] },
+  pokerhielo: { n: 'Póker de hielo', r: 'A', t: 'p', f: 'casino', c: 'Pók', d: 'La {cada}.ª bala de cada tambor congela {t} s al impactar.', v: { cada: 4, t: 2 }, up: ['t'] },
+  carta: { n: 'Carta marcada', r: 'A', t: 'p', f: 'casino', c: 'CMa', d: 'Tus críticos lanzan un rayo a {n} zombis.', v: { n: 2, dano: 40 }, up: ['dano'] },
+  truco: { n: 'Truco de manos', r: 'A', t: 'p', f: 'casino', c: 'Tru', d: 'Las activas que se rompen tienen {p%} de volver a la caja.', v: { p: 1 / 3 }, up: ['p'] },
+  ventisca: { n: 'Ventisca', r: 'A', t: 'a', vuelve: true, f: 'elementos', c: 'Ven', d: 'Tormenta de hielo de {t} s que congela y aturde en {r} m.', v: { t: 5, r: 8 }, up: ['t'] },
+  carambano: { n: 'Carámbano', r: 'A', t: 'a', vuelve: true, f: 'elementos', c: 'Crb', d: 'Atraviesa, congela {t} s a todos en su camino y regresa al cañón.', v: { t: 2 }, up: ['t'] },
+  rayobum: { n: 'Rayo bumerán', r: 'A', t: 'a', vuelve: true, f: 'elementos', c: 'RBu', d: 'El rayo va y vuelve: golpea a {n} zombis dos veces ({dano} cada vez).', v: { n: 6, dano: 45 }, up: ['dano'] },
+  // ---- A + A = S
+  trebol: { n: 'Trébol de cuatro hojas', r: 'S', t: 'p', f: 'casino', c: 'Tré', d: 'Todas las probabilidades de tus balas se multiplican ×{x}.', v: { x: 2 }, up: ['x'] },
+  angelguardian: { n: 'Ángel guardián', r: 'S', t: 'p', f: 'celestial', c: 'AGu', d: 'En cada oleada aparece un caballero que pelea a tu lado.', v: { vida: 1, dano: 1 }, up: ['vida', 'dano'] },
+  encantador: { n: 'Encantador', r: 'S', t: 'p', c: 'Enc', d: '{p%} de que cada zombi que hieres se pase a tu lado {t} s.', v: { p: 1 / 15, t: 8 }, up: ['p'] },
+  asespadas: { n: 'As de espadas', r: 'S', t: 'a', vuelve: false, c: 'As', d: 'Tus próximos {n} tiros son críticos.', v: { n: 12, x: 2 }, up: ['n'] },
+  ruletadorada: { n: 'Ruleta dorada', r: 'S', t: 'a', vuelve: true, f: 'casino', c: 'RDo', d: '{p%} de matar a todo lo que atraviesa; nunca se encasquilla.', v: { p: 0.5 }, up: ['p'] },
+  legion: { n: 'Legión', r: 'S', t: 'a', vuelve: false, f: 'oscura', c: 'Leg', d: 'Tiras un dado: invocas de 1 a 6 caballeros.', v: { vida: 1, dano: 1 }, up: ['vida', 'dano'] },
+  titiritero: { n: 'Titiritero', r: 'S', t: 'a', vuelve: true, f: 'oscura', c: 'Tit', d: 'Hipnotiza a todos los zombis en {r} m por {t} s.', v: { r: 6, t: 6 }, up: ['t'] },
+  relojarena: { n: 'Reloj de arena', r: 'S', t: 'p', c: 'RAr', d: 'Los primeros {t} s de cada oleada el tiempo va 30 % más lento.', v: { t: 10, x: 0.7 }, up: ['t'] },
+  seisdeseis: { n: 'Seis de seis', r: 'S', t: 'a', vuelve: false, f: 'casino', c: '6d6', d: 'Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones de {dano}.', v: { dano: 150, r: 4 }, up: ['dano'] },
+  nigromante: { n: 'Nigromante', r: 'S', t: 'p', f: 'oscura', c: 'Nig', d: '{p%} de que un zombi que matas se levante a pelear por ti {t} s.', v: { p: 0.2, t: 15 }, up: ['p'] },
+  caballerotiempo: { n: 'Caballero del tiempo', r: 'S', t: 'a', vuelve: false, c: 'CTi', d: 'Un caballero que congela el tiempo a su alrededor ({r} m) {t} s.', v: { t: 5, r: 6, vida: 1, dano: 1 }, up: ['t'] },
+  duelo: { n: 'Duelo', r: 'S', t: 'a', vuelve: true, c: 'Due', d: 'Un caballero reta al zombi y lo mata seguro (a los jefes les quita {jefe%} de vida).', v: { jefe: 0.25 }, up: ['jefe'] },
+  hipnosiseterna: { n: 'Hipnosis eterna', r: 'S', t: 'a', vuelve: false, f: 'oscura', c: 'HEt', d: 'Todos los zombis se detienen {t} s; los que mates dan ×{oro} de oro.', v: { t: 6, oro: 2 }, up: ['t'] },
+  traicion: { n: 'Traición', r: 'S', t: 'a', vuelve: true, f: 'oscura', c: 'Trc', d: 'El zombi se vuelve una bomba que corre hacia los demás y explota ({dano}).', v: { dano: 200, r: 4, t: 3 }, up: ['dano'] },
+  tormenta: { n: 'Tormenta', r: 'S', t: 'a', vuelve: true, f: 'elementos', c: 'Tor', d: 'Un relámpago cae del cielo y arrasa la zona.', v: {} },
+  // ---- S + S = secreta
+  emperador: { n: 'Emperador inmortal', r: 'X', t: 'p', c: 'Emp', d: 'Revives {n} veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada.', v: { n: 3, vida: 0.5 }, up: ['n'] },
+  corona: { n: 'Corona celestial', r: 'X', t: 'p', f: 'celestial', c: 'Cor', d: '+{vida%} de vida máxima; cada {cada} muertes te da una bala S al azar.', v: { vida: 0.5, cada: 50 }, up: ['vida'], baja: ['cada'] },
+  reyvacio: { n: 'Rey del vacío', r: 'X', t: 'a', vuelve: true, f: 'oscura', c: 'RVa', d: 'Agujero negro donde apuntas, sin tiro a la cabeza.', v: { r: 8, t: 3 }, up: ['r'] },
+  jackpot: { n: 'Jackpot real', r: 'X', t: 'a', vuelve: false, f: 'casino', c: 'Jac', d: 'La tragamonedas siempre saca tres iguales.', v: {} },
+  cortespejos: { n: 'Corte de espejos', r: 'X', t: 'p', c: 'CEs', d: 'Cada activa que disparas lanza también una bala fantasma que impacta.', v: { dano: 1 }, up: ['dano'] },
+  resurreccion: { n: 'Resurrección', r: 'X', t: 'p', f: 'celestial', c: 'Res', d: 'Revives con toda la vida y una explosión de fuego sagrado; se recarga cada {cada} oleadas.', v: { cada: 3, dano: 300, r: 6 }, up: ['dano'] },
+  supernova: { n: 'Supernova', r: 'X', t: 'a', vuelve: false, f: 'elementos', c: 'Sup', d: 'Elimina todo en {r} m; los jefes pierden {jefe%} de vida.', v: { r: 15, jefe: 0.4 }, up: ['jefe'] },
+  avefortuna: { n: 'Ave de la fortuna', r: 'X', t: 'p', f: 'oro', c: 'Ave', d: 'Al bajar de 25 % de vida: +{oro} de oro y curas {cura} (1 vez por oleada).', v: { hp: 0.25, oro: 50, cura: 30 }, up: ['oro', 'cura'] },
+  reflejo: { n: 'Reflejo de fuego', r: 'X', t: 'p', f: 'elementos', c: 'Ref', d: 'El daño que recibes vuelve en llamas a los zombis cercanos ({r} m).', v: { x: 1, r: 4 }, up: ['x'] },
+  cieloabismo: { n: 'Cielo y abismo', r: 'X', t: 'a', vuelve: true, f: 'celestial', c: 'CyA', d: 'Mitad de las veces: cura a todo el equipo al máximo; la otra mitad: agujero negro.', v: { p: 0.5, r: 8, t: 3 } },
+  milagro: { n: 'Milagro', r: 'X', t: 'a', vuelve: false, f: 'casino', c: 'Mil', d: 'Tira la tragamonedas {n} veces seguidas.', v: { n: 3 } },
+  gemelo: { n: 'Gemelo celestial', r: 'X', t: 'p', f: 'celestial', c: 'Gem', d: 'Aparece un doble tuyo que copia tus disparos ({dano%} del daño).', v: { dano: 0.6 }, up: ['dano'] },
+  casinoabismo: { n: 'Casino del abismo', r: 'X', t: 'a', vuelve: true, f: 'oro', c: 'CAb', d: 'Agujero negro; cada zombi tragado da {oro} de oro.', v: { oro: 5, r: 8, t: 3 }, up: ['oro'] },
+  horizonte: { n: 'Horizonte de sucesos', r: 'X', t: 'a', vuelve: false, f: 'oscura', c: 'Hor', d: 'Dos agujeros negros a la vez que se atraen entre sí.', v: { r: 8, t: 4 } },
+  doblenada: { n: 'Doble o nada infinito', r: 'X', t: 'p', f: 'casino', c: 'DoN', d: 'Cada vez que una bala de suerte gana, {p%} de repetir el premio.', v: { p: 0.5 }, up: ['p'] },
+  // ---- La Negra: especial secreta, fuera de las 84 (solo se consigue con la gata de la Trastienda)
+  negra: { n: 'Negra', r: 'X', t: 'a', vuelve: false, especial: true, c: 'Neg', d: 'Abre una puerta directa al siguiente mapa.', v: {}, col: '#141414', col2: '#ff2a2a' }
+};
+// Recetas fijas: [bala, bala, resultado]. Solo del mismo rango; el resultado sube un rango.
+const FUSIONES = [
+  ['oro', 'cinturon', 'iman'], ['oro', 'cantimplora', 'alcancia'], ['oro', 'apuesta', 'usurero'], ['oro', 'polvora', 'mercenaria'], ['oro', 'pluma', 'dado'],
+  ['cinturon', 'polvora', 'racimo'], ['cinturon', 'pluma', 'junior'], ['cinturon', 'cantimplora', 'espuelas'], ['cinturon', 'apuesta', 'bolsa'], ['polvora', 'pluma', 'taladro'],
+  ['polvora', 'cantimplora', 'vampira'], ['polvora', 'apuesta', 'frita'], ['pluma', 'cantimplora', 'segundoaire'], ['pluma', 'apuesta', 'punteria'], ['cantimplora', 'apuesta', 'trago'],
+  ['robot', 'caramelo', 'chicles'], ['robot', 'tahur', 'crupier'], ['robot', 'escarcha', 'congelador'], ['robot', 'relampago', 'tesla'], ['robot', 'bumeran', 'dron'],
+  ['caramelo', 'tahur', 'golosina'], ['caramelo', 'escarcha', 'helado'], ['caramelo', 'relampago', 'chicleelec'], ['caramelo', 'bumeran', 'pinata'], ['tahur', 'escarcha', 'pokerhielo'],
+  ['tahur', 'relampago', 'carta'], ['tahur', 'bumeran', 'truco'], ['escarcha', 'relampago', 'ventisca'], ['escarcha', 'bumeran', 'carambano'], ['relampago', 'bumeran', 'rayobum'],
+  ['suerte', 'dadocargado', 'trebol'], ['suerte', 'invocacion', 'angelguardian'], ['suerte', 'hipnotica', 'encantador'], ['suerte', 'reloj', 'asespadas'], ['suerte', 'ruleta', 'ruletadorada'],
+  ['dadocargado', 'invocacion', 'legion'], ['dadocargado', 'hipnotica', 'titiritero'], ['dadocargado', 'reloj', 'relojarena'], ['dadocargado', 'ruleta', 'seisdeseis'], ['invocacion', 'hipnotica', 'nigromante'],
+  ['invocacion', 'reloj', 'caballerotiempo'], ['invocacion', 'ruleta', 'duelo'], ['hipnotica', 'reloj', 'hipnosiseterna'], ['hipnotica', 'ruleta', 'traicion'], ['reloj', 'ruleta', 'tormenta'],
+  ['rey', 'fenix', 'emperador'], ['rey', 'angel', 'corona'], ['rey', 'agujero', 'reyvacio'], ['rey', 'tragamonedas', 'jackpot'], ['rey', 'espejo', 'cortespejos'],
+  ['fenix', 'angel', 'resurreccion'], ['fenix', 'agujero', 'supernova'], ['fenix', 'tragamonedas', 'avefortuna'], ['fenix', 'espejo', 'reflejo'], ['angel', 'agujero', 'cieloabismo'],
+  ['angel', 'tragamonedas', 'milagro'], ['angel', 'espejo', 'gemelo'], ['agujero', 'tragamonedas', 'casinoabismo'], ['agujero', 'espejo', 'horizonte'], ['tragamonedas', 'espejo', 'doblenada']
+];
+// Despertares del nivel 4: por inventar con el dueño. Hoy el nivel 4 solo multiplica ×3 y queda marcado como «despierta».
+// TODO (dueño): definir el despertar de cada bala (lista en docs/BALAS.md).
+const DESPERTAR = {};
+const fuseKey = (a, b) => [a, b].sort().join('+');
+const RECETA = {}; for (const [a, b, r] of FUSIONES) RECETA[fuseKey(a, b)] = r;
+const BASE_IDS = Object.keys(BALAS).filter(k => !BALAS[k].especial && !FUSIONES.some(f => f[2] === k));
+// BULLETS: la ficha de cada bala para todo el juego (nombre, color, rareza…). «normal» y «mala» son las balas de la caja sin efecto.
 const BULLETS = {
   normal: { name: 'Bala normal', col: '#d6a54b', rar: 0, desc: '' },
-  mala: { name: 'Bala mala', col: '#7a7a7a', rar: 0, desc: 'Hecha sin pólvora: la mitad de daño y sin efectos.' },
-  dorada: { name: 'Bala dorada', col: '#ffd24a', rar: 1, desc: 'Cada zombi que toca te da 4 $ extra.' },
-  vampira: { name: 'Bala vampira', col: '#b0102a', rar: 1, desc: 'Cada impacto te cura 8 de vida.' },
-  fria: { name: 'Bala fría', col: '#7fd8ff', rar: 1, desc: 'Congela 2 s al zombi. Si muere congelado, el hielo salta a los 2 zombis más cercanos.' },
-  mula: { name: 'Bala mula', col: '#a07040', rar: 1, desc: 'Empuja al zombi varios metros y lo deja aturdido.' },
-  sangre: { name: 'Bala sangrienta', col: '#ff4060', rar: 1, desc: 'Marca al zombi: recibe un 50 % más de daño durante 6 s.' },
-  trebol: { name: 'Bala trébol', col: '#40c060', rar: 1, desc: 'Si mata, el zombi siempre suelta un objeto.' },
-  acida: { name: 'Bala ácida', col: '#40ffa0', rar: 1, desc: 'Deja un charco de ácido que quema a los zombis durante 5 s.' },
-  iman: { name: 'Bala imán', col: '#c0c8d8', rar: 1, desc: 'Al dispararla, todos los objetos del suelo vuelan hacia ti.' },
-  cabeza: { name: 'Bala cazacabezas', col: '#ff8a3a', rar: 1, desc: 'Cuenta siempre como tiro a la cabeza.' },
-  taladro: { name: 'Bala taladro', col: '#9a9aa8', rar: 1, desc: 'Atraviesa a todos los zombis en línea sin perder fuerza.' },
-  saltarina: { name: 'Bala saltarina', col: '#ffe060', rar: 2, desc: 'Al impactar, salta también a los 2 zombis más cercanos.' },
-  frita: { name: 'Bala frita', col: '#ff6a1a', rar: 2, desc: 'Estalla una explosión al impactar.' },
-  serpiente: { name: 'Bala serpiente', col: '#3ad06a', rar: 2, desc: 'Envenena al zombi. Si muere envenenado, el veneno pasa a los 3 más cercanos.' },
-  rayo: { name: 'Bala relámpago', col: '#7ab0ff', rar: 2, desc: 'Un rayo salta de zombi en zombi (hasta 4) y los aturde.' },
-  racimo: { name: 'Bala racimo', col: '#e0a060', rar: 2, desc: 'Al impactar se parte en 6 perdigones.' },
-  gravedad: { name: 'Bala de gravedad', col: '#9a5aff', rar: 2, desc: 'Se detiene a media distancia y atrae a los zombis hacia ella durante 5 s.' },
-  junior: { name: 'Bala junior', col: '#5ad0d0', rar: 2, desc: 'Si impacta a un zombi, recarga tu tambor al instante.' },
-  fantasma: { name: 'Bala fantasma', col: '#e8f6ff', rar: 2, desc: 'Atraviesa paredes y obstáculos.' },
-  trampa: { name: 'Bala trampa', col: '#8a8a5a', rar: 2, desc: 'Deja un cepo donde cae: atrapa 4 s al primer zombi que lo pise.' },
-  dado: { name: 'Bala dado', col: '#f4f4f4', rar: 2, desc: 'Tiras un dado al dispararla: salen de 1 a 6 balas a la vez.' },
-  mcrev: { name: 'Bala McRevólver', col: '#e03030', rar: 2, desc: 'Ocupa 2 huecos del tambor (una bala menos en esa recarga), pero mientras esté cargada cada disparo sale doble.' },
-  dragon: { name: 'Bala dragón', col: '#ff3a10', rar: 2, desc: 'Escupe un cono de fuego delante de ti que quema a todo lo que toque.' },
-  acme: { name: 'Bala ACME', col: '#ff2ad0', rar: 3, desc: 'Te quita 20 de vida, pero dispara 10 balas en círculo a tu alrededor.' },
-  bumeran: { name: 'Bala bumerán', col: '#ffa0ff', rar: 3, desc: 'Si impacta a un zombi, vuelve a tu tambor.' },
-  eco: { name: 'Bala eco', col: '#a0a0ff', rar: 3, desc: 'Copia el efecto de la última bala especial que disparaste.' },
-  negra: { name: 'Bala negra', col: '#141414', col2: '#ff2a2a', rar: 4, secreta: true, desc: 'Mata de un tiro a cualquier monstruo del juego, jefes incluidos. Solo existe una manera de conseguirla.' },
-  ruleta: { name: 'Bala ruleta rusa', col: '#3a3a3a', rar: 3, desc: '1 de cada 3 veces mata a todo lo que atraviesa. Las demás se encasquilla.' },
-  laser: { name: 'Bala láser', col: '#ff2020', rar: 3, desc: 'Un rayo rojo que atraviesa a todos los zombis con el triple de daño.' },
-  agujero: { name: 'Bala agujero negro', col: '#5a1a8a', rar: 4, desc: 'Abre un agujero negro que se traga a todos los zombis cercanos durante 5 s y los elimina. A los jefes les arranca un buen trozo de vida.' },
-  reloj: { name: 'Bala reloj', col: '#e8d8a0', rar: 3, desc: 'Al dispararla, el tiempo se frena 4 s sin gastar Ojo Muerto.' },
-  hipno: { name: 'Bala hipnótica', col: '#ff80c0', rar: 3, desc: 'El zombi se pone de tu lado 10 s y ataca a los demás.' },
-  tormenta: { name: 'Bala tormenta', col: '#c0e0ff', rar: 3, desc: 'Un relámpago cae del cielo donde impacta y arrasa la zona.' }
+  mala: { name: 'Bala mala', col: '#7a7a7a', rar: 0, desc: 'Hecha sin pólvora: la mitad de daño y sin efectos.' }
 };
-const RAR = [null, { name: 'Común', copies: 6, price: 20 }, { name: 'Rara', copies: 5, price: 40 }, { name: 'Legendaria', copies: 3, price: 80 }, { name: 'Ultra rara', copies: 1, price: 400 }];
+for (const [k, B] of Object.entries(BALAS)) {
+  const R = BAL.rangos[B.r];
+  BULLETS[k] = { id: k, name: B.n, corto: B.c, col: B.col || R.col, col2: B.col2, rar: R.rar, rango: B.r, act: B.t === 'a', vuelve: !!B.vuelve, fam: B.f || null,
+    desc: balDesc(k, 1), secreta: B.r === 'X', especial: !!B.especial, fused: !BASE_IDS.includes(k) };
+}
+// texto de la bala con sus cifras del nivel dado ({oro} → 2, {dano%} → 12 %)
+function balDesc(k, lv) {
+  const B = BALAS[k]; if (!B) return '';
+  const fmtN = x => (Math.round(x * 10) / 10).toString().replace('.', ',');
+  return B.d.replace(/\{(\w+)(%?)\}/g, (_, key, pc) => {
+    let v = key === 'caja' ? BAL.caja + balValor(k, 'extra', lv) : balValor(k, key, lv);
+    return pc ? fmtN(v * 100) + ' %' : fmtN(v);
+  });
+}
+// cifra de una bala en un nivel: «up» crece ×1,5/×2/×3; «baja» (cada N muertes) se divide; las probabilidades nunca pasan de BAL.probMax
+function balValor(k, key, lv) {
+  const B = BALAS[k]; if (!B || B.v[key] == null) return 0;
+  const m = BAL.nivelMul[Math.max(1, Math.min(BAL.nivelMax, lv || 1)) - 1];
+  let v = B.v[key];
+  if (B.up && B.up.includes(key)) v *= m; else if (B.baja && B.baja.includes(key)) v = Math.max(1, Math.round(v / m));
+  if (key === 'p') v = Math.min(BAL.probMax, v);
+  if (['esp', 'n', 'max', 'oro', 'cura', 'extra'].includes(key) && B.up && B.up.includes(key)) v = Math.round(v);
+  return v;
+}
+/* ---- Motor de reglas (solo cuentas: no dibuja nada; lo prueban las pruebas automáticas) ---- */
+const Balas = {
+  esActiva: k => !!(BALAS[k] && BALAS[k].t === 'a'),
+  esPasiva: k => !!(BALAS[k] && BALAS[k].t === 'p'),
+  base: s => typeof s === 'string' ? s.replace(/\*$/, '') : s,   // «k*» = copia fantasma (no vuelve a la caja)
+  entrada: (g, k) => (g.slot || []).find(e => e.k === k) || null,
+  tiene: (g, k) => !!Balas.entrada(g, k),
+  // nivel real (con lo que suba solo por esta oleada: Dado cargado, Emperador)
+  nivel(g, k) { const e = Balas.entrada(g, k); if (!e) return 0; return Math.min(BAL.nivelMax, e.lv + ((g.balTemp || {})[k] | 0)); },
+  v(g, k, key) { const l = Balas.nivel(g, k); return l ? balValor(k, key, l) : 0; },
+  mul(g, k) { const l = Balas.nivel(g, k); return l ? BAL.nivelMul[l - 1] : 1; },
+  despierta: (g, k) => Balas.nivel(g, k) >= BAL.nivelMax,   // nivel 4: el despertar se define después (DESPERTAR)
+  famCuenta(g, f) { return (g.slot || []).filter(e => BALAS[e.k] && BALAS[e.k].f === f).length; },
+  famOn: (g, f) => Balas.famCuenta(g, f) >= BAL.familiaMin,
+  familias(g) { return Object.keys(BAL.familia).filter(f => Balas.famOn(g, f)); },
+  slotN(g, arbolEsp) {
+    let n = BAL.slotPersonaje[g.char] || BAL.slotBase;
+    for (const k of ['robot', 'mercenaria', 'crupier']) n += Balas.v(g, k, 'esp');
+    if (Balas.famOn(g, 'maquina')) n += BAL.familia.maquina.esp;
+    return n + (arbolEsp | 0);
+  },
+  cajaCap(g) { return BAL.caja + Balas.v(g, 'cinturon', 'extra'); },
+  normales: g => (g.box || []).filter(b => b === 'normal' || b === 'mala').length,
+  activasDentro: g => (g.box || []).filter(b => b !== 'normal' && b !== 'mala').length,
+  addNormales(g, n) { const libre = Math.max(0, Balas.cajaCap(g) - Balas.normales(g)), k = Math.max(0, Math.min(n, libre)); for (let i = 0; i < k; i++) g.box.push('normal'); return k; },
+  // ganar una bala: nueva en el slot, o +1 nivel si ya la tienes. Devuelve 'nuevo' | 'nivel' | 'max' (ya en nivel 4) | 'lleno' (no hay espacio)
+  puedeGanar(g, k, arbolEsp) { const e = Balas.entrada(g, k); if (e) return e.lv >= BAL.nivelMax ? 'max' : 'nivel'; return (g.slot || []).length < Balas.slotN(g, arbolEsp) ? 'nuevo' : 'lleno'; },
+  ganar(g, k, arbolEsp) {
+    if (!BALAS[k]) return 'no';
+    g.slot = g.slot || []; const r = Balas.puedeGanar(g, k, arbolEsp);
+    if (r === 'nuevo') g.slot.push({ k, lv: 1 });
+    else if (r === 'nivel') Balas.entrada(g, k).lv++;
+    else return r;
+    if (Balas.esActiva(k)) g.box.push(k);   // 1 copia por nivel en la caja
+    return r;
+  },
+  // cuántas copias de una activa hay en la caja y en los tambores (sin las fantasma)
+  copias(g, k, manos) { let n = (g.box || []).filter(b => b === k).length; for (const L of manos || []) for (const b of L) if (b === k) n++; return n; },
+  // quitar una bala del slot (vender o fusionar): sus copias salen de la caja y de los tambores
+  quitar(g, k, manos) {
+    const i = (g.slot || []).findIndex(e => e.k === k); if (i < 0) return false;
+    g.slot.splice(i, 1);
+    g.box = g.box.filter(b => Balas.base(b) !== k);
+    for (const L of manos || []) for (let j = 0; j < L.length; j++) if (typeof L[j] === 'string' && Balas.base(L[j]) === k) L[j] = 0;
+    return true;
+  },
+  // una copia se rompió: la bala pierde 1 nivel (con 0 sale del slot)
+  romper(g, k) { const e = Balas.entrada(g, k); if (!e) return 0; e.lv--; if (e.lv <= 0) g.slot.splice(g.slot.indexOf(e), 1); return e.lv; },
+  // tras disparar una activa: vuelve a la caja o se rompe. rnd: azar (para las pruebas)
+  trasDisparo(g, s, rnd = Math.random) {
+    const k = Balas.base(s); if (!Balas.esActiva(k)) return 'normal';
+    if (s !== k) return 'fantasma';   // las copias gratis (Tahúr, Crupier, Bolsa sin fondo) no vuelven
+    if (!Balas.tiene(g, k)) return 'fuera';
+    if (BALAS[k].vuelve) { g.box.push(k); return 'vuelve'; }
+    if (Balas.tiene(g, 'truco') && rnd() < Balas.prob(g, 'truco', Balas.v(g, 'truco', 'p'))) { g.box.push(k); return 'truco'; }
+    Balas.romper(g, k); return 'rota';
+  },
+  // probabilidad de una bala con Suerte (la de su izquierda), Trébol y el bono de Casino
+  prob(g, k, p) {
+    let x = p; const sl = g.slot || [], i = sl.findIndex(e => e.k === k);
+    const si = sl.findIndex(e => e.k === 'suerte'); if (si > 0 && i === si - 1) x *= Balas.v(g, 'suerte', 'x');
+    if (Balas.tiene(g, 'trebol')) x *= Balas.v(g, 'trebol', 'x');
+    if (Balas.famOn(g, 'casino')) x *= BAL.familia.casino.prob;
+    return Math.min(BAL.probMax, x);
+  },
+  receta: (a, b) => a !== b ? RECETA[fuseKey(a, b)] || null : null,
+  // ¿se pueden fusionar? '' si sí; si no, el motivo
+  porQueNo(g, a, b, arbolEsp) {
+    if (!a || !b) return 'Elige dos balas de tu slot.';
+    if (a === b) return 'Elige dos balas distintas.';
+    if (!Balas.tiene(g, a) || !Balas.tiene(g, b)) return 'Las dos tienen que estar en tu slot.';
+    if (BALAS[a].r !== BALAS[b].r) return 'Solo se fusionan balas del mismo rango.';
+    const r = Balas.receta(a, b); if (!r) return 'Estas dos no tienen fusión.';
+    const e = Balas.entrada(g, r); if (e && e.lv >= BAL.nivelMax) return 'Ya tienes esa bala en el nivel máximo.';
+    // el slot no puede quedar con más balas que espacios (por ejemplo, al fusionar el Robot)
+    const prueba = { char: g.char, slot: g.slot.filter(x => x.k !== a && x.k !== b).map(x => ({ k: x.k, lv: x.lv })), box: [], balTemp: g.balTemp };
+    if (!e) prueba.slot.push({ k: r, lv: 1 });
+    if (prueba.slot.length > Balas.slotN(prueba, arbolEsp)) return 'Tu slot quedaría con más balas que espacios: vende una antes.';
+    return '';
+  },
+  fusionar(g, a, b, manos, arbolEsp) {
+    if (Balas.porQueNo(g, a, b, arbolEsp)) return null;
+    const r = Balas.receta(a, b), pos = Math.min(g.slot.findIndex(e => e.k === a), g.slot.findIndex(e => e.k === b));
+    Balas.quitar(g, a, manos); Balas.quitar(g, b, manos);
+    const e = Balas.entrada(g, r);
+    if (e) { e.lv++; if (Balas.esActiva(r)) g.box.push(r); }
+    else { g.slot.splice(Math.min(pos, g.slot.length), 0, { k: r, lv: 1 }); if (Balas.esActiva(r)) g.box.push(r); }   // sale en nivel 1, donde estaba la primera
+    return r;
+  },
+  // ¿cuánto se puede quitar del slot sin que quede con más balas que espacios?
+  puedeVender(g, k, arbolEsp) { const prueba = { char: g.char, slot: g.slot.filter(x => x.k !== k), box: [], balTemp: g.balTemp }; return prueba.slot.length <= Balas.slotN(prueba, arbolEsp); },
+  precio: k => BAL.precio[BALAS[k].r] || 0,
+  venta(g, k) { const e = Balas.entrada(g, k); const base = BAL.precio[BALAS[k].r]; return base ? Math.max(1, Math.floor(base * BAL.venta)) * (e ? e.lv : 1) : 0; },
+  // al azar por rango: pesos { C: 55, B: 33, A: 12 }
+  rangoAzar(peso, rnd = Math.random) { let t = 0; for (const r in peso) t += peso[r]; let x = rnd() * t; for (const r in peso) { if ((x -= peso[r]) < 0) return r; } return Object.keys(peso)[0]; },
+  deRango: (r, rnd = Math.random) => { const ids = Object.keys(BALAS).filter(k => BALAS[k].r === r && !BALAS[k].especial); return ids[Math.floor(rnd() * ids.length)]; }
+};
+const RAR = [null, { name: 'Rango C', copies: 1, price: 20 }, { name: 'Rango B', copies: 1, price: 40 }, { name: 'Rango A', copies: 1, price: 80 }, { name: 'Rango S', copies: 1, price: 300 }, { name: 'Secreta', copies: 1, price: 0 }];
 const phong = (c, s, h) => new THREE.MeshPhongMaterial({ color: c, specular: s, shininess: h });
 const GM = {
   blue: phong(0x3a3c42, 0x9a9a9a, 70), steel: phong(0x5b5e66, 0xbbbbbb, 90), chrome: phong(0xaeb2ba, 0xffffff, 130), black: phong(0x1c1d20, 0x666666, 40),
@@ -21440,7 +21695,7 @@ function clearActors() {
   P.clear(); PA.clear();
 }
 const isLoaded = s => typeof s === 'string';
-function newBox() { game.box = new Array(B_START_AMMO).fill('normal'); game.queue = []; }
+function newBox() { game.box = new Array(BAL.caja).fill('normal'); game.queue = []; game.slot = []; game.balTemp = {}; }
 function shuffled(a) { const q = a.slice(); for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = q[i]; q[i] = q[j]; q[j] = t; } return q; }
 function shuffleBox() {}
 function refreshQueueAfterShop() {}
@@ -21476,7 +21731,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['diff', 'sig', 'items', 'route', 'zmod', 'keys', 'poker', 'col', 'sacadas', 'rascadas', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
+const SAVE_FIELDS = ['slot', 'balTemp', 'balCont', 'diff', 'sig', 'items', 'route','zmod', 'keys', 'poker', 'col', 'sacadas', 'rascadas', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -21986,7 +22241,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = gunName(id) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return itemDmg() * m.dmg * (h.model === sigGun() ? 1 + 0.25 * sigLv('dmg') : 1) * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0) + 0.1 * (game.forge | 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (prohib('feria') ? 0.8 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return itemDmg() * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * (h.model === sigGun() ? 1 + 0.25 * sigLv('dmg') : 1) * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + 0.2 * lv('dmg')) * (1 + (game.devilDmg || 0) + 0.1 * (game.forge | 0)) * (rl('sombrero') ? 1 + 0.06 * myAllies().length : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (prohib('feria') ? 0.8 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -26388,7 +26643,6 @@ function itemOnHit(z, pt, d, dd) {
 const RANDOM_FX = ['fria', 'mula', 'sangre', 'acida', 'saltarina', 'frita', 'serpiente', 'rayo', 'racimo', 'taladro', 'vampira', 'dorada'];
 // Fusión: dos balas especiales distintas se vuelven una sola con los dos efectos
 const hasB = (t, k) => t === k || (typeof t === 'string' && t.indexOf('+') > 0 && t.split('+').includes(k));
-const fuseKey = (a, b) => [a, b].sort().join('+');
 function registerFused(k) {
   if (typeof k !== 'string' || BULLETS[k] || k.indexOf('+') < 0) return;
   const ps = k.split('+').map(p => BULLETS[p]).filter(Boolean); if (ps.length < 2) return;
@@ -29604,7 +29858,7 @@ const saveMeta = () => { store.set(META_KEY, META); try { Cuenta.dirty(); } catc
 // vida inicial de cada personaje (decisión del dueño, 15-oct-2026)
 const CHAR_VIDA = { sheriff: 100, carlos: 100, johnny: 90, francois: 90, armando: 80, lilith: 70 };
 const CHARS = {
-  sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata (+10 % de daño) y empieza con 12 balas más en la caja.' },
+  sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata: +10 % de daño.' },
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
   lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'gold', n: 5000, t: 'Junta 5000 $ sumando todas tus partidas' } },
@@ -29950,6 +30204,7 @@ const ARBOL_MAX = 5, ARBOL_COSTO = [1, 2, 3, 4, 5];   // precio progresivo: el n
 const arb = k => Math.min(ARBOL_MAX, ((META.arbol || {})[k]) | 0);
 const arbAbierto = A => !A.req || arb(A.req) > 0;   // se puede comprar si su mejora anterior tiene al menos 1 nivel
 const arbP = k => { const A = ARBOL.find(x => x.k === k); return A ? arb(k) * A.paso : 0; };
+const arbEsp = () => Math.min(BAL.arbolEspacio.max, ((META.arbol || {}).espacio) | 0);   // espacios de slot comprados en la Tienda calavera
 const UNLOCKS = [
   { k: 'b:acme', name: 'Bala ACME', what: 'Bala legendaria', cost: 3 }, { k: 'b:ruleta', name: 'Bala ruleta rusa', what: 'Bala legendaria', cost: 3 },
   { k: 'b:eco', name: 'Bala eco', what: 'Bala legendaria', cost: 4 }, { k: 'b:agujero', name: 'Bala agujero negro', what: 'Bala ultra rara', cost: 6 },
@@ -30283,7 +30538,8 @@ function applyChar() {
   equip(CHARS[c].gun, true);
   if (sk(4)) { player.maxHp -= 25; player.hp = player.maxHp; }
   if (arbP('vida')) { player.maxHp = Math.round(player.maxHp * (1 + arbP('vida'))); player.hp = player.maxHp; }   // árbol: vida máxima en porcentaje de la vida del personaje (se nota al entrar a la partida, no en la elección)
-  if (c === 'sheriff') { gainItem('estrella', true); for (let k = 0; k < 12; k++) game.box.push('normal'); }
+  // cada personaje empieza con su bala C propia (docs/BALAS.md)
+  if (BAL.balaInicial[c]) Balas.ganar(game, BAL.balaInicial[c], arbEsp());
   game.eliteMul = sk(3) ? 2 : 1;
 }
 // Retratos de los personajes para la pantalla de elección (dibujados una vez)
