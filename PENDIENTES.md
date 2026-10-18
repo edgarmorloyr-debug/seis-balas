@@ -28,9 +28,21 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 - Decisiones del dueño (17-oct-2026): las balas normales y la venta de especiales van en la máquina expendedora (pestaña «Normales»), no en la caja registradora; la máquina ofrece 3 balas sueltas al azar por visita; Crisol = primera fusión gratis y Cupón del herrero = 30 % de no pagar; en grupo, la animación de la máquina solo la ve quien compra.
 20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar).
 
+## Etapa 1B · NUEVO SISTEMA DE BALAS (decisión del dueño, 18-oct-2026 · prioridad alta)
+Cambio grande de mecánica para que el juego sea original (referencia de diseño: los objetos de The Binding of Isaac, pero con ideas propias).
+- **Se quitan todos los objetos** (objetos nuevos, mejoras y reliquias) y sus efectos se convierten en balas.
+- **El tambor** (6 espacios, puede subir o bajar según el personaje o algunas balas) guarda tus balas especiales; **no se gastan**.
+- **300 balas posibles:** 24 balas base + todas sus parejas distintas (276 fusiones) = 300.
+- **Niveles:** 2 balas iguales suben de nivel, del 1 al 4. Los efectos empiezan suaves y cambian mucho al subir.
+- **Rangos:** C, B, A, S y uno secreto.
+- **Familias** (comida, ángel, robot…) para combinaciones entre balas.
+- **Cuándo se activan:** se prueban los dos métodos (al disparar desde su espacio y siempre, como pasivas) y el dueño elige.
+- **Cómo se decide:** con una encuesta larga, junto con el dueño, bala por bala (cuáles se cambian, cuáles se quedan y cuáles son nuevas) hasta completar la lista. No se programa nada hasta terminarla.
+- Ideas del dueño: Ángel (S), Robot (B), Caramelo, Negra, Combate, Agujero negro, Oro, Suerte, Invocación, Rey; críticos 1 de 10, congelar en 4 m, +7 de oro por oleada, cinturón más grande.
+
 ## Etapa 2 · Interfaz y presentación
-21. **Estilo Mesa del saloon en todas las pantallas** y **sin scroll** (se cortó a medias por el límite de uso; se retoma).
-22. **Logros por clases** con botones y páginas.
+21. ~~Estilo Mesa del saloon en todas las pantallas y sin scroll~~ (hecho, 18-oct-2026).
+22. ~~Logros por clases~~ (hecho, 18-oct-2026: 9 clases y «Progreso»).
 23. **Tarjetas de personaje del inicio** con diseño de carta de póker y el personaje en blanco y negro.
 24. **5 estrellas de progreso** en el menú principal y en la elección de personaje (decisión del dueño, 17-oct-2026): **una estrella por cada jefe del casino**; empieza vacía y su color marca cómo lo venciste: amarilla en Normal, naranja si también en Difícil, y dorado neón brillante con una calavera en el centro si lo venciste en las 3 dificultades (Normal, Difícil y Apocalipsis). **Las dificultades se desbloquean según el avance; ya no se eligen libres.**
 25. **Quitar las cuentas** (decisión del dueño, 17-oct-2026: el juego va para Steam): se quitan Google, Discord y correo; el progreso queda guardado en el aparato y más adelante se usará la cuenta de Steam. **«Top mejores jugadores» se quita hasta que esté Steam.**
