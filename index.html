@@ -2557,7 +2557,8 @@ const Sfx = (() => {
     abom: { f: 42, F: [380, 700, 1750], v: 'a', r: 0.48, w: 1.6 },
     bandit: { f: 122, F: [640, 1120, 2500], v: 'a', r: 1.05, w: 0.9 },
     axer: { f: 98, F: [560, 940, 2250], v: 'u', r: 0.9, w: 1 },
-    caballero: { f: 90, F: [520, 900, 2200], v: 'm', r: 0.86, w: 0.8 }
+    caballero: { f: 90, F: [520, 900, 2200], v: 'm', r: 0.86, w: 0.8 },
+    maton: { f: 70, F: [470, 820, 2050], v: 'a', r: 0.7, w: 1.1 }
   };
   // para que una multitud no se vuelva ruido: como mucho 3 quejidos a la vez (con menos volumen cuantos más suenan),
   // 5 «chof» cada cuarto de segundo y cada zombi se queja otra vez solo pasado un rato
@@ -21362,7 +21363,9 @@ const ZDEF = {
   conjurador: { name: 'Conjurador', hp: 300, speed: [0.95, 1.15], dmg: 14, reach: 1.3, scale: 1.12, pts: 500, eye: 0xff2a00, drop: 0.5, gold: 6, skin: [0x8a2420, 0x7a1e1a] },
   esqueleto: { name: 'Esqueleto', hp: 45, speed: [2.0, 2.6], dmg: 8, reach: 1.2, scale: 0.95, pts: 60, eye: 0x40c0ff, drop: 0.02, gold: 0, skin: [0xd8d0b8] },
   oro: { name: 'Zombi de oro', hp: 160, speed: [1.7, 2.1], dmg: 10, reach: 1.25, scale: 1, pts: 1000, eye: 0xffffff, drop: 1, gold: 50, skin: [0xd8a838] },
-  enfermera: { name: 'Enfermera cuchillos', hp: 115, speed: [2.0, 2.5], dmg: 13, reach: 1.4, scale: 1, pts: 280, eye: 0xff3060, drop: 0.2, gold: 2, skin: [0xc8c0b0, 0xb8b0a0] }
+  enfermera: { name: 'Enfermera cuchillos', hp: 115, speed: [2.0, 2.5], dmg: 13, reach: 1.4, scale: 1, pts: 280, eye: 0xff3060, drop: 0.2, gold: 2, skin: [0xc8c0b0, 0xb8b0a0] },
+  // Matón (PENDIENTES 39): corre a paso firme, pega fuerte y aguanta; casi no se frena con los balazos. Cifras para que el dueño las apruebe.
+  maton: { name: 'Matón', hp: 300, speed: [2.7, 3.1], dmg: 22, reach: 1.4, scale: 1.22, pts: 350, eye: 0xff8a20, drop: 0.3, gold: 3, firme: 0.35, skin: [0x6a7a58, 0x77805e, 0x5f6e52] }
 };
 const eyeMats = {}; Object.keys(ZDEF).forEach(k => eyeMats[k] = new THREE.MeshBasicMaterial({ color: ZDEF[k].eye }));
 const bellyMat = new THREE.MeshLambertMaterial({ color: 0x6fae2a, emissive: 0x2a5a08 });
@@ -21451,8 +21454,11 @@ const MAP_LOOKS = [['Novia', 'Momia', 'Vaquero', 'Carbonizado', 'Minero'], ['Gra
 /* ===== Formas de caminar: cada zombi saca una al azar (velocidad propia) ===== */
 const GAITS_WALK = { clasico: 1, arrastra: 0.8, encorvado: 0.95, tambaleante: 0.9, cuellorroto: 1, espasmos: 1.06, colgando: 0.85 };
 const GAITS_RUN = { sprint: 1, atras: 1.06, frenetico: 0.97 };
+// las tres formas de avanzar del Matón (propias, no copiadas): embestida con el hombro, zancadas largas y guardia de boxeador
+const GAITS_MATON = { embestida: 1.05, zancadas: 1, boxeador: 0.92 };
 function pickGait(type) {
   if (type === 'runner') return pick(Object.keys(GAITS_RUN));
+  if (type === 'maton') return pick(Object.keys(GAITS_MATON));
   if (['walker', 'copz', 'spitter', 'screamer', 'armored'].includes(type)) return pick(Object.keys(GAITS_WALK));
   return null;
 }
@@ -21481,6 +21487,16 @@ function applyGait(z, sw, moving, dt, idle) {
     if (idle) { z.armLG.rotation.x = -0.12 - sw * 0.28; z.armRG.rotation.x = -0.12 + sw * 0.28; z.armLG.rotation.z = -0.05; z.armRG.rotation.z = 0.05; }
   } else if (g === 'atras') {
     if (idle) { z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.7, 10, dt); z.armLG.rotation.x = 1.0 + sw * 0.15; z.armRG.rotation.x = 1.0 - sw * 0.15; z.armLG.rotation.z = -0.2; z.armRG.rotation.z = 0.2; z.neck.rotation.x = -0.6; }
+  } else if (g === 'embestida') {   // el hombro por delante, cabeza gacha, un brazo cubriendo y el otro balanceando ancho
+    z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.5, 8, dt); z.torsoG.rotation.y = -0.45; z.neck.rotation.x = -0.35; z.body.position.y -= 0.04;
+    z.legL.rotation.x *= 1.25; z.legR.rotation.x *= 1.25;
+    if (idle) { z.armLG.rotation.x = -1.2; z.armLG.rotation.z = 0.5; z.armRG.rotation.x = 0.2 + sw * 0.9; z.armRG.rotation.z = 0.35; }
+  } else if (g === 'zancadas') {   // erguido, pasos muy largos y los brazos bombeando como un atleta pesado
+    z.legL.rotation.x *= 1.55; z.legR.rotation.x *= 1.55; z.body.position.y += Math.abs(Math.cos(ph)) * 0.05 * mv; z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.05, 8, dt);
+    if (idle) { z.armLG.rotation.x = -0.6 - sw * 1.2; z.armRG.rotation.x = -0.6 + sw * 1.2; z.armLG.rotation.z = -0.15; z.armRG.rotation.z = 0.15; }
+  } else if (g === 'boxeador') {   // guardia alta: los puños delante de la cara, rebotando de lado a lado
+    z.body.position.x = Math.sin(ph) * 0.07 * mv; z.torsoG.rotation.z = Math.sin(ph) * 0.12; z.neck.rotation.x = -0.2;
+    if (idle) { z.armLG.rotation.x = -2.0 + Math.sin(ph) * 0.15; z.armRG.rotation.x = -2.0 - Math.sin(ph) * 0.15; z.armLG.rotation.z = 0.45; z.armRG.rotation.z = -0.45; }
   } else if (g === 'frenetico') {
     if (idle) { z.armLG.rotation.x = -1.7 + Math.sin(t * 15 + z.seed) * 1.0; z.armRG.rotation.x = -1.7 + Math.cos(t * 13 + z.seed) * 1.0; z.armLG.rotation.z = -0.4 + Math.sin(t * 9) * 0.3; z.armRG.rotation.z = 0.4 + Math.cos(t * 11) * 0.3; z.neck.rotation.z = Math.sin(t * 9) * 0.35; }
   }
@@ -21644,7 +21660,12 @@ function spawnZombie(type, x, zz, wave, rise = true) {
   const z = buildZombie(type), d = z.def, w = wave || 1;
   z.maxHp = z.hp = d.hp * (game && state !== 'menu' ? waveHp(game.wave) : 1);
   z.speed = rand(d.speed[0], d.speed[1]) * (1 + Math.min(0.35, (w - 1) * 0.02));
-  z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || 1);
+  if (type === 'maton' && z.torso && !z.def.quad) {
+    z.torso.scale.set(1.35, 1.05, 1.2); z.mats[1].color.setHex(pick([0x6a1a1a, 0x2a2a30, 0x4a3a2a]));
+    addL(z.torso, LG.box(0.62, 0.1, 0.38), LM(0x2a1a10), 0, -0.26, 0); addL(z.torso, LG.box(0.16, 0.12, 0.04), LM(0xd8a838, { emissive: 0x302008 }), 0, -0.26, 0.2);
+    for (const a of [z.armL, z.armR]) if (a) a.scale.set(1.3, 1, 1.3);
+  }
+  z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || GAITS_MATON[z.gait] || 1);
   z.dmg = (d.dmg + (z.dmgExtra || 0)) * (1 + (w - 1) * 0.04);
   if (game && state !== 'menu' && !tuto) { const D_ = DF(); z.maxHp = z.hp = z.maxHp * D_.hp; z.dmg *= D_.dmg; z.speed *= D_.spd; }
   z.r = d.quad ? 0.32 : 0.33 * z.s;
@@ -22818,7 +22839,7 @@ function chooseType(n) {
     ['copz', world.mix.copz && n >= 3 ? world.mix.copz * (1 + n * 0.05) : 0], ['armored', n >= 8 ? (1 + n * 0.2) * mx('armored') : 0],
     ['axer', (0.6 + n * 0.15) * mx('axer')], ['knight', n >= 6 && !Net.on ? (0.5 + n * 0.08) * mx('saw') : 0], ['saw', n >= 6 ? (0.5 + n * 0.08) * mx('saw') : 0],
     ['caballero', n >= 4 ? (0.8 + n * 0.12) * mx('caballero') : 0], ['enfermera', n >= 3 ? (0.9 + n * 0.12) * mx('enfermera') : 0], ['conjurador', n >= 8 ? (0.3 + n * 0.04) * mx('conjurador') : 0],
-    ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0]];
+    ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0], ['maton', n >= 4 ? (0.6 + n * 0.1) * mx('maton') : 0]];
   let tot = 0; w.forEach(x => tot += x[1]); let r = Math.random() * tot;
   for (const [k, v] of w) { if ((r -= v) < 0) return k; }
   return 'walker';
@@ -24011,7 +24032,7 @@ function damageZombie(z, amount, info) {
     bloodBurst(info.point, info.dir || _up, armorHit ? 3 : head ? 26 : 14, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
     if (!armorHit) Sfx.zHit(z, z.type, pan, volOf(z.root.position, info.ally ? 0.45 : 0.9), head, z.hp <= 0);   // su quejido y el «chof» (PENDIENTES 36)
-    z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
+    z.stagger = Math.max(z.stagger, (z.def.big ? 0.05 : head ? 0.45 : 0.25) * (z.def.firme || 1));
     if (!armorHit) goreHit(z, info, amount, false);
     if (!armorHit && z.hp > 0) zoneHit(z, info);
     if (z.hp > 0) hitReact(z, info, amount);
@@ -25475,7 +25496,7 @@ function applyBoss(z, idx, opt = {}) {
 // ===================== ZOMBI TRAGAMONEDAS (PENDIENTES 40) =====================
 // 1 de cada 100 zombis de las oleadas lleva una tragamonedas a la espalda. Al matarlo, los rodillos giran y se transforma
 // en otro zombi al azar (nunca un jefe). Lo decide el anfitrión; los demás ven la máquina (bit 2048) y el giro (bossEv 'czs').
-const SLOTZ_P = 0.01, SLOTZ_TIPOS = ['walker', 'crawler', 'runner', 'dog', 'spitter', 'screamer', 'armored', 'copz', 'axer', 'caballero', 'enfermera', 'bloater', 'saw', 'brute', 'fortachon'];
+const SLOTZ_P = 0.01, SLOTZ_TIPOS = ['walker', 'crawler', 'runner', 'dog', 'spitter', 'screamer', 'armored', 'copz', 'axer', 'caballero', 'enfermera', 'bloater', 'saw', 'brute', 'maton'];
 function slotPon(z) {
   if (z.slotM || !z.torso) return; z.slotZ = true;
   const g = new THREE.Group(); g.position.set(0, 0.2, -0.21); g.scale.setScalar(1.2); z.torso.add(g); z.slotM = g;   // asoma por encima de los hombros: se ve también de frente
