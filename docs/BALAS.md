@@ -66,3 +66,22 @@ El dueño eligió las 16 candidatas (hacen falta 12; 4 pasan a fusiones).
 - **6 balas base por rango** → 15 parejas por rango → **60 fusiones**. **Al lanzar: 84 balas** (24 base + 60 fusiones). Más adelante se crece con actualizaciones agregando balas base.
 - Rangos: C, B, A, S y secreto (sin rango D).
 - Para cuadrar 6 por rango, las 3 activas que faltan son 1 de rango C y 2 de rango S.
+
+## Las 24 balas base (cerradas el 18-oct-2026)
+
+| Rango | Pasivas | Activas |
+|---|---|---|
+| C | Oro, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora | Apuesta |
+| B | Robot, Caramelo, Tahúr | Escarcha, Relámpago, Bumerán |
+| A | Suerte, Dado cargado | Invocación, Hipnótica, Reloj, Ruleta rusa |
+| S | Rey, Fénix | Ángel, Agujero negro, Tragamonedas, Espejo |
+
+Nuevas de esta ronda:
+| Bala | Rango | Tipo | Efecto |
+|---|---|---|---|
+| Apuesta | C | Activa, vuelve | Doble o nada: la mitad de las veces triple de daño, la otra mitad no hace nada |
+| Tragamonedas | S | Activa, se rompe | 3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +10 de oro |
+| Espejo | S | Activa, vuelve | Copia el efecto de la última activa disparada |
+
+Resultados de fusión ya decididos (sin pareja asignada todavía): Puntería, Espuelas, Imán, Mercenaria, Alcancía, Usurero, Racimo, Taladro, Vampira, Junior, Frita, Dado (de rango C + C = B); As de espadas y Tormenta (de rango A + A = S).
+La Negra es especial secreta, fuera de las 84.
