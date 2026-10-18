@@ -109,12 +109,12 @@ Por ahora no se toca nada más en 3D. Al terminar las etapas anteriores se mejor
 Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 - **Carta:** As de diamantes. Sale como «???» (silueta, sin arma ni ficha) hasta vencerlo en el casino.
 - **Vida:** 90. **Arma:** dos revólveres cortos, uno en cada mano (como su jefe, que pelea con dos).
-- **Pasiva «Pies ligeros»:** se mueve un 15 % más rápido (su jefe se mueve mucho).
+- **Pasiva «Cliente VIP» (decisión del dueño, 19-oct-2026):** cada oleada recibe 2 fichas de miembro gratis para los juegos de azar (tragamonedas, ruleta, blackjack). Reemplaza a «Pies ligeros».
 - **Ultimate «Mi turno»:** 8 s con dos revólveres minigun, uno en cada mano, con balas sin fin.
 - **Bala con la que empieza:** Apuesta (familia casino, como Johnny: las 6 balas iniciales son de rareza C).
 - **Retrato y modelo:** retrato dibujado por código (chaqueta roja de cuello mao, lentes oscuros, neón del casino); en 3D usa el modelo del pistolero, porque el arte 3D está congelado.
 
 **Preguntas para el dueño:**
-1. ¿Te gusta la pasiva «Pies ligeros» (+15 % de velocidad) o prefieres otra? Opciones: (a) «Por turnos»: tras recargar, el primer tambor hace +30 % de daño; (b) esquivar: un pequeño impulso al cambiar de dirección.
+1. ~~Pasiva~~ — contestada: «Cliente VIP», 2 fichas de miembro por oleada.
 2. ¿La ultimate «Mi turno» (8 s con dos revólveres minigun) está bien, o la quieres más corta y más fuerte?
-3. ¿Le hacemos retrato dibujado y modelo 3D propios cuando se descongele el arte?
+3. ~~Modelo 3D propio~~ — contestada: el 3D sigue congelado hasta la Etapa 6.
