@@ -4012,6 +4012,128 @@ function mcHeartTube(s, r) {
   return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 64, r, 5, true);
 }
 
+/* ===== Maid Café grande (PENDIENTES 44, 19-oct-2026): la calle de Akihabara con el café queda en el centro y por tres
+   callejones entre los edificios se llega a 3 zonas con llave: la estación de tren (sur), el karaoke (este) y la tienda
+   de figuras (oeste). */
+const MCG = { E: 42, r1: 55, D: 26, hw: 15, cw: 3.6, z: [] };
+function mcLocal(Z, x, z) { const ry = Math.PI / 2 - Z.a, c = Math.cos(ry), s = Math.sin(ry), dx = x - Z.ox, dz = z - Z.oz; return { lx: dx * c - dz * s, lz: dx * s + dz * c }; }
+for (const [k, a, ox, oz, nombre] of [['est', Math.PI / 2, 12, 0, 'en la estación de tren'], ['kar', 0, 0, 4, 'en el karaoke'], ['fig', Math.PI, 0, -2, 'en la tienda de figuras']]) {
+  const Z = { k, a, ox, oz, nombre }; Z.en = (x, z) => { const q = mcLocal(Z, x, z); return Math.abs(q.lx) < MCG.hw - 0.8 && q.lz > MCG.r1 + 0.8 && q.lz < MCG.r1 + MCG.D - 0.8; }; MCG.z.push(Z);
+}
+const enEstacionTren = MCG.z[0].en, enKaraoke = MCG.z[1].en, enFiguras = MCG.z[2].en;
+function zonaMaid(x, z) { return enEstacionTren(x, z) ? 'en la estación de tren' : enKaraoke(x, z) ? 'en el karaoke' : enFiguras(x, z) ? 'en la tienda de figuras' : 'en la calle'; }
+function maidGrande(g0) {
+  const { E, r1, D, hw, cw } = MCG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 4, hz: r2 + 4 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = MCG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el borde de la calle ahora es pared (antes lo era el borde del lugar), con un hueco en cada callejón
+  for (const [ax, s] of [['z', -1], ['z', 1], ['x', -1], ['x', 1]]) {
+    const gaps = MCG.z.filter(Z => (ax === 'z' && Math.round(Math.sin(Z.a)) === s) || (ax === 'x' && Math.round(Math.cos(Z.a)) === s)).map(Z => ax === 'z' ? Z.ox : Z.oz);
+    let u = -E - 1; const tramos = [];
+    for (const g of gaps.sort((a, b) => a - b)) { tramos.push([u, g - cw]); u = g + cw; }
+    tramos.push([u, E + 1]);
+    for (const [u0, u1] of tramos) { const m = (u0 + u1) / 2, h = (u1 - u0) / 2; if (ax === 'z') addBox(m, s * (E + 0.6), h, 0.6); else addBox(s * (E + 0.6), m, 0.6, h); }
+  }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.4); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaMaid(p.x, p.z) }); };
+  const sale = (g, lx, lz) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise: false }); };
+  const letrero = (txt, bg, fg, w = 512) => bsc(0xffffff, { map: canvasTex(w, 128, (q, ww, hh) => { q.fillStyle = bg; q.fillRect(0, 0, ww, hh); q.fillStyle = fg; q.font = 'bold 64px sans-serif'; q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText(txt, ww / 2, hh / 2 + 4); }) });
+  // edificios con ventanas encendidas alrededor de cada zona y a los lados del callejón
+  const winT = windowTex(8, 16, 0.3); winT.wrapS = winT.wrapT = THREE.RepeatWrapping; winT.repeat.set(3, 4);
+  const bldM = [0x2a2430, 0x30283a, 0x262a36, 0x3a2e34].map(c => lam(c, { emissive: 0xffffff, emissiveMap: winT, emissiveIntensity: 0.5 }));
+  const edificio = (g, x0, x1, z0, z1) => { const w = x1 - x0, d = z1 - z0, h = sr(12, 26); box(g, w, h, d, pick(bldM), (x0 + x1) / 2, h / 2, (z0 + z1) / 2, { cast: false }); col(g, (x0 + x1) / 2, (z0 + z1) / 2, w / 2, d / 2); };
+  const G = {};
+  for (const Z of MCG.z) {
+    const g = Grp(Z.ox, Z.oz, Math.PI / 2 - Z.a); G[Z.k] = g;
+    // los lados del callejón y el frente de la zona son la franja de edificios de siempre: aquí solo su colisión
+    for (const s of [-1, 1]) col(g, s * (cw + (hw + 8 - cw) / 2), (E + 0.6 + r1) / 2, (hw + 8 - cw) / 2, (r1 - E - 0.6) / 2);
+    // los edificios que rodean la zona
+    for (const s of [-1, 1]) edificio(g, s > 0 ? hw : -hw - 8, s > 0 ? hw + 8 : -hw, r1, r2);
+    edificio(g, -hw - 8, hw + 8, r2, r2 + 8);
+    M(new THREE.PlaneGeometry(2 * cw, r1 - E + 1), new THREE.MeshLambertMaterial({ color: 0x2a2a2e, polygonOffset: true, polygonOffsetFactor: -1 }), 0, 0.012, (E + r1) / 2, { p: g, rx: -Math.PI / 2, cast: false });
+    // farolillos rojos colgados sobre el callejón
+    for (let i = 0; i < 4; i++) { const z = E + 2 + i * 3.2; M(new THREE.SphereGeometry(0.35, 10, 8), bsc(0xff3a3a), 0, 3.6, z, { p: g, cast: false }); glow(g, 0, 3.6, z, 0xff5040, 1.6, 0.5); }
+    box(g, 0.04, 0.04, r1 - E, lam(0x2a2a2a), 0, 3.95, (E + r1) / 2, { cast: false });
+  }
+
+  // ================= SUR: LA ESTACIÓN DE TREN (andén con marquesina, el vagón parado, tornos y máquinas de billetes) =================
+  { const g = G.est, tz = r2 - 6;
+    // vías y el vagón
+    for (const s of [-0.75, 0.75]) box(g, 2 * hw, 0.12, 0.1, lam(0x8a8a90), 0, 0.06, tz + s, { cast: false });
+    for (let i = 0; i < 20; i++) box(g, 0.3, 0.08, 2.2, lam(0x4a3a2a), -hw + 0.8 + i * 1.5, 0.04, tz, { cast: false });
+    { const car = lam(0xd8dce4), banda = lam(0xf0a020), win = bsc(0x8ab0d0);
+      box(g, 20, 3.3, 3.1, car, -2, 2, tz, {}); box(g, 20.1, 0.4, 3.15, banda, -2, 1.3, tz, {});
+      for (let i = 0; i < 8; i++) box(g, 1.4, 0.9, 3.16, win, -10.5 + i * 2.4, 2.5, tz, { cast: false });
+      for (const x of [-8, 0, 6]) box(g, 1.2, 2.2, 3.17, lam(0x5a6a7a), x, 1.5, tz, { cast: false });
+      box(g, 1.2, 0.8, 0.1, lam(0x2a2a2a), -2, 4, tz, { cast: false }); col(g, -2, tz, 10, 1.6); }
+    // el andén: franja amarilla, marquesina con pilares y el panel de salidas
+    box(g, 2 * hw, 0.04, 0.5, lam(0xf0c020), 0, 0.02, tz - 2.4, { cast: false });
+    for (const x of [-10, -2, 6]) { box(g, 0.4, 4, 0.4, lam(0x8a8a90), x, 2, lc - 2, {}); colC(g, x, lc - 2, 0.3); }
+    box(g, 22, 0.25, 6, lam(0x6a6a72), -2, 4.1, lc - 1, { cast: false });
+    { const pan = M(new THREE.PlaneGeometry(4, 1), letrero('東京 · 回送', '#111', '#ffb020'), -2, 3.4, lc - 3.9, { p: g, cast: false, ry: Math.PI }); void pan; }
+    // tornos de entrada y máquinas de billetes
+    for (let i = 0; i < 5; i++) { const x = -6 + i * 3; box(g, 0.5, 1, 1.6, lam(0xc8ccd4), x, 0.5, r1 + 4, {}); box(g, 0.3, 0.06, 0.3, bsc(i % 2 ? 0x30ff60 : 0xff3030), x, 1.05, r1 + 3.5, { cast: false }); col(g, x, r1 + 4, 0.25, 0.8); }
+    for (const x of [10, 12]) { box(g, 1.4, 2, 0.8, lam(0x2a6ab0), x, 1, r1 + 2, {}); box(g, 1, 0.6, 0.02, bsc(0x8ad0ff), x, 1.4, r1 + 1.59, { cast: false }); col(g, x, r1 + 2, 0.7, 0.4); }
+    luz(g, -2, 3.8, lc - 1, 0xe8f0ff, 1.2, 24);
+    for (const [x, z] of [[-13, r1 + 2.5], [13, r1 + 6], [-13, lc - 1], [12, lc], [-12, tz - 3.5], [8, tz - 3.5], [0, r1 + 1.5]]) spotK(g, x, z);
+    for (const x of [-12, 12]) sale(g, x, r2 - 2); sale(g, 10, tz);
+  }
+
+  // ================= ESTE: EL KARAOKE (cabinas con luces de neón, el escenario con micrófono y luces de discoteca) =================
+  { const g = G.kar, NE = [0xff4ab0, 0x3ad8ff, 0xffe63a, 0xb46aff];
+    for (let i = 0; i < 4; i++) { const x = -12 + i * 6.5, z = r2 - 4.5;
+      const pared = lam(0x2a1a3a); box(g, 5.6, 3.2, 0.25, pared, x, 1.6, z + 2, {}); for (const s of [-1, 1]) box(g, 0.25, 3.2, 4, pared, x + s * 2.8, 1.6, z, {}); box(g, 5.6, 0.2, 4, pared, x, 3.2, z, {});
+      box(g, 4, 0.5, 1, lam(NE[i]), x, 0.45, z + 1.2, {}); M(new THREE.PlaneGeometry(2, 1.1), bsc(0x0a0a20), x, 1.8, z + 1.86, { p: g, ry: Math.PI, cast: false });
+      box(g, 5.6, 0.25, 0.1, bsc(NE[i]), x, 3.35, z - 2, { cast: false }); glow(g, x, 1.5, z, NE[i], 3.5, 0.35);
+      col(g, x, z + 2, 2.8, 0.15); for (const s of [-1, 1]) col(g, x + s * 2.8, z, 0.15, 2); }
+    M(new THREE.PlaneGeometry(8, 1.6), letrero('カラオケ ♪ KARAOKE', '#5a1a8a', '#ffd0ff'), 0, 5, r2 - 0.4, { p: g, ry: Math.PI, cast: false });
+    // escenario con micrófono, altavoces y bola de luces
+    { const sz = r1 + 7; box(g, 9, 0.6, 4, lam(0x1a1a24), 0, 0.3, sz, {}); box(g, 9.1, 0.08, 4.1, bsc(0xff4ab0), 0, 0.62, sz, { cast: false }); col(g, 0, sz, 4.5, 2);
+      M(cyl(0.03, 0.03, 1.5, 6), lam(0x8a8a8a), 0, 1.35, sz, { p: g }); M(new THREE.SphereGeometry(0.08, 8, 6), lam(0x2a2a2a), 0, 2.1, sz, { p: g });
+      for (const s of [-1, 1]) { box(g, 1, 1.8, 0.9, lam(0x111111), s * 5.2, 0.9, sz, {}); M(new THREE.CircleGeometry(0.3, 12), lam(0x3a3a3a), s * 5.2, 1.2, sz - 0.46, { p: g, ry: Math.PI, cast: false }); colC(g, s * 5.2, sz, 0.7); }
+      const bola = new THREE.Group(); bola.position.set(0, 5, lc); bola.userData.vivo = 1; g.add(bola); M(new THREE.IcosahedronGeometry(0.5, 1), lam(0xd8d8e0, { flatShading: true, emissive: 0x2a2a30 }), 0, 0, 0, { p: bola, cast: false });
+      const manchas = []; for (let i = 0; i < (fast ? 4 : 8); i++) manchas.push({ sp: glow(g, 0, 0.05, lc, NE[i % 4], 2.4, 0.45), r: rand(3, 11), a: rand(0, TAU) });
+      world.anims.push((dt, t) => { bola.rotation.y += dt; for (const m of manchas) { m.a += dt * 0.35; m.sp.position.set(Math.cos(m.a) * m.r, 0.05, lc + Math.sin(m.a) * m.r * 0.7); } }); }
+    luz(g, 0, 4, lc, 0xff8ad8, 1.2, 24);
+    for (const [x, z] of [[-13, r1 + 2.5], [13, r1 + 2.5], [-13, lc], [13, lc + 1], [-6, lc + 2], [6, lc + 2], [-3, r1 + 2]]) spotK(g, x, z);
+    for (const x of [-12, 12, 0]) sale(g, x, lc + 4);
+  }
+
+  // ================= OESTE: LA TIENDA DE FIGURAS (estanterías llenas, la figura gigante y las máquinas de cápsulas) =================
+  { const g = G.fig;
+    const caja = new THREE.InstancedMesh(bx(0.5, 0.7, 0.35), new THREE.MeshLambertMaterial({ color: 0xffffff }), fast ? 160 : 300), m4 = new THREE.Matrix4(), cc = new THREE.Color(); let n = 0;
+    for (const z of [r1 + 6, r1 + 12, r1 + 18]) for (const s of [-1, 1]) { const x0 = s * 8; box(g, 8, 3, 0.8, lam(0xe8e8ec), x0, 1.5, z, {}); col(g, x0, z, 4, 0.4);
+      for (let f = 0; f < 3; f++) for (let k = 0; k < 14 && n < caja.count; k++) for (const side of [-1, 1]) { if (n >= caja.count) break; const p = lw(g, x0 - 3.5 + k * 0.55, z + side * 0.45); m4.makeTranslation(p.x, 0.5 + f * 0.95, p.z); caja.setMatrixAt(n, m4); caja.setColorAt(n++, cc.setHex(pick([0xff8ab8, 0x8ad8ff, 0xfff0a0, 0xd0a0ff, 0xa0ffb0, 0xff6a4a]))); } }
+    caja.count = n; world.group.add(caja);
+    // la figura gigante en su pedestal: pelo rosa con dos coletas
+    { const fz = r2 - 4.5; M(cyl(2, 2.2, 1, 20), lam(0x2a2a3a), 0, 0.5, fz, { p: g }); colC(g, 0, fz, 2.2);
+      M(new THREE.ConeGeometry(1.1, 3, 14), lam(0x3a4aa0), 0, 2.5, fz, { p: g }); M(cyl(0.3, 0.35, 0.6, 10), lam(0xffe0d0), 0, 4.2, fz, { p: g });
+      M(new THREE.SphereGeometry(0.8, 16, 12), lam(0xffe0d0), 0, 5, fz, { p: g }); M(new THREE.SphereGeometry(0.88, 16, 12, 0, TAU, 0, Math.PI * 0.55), lam(0xff70b0), 0, 5.1, fz, { p: g });
+      for (const s of [-1, 1]) { M(new THREE.ConeGeometry(0.35, 2.4, 10), lam(0xff70b0), s * 1.1, 4.3, fz, { p: g, rz: s * 0.4 }); M(new THREE.SphereGeometry(0.12, 8, 6), bsc(0x3a6aff), s * 0.3, 5.05, fz - 0.72, { p: g, cast: false }); }
+      glow(g, 0, 4, fz, 0xff9ad8, 6, 0.3); }
+    // máquinas de cápsulas
+    for (let i = 0; i < 6; i++) { const x = -12 + i * 1.3, z = r1 + 2; box(g, 1.1, 1.2, 1, lam(pick([0xff4a6a, 0x3a8aff, 0xffd03a])), x, 0.6, z, {}); M(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshLambertMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.6 }), x, 1.6, z, { p: g, cast: false }); }
+    col(g, -8.75, r1 + 2, 4, 0.55);
+    M(new THREE.PlaneGeometry(7, 1.4), letrero('フィギュア · FIGURES', '#1a5a3a', '#c8ffd8'), 0, 5, r2 - 0.4, { p: g, ry: Math.PI, cast: false });
+    luz(g, 0, 4, lc, 0xfff0e0, 1.2, 24);
+    for (const [x, z] of [[-13, r1 + 9], [13, r1 + 3], [0, r1 + 9], [0, r1 + 15], [-13, r2 - 3], [13, r2 - 3], [5, r1 + 2]]) spotK(g, x, z);
+    for (const x of [-12, 12, -6]) sale(g, x, r2 - 2);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildMaidCafe() {
   const A = 42;
   world.arena = { t: 'r', hx: A, hz: A }; world.start = { x: 0, z: -10 };
@@ -4586,10 +4708,12 @@ function buildMaidCafe() {
       a += w;
     }
   };
-  strip('x', -54, 54, 43, 55);     // sur
-  strip('x', -54, 54, -43, -55);   // norte
-  strip('z', -43, 43, 43, 55);     // este
-  strip('z', -43, 43, -43, -55);   // oeste
+  // con un callejón abierto hacia cada zona de llave (Maid Café grande)
+  { const [S, Es, O] = MCG.z, cw = MCG.cw;
+    strip('x', -54, S.ox - cw, 43, 55); strip('x', S.ox + cw, 54, 43, 55);       // sur
+    strip('x', -54, 54, -43, -55);                                               // norte
+    strip('z', -43, Es.oz - cw, 43, 55); strip('z', Es.oz + cw, 43, 43, 55);    // este
+    strip('z', -43, O.oz - cw, -43, -55); strip('z', O.oz + cw, 43, -43, -55); } // oeste
   AK.forEach(([g, x, y, z, ry]) => { const m = new THREE.Mesh(g, akiM); m.position.set(x, y, z); m.rotation.y = ry; world.group.add(m); });
   // la pantalla gigante del edificio de enfrente
   P(ST, gb(13, 7.4, 0.5), 0x1a1a22, 0, 15, 42.9);
@@ -4654,6 +4778,7 @@ function buildMaidCafe() {
 
   // ================= PUNTOS DE APARICIÓN: el callejón de atrás, los solares, los extremos de la calle y la plaza
   [[-30, -40.5], [-6, -40.5], [8, -40.5], [30, -40.5], [-40.5, -26], [-40.5, -2], [40.5, -26], [40.5, -2], [-40.5, 7.5], [40.5, 7.5], [-24, 40.5], [0, 40.5], [24, 40.5], [-40.5, 30], [40.5, 30]].forEach(([x, z]) => world.spawns.push({ x, z, rise: false }));
+  maidGrande(world.group.children.length);   // los callejones y las tres zonas con llave (PENDIENTES 44)
 }
 
 function buildMap(i) {
@@ -27923,7 +28048,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 7, 10, 13, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026)
-const MAP_EN_OBRA = [29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [29];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
