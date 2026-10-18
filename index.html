@@ -22757,8 +22757,8 @@ function startWave(n) {
   Sfx.bell();
   if (n >= 2) saveGame();   // «Continuar» solo tiene sentido si ya pasaste la primera oleada
 }
-// Jefe del casino en la oleada n. Mientras no estén los 5 jefes nuevos, sale un jefe de los de siempre en su lugar.
-function casJefeOla(n) { game.casJ = casJefe(n); game.bossPick = pickBoss(); game.bossQ.push('boss'); }
+// Jefe del casino en la oleada n (sale con la horda de esa oleada)
+function casJefeOla(n) { game.casJ = casJefe(n); game.bossPick = casBossIdx(game.casJ); game.bossQ.push('boss'); }
 // al limpiar una oleada con jefe del casino, queda vencido con tu personaje en esta dificultad (cada jugador del grupo lo guarda para sí)
 function casOlaFin(w) {
   if (!game || tuto || !runN()) return; const j = casJefe(w); if (j < 0) return;
@@ -24405,6 +24405,12 @@ const BOSSES = [
       }
       return bKeepAway(c, 8, 14);
     } },
+  // los 5 jefes del BIG NEON CASINO (solo salen en el casino, en el orden de las visitas)
+  { id: 'crupier', casino: true, name: 'El Crupier de Hielo y Fuego', sub: 'Cambia de hielo a fuego: lee el suelo y no te quedes quieto', hp: 7000, spd: 1.6, sc: 1.8, dmg: 40, look: crupierLook, tick: crupierTick, fx: crupierFx },
+  { id: 'ludo', casino: true, name: 'Ludo Cheng', sub: 'Ataca por turnos: cúbrete en el suyo y dale en el tuyo', hp: 7500, spd: 3.6, sc: 1.2, dmg: 34, look: ludoLook, tick: ludoTick, hit: (z, a) => (z.bst & 1) ? a * 1.3 : a * 0.3, fx: z => { CF.tag = (z.bst & 1) ? ' · TU TURNO' : ' · SU TURNO'; } },
+  { id: 'mayor', casino: true, name: 'El Crupier Mayor', sub: 'La ruleta decide: sal de los círculos del color que salga', hp: 9000, spd: 1.4, sc: 2.3, dmg: 48, look: mayorLook, tick: mayorTick },
+  { id: 'escolta', casino: true, name: 'Escolta Zombi', sub: 'Su escudo lo cubre de frente: hazlo embestir y dale por la espalda', hp: 9000, spd: 1.7, sc: 2.0, dmg: 52, look: escoltaLook, tick: escoltaTick, hit: escoltaHit, fx: escoltaFx },
+  { id: 'slot', casino: true, name: 'Big Big Slot Machine Zombie', sub: 'Gánale al blackjack: cuando llora, cada bala le hace 5000', hp: 1000000, vidaFija: true, spd: 0.8, sc: 2.6, dmg: 55, look: slotLook, tick: slotTick, hit: slotHit, fx: slotFx },
   // ayudantes de jefe (no salen solos)
   { id: 'lion', helper: true, name: 'El León', sub: '', hp: 6000, spd: 4.6, sc: 2.0, dmg: 40,
     look(z) { bRecolor(z, 0, 0xb08040); if (z.head) addL(z.head, LG.box(0.36, 0.36, 0.16), LM(0x5a3010), 0, 0, -0.04); },
@@ -24429,6 +24435,260 @@ const BOSSES = [
     hit(z, a) { z.lastHitT = game.time; return a; },
     fx: (z, dt) => zHeartFx(z, dt) }
 ];
+// ===================== LOS 5 JEFES DEL BIG NEON CASINO (Etapa 3, PENDIENTES 31) =====================
+// Decide el anfitrión (tick y hit); todo lo que se ve o duele va por bossEv, así lo ven todos los teléfonos del grupo.
+// Sin modelos importados: cuerpos de zombi recoloreados y piezas simples (cajas, cilindros y planos con dibujos).
+const CAS_JEFES = ['crupier', 'ludo', 'mayor', 'escolta', 'slot'];
+const casBossIdx = j => BOSSES.findIndex(b => b.id === CAS_JEFES[j]);
+const CF = { tag: '', conCartas: new Set() }, CFX = [];
+const CBAN = [
+  ['¡Hielo!', 'El Crupier congela: sal de los círculos azules'], ['¡Fuego!', 'El Crupier deja fuego por donde pasa'],
+  ['¡Turno de Ludo!', 'A cubierto: dispara con sus dos revólveres minigun'], ['¡Tu turno!', 'Ludo solo esquiva: ¡dale ahora!'],
+  ['¡Hagan sus apuestas!', 'Rojo o negro: sal de los círculos del color que salga'], ['¡Blackjack!', 'Dispara a la carta tapada para pedir otra; gánale a la casa sin pasarte de 21'],
+  ['¡Le ganaste la mano!', 'Llora 3 segundos: cada bala le hace 5000 + tu daño'], ['¡La casa gana!', 'Cuidado con el golpe'],
+  ['¡Embestida!', 'El Escolta carga: apártate de la franja roja'], ['¡Aturdido!', 'Chocó: ahora le duele por todos lados']
+];
+// ---- 1 · El Crupier de Hielo y Fuego: cambia de elemento cada 9 s (bst bit 1 = fuego)
+function crupierLook(z) {
+  bRecolor(z, 1, 0xf2f0ea); bRecolor(z, 2, 0x16161a);
+  addL(z.torso, LG.box(0.46, 0.5, 0.3), LM(0x101014), 0, -0.05, 0);   // chaleco
+  addL(z.torso, LG.box(0.16, 0.06, 0.04), LM(0xc0201a), 0, 0.27, 0.17);   // moñito
+  addL(z.head, LG.box(0.34, 0.03, 0.2), LM(0x1a7a3a, { transparent: true, opacity: 0.85 }), 0, 0.12, 0.14);   // visera verde de crupier
+  z.cIce = []; z.cFire = [];
+  const ice = LM(0x9ae6ff, { emissive: 0x2a8ac0 }), fire = LM(0xff7a20, { emissive: 0xc03000 });
+  if (z.armL) for (let i = 0; i < 4; i++) z.cIce.push(addL(z.armL, LG.cone(0.07, 0.3), ice, rand(-0.08, 0.08), -0.3 - i * 0.12, rand(-0.06, 0.08), rand(-0.5, 0.5), 0, rand(-0.6, 0.6)));
+  if (z.armR) for (let i = 0; i < 4; i++) z.cFire.push(addL(z.armR, LG.cone(0.07, 0.3), fire, rand(-0.08, 0.08), -0.3 - i * 0.12, rand(-0.06, 0.08), Math.PI + rand(-0.4, 0.4), 0, rand(-0.5, 0.5)));
+}
+function crupierTick(z, dt, c) {
+  z.bt += dt; z.ct = (z.ct || 0) + dt; z.et = (z.et || 0) + dt;
+  const fuego = (z.bst & 1) === 1;
+  if (z.et > 9) { z.et = 0; z.bst ^= 1; bossEv('cban', (z.bst & 1) ? 1 : 0); }
+  if (!c.canAttack) return null;
+  if (!fuego) {
+    if (z.bt > 3.2) { z.bt = 0; for (let i = 0; i < 3; i++) { const q = i ? bSpot(c.tp.x, c.tp.z, 2, 6) : { x: c.tp.x, z: c.tp.z }; if (q) bossEv('tgc', q.x, q.z, 2.6, 1.2 + i * 0.25, Math.round(z.dmg * 0.45), 'ice'); } }
+    if (z.ct > 1.8 && c.dist < 28 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1)) { z.ct = 0; bossEv('mshot', c.pos.x, 1.6 * z.s, c.pos.z, c.tp.x, 1.3, c.tp.z, c.pid, Math.random() < 0.5 ? Math.round(z.dmg * 0.25) : 0); }
+    return { spd: 0.85 };
+  }
+  if (z.bt > 3.6 && c.dist < 30) { z.bt = 0; const t = 1.25; bossEv('tgc', c.tp.x, c.tp.z, 2.6, t, Math.round(z.dmg * 0.55), 'fire'); bossEv('lob', c.pos.x, c.pos.z, c.tp.x, c.tp.z, t, 'fire'); }
+  if (z.ct > 0.7) { z.ct = 0; bossEv('fire', c.pos.x, c.pos.z); }
+  return { spd: 1.35 };
+}
+function crupierFx(z) {
+  const fuego = (z.bst & 1) === 1; CF.tag = fuego ? ' · FUEGO' : ' · HIELO';
+  if (z.cIce) z.cIce.forEach(m => m.visible = !fuego || (z.t % 1) < 0.15);
+  if (z.cFire) z.cFire.forEach(m => m.visible = fuego || (z.t % 1) < 0.15);
+  if (Math.random() < 0.5) { ((fuego ? z.armR : z.armL) || z.torso).getWorldPosition(_zA); PA.add(_zA.x + rand(-0.2, 0.2), _zA.y - 0.4 * z.s, _zA.z + rand(-0.2, 0.2), rand(-0.3, 0.3), fuego ? rand(1, 2) : rand(-0.5, 0.3), rand(-0.3, 0.3), 0.5, 0.14, fuego ? 1 : 0.6, fuego ? 0.45 : 0.9, fuego ? 0.1 : 1, 1, fuego ? -1 : 2, 0.5, 0, 0); }
+}
+// ---- 2 · Ludo Cheng: humano, dos revólveres minigun, ataca por turnos (bst bit 1 = tu turno) y se mueve mucho
+function ludoLook(z) {
+  bRecolor(z, 0, 0xd8b090); bRecolor(z, 1, 0xb01a1a); bRecolor(z, 2, 0x141418);
+  z.mats[0].emissive = new THREE.Color(0x000000);
+  addL(z.head, LG.box(0.33, 0.12, 0.33), LM(0x0c0c0e), 0, 0.15, -0.01);   // pelo
+  addL(z.head, LG.box(0.3, 0.05, 0.04), LM(0x101010, { emissive: 0x101020 }), 0, 0.03, 0.16);   // lentes oscuros
+  for (const y of [0.25, 0.05, -0.15]) addL(z.torso, LG.box(0.08, 0.03, 0.02), LM(0xffd040, { emissive: 0x403000 }), 0, y, 0.165);   // botones de la chaqueta
+  for (const [arm, k] of [[z.armR, 'R'], [z.armL, 'L']]) if (arm) { const g = revolverMini('magnum'); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.45); arm.add(g); if (k === 'R') z.bossGun = g; }
+}
+function ludoTick(z, dt, c) {
+  z.bt += dt; const tuTurno = (z.bst & 1) === 1;
+  if (z.bt > (tuTurno ? 5 : 5.5)) { z.bt = 0; z.bst ^= 1; z.lt = 0; bossEv('cban', (z.bst & 1) ? 3 : 2); }
+  const L = bLeapStep(z, dt, c); if (L) return L;
+  if (tuTurno) {   // esquiva: salta de un lado a otro sin atacar
+    z.lt = (z.lt || 0) + dt;
+    if (z.lt > 1.1) { z.lt = 0; const q = bSpot(c.tp.x, c.tp.z, 6, 12); if (q) { bossEv('puff', c.pos.x, c.pos.z); bLeap(z, q.x, q.z, 0.05, 0.3); } }
+    z.atkCd = 1; return { spd: 1.3 };
+  }
+  // su turno: planta los pies y descarga los dos revólveres (no todas las balas pegan)
+  if (z.bt > 0.8 && c.canAttack && c.dist < 34 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1)) {
+    z.lt = (z.lt || 0) + dt;
+    while (z.lt > 0.13) { z.lt -= 0.13; z.lado = !z.lado; const sx = z.lado ? 0.5 : -0.5;
+      bossEv('mshot', c.pos.x + Math.cos(z.yaw) * sx, 1.4 * z.s, c.pos.z - Math.sin(z.yaw) * sx, c.tp.x + rand(-0.6, 0.6), 1.3, c.tp.z + rand(-0.6, 0.6), c.pid, Math.random() < 0.3 ? Math.round(z.dmg * 0.14) : 0); }
+  }
+  return { spd: 0.15 };
+}
+// ---- 3 · El Crupier Mayor: la ruleta decide qué círculos estallan; también lanza pilas de fichas y llama a su personal
+function mayorLook(z) {
+  bRecolor(z, 1, 0xffffff, AT.suit); bRecolor(z, 2, 0xffffff, AT.suit);
+  addHat(z.head, 'cowboy'); addL(z.head, LG.cyl(0.13, 0.13, 0.32, 12), GMAT.black, 0, 0.32, 0); addL(z.head, LG.cyl(0.24, 0.24, 0.02, 16), GMAT.black, 0, 0.17, 0);   // galera
+  for (let i = 0; i < 6; i++) addL(z.torso, LG.sph(0.035), GMAT.brass, -0.18 + i * 0.07, 0.18 - Math.abs(i - 2.5) * 0.03, 0.17);   // cadena de oro
+  addL(z.torso, LG.box(0.18, 0.06, 0.04), LM(0xc0201a), 0, 0.27, 0.17);
+}
+function mayorTick(z, dt, c) {
+  z.bt += dt; z.ct = (z.ct || 0) + dt; z.st = (z.st || 0) + dt;
+  if (!c.canAttack) return null;
+  if (z.bt > 8) {   // ruleta: círculos rojos y negros alrededor de ti; estallan los del color que salga (a veces sale el cero verde: estallan todos)
+    z.bt = 0; const pts = [], n = 8;
+    for (let i = 0; i < n; i++) { const q = i ? bSpot(c.tp.x, c.tp.z, 2.5, 9) : { x: c.tp.x + rand(-1, 1), z: c.tp.z + rand(-1, 1) }; if (q && !pts.some(p => Math.hypot(p[0] - q.x, p[1] - q.z) < 4.2)) pts.push([q.x, q.z]); }
+    const win = Math.random() < 0.08 ? 2 : Math.random() < 0.5 ? 0 : 1;
+    bossEv('cban', 4); bossEv('crul', 3, Math.round(z.dmg * 0.7), win, ...pts.flat());
+  }
+  if (z.ct > 4.8 && c.dist > 4 && c.dist < 30) { z.ct = 0; const t = 1.3; bossEv('tgc', c.tp.x, c.tp.z, 2.4, t, Math.round(z.dmg * 0.5), 'boom'); bossEv('lob', c.pos.x, c.pos.z, c.tp.x, c.tp.z, t, 'rock'); }
+  if (z.st > 15) { z.st = 0; bSpawnNear(z, 'copz', 2, 4); feed('El Crupier Mayor llama a su personal', 'red'); }
+  return null;
+}
+// ---- 4 · Escolta Zombi: escudo antidisturbios por delante (bst bit 2 = aturdido); embiste y, si choca, queda aturdido
+function escoltaLook(z) {
+  bRecolor(z, 1, 0xffffff, AT.suit); bRecolor(z, 2, 0x16161a);
+  addL(z.head, LG.box(0.3, 0.06, 0.05), LM(0x050505), 0, 0.03, 0.16);   // lentes negros
+  addL(z.head, LG.cyl(0.012, 0.012, 0.14, 6), LM(0x202020), 0.15, -0.02, 0.02, 0.4);   // auricular
+  if (z.armL) { z.cShield = addL(z.armL, LG.box(0.62, 0.95, 0.06), LM(0x2a3440, { transparent: true, opacity: 0.85 }), 0.05, -0.5, 0.22); addL(z.cShield, LG.box(0.5, 0.14, 0.02), LM(0xf0f0f0), 0, 0.25, 0.04); }
+}
+function escoltaTick(z, dt, c) {
+  z.bt += dt; z.st = (z.st || 0) + dt;
+  if (z.aturd > 0) { z.aturd -= dt; if (z.aturd <= 0) z.bst &= ~2; z.atkCd = 1; return { spd: 0 }; }
+  if (z.chg > 0) {
+    z.chg -= dt; const px = c.pos.x, pz = c.pos.z; c.pos.x += z.chx * 7 * dt; c.pos.z += z.chz * 7 * dt; resolve(c.pos, z.r);
+    if (Math.random() < 0.6) dirtBurst(c.pos.x, 0.05, c.pos.z, 1, 1);
+    const atascado = Math.hypot(c.pos.x - px, c.pos.z - pz) < 7 * dt * 0.5 || !insideArena(c.pos.x, c.pos.z, 1.2);
+    if (z.chg <= 0 || atascado) { z.chg = 0; z.aturd = 2.6; z.bst |= 2; bossEv('cban', 9); bossEv('slam', c.pos.x, c.pos.z, 2.5, Math.round(z.dmg * 0.4)); }
+    return { spd: 0 };
+  }
+  if (z.w > 0) { z.w -= dt; if (z.w <= 0) { z.chg = 1.6; } return { spd: 0 }; }
+  if (z.bt > 5 && c.canAttack && c.dist > 4 && c.dist < 24) {   // aviso: franja roja y embestida
+    z.bt = 0; const d = Math.hypot(c.tp.x - c.pos.x, c.tp.z - c.pos.z) || 1; z.chx = (c.tp.x - c.pos.x) / d; z.chz = (c.tp.z - c.pos.z) / d; z.w = 1;
+    const ex = c.pos.x + z.chx * 11.2, ez = c.pos.z + z.chz * 11.2; z.yaw = Math.atan2(z.chx, z.chz);
+    bossEv('cban', 8); bossEv('tgl', c.pos.x, c.pos.z, ex, ez, 2.2, 1.6, Math.round(z.dmg * 0.8), 'slam');
+  }
+  if (z.st > 14) { z.st = 0; bSpawnNear(z, 'armored', 2, 4); feed('El Escolta llama a sus guardaespaldas', 'red'); }
+  return null;
+}
+function escoltaHit(z, a, info) {
+  if (z.bst & 2) return a * 1.5;   // aturdido: le duele por todos lados
+  if (!info.dir) return a * 0.6;
+  const d = info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw);
+  return d > 0.2 ? a * 1.4 : a * 0.12;   // por la espalda le duele; de frente, el escudo
+}
+function escoltaFx(z) { CF.tag = (z.bst & 2) ? ' · ATURDIDO' : ' · RODÉALO: POR LA ESPALDA'; if ((z.bst & 2) && Math.random() < 0.4) { z.head.getWorldPosition(_zA); PA.add(_zA.x + rand(-0.4, 0.4), _zA.y + 0.4, _zA.z + rand(-0.4, 0.4), 0, 0.5, 0, 0.5, 0.1, 1, 1, 0.4, 1, 0, 0.3, 0, 0); } }
+// ---- 5 · Big Big Slot Machine Zombie: 1 000 000 de vida, muchas habilidades, convoca seguido y juega blackjack en vivo
+// bst bit 1 = llora (vulnerable: cada bala hace 5000 + tu daño). z.bj = la mano de blackjack (la lleva el anfitrión)
+const slotScreenT = canvasTex(256, 96, (g, w, h) => { g.fillStyle = '#f8f0e0'; g.fillRect(0, 0, w, h); g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; for (let i = 0; i < 3; i++) { g.fillStyle = i === 1 ? '#c01818' : '#1a1a1a'; g.fillText(['7', 'BAR', '$'][i], w / 6 + i * w / 3, h / 2); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect((i + 1) * w / 3 - 2, 0, 4, h); } });
+slotScreenT.wrapT = THREE.RepeatWrapping;
+function slotLook(z) {
+  bRecolor(z, 0, 0x7a8a6a); bRecolor(z, 1, 0x8a1a2a); bRecolor(z, 2, 0x3a1a1a);
+  const cab = bHit(z, addL(z.torso, LG.box(0.82, 0.95, 0.6), LM(0xa01a2a, { emissive: 0x200408 }), 0, 0.05, 0), 'body');
+  addL(cab, LG.box(0.86, 0.1, 0.64), LM(0xd8a838, { emissive: 0x403008 }), 0, 0.5, 0);   // borde dorado
+  addL(cab, LG.box(0.86, 0.08, 0.64), LM(0xd8a838, { emissive: 0x403008 }), 0, -0.47, 0);
+  z.cScreen = addL(cab, new THREE.PlaneGeometry(0.62, 0.24), new THREE.MeshBasicMaterial({ map: slotScreenT }), 0, 0.15, 0.305);
+  addL(cab, LG.box(0.7, 0.12, 0.05), LM(0xffd040, { emissive: 0xffa020 }), 0, 0.36, 0.31);   // luces de arriba
+  addL(cab, LG.box(0.5, 0.08, 0.14), LM(0x202020), 0, -0.3, 0.33);   // bandeja de monedas
+  if (z.armR) { z.cLever = addL(cab, LG.cyl(0.025, 0.025, 0.5, 6), GMAT.steel, 0.47, 0.25, 0); addL(z.cLever, LG.sph(0.07), GMAT.red, 0, 0.27, 0); }
+  z.head.scale.setScalar(0.85);
+}
+const BJ_VAL = v => v >= 10 ? 10 : v === 1 ? 11 : v, bjLbl = v => v === 1 ? 'A' : v === 11 ? 'J' : v === 12 ? 'Q' : v === 13 ? 'K' : String(v);
+function bjTotal(v, m) { let t = 0, ases = 0; v.forEach((x, i) => { if (!((m >> i) & 1)) return; t += BJ_VAL(x); if (x === 1) ases++; }); while (t > 21 && ases--) t -= 10; return t; }
+const bjNuevaCarta = () => 1 + Math.floor(Math.random() * 13);
+function slotTick(z, dt, c) {
+  z.bt += dt; z.st = (z.st || 0) + dt; z.jt = (z.jt || 0) + dt;
+  if (z.llora > 0) { z.llora -= dt; if (z.llora <= 0) z.bst &= ~1; z.atkCd = 1; return { spd: 0 }; }
+  // blackjack en vivo
+  const B = z.bj;
+  if (B) {
+    B.t -= dt; const tot = bjTotal(B.v, B.m);
+    if (tot > 21 || tot === 21 || B.t <= 0) {
+      z.bj = null; bossEv('cbj', z.id, -1);
+      if (tot <= 21 && (tot === 21 || tot > B.d)) { z.llora = 3; z.bst |= 1; bossEv('cban', 6); }
+      else { bossEv('cban', 7); for (const p of llvJugadores()) bossEv('tgc', p.x, p.z, 3.2, 1.1, Math.round(z.dmg * 0.8), 'boom'); z.hp = Math.min(z.maxHp, z.hp + z.maxHp * 0.01); }
+    } else if (B.sync) { B.sync = false; bossEv('cbj', z.id, B.d, Math.round(B.t), B.m, ...B.v); }
+    return { spd: 0.2 };
+  }
+  if (z.jt > 16 && c.canAttack) {
+    z.jt = 0; z.bj = { d: 16 + Math.floor(Math.random() * 5), v: [bjNuevaCarta(), bjNuevaCarta()], m: 1, t: 11 };
+    bossEv('cban', 5); bossEv('cbj', z.id, z.bj.d, 11, z.bj.m, ...z.bj.v); return { spd: 0 };
+  }
+  // convoca seguido
+  if (z.st > 7) { z.st = 0; bSpawnNear(z, pick(['walker', 'runner', 'crawler']), 3, 5); }
+  if (!c.canAttack) return null;
+  if (z.bt > 4.5) {   // gira la palanca: sale una habilidad al azar
+    z.bt = 0; const k = pick(['monedas', 'barras', 'campana', 'siete']); bossEv('cslot', z.id, ['monedas', 'barras', 'campana', 'siete'].indexOf(k));
+    if (k === 'monedas') { for (let i = 0; i < 5; i++) { const q = i ? bSpot(c.tp.x, c.tp.z, 1.5, 7) : { x: c.tp.x, z: c.tp.z }; if (q) { bossEv('tgc', q.x, q.z, 2.2, 1.2 + i * 0.15, Math.round(z.dmg * 0.4), 'boom'); bossEv('lob', c.pos.x, c.pos.z, q.x, q.z, 1.2 + i * 0.15, 'rock'); } } }
+    else if (k === 'barras') { const a0 = bAng(c); for (const da of [-0.5, 0, 0.5]) { const e = bFar(c, a0 + da, 26); bossEv('tgl', c.pos.x, c.pos.z, e.x, e.z, 2.4, 1.4, Math.round(z.dmg * 0.6), 'slam'); } }
+    else if (k === 'campana') bossEv('tgc', c.pos.x, c.pos.z, 7, 1.5, Math.round(z.dmg * 0.9), 'slam');
+    else { for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, x = c.tp.x + Math.cos(a) * 5, zz = c.tp.z + Math.sin(a) * 5; if (insideArena(x, zz, 1)) bossEv('tgc', x, zz, 2, 1.6, Math.round(z.dmg * 0.5), 'boom'); } }
+  }
+  return { spd: 0.8 };
+}
+function slotHit(z, a, info) {
+  const p = info.part || '';
+  if (p.startsWith('carta')) {   // le diste a una carta tapada: se da vuelta y suma (y sale otra tapada si no te pasaste)
+    const B = z.bj, i = +p.slice(5); if (!B || ((B.m >> i) & 1) || !(i < B.v.length)) return 0;
+    B.m |= 1 << i; const tot = bjTotal(B.v, B.m);
+    if (tot < 21 && B.v.length < 5 && B.m === (1 << B.v.length) - 1) B.v.push(bjNuevaCarta());
+    B.sync = true; Sfx.card(); return 0;
+  }
+  return z.llora > 0 ? a + 5000 : a;
+}
+function slotFx(z, dt) {
+  if (z.cScreen) z.cScreen.material.map.offset.y = (z.cScreen.material.map.offset.y + dt * ((z.bst & 1) ? 0 : 3)) % 1;
+  if (z.cLever) z.cLever.rotation.x = z.palanca > 0 ? (z.palanca -= dt, -1.1) : 0;
+  const S = z.bjS;
+  CF.tag = (z.bst & 1) ? ' · ¡LLORA! 5000 POR BALA' : S ? ` · CASA ${S.d} · TÚ ${bjTotal(S.v, S.m)}` : '';
+  if ((z.bst & 1) && Math.random() < 0.8) { z.head.getWorldPosition(_zA); for (const sx of [-0.12, 0.12]) PA.add(_zA.x + sx * z.s, _zA.y, _zA.z, rand(-0.3, 0.3), rand(-0.5, 0.5), rand(-0.3, 0.3), 0.8, 0.1, 0.5, 0.75, 1, 1, 6, 0.2, 0, 0); }
+  cartasPon(z);
+}
+// cartas en el aire: se dibujan sobre el jefe mirando a la cámara; las tapadas se pueden disparar
+const cartaGeo = new THREE.PlaneGeometry(1, 1.4), cartaTexs = {};
+function cartaTex(v, tapada) {
+  const k = tapada ? 'x' : v; if (cartaTexs[k]) return cartaTexs[k];
+  return cartaTexs[k] = canvasTex(128, 180, (g, w, h) => {
+    g.fillStyle = tapada ? '#8a1020' : '#fbf4e2'; g.fillRect(0, 0, w, h); g.strokeStyle = tapada ? '#ffd060' : '#1a1208'; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10);
+    if (tapada) { g.strokeStyle = 'rgba(255,208,96,.6)'; g.lineWidth = 3; for (let i = -h; i < w + h; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); } g.fillStyle = '#ffd060'; g.font = 'bold 64px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', w / 2, h / 2); return; }
+    const rojo = v % 2 === 0; g.fillStyle = rojo ? '#b0201c' : '#1a1208'; g.font = 'bold 76px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(bjLbl(v), w / 2, h / 2 + 4);
+    g.font = 'bold 30px Georgia'; g.fillText(rojo ? '♥' : '♠', 26, 30); g.fillText(rojo ? '♥' : '♠', w - 26, h - 26);
+  });
+}
+function cartasPon(z) {
+  const S = z.bjS, n = S && !z.dead ? S.v.length : 0;
+  z.cartas = z.cartas || []; if (n) CF.conCartas.add(z);
+  while (z.cartas.length > n) { const m = z.cartas.pop(); scene.remove(m); m.material.dispose(); dropHit(z, m); }
+  if (!n) return;
+  while (z.cartas.length < n) { const m = new THREE.Mesh(cartaGeo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, fog: false })); m.renderOrder = 4; scene.add(m); z.cartas.push(m); }
+  const p = z.root.position, right = _zB.set(1, 0, 0).applyQuaternion(camera.quaternion).setY(0).normalize(), s = 1.25;
+  z.cartas.forEach((m, i) => {
+    const up = ((S.m >> i) & 1) === 1, x = (i - (n - 1) / 2) * 1.35 * s;
+    m.position.set(p.x + right.x * x, 6.2 + Math.sin(z.t * 2 + i) * 0.15, p.z + right.z * x); m.scale.setScalar(s); m.quaternion.copy(camera.quaternion); m.updateMatrixWorld(true);
+    const tx = cartaTex(S.v[i], !up); if (m.material.map !== tx) { m.material.map = tx; m.material.needsUpdate = true; }
+    const k = z.hits.indexOf(m); m.userData = { zombie: z, part: 'carta' + i };
+    if (!up && k < 0) z.hits.push(m); else if (up && k >= 0) z.hits.splice(k, 1);
+  });
+}
+// ---- efectos propios del casino (también en los teléfonos del grupo)
+function cfxSpawn(kind, a) {
+  if (kind === 'cban') { const B = CBAN[a[0]]; if (B) { banner(B[0], B[1], 3000, 'skull'); Sfx.bell(); } return true; }
+  if (kind === 'cbj') { const z = zombies.find(q => q.id === a[0]); if (!z) return true; if (a[1] < 0) z.bjS = null; else { z.bjS = { d: a[1], t: a[2], m: a[3], v: a.slice(4) }; } return true; }
+  if (kind === 'cslot') { const z = zombies.find(q => q.id === a[0]); if (z) { z.palanca = 0.5; Sfx.reel(); } return true; }
+  if (kind === 'crul') {   // ruleta: tiempo, daño, color que sale (0 rojo, 1 negro, 2 cero verde) y los centros de los círculos
+    const [t, dmg, win, ...xy] = a, discs = [];
+    for (let i = 0; i + 1 < xy.length; i += 2) {
+      const col = (i / 2) % 2, m = new THREE.Mesh(tgDiskGeo, new THREE.MeshBasicMaterial({ color: col ? 0x101010 : 0xd01818, transparent: true, opacity: 0.6, depthWrite: false, depthTest: false, side: THREE.DoubleSide, fog: false }));
+      const r = new THREE.Mesh(tgRingGeo, new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, side: THREE.DoubleSide, fog: false }));
+      const g = new THREE.Group(); g.add(m, r); g.position.set(xy[i], 0.17, xy[i + 1]); g.rotation.x = -Math.PI / 2; g.scale.setScalar(2.4); g.renderOrder = 3; m.renderOrder = r.renderOrder = 3; scene.add(g);
+      discs.push({ g, col, x: xy[i], z: xy[i + 1] });
+    }
+    CFX.push({ k: 'rul', discs, t, T: t, win, dmg }); Sfx.reel(); return true;
+  }
+  return false;
+}
+function cfxStep(dt) {
+  for (const z of CF.conCartas) if (z.dead || !zombies.includes(z)) { z.bjS = null; cartasPon(z); CF.conCartas.delete(z); }
+  for (let i = CFX.length - 1; i >= 0; i--) {
+    const f = CFX[i]; f.t -= dt;
+    if (f.k === 'rul') {
+      const u = 1 - f.t / f.T; f.discs.forEach((d, k) => { d.g.children[1].material.opacity = (Math.floor(u * 14) % f.discs.length) === k ? 1 : 0.35; });
+      if (f.t > 0) continue;
+      hint(f.win === 2 ? '¡Cero verde! Estallan todos' : f.win === 0 ? '¡Salió rojo!' : '¡Salió negro!', 1800);
+      const me = !player.down && state === 'play';
+      for (const d of f.discs) {
+        if (f.win === 2 || d.col === f.win) {
+          for (let k = 0; k < 24; k++) P.add(d.x + rand(-2, 2), 0.2, d.z + rand(-2, 2), rand(-2, 2), rand(2, 5), rand(-2, 2), 0.8, 0.2, 1, 0.5, 0.15, 1, 9.8, 1, 0, 0);
+          if (me && Math.hypot(player.pos.x - d.x, player.pos.z - d.z) < 2.4) hurtPlayer(f.dmg, { x: d.x, z: d.z }, { knock: 8, k: 'burn' });
+        }
+        scene.remove(d.g); d.g.traverse(o => { if (o.material) o.material.dispose(); });
+      }
+      Sfx.boom(); CFX.splice(i, 1);
+    }
+  }
+}
+function cfxClear() { for (const f of CFX) if (f.discs) for (const d of f.discs) scene.remove(d.g); CFX.length = 0; for (const z of zombies) if (z.cartas) { z.bjS = null; cartasPon(z); } CF.tag = ''; }
+
 // ===================== EL PACIENTE CERO (jefe final, cuatro fases) =====================
 // Decide el anfitrión (zeroTick); todo lo que se ve o duele va por bossEv, así lo ven todos los teléfonos.
 // z.bst para el grupo: bits 0-1 fase, 4 escudo, 8 último aliento, 16 aturdido, 32 se regenera, 64·2^i pústula i viva.
@@ -25138,7 +25398,7 @@ function zeroPerch(tp) {
   return { x: tp.x + 12, z: tp.z };
 }
 function pickBoss() {
-  const all = BOSSES.map((b, i) => i).filter(i => !BOSSES[i].helper);
+  const all = BOSSES.map((b, i) => i).filter(i => !BOSSES[i].helper && !BOSSES[i].casino);
   game.bossSeen = (game.bossSeen || []).filter(i => all.includes(i));
   let pool = all.filter(i => !game.bossSeen.includes(i)); if (!pool.length) { game.bossSeen = []; pool = all; }
   const i = pick(pool); game.bossSeen.push(i); return i;
@@ -25151,7 +25411,7 @@ function applyBoss(z, idx, opt = {}) {
   let sc = B.sc; if (B.id === 'mass') { z.gen = opt.gen | 0; sc = B.sc * Math.pow(0.78, z.gen); }
   z.s = sc; z.body.scale.setScalar(sc); z.r = (z.def.quad ? 0.32 : 0.33) * sc;
   if (!opt.net) {
-    z.maxHp = z.hp = opt.hp || bossHpFor(B); z.speed = B.spd * DF().spd; z.dmg = B.dmg * DF().dmg * (1 + 0.08 * zoneOf(game.wave));
+    z.maxHp = z.hp = opt.hp || (B.vidaFija ? B.hp : bossHpFor(B)); z.speed = B.spd * DF().spd; z.dmg = B.dmg * DF().dmg * (1 + 0.08 * zoneOf(game.wave));
     if (B.id === 'colossus') z.armor = z.armorMax = z.maxHp;
     if (B.id === 'mass') z.bst = z.gen;
   } else { z.maxHp = z.hp = 100; }
@@ -25237,7 +25497,8 @@ function tgStep(f, dt, me) {
   else if (f.k === 'tga') { const d = Math.hypot(px - f.x, pz - f.z), an = Math.atan2(px - f.x, pz - f.z); let df = an - f.ang; while (df > Math.PI) df -= TAU; while (df < -Math.PI) df += TAU; hit = d < f.r && Math.abs(df) < f.half + 0.12; }
   const fx = f.fx, cx = f.k === 'tgl' ? (f.x + f.x2) / 2 : f.x, cz = f.k === 'tgl' ? (f.z + f.z2) / 2 : f.z;
   if (f.k === 'tgl') { for (let i = 0; i <= 10; i++) { const k = i / 10, x = f.x + (f.x2 - f.x) * k, z = f.z + (f.z2 - f.z) * k; for (let j = 0; j < 3; j++) P.add(x, 0.15, z, rand(-1.5, 1.5), rand(1, 4), rand(-1.5, 1.5), 0.9, 0.18, fx === 'rats' ? 0.35 : 0.5, fx === 'rats' ? 0.25 : 0.4, fx === 'rats' ? 0.2 : 0.3, 1, 9.8, 1, 0, 0); } }
-  else for (let i = 0; i < 30; i++) { const t = rand(0, TAU), rr = rand(0, f.r || 3); P.add(cx + Math.cos(t) * rr, 0.15, cz + Math.sin(t) * rr, rand(-2, 2), rand(1.5, 5), rand(-2, 2), 0.9, 0.18, fx === 'fire' ? 1 : 0.5, fx === 'fire' ? 0.45 : 0.4, fx === 'fire' ? 0.1 : 0.3, 1, 9.8, 1.2, 0, 0); }
+  else for (let i = 0; i < 30; i++) { const t = rand(0, TAU), rr = rand(0, f.r || 3); P.add(cx + Math.cos(t) * rr, 0.15, cz + Math.sin(t) * rr, rand(-2, 2), rand(1.5, 5), rand(-2, 2), 0.9, 0.18, fx === 'fire' ? 1 : fx === 'ice' ? 0.65 : 0.5, fx === 'fire' ? 0.45 : fx === 'ice' ? 0.9 : 0.4, fx === 'fire' ? 0.1 : fx === 'ice' ? 1 : 0.3, 1, 9.8, 1.2, 0, 0); }
+  if (fx === 'ice') { Sfx.ice(panOf({ x: cx, z: cz })); if (me && hit) player.frostT = Math.max(player.frostT || 0, 2.5); }
   Sfx.thud(panOf({ x: cx, z: cz })); if (fx === 'boom' || fx === 'fire') Sfx.boom();
   player.shake = Math.min(1, player.shake + Math.max(0, 0.5 - Math.hypot(px - cx, pz - cz) * 0.03));
   if (fx === 'fire') BFX.push({ k: 'fire', x: f.x, z: f.z, t: 4 });
@@ -25258,6 +25519,7 @@ function bFar(c, ang, len) { return { x: c.pos.x + Math.sin(ang) * len, z: c.pos
 function bfxSpawn(kind, ...a) {
   if (!game) return;
   if (zfxSpawn(kind, a)) return;
+  if (cfxSpawn(kind, a)) return;
   if (tgSpawn(kind, a)) return;
   const me = !player.down;
   if (kind === 'slam') {
@@ -25293,7 +25555,7 @@ function bfxSpawn(kind, ...a) {
   }
 }
 function bossClear() {
-  zeroReset();
+  zeroReset(); cfxClear();
   for (const f of BFX) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } if (f.g) scene.remove(f.g); }
   BFX.length = 0; player.webT = 0;
   if (game && game.plague) { player.maxHp += game.plague; game.plague = 0; }
@@ -25360,6 +25622,7 @@ function bossFx(dt) {
     else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < 1.4 && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4, k: 'bullet' }); } }
     if (f.t <= 0) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } BFX.splice(i, 1); }
   }
+  cfxStep(dt); CF.tag = '';
   // aspecto de los jefes (también en los teléfonos del grupo)
   let hp = 0, mx = 0, arm = 0, armMax = 0, name = '', dark = false, bossAlive = false, mhp = 0, mmx = 0, mname = '';
   for (const z of zombies) {
@@ -25386,7 +25649,7 @@ function bossFx(dt) {
   if (bossAlive && state !== 'menu') {
     if (bb.hidden) bb.hidden = false;
     { const tc = $('#hud-tc'), bb = $('#bossbar'), y = Math.round(tc.getBoundingClientRect().bottom + 8); if (bb._y !== y) { bb._y = y; bb.style.top = y + 'px'; } }   // la barra del jefe va justo debajo de la oleada, la llave y la misión (sin taparlas)
-    setText($('#boss-n'), 'bossn', name + ZF.tag); $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
+    setText($('#boss-n'), 'bossn', name + ZF.tag + CF.tag); $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
   } else if (!bb.hidden) bb.hidden = true;
   // el Proyeccionista apaga las luces: solo se ve con el destello de los disparos
   if (game.shots !== bossShots) { bossShots = game.shots; darkFlash = 0.18; }
@@ -30043,6 +30306,7 @@ function clientDamage(z, amount, info) {
   const pan = panOf(z.root.position), head = info.part === 'head';
   const lk = info.part === 'limb' && info.obj ? limbKey(z, info.obj) : null;
   Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '', 0, 0, 0]);
+  if (String(info.part || '').startsWith('carta')) { Sfx.card(); return false; }
   let a = amount;
   if (info.part === 'helmet' && z.helmet) { a *= 0.12; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   else if (info.part === 'vest') a *= 0.5;
