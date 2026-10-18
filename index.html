@@ -3430,6 +3430,116 @@ function atlCaustMat(tex, color, scale, amp, fogD) {
     fragmentShader: 'uniform sampler2D uT; uniform float uTime; uniform vec3 uC; uniform float uS; uniform float uA; uniform float uF; varying vec2 vW; varying float vD; void main(){ vec2 p=vW*uS; float a=texture2D(uT,p+vec2(uTime*0.031,uTime*0.017)).r; float b=texture2D(uT,p*1.37+vec2(-uTime*0.022,uTime*0.027)).r; float c=min(a,b)*1.7+a*b*0.5; float f=exp(-uF*uF*vD*vD); gl_FragColor=vec4(uC*c*f*uA,1.); }'
   });
 }
+/* ===== Atlantis grande (PENDIENTES 44, 19-oct-2026): la plaza del tridente queda en el centro y, pasados los arcos de las
+   avenidas este, norte y oeste, unos cañones en el arrecife llevan a 3 ruinas con zona de llave: el templo de Poseidón,
+   el palacio de coral y la galera hundida. */
+const ATG = { R: 41, c0: 39, r1: 52, D: 26, hw: 15, cw: 3, z: [] };
+function atLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['tem', 0, 'en el templo de Poseidón'], ['pal', 1.5 * Math.PI, 'en el palacio de coral'], ['gal', Math.PI, 'en la galera hundida']])
+  ATG.z.push({ k, a, nombre, en: (x, z) => { const q = atLocal(a, x, z); return Math.abs(q.lx) < ATG.hw - 0.8 && q.lz > ATG.r1 + 0.8 && q.lz < ATG.r1 + ATG.D - 0.8; } });
+const enTemploPos = ATG.z[0].en, enPalacio = ATG.z[1].en, enGalera = ATG.z[2].en;
+function zonaAtlantis(x, z) { return enTemploPos(x, z) ? 'en el templo de Poseidón' : enPalacio(x, z) ? 'en el palacio de coral' : enGalera(x, z) ? 'en la galera hundida' : 'en la plaza'; }
+const atHueco = (a, m) => ATG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m);
+function atDentro(x, z, m = 3) { return ATG.z.some(Z => { const q = atLocal(Z.a, x, z); return (Math.abs(q.lx) < ATG.hw + m && q.lz > ATG.r1 - m && q.lz < ATG.r1 + ATG.D + m) || (Math.abs(q.lx) < ATG.cw + m && q.lz > ATG.c0 - 1 && q.lz < ATG.r1 + 1); }); }
+function atlantisGrande(g0, mt) {
+  const { R, c0, r1, D, hw, cw } = ATG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 5, hz: r2 + 5 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = ATG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  for (let k = 0; k < 288; k++) { const a = (k + 0.5) / 288 * TAU; if (atHueco(a, 0.09)) continue; addBox(Math.cos(a) * (R + 0.8), Math.sin(a) * (R + 0.8), 0.53, 0.8, Math.PI / 2 - a); }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.2); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaAtlantis(p.x, p.z) }); };
+  const sale = (g, lx, lz, rise = true) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise }); };
+  const marmol = lam(0xd0dcda), marmolO = lam(0xa8b8b6), oro = lam(0xc8a24a, { emissive: 0x2a2008 });
+  // ---- paredes de arrecife: rocas altas en fila, todas en una malla, con su colisión
+  const rocas = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  const risco = (g, x0, z0, x1, z1) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.ceil(L / 2.6)), hz = Math.abs(z1 - z0) < 0.01;
+    for (let i = 0; i <= n; i++) { const t = i / n, p = lw(g, x0 + (x1 - x0) * t + sr(-0.4, 0.4), z0 + (z1 - z0) * t + sr(-0.4, 0.4)), h = sr(5, 9), s = sr(2.2, 3.2); rocas.push([p.x, h * 0.35, p.z, s, h, s * sr(0.8, 1.1)]); }
+    col(g, (x0 + x1) / 2, (z0 + z1) / 2, hz ? L / 2 + 1.2 : 1.2, hz ? 1.2 : L / 2 + 1.2);
+  };
+  const G = {};
+  for (const Z of ATG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    for (const s of [-1, 1]) risco(g, s * (cw + 1.4), c0 + 3, s * (cw + 1.4), r1);
+    for (const s of [-1, 1]) risco(g, s * (cw + 1.4), r1, s * (hw + 1.2), r1);
+    for (const s of [-1, 1]) risco(g, s * (hw + 1.2), r1, s * (hw + 1.2), r2 + 1.2);
+    risco(g, -hw - 1.2, r2 + 1.2, hw + 1.2, r2 + 1.2);
+    // la avenida sigue: losas rotas por el cañón
+    for (let i = 0; i < 7; i++) box(g, sr(1.4, 2.2), 0.12, sr(1.4, 2.2), pick([marmol, marmolO]), sr(-cw + 1, cw - 1), 0.06, c0 + 2 + i * 1.9, { ry: sr(0, 1), cast: false });
+  }
+  { const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), lam(0x3e5a5e, { flatShading: true }), rocas.length); rocas.forEach(([x, y, z, sx, sy, sz], i) => { q.setFromEuler(e.set(sr(-0.2, 0.2), sr(0, TAU), sr(-0.2, 0.2))); m4.compose(v.set(x, y, z), q, sc.set(sx, sy, sz)); im.setMatrixAt(i, m4); }); im.castShadow = im.receiveShadow = true; world.group.add(im); }
+
+  // ================= ESTE: EL TEMPLO DE POSEIDÓN (escalinata, columnas, el altar y la estatua del dios) =================
+  { const g = G.tem, tz = r2 - 9;
+    for (let i = 0; i < 3; i++) box(g, 20 - i * 2, 0.4, 12 - i * 1.4, marmol, 0, 0.2 + i * 0.4, tz, {});
+    col(g, 0, tz, 10, 6);
+    const colsL = []; for (const s of [-1, 1]) for (let i = 0; i < 5; i++) { const x = s * 8.6, z = tz - 4.6 + i * 2.3; if (s === 1 && i === 2) { M(cyl(0.55, 0.55, 5.4, 12), marmolO, x + 2, 0.55, z + 1, { p: g, rz: Math.PI / 2 }); continue; } M(cyl(0.5, 0.6, 7, 12), marmol, x, 4.7, z, { p: g }); colsL.push([x, z]); }
+    box(g, 18.6, 0.8, 1.4, marmol, 0, 8.6, tz - 4.6, {}); box(g, 18.6, 0.8, 1.4, marmol, 0, 8.6, tz + 4.6, {});
+    // el altar con fuego azul y la estatua
+    box(g, 2.4, 1.2, 1.4, marmolO, 0, 1.8, tz - 2, {}); const llama = glow(g, 0, 2.8, tz - 2, 0x60d0ff, 2.6, 0.8);
+    { const st = new THREE.Group(); st.position.set(0, 1.2, tz + 2.5); g.add(st);
+      M(bx(1.4, 1, 1.4), marmolO, 0, 0.5, 0, { p: st }); M(cyl(0.45, 0.6, 2.8, 10), marmol, 0, 2.4, 0, { p: st }); M(new THREE.SphereGeometry(0.42, 12, 10), marmol, 0, 4.1, 0, { p: st });
+      M(cyl(0.05, 0.05, 4.4, 6), oro, 0.9, 3.2, 0, { p: st }); for (const dx of [-0.25, 0, 0.25]) M(new THREE.ConeGeometry(0.06, 0.5, 6), oro, 0.9 + dx, 5.6, 0, { p: st }); }
+    world.anims.push(() => { llama.material.opacity = 0.6 + Math.random() * 0.3; });
+    for (const [x, z] of [[-12, r1 + 4], [12, r1 + 4]]) { M(cyl(0.6, 0.7, 2.2, 10), marmolO, x, 1.1, z, { p: g }); M(new THREE.SphereGeometry(0.6, 12, 8), bsc(0x60e0ff), x, 2.6, z, { p: g, cast: false }); glow(g, x, 2.6, z, 0x60e0ff, 3, 0.5); colC(g, x, z, 0.8); }
+    luz(g, 0, 5, tz - 6, 0x7ff0ff, 1.4, 26);
+    for (const [x, z] of [[-13, r1 + 2.5], [13, r1 + 2.5], [-13, lc], [13, lc - 2], [-6, r1 + 6], [6, r1 + 6], [0, r1 + 3]]) spotK(g, x, z);
+    for (const x of [-13, 13]) sale(g, x, r2 - 2); sale(g, 0, r1 + 9);
+  }
+
+  // ================= NORTE: EL PALACIO DE CORAL (muros de coral que brillan, un trono de concha y perlas) =================
+  { const g = G.pal;
+    const coralM = [lam(0xe86a8a, { emissive: 0x3a0a1a, flatShading: true }), lam(0xf0a040, { emissive: 0x3a1a04, flatShading: true }), lam(0xb070ff, { emissive: 0x200a3a, flatShading: true })];
+    // muros bajos de coral formando patios
+    for (const [x0, z0, x1, z1] of [[-12, r1 + 7, -5, r1 + 7], [5, r1 + 7, 12, r1 + 7], [-12, r2 - 8, -12, r2 - 2], [12, r2 - 8, 12, r2 - 2]]) { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(L / 1.3), hz = Math.abs(z1 - z0) < 0.01; for (let i = 0; i <= n; i++) { const t = i / n, s = sr(0.7, 1.2); M(new THREE.IcosahedronGeometry(s, 0), pick(coralM), x0 + (x1 - x0) * t, s * 0.7, z0 + (z1 - z0) * t, { p: g }).scale.y = sr(1.2, 2); } col(g, (x0 + x1) / 2, (z0 + z1) / 2, hz ? L / 2 + 0.8 : 0.8, hz ? 0.8 : L / 2 + 0.8); }
+    // el trono de concha
+    { const tz = r2 - 5; const concha = M(new THREE.SphereGeometry(2.6, 16, 10, 0, Math.PI, 0, Math.PI / 2), lam(0xf0d8d0, { side: THREE.DoubleSide, emissive: 0x2a1a18 }), 0, 0.3, tz, { p: g, rx: -Math.PI / 2 }); void concha;
+      box(g, 2.4, 0.8, 1.6, lam(0xd8c0b8), 0, 0.4, tz - 0.6, {}); col(g, 0, tz, 2.8, 1.8);
+      const perla = M(new THREE.SphereGeometry(0.5, 16, 12), lam(0xf8f0f0, { emissive: 0x5a5050 }), 0, 1.2, tz - 0.6, { p: g, cast: false }); glow(g, 0, 1.2, tz - 0.6, 0xfff0ff, 2.6, 0.5); void perla; }
+    // corales árbol y anémonas que brillan
+    const brillos = [];
+    for (let i = 0; i < 10; i++) { const x = sr(-13, 13), z = sr(r1 + 9, r2 - 9); if (Math.abs(x) < 3) continue; const c = M(cyl(0.12, 0.25, sr(1.5, 3), 6), pick(coralM), x, 1, z, { p: g }); void c; for (let k = 0; k < 3; k++) M(cyl(0.06, 0.1, 1, 5), pick(coralM), x + sr(-0.4, 0.4), 1.6 + k * 0.3, z, { p: g, rz: sr(-0.8, 0.8), cast: false }); brillos.push(glow(g, x, 1.5, z, pick([0xff70a0, 0xffb050, 0xc080ff]), 2.2, 0.35)); colC(g, x, z, 0.5); }
+    world.anims.push((dt, t) => { brillos.forEach((b, i) => b.material.opacity = 0.25 + Math.sin(t * 1.4 + i) * 0.15); });
+    luz(g, 0, 4, lc, 0xff9ad0, 1.2, 24);
+    for (const [x, z] of [[-13, r1 + 3], [13, r1 + 3], [-9, lc], [9, lc + 2], [-7, r2 - 2.5], [7, r2 - 2.5], [0, r1 + 4]]) spotK(g, x, z);
+    for (const x of [-13, 13, -4]) sale(g, x, r2 - 2);
+  }
+
+  // ================= OESTE: LA GALERA HUNDIDA (el casco partido con sus remos, el mástil caído y ánforas) =================
+  { const g = G.gal, madera = lam(0x4a3a2a), maderaC = lam(0x6a5a40);
+    const hz0 = lc + 2;
+    const casco = new THREE.Group(); casco.position.set(-2, 0, hz0); casco.rotation.set(0, 0.3, 0.18); g.add(casco);
+    M(bx(4.2, 2.4, 16), madera, 0, 1.2, 0, { p: casco }); M(bx(3.6, 0.2, 15.4), maderaC, 0, 2.3, 0, { p: casco });
+    M(new THREE.ConeGeometry(2.1, 4, 4), madera, 0, 1.2, 9.6, { p: casco, rx: Math.PI / 2, ry: Math.PI / 4 });
+    for (const s of [-1, 1]) for (let i = 0; i < 7; i++) M(cyl(0.07, 0.09, 5, 5), maderaC, s * 3.6, 0.8, -6 + i * 2, { p: casco, rz: s * 1.25, cast: false });
+    { const p = lw(g, -2, hz0); addBox(p.x, p.z, 2.4, 8.5, g.rotation.y + 0.3); }
+    // el mástil caído con la vela rota
+    M(cyl(0.25, 0.3, 14, 8), madera, 7, 0.3, hz0 - 3, { p: g, rz: Math.PI / 2, ry: 0.5 });
+    M(new THREE.PlaneGeometry(6, 4), lam(0xc8b890, { side: THREE.DoubleSide, transparent: true, opacity: 0.8 }), 8, 1.2, hz0 - 1.5, { p: g, rx: -1.2, ry: 0.5, cast: false });
+    colC(g, 7, hz0 - 3, 0.6);
+    // ánforas, monedas y burbujas
+    for (let i = 0; i < 12; i++) { const x = sr(-13, 13), z = sr(r1 + 2, r2 - 2); if (Math.abs(x + 2) < 4 && Math.abs(z - hz0) < 9) continue; const a = M(new THREE.SphereGeometry(0.35, 10, 8), lam(0xb06a3a), x, 0.35, z, { p: g }); a.scale.y = 1.5; M(cyl(0.12, 0.16, 0.4, 8), lam(0xb06a3a), x, 0.95, z, { p: g }); }
+    M(new THREE.CircleGeometry(2, 16), lam(0xd8b040, { emissive: 0x3a2a08 }), 9, 0.03, r2 - 4, { p: g, rx: -Math.PI / 2, cast: false }); glow(g, 9, 0.4, r2 - 4, 0xffd060, 3, 0.4);
+    if (!fast) world.anims.push(() => { if (Math.random() < 0.25) { const p = lw(g, -2 + rand(-1.5, 1.5), hz0 + rand(-6, 6)); P.add(p.x, 1.5, p.z, rand(-0.1, 0.1), rand(0.6, 1.2), rand(-0.1, 0.1), rand(3, 5), 0.08, 0.7, 0.9, 1, 0.5, -0.1, 0, 0, 0); } });
+    luz(g, 0, 4, lc, 0x80d0e0, 1.2, 24);
+    for (const [x, z] of [[-13, r1 + 3], [13, r1 + 3], [-13, r2 - 3], [12, lc], [6, r1 + 3], [-8, r2 - 2.5], [4, r2 - 2.5]]) spotK(g, x, z);
+    for (const x of [-12, 12, 4]) sale(g, x, r2 - 2);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildAtlantis() {
   const _gc = new Map();
   const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
@@ -3788,10 +3898,10 @@ function buildAtlantis() {
   // ---------- Rocas y arrecife que cierran el lugar
   {
     const L = [], RC = [0x34505a, 0x3e5a5e, 0x2c4450, 0x4a6262];
-    for (let i = 0; i < 80; i++) { const a = i / 80 * TAU + sr(-0.03, 0.03), r = sr(44.6, 48), s = sr(2.2, 3.6); L.push([DOD, pick(RC), Math.cos(a) * r, s * sr(0.2, 0.6), Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(0.8, 1.5), s]); }
-    for (let i = 0; i < 40; i++) { const a = sr(0, TAU), r = sr(49, 56), s = sr(3.5, 6); L.push([DOD, pick(RC), Math.cos(a) * r, s * 0.6, Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(1, 2), s]); }
+    for (let i = 0; i < 80; i++) { const a = i / 80 * TAU + sr(-0.03, 0.03), r = sr(44.6, 48), s = sr(2.2, 3.6); if (atDentro(Math.cos(a) * r, Math.sin(a) * r)) continue; L.push([DOD, pick(RC), Math.cos(a) * r, s * sr(0.2, 0.6), Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(0.8, 1.5), s]); }
+    for (let i = 0; i < 40; i++) { const a = sr(0, TAU), r = sr(49, 56), s = sr(3.5, 6); if (atDentro(Math.cos(a) * r, Math.sin(a) * r, 5)) continue; L.push([DOD, pick(RC), Math.cos(a) * r, s * 0.6, Math.sin(a) * r, sr(0, 3), sr(0, 3), sr(0, 3), s, s * sr(1, 2), s]); }
     bake(L, rockM, false);
-    for (let i = 0; i < 70; i++) { const a = sr(0, TAU), r = sr(41.8, 44); coralAt(Math.cos(a) * r, Math.sin(a) * r, sr(0.7, 1.4)); }
+    for (let i = 0; i < 70; i++) { const a = sr(0, TAU), r = sr(41.8, 44); if (atHueco(a, 0.12)) continue; coralAt(Math.cos(a) * r, Math.sin(a) * r, sr(0.7, 1.4)); }
   }
 
   // ---------- La ciudad hundida a lo lejos: siluetas en la niebla (no la tapa la niebla)
@@ -3867,9 +3977,9 @@ function buildAtlantis() {
     const uT = { value: 0 }; farmSway(kelpM, uT, 0.009);
     const K = [];
     const patch = (x, z, n, rad, hMin, hMax) => { for (let i = 0; i < n; i++) { const a = sr(0, TAU), d = Math.sqrt(srand()) * rad; K.push([x + Math.cos(a) * d, 0, z + Math.sin(a) * d, 0, sr(0, TAU), 0, sr(0.8, 1.3), sr(hMin, hMax), 1, pick([0x5a8a2a, 0x6a9a34, 0x4a7a3a, 0x7a8a2a, 0x3a6a3a])]); } };
-    for (let i = 0; i < 26; i++) { const a = i / 26 * TAU + sr(-0.1, 0.1); patch(Math.cos(a) * sr(39.5, 43), Math.sin(a) * sr(39.5, 43), 6, 2.2, 4, 10); }
+    for (let i = 0; i < 26; i++) { const a = i / 26 * TAU + sr(-0.1, 0.1), r = sr(39.5, 43); if (atHueco(a, 0.14)) continue; patch(Math.cos(a) * r, Math.sin(a) * r, 6, 2.2, 4, 10); }
     for (const [x, z] of [[30, 18], [-34, -12], [12, -34], [-12, 34], [34, -20], [-20, 30]]) patch(x, z, 7, 2, 2.5, 6);
-    for (let i = 0; i < 20; i++) { const a = sr(0, TAU), r = sr(50, 60); patch(Math.cos(a) * r, Math.sin(a) * r, 5, 3, 8, 16); }
+    for (let i = 0; i < 20; i++) { const a = sr(0, TAU), r = sr(50, 60); if (atDentro(Math.cos(a) * r, Math.sin(a) * r, 4)) continue; patch(Math.cos(a) * r, Math.sin(a) * r, 5, 3, 8, 16); }
     inst(kelpG, kelpM, K, false);
     world.anims.push((dt, t) => { uT.value = t * 0.55; });
   }
@@ -3983,6 +4093,7 @@ function buildAtlantis() {
   // ---------- Puntos de aparición: salen de la arena cerca del arrecife
   for (let i = 0; i < 12; i++) { const a = (i + 0.25) / 12 * TAU, r = 38; world.spawns.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, rise: i % 3 !== 0 }); }
   for (const sp of world.spawns) { if (!pointBlocked(sp.x, sp.z, 0.7)) continue; const a0 = Math.atan2(sp.z, sp.x), r0 = Math.hypot(sp.x, sp.z); for (let k = 1; k < 40; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.03, r = r0 - (k % 5) * 0.4, x = Math.cos(a) * r, z = Math.sin(a) * r; if (!pointBlocked(x, z, 0.7)) { sp.x = x; sp.z = z; break; } } }
+  atlantisGrande(world.group.children.length, {});   // los cañones del arrecife y las tres ruinas con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Un maid café de Akihabara en plena noche del brote. Lazos rosas, tartas de fresa y la horda entrando por los escaparates rotos.
@@ -28048,7 +28159,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 7, 10, 13, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026)
-const MAP_EN_OBRA = [29];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
