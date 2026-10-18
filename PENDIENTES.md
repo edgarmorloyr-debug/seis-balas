@@ -111,13 +111,13 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 - **Carta:** As de diamantes. Sale como «???» (silueta, sin arma ni ficha) hasta vencerlo en el casino.
 - **Vida:** 90. **Arma:** dos revólveres cortos, uno en cada mano (como su jefe, que pelea con dos).
 - **Pasiva «Cliente VIP» (decisión del dueño, 19-oct-2026):** cada oleada recibe 2 fichas de miembro gratis para los juegos de azar (tragamonedas, ruleta, blackjack). Reemplaza a «Pies ligeros».
-- **Ultimate «Mi turno»:** 8 s con dos revólveres minigun, uno en cada mano, con balas sin fin.
+- **Ultimate «Mi turno» (decisión del dueño, 19-oct-2026):** 5 s con dos revólveres Magnum dorados; cada tiro es crítico (doble daño) y cada tiro a la cabeza da +5 de oro.
 - **Bala con la que empieza:** Apuesta (familia casino, como Johnny: las 6 balas iniciales son de rareza C).
 - **Retrato y modelo:** retrato dibujado por código (chaqueta roja de cuello mao, lentes oscuros, neón del casino); en 3D usa el modelo del pistolero, porque el arte 3D está congelado.
 
 **Preguntas para el dueño:**
 1. ~~Pasiva~~ — contestada: «Cliente VIP», 2 fichas de miembro por oleada.
-2. ¿La ultimate «Mi turno» (8 s con dos revólveres minigun) está bien, o la quieres más corta y más fuerte?
+2. ~~Ultimate~~ — contestada: 5 s con dos Magnum dorados, todo crítico y +5 de oro por tiro a la cabeza.
 3. ~~Modelo 3D propio~~ — contestada: el 3D sigue congelado hasta la Etapa 6.
 
 

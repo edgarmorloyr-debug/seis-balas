@@ -23033,7 +23033,7 @@ const HAB = {
   armando: { k: 'furia', name: 'Furia del viejo', desc: 'Durante 5 s hace el triple de daño (300 %) y nada le hace daño.', dur: 5, dano: 3 },
   lilith: { k: 'rafaga', name: 'Plomo ardiente', desc: 'Con sus dos MP5 descarga 40 balas gratis hacia donde apunta; cada bala incendia al zombi 4 s.', balas: 40, ritmo: 0.07, fuego: 4 },
   carlos: { k: 'minigun', name: 'Revólver minigun', desc: 'Durante 10 s empuñas el revólver minigun, con balas sin fin. Después vuelves a tus revólveres.', dur: 10 },
-  ludo: { k: 'turno', name: 'Mi turno', desc: 'Durante 8 s empuña dos revólveres minigun, uno en cada mano, con balas sin fin.', dur: 8 }
+  ludo: { k: 'turno', name: 'Mi turno', desc: 'Durante 5 s empuña dos revólveres Magnum dorados: cada tiro es crítico y cada tiro a la cabeza da +5 de oro.', dur: 5, arma: 'magnum', crit: 2, oroCabeza: 5 }   // decisión del dueño, 19-oct-2026
 };
 const _ejeY = new THREE.Vector3(0, 1, 0);
 const habEl = $('#hab'), habB = $('#hab b'), habN = $('#hab-n'), bHab = $('#b-hab'), bHabN = $('#b-hab-n'), fxSombra = $('#fx-sombra'), fxFuria = $('#fx-furia');
@@ -23062,7 +23062,7 @@ function usarHab() {
   else if (H.k === 'campana') { const d = camera.getWorldDirection(new THREE.Vector3()); const x = player.pos.x + d.x * 5, z = player.pos.z + d.z * 5; ponerCampana(x, z, H.dur); if (Net.on) Net.ev(['ab', 'campana', r2(x), r2(z), H.dur]); }
   else if (H.k === 'sombra') { game.sombraT = H.dur; game.sombraPos = player.pos.clone(); fxSombra.style.opacity = '1'; banner(H.name, 'Los zombis te pierden de vista', 1600, 'skull'); Sfx.whoosh(0); for (const z of zombies) if (z.tk === 'p' && (!z.pid || z.pid === Net.id)) z.tgtT = 0; if (Net.on) Net.ev(['ab', 'sombra', r2(player.pos.x), r2(player.pos.z), H.dur]); }
   else if (H.k === 'minigun') habMinigun(H);
-  else if (H.k === 'turno') { prestarArma('minigun', H.dur, true); banner(H.name, `¡${H.dur} segundos con dos revólveres minigun!`, 1800, 'gun'); Sfx.win(); }
+  else if (H.k === 'turno') { prestarArma(H.arma, H.dur, true); armaDorada(); banner(H.name, `¡${H.dur} segundos con dos Magnum dorados: todo es crítico!`, 1800, 'gun'); Sfx.win(); }
   else if (H.k === 'ayudante') habAyudante(H);
   else if (H.k === 'dash') habDash(H);
   else if (H.k === 'dado') habDado(H);
@@ -23115,7 +23115,11 @@ function prestarArma(id, dur, dos) {
 }
 // Las armas que presta la habilidad (el dado de Johnny, el revólver minigun de Carlos, las MP5 de Lilith) se preparan al cargar el lugar,
 // detrás de la pantalla negra: así la primera vez que se usa la habilidad no hay que preparar sus materiales y no se traba.
-const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'], ludo: ['minigun'] };
+const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'], ludo: ['magnum'] };
+// Mi turno (Ludo Cheng): los revólveres prestados se ven de oro mientras dura
+const oroArmaMat = new THREE.MeshLambertMaterial({ color: 0xf2c440, emissive: 0x5a3a00 });
+function armaDorada() { for (const h of hands) if (h.active && h.k) h.k.traverse(o => { if (o.isMesh && o.material && !o.material.transparent) o.material = oroArmaMat; }); }
+const turnoOro = () => game && game.habK === 'turno' && game.habT > 0 && !!game.habMini;
 function precalentarHab() {
   const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
   const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
@@ -23415,7 +23419,7 @@ function castBullet(o, d, ctx) {
       if (ST.piernaX && part === 'limb') { let o = hh.object; for (let k = 0; k < 3 && o; k++, o = o.parent) if (o === z.legL || o === z.legR) { dd *= ST.piernaX; break; } }
       if (ST.lejosX && hh.distance > 20) dd *= ST.lejosX; if (ST.cercaX && hh.distance < 5) dd *= ST.cercaX;
       dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
-      let crit = false; if (!ctx.sub && game.asN > 0) { dd *= balX('asespadas', 'x', 1); crit = true; if (game.asCura) player.hp = Math.min(player.maxHp, player.hp + game.asCura); } /* Mano ganadora: cada crítico cura */ else if (balT('punteria') && Math.random() < balP('punteria', balV('punteria', 'p'))) { dd *= balD('punteria') ? Math.max(balV('punteria', 'x'), BD.punteria.x) : balV('punteria', 'x'); crit = true; }
+      let crit = false; if (!ctx.sub && turnoOro()) { dd *= HAB.ludo.crit; crit = true; if (part === 'head') addGold(HAB.ludo.oroCabeza, true); }   /* Mi turno de Ludo: todo es crítico y la cabeza da oro */ else if (!ctx.sub && game.asN > 0) { dd *= balX('asespadas', 'x', 1); crit = true; if (game.asCura) player.hp = Math.min(player.maxHp, player.hp + game.asCura); } /* Mano ganadora: cada crítico cura */ else if (balT('punteria') && Math.random() < balP('punteria', balV('punteria', 'p'))) { dd *= balD('punteria') ? Math.max(balV('punteria', 'x'), BD.punteria.x) : balV('punteria', 'x'); crit = true; }
       if (part === 'head' && z.frozen > 0 && z.boss == null && balD('escarcha')) { dd = Math.max(dd, z.hp + 1e5); balHielo(z); }   // Glaciar: el congelado se rompe   // As de espadas y Puntería
       ctx.part = part; const ops = ctx.sub ? [] : balOps(z, ctx, part);
       const hpBefore = z.hp; z.cLast = 0;

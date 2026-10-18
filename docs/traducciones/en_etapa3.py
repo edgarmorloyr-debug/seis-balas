@@ -36,7 +36,7 @@ T = {
  '¡Cero verde! Estallan todos': 'Green zero! They all blow up', '¡Salió rojo!': 'Red!', '¡Salió negro!': 'Black!',
  'El Crupier Mayor llama a su personal': 'The Head Croupier calls his staff', 'El Escolta llama a sus guardaespaldas': 'The Bodyguard calls his bodyguards',
  'Pies ligeros': 'Light feet', 'Empieza con dos revólveres cortos, uno en cada mano, y se mueve un 15 % más rápido.': 'Starts with two short revolvers, one in each hand, and moves 15% faster.',
- 'Mi turno': 'My turn', 'Durante 8 s empuña dos revólveres minigun, uno en cada mano, con balas sin fin.': 'For 8 s he wields two minigun revolvers, one in each hand, with endless bullets.',
+ 'Mi turno': 'My turn',
  'Empiezas con dos revólveres cortos, uno en cada mano, y te mueves un 15 % más rápido. Muévete mucho: es tu mejor defensa.': 'You start with two short revolvers, one in each hand, and move 15% faster. Keep moving: it is your best defense.',
  'Arma secreta': 'Secret weapon',
  'Hielo y fuego': 'Ice and fire', 'Vence al primer jefe del casino y abre el siguiente': 'Beat the first casino boss and unlock the next one',
@@ -63,7 +63,7 @@ T = {
  'Venciste al ${n} en el casino': 'You beat the ${n} in the casino', 'Venciste a ${n} en el casino': 'You beat ${n} in the casino',
  'Venciste a los 5 jefes del BIG NEON CASINO en ${d}': 'You beat the 5 bosses of the BIG NEON CASINO on ${d}',
  '${n} te espera en el casino': '${n} awaits you in the casino',
- '¡${n} segundos con dos revólveres minigun!': '${n} seconds with two minigun revolvers!',
+
  '${n} · HIELO': '${n} · ICE', '${n} · FUEGO': '${n} · FIRE', '${n} · TU TURNO': '${n} · YOUR TURN', '${n} · SU TURNO': '${n} · HIS TURN',
  '${n} · ATURDIDO': '${n} · STUNNED', '${n} · RODÉALO: POR LA ESPALDA': '${n} · CIRCLE HIM: FROM BEHIND', '${n} · ¡LLORA! 5000 POR BALA': '${n} · CRYING! 5000 PER BULLET',
  '${n} · CASA ${d} · TÚ ${t}': '${n} · HOUSE ${d} · YOU ${t}',
