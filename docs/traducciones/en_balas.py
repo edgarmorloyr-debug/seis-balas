@@ -297,6 +297,7 @@ P.append([r'^(\d+) de calavera → (\d+) de miembro$', '$1 skull → $2 member']
 P.append([r'^(\d+) de miembro → (\d+) de calavera$', '$1 member → $2 skull'])
 P.append([r'^Cambiar todas las de miembro \((\d+)\)$', 'Exchange all member chips ($1)'])
 P.append([r'^(\d+) fichas?$', '$1 chip(s)'])
+P.append([r'^Cañón: recámara (\d)$', 'Cylinder: chamber $1'])
 P.append([r'^Comer · (\d+) fichas?$', 'Eat · $1 chip(s)'])
 
 t = {}
