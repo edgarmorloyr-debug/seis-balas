@@ -20591,7 +20591,9 @@ const BAL = {
     oscura: { name: 'Oscura', bono: 'los zombis que matas dejan sombras que pelean por ti', t: 10, max: 3 }
   },
   caballero: { vida: 300, dano: 40, max: 8 },   // el caballero que invocan (máximo 8 a la vez) Invocación, Legión, Ángel guardián, Duelo y Caballero del tiempo (antes del nivel)
-  arbolEspacio: { max: 2, coste: [8, 15] }   // Tienda calavera: espacios de slot extra (caros)
+  arbolEspacio: { max: 2, coste: [8, 15] },   // Tienda calavera: espacios de slot extra (caros)
+  // Tienda calavera, rama Suerte (PENDIENTES 20, 19-oct-2026): lo que suma cada nivel (5 niveles; cuestan 1, 2, 3, 4 y 5 fichas)
+  arbolSuerte: { balas: 0.03, cofre: 0.06, rango: 0.08 }
 };
 // t: 'p' pasiva · 'a' activa · vuelve: true = vuelve a la caja, false = se rompe · f: familia · c: nombre corto para el slot y el cañón
 // v: sus cifras · up: qué cifras crecen con el nivel (×1,5 / ×2 / ×3). Una activa sin «up» hace más daño con el nivel.
@@ -20909,6 +20911,7 @@ const Balas = {
     const si = sl.findIndex(e => e.k === 'suerte'); if (si >= 0 && ((si > 0 && sl[si - 1].k === k) || (Balas.despierta(g, 'suerte') && sl[si + 1] && sl[si + 1].k === k))) x *= Balas.v(g, 'suerte', 'x');   // Racha: también la de su derecha
     if (Balas.tiene(g, 'trebol')) x *= Balas.v(g, 'trebol', 'x');
     if (Balas.famOn(g, 'casino')) x *= BAL.familia.casino.prob;
+    if (typeof arbP === 'function' && g === game) x *= 1 + arbP('suerteB');   // Tienda calavera: Suerte en las balas
     return Math.min(BAL.probMax, x);
   },
   receta: (a, b) => a !== b ? RECETA[fuseKey(a, b)] || null : null,
@@ -26670,7 +26673,8 @@ function spawnChest(kind) {
     spot = { x, z };
   }
   if (!spot) return false;
-  if (!kind) { let t = 0; for (const k in CHESTS) t += CHESTS[k].w; let r = Math.random() * t; for (const k in CHESTS) { kind = k; if ((r -= CHESTS[k].w) < 0) break; } }
+  if (!kind) { const w = k => CHESTS[k].w * (k === 'gold' ? 1 + arbP('cofreR') : k === 'curse' ? Math.max(0.2, 1 - arbP('cofreR')) : 1);   // Tienda calavera: Mejores cofres
+    let t = 0; for (const k in CHESTS) t += w(k); let r = Math.random() * t; for (const k in CHESTS) { kind = k; if ((r -= w(k)) < 0) break; } }
   const C = CHESTS[kind], g = new THREE.Group(), mb = new THREE.MeshLambertMaterial({ color: C.body, emissive: C.body, emissiveIntensity: 0.15 }), mt = new THREE.MeshLambertMaterial({ color: C.trim, emissive: C.trim, emissiveIntensity: kind === 'curse' ? 0.8 : 0.2 });
   const base = new THREE.Mesh(bx(0.9, 0.5, 0.6), mb); base.position.y = 0.25; g.add(base);
   const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.3); g.add(lid);
@@ -26719,7 +26723,7 @@ function updateChests(dt) {
     game.chestWave = game.wave;
     // cada lugar trae al menos un cofre (antes era solo 35 % por oleada y en algunos lugares no salía ninguno); luego, 35 % en cada oleada
     const zn = zoneOf(game.wave), primero = game.chestZ !== zn;
-    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && (primero || Math.random() < (0.35 + (game.keys > 0 ? 0.15 : 0)) * (1 + S('cofreC') / 100))) { if (spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null)) game.chestZ = zn; }
+    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && (primero || Math.random() < (0.35 + (game.keys > 0 ? 0.15 : 0) + arbP('cofreX')) * (1 + S('cofreC') / 100))) { if (spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null)) game.chestZ = zn; }
   }
   for (let i = chests.length - 1; i >= 0; i--) {
     const c = chests[i]; c.t += dt; c.warnT -= dt;
@@ -31620,6 +31624,9 @@ const ARBOL = [
   { k: 'bj', req: 'ruleta', ram: 'sue', ic: 'chip', name: 'Mesa de blackjack', d: 'La mesa de blackjack aparece más seguido en la Trastienda.', paso: 0.005, x: 780, y: 140 },
   { k: 'gallina', req: 'slot', ram: 'sue', ic: 'star', name: 'Gallina dorada', d: 'La gallina dorada aparece más seguido.', paso: 0.002, x: 700, y: 305 },
   { k: 'oro', req: 'gallina', ram: 'sue', ic: 'coins', name: 'Zombi de oro', d: 'El zombi de oro sale más seguido.', paso: 0.002, x: 790, y: 360 },
+  { k: 'suerteB', req: 'bj', ram: 'sue', ic: 'clover', name: 'Suerte en las balas', d: 'Todas las probabilidades de tus balas (críticos, congelar, efectos…) suben un poco.', paso: BAL.arbolSuerte.balas, x: 870, y: 90, f: v => `+${pctTxt(v)} a las probabilidades de tus balas` },
+  { k: 'cofreX', req: 'oro', ram: 'sue', ic: 'chest', name: 'Más cofres', d: 'Sale un cofre más seguido en cada oleada.', paso: BAL.arbolSuerte.cofre, x: 880, y: 300, f: v => `+${pctTxt(v)} de cofres` },
+  { k: 'cofreR', req: 'cofreX', ram: 'sue', ic: 'key', name: 'Mejores cofres', d: 'Los cofres salen dorados más seguido (y menos malditos).', paso: BAL.arbolSuerte.rango, x: 960, y: 230, f: v => `+${pctTxt(v)} de cofres dorados` },
   { k: 'dinero', req: 'dano', ram: 'eco', ic: 'coins', name: 'Oro ganado', d: 'Ganas un poco más de oro por cada zombi.', paso: 0.01, x: 500, y: 335, f: v => `+${pctTxt(v)} de oro` },
   { k: 'ficha', req: 'dinero', ram: 'eco', ic: 'chip', name: 'Fichas de miembro', d: 'Los zombis sueltan fichas de miembro más seguido.', paso: 0.004, x: 400, y: 410 },
   { k: 'espacio', req: 'dinero', ram: 'eco', ic: 'cards', name: 'Espacio en el slot', d: 'Un espacio más en tu slot de balas en todas tus partidas. Es la mejora más cara.', paso: 1, max: BAL.arbolEspacio.max, coste: BAL.arbolEspacio.coste, x: 520, y: 470, f: v => `+${Math.round(v)} ${Math.round(v) === 1 ? 'espacio' : 'espacios'} en el slot` },
@@ -31923,7 +31930,7 @@ const ARBOL_UN = [   // dónde cuelga cada grupo del árbol: req = mejora de la 
 let arbNodos = null;
 function nodosArbol() {   // se arma una vez: las mejoras del árbol más cada cosa desbloqueable colgando de su rama, de lo barato a lo caro
   if (arbNodos) return arbNodos;
-  const N = ARBOL.map(A => ({ k: A.k, A, req: A.req, x: A.x, y: A.y, col: ARBOL_RAMAS[A.ram][1], ic: 'a_' + A.k }));
+  const N = ARBOL.map(A => ({ k: A.k, A, req: A.req, x: A.x, y: A.y, col: ARBOL_RAMAS[A.ram][1], ic: ICONS['a_' + A.k] ? 'a_' + A.k : A.ic }));   // las mejoras nuevas usan su icono común
   const libres = {}; for (const u of UNLOCKS) if (u.cat !== 'obj') (libres[u.cat] = libres[u.cat] || []).push(u);
   for (const c in libres) libres[c].sort((a, b) => a.cost - b.cost);
   const grupos = ARBOL_UN.map(G => ({ G, us: [] }));

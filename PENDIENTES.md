@@ -26,7 +26,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 18. **Rediseño de la tienda:** cada cosa en un lugar fijo, salga una o varias, sin estorbarse.
 19. **Eventos nuevos:** carreras de caballos 6 % (en equipo e individual) y duelos de dados 5 %.
 - Decisiones del dueño (17-oct-2026): las balas normales y la venta de especiales van en la máquina expendedora (pestaña «Normales»), no en la caja registradora; la máquina ofrece 3 balas sueltas al azar por visita; Crisol = primera fusión gratis y Cupón del herrero = 30 % de no pagar; en grupo, la animación de la máquina solo la ve quien compra.
-20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar).
+20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar). *Hecho (19-oct-2026): 3 mejoras nuevas en la rama Suerte, de 5 niveles cada una (cuestan 1 a 5 fichas; cifras en BAL.arbolSuerte): «Suerte en las balas» (+3 % por nivel a todas las probabilidades de tus balas; sale del blackjack), «Más cofres» (+6 % por nivel de que salga un cofre en cada oleada; sale del zombi de oro) y «Mejores cofres» (+8 % por nivel de cofres dorados y menos malditos; sale de «Más cofres»). Falta: las «verificaciones» (pregunta al dueño: ¿qué quiere decir?).*
 
 ## Etapa 1B · NUEVO SISTEMA DE BALAS (decisión del dueño, 18-oct-2026) · PUBLICADO el 19-oct-2026; se queda definitivamente y se ajusta paso a paso
 Cambio grande de mecánica para que el juego sea original (referencia de diseño: los objetos de The Binding of Isaac, pero con ideas propias).
