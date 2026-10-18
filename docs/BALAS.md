@@ -367,3 +367,22 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Segundo aire | Último aliento: con menos de 10 % de vida, 3 s sin recibir daño (1 vez por oleada) |
 | Puntería | Ojo de halcón: los críticos hacen triple daño |
 | Trago de valor | Trago doble: el tiro potenciado también atraviesa |
+
+### Tanda 6 · Fusiones A (aprobada)
+| Bala | Despertar |
+|---|---|
+| Máquina de chicles | Chicle gigante: las bolas hacen daño al reventar |
+| Crupier mecánico | Crupier de oro: la activa repetida sale con 1 nivel más |
+| Congelador | Cámara frigorífica: los congelados contagian el frío a los de al lado |
+| Bobina Tesla | Torre Tesla: el rayo sale cada 5 s |
+| Dron | Escuadrilla: salen 2 drones |
+| Golosina de la suerte | Dulcería: los dulces caen el doble de seguido |
+| Helado | Era de hielo: área de 10 m |
+| Chicle eléctrico | Chicle pegajoso: se pega también a los zombis cercanos |
+| Piñata | Gran piñata: suelta 2 balas al azar |
+| Póker de hielo | Full de hielo: también congela la 6.ª bala del tambor |
+| Carta marcada | Baraja marcada: el rayo de los críticos salta a 4 zombis |
+| Truco de manos | Mago: las activas que se rompen vuelven 1 de cada 2 veces |
+| Ventisca | Tormenta polar: dura el doble y te sigue |
+| Carámbano | Lanza de hielo: al regresar deja una pared de hielo 3 s |
+| Rayo bumerán | Rayo eterno: va y vuelve 2 veces |
