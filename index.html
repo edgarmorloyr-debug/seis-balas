@@ -10290,6 +10290,145 @@ function islandHull(L, B, H, bow, brk, nu = 26, nv = 14) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
+/* ===== Isla de los Náufragos grande (PENDIENTES 44, 19-oct-2026): la isla de siempre queda en el centro y por tres muelles
+   de madera sobre bancos de arena se llega a 3 islotes con zona de llave: el faro (sur), el fuerte pirata (oeste) y la
+   roca de la calavera (este). El mar se aparta alrededor de los islotes y deja ver la arena. */
+const ISG = { R: 42.5, c0: 40, r1: 55, D: 27, hw: 15, cw: 2.2, z: [] };
+function islaLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['far', 100 * Math.PI / 180, 'junto al faro'], ['fue', 185 * Math.PI / 180, 'en el fuerte pirata'], ['cal', 345 * Math.PI / 180, 'en la roca de la calavera']])
+  ISG.z.push({ k, a, nombre, en: (x, z) => { const q = islaLocal(a, x, z); return Math.abs(q.lx) < ISG.hw - 0.8 && q.lz > ISG.r1 + 0.8 && q.lz < ISG.r1 + ISG.D - 0.8; } });
+const enFaro = ISG.z[0].en, enFuerte = ISG.z[1].en, enCalavera = ISG.z[2].en;
+function zonaIsla(x, z) { return enFaro(x, z) ? 'junto al faro' : enFuerte(x, z) ? 'en el fuerte pirata' : enCalavera(x, z) ? 'en la roca de la calavera' : 'en la playa'; }
+const islaHueco = (a, m) => ISG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m);
+// cuánto se aparta el mar en un punto: 1 sobre los islotes y los muelles, 0 a 9 m de ellos
+function islaSeca(x, z) {
+  let f = 0;
+  for (const Z of ISG.z) {
+    const q = islaLocal(Z.a, x, z);
+    const d1 = Math.max(Math.abs(q.lx) - ISG.hw - 1, ISG.r1 - q.lz, q.lz - ISG.r1 - ISG.D - 1);           // el islote
+    const d2 = Math.max(Math.abs(q.lx) - ISG.cw - 1.5, ISG.c0 + 2 - q.lz, q.lz - ISG.r1 - 1);             // el banco de arena del muelle
+    const d = Math.min(d1, d2); f = Math.max(f, Math.min(1, Math.max(0, 1 - d / 9)));
+  }
+  return f;
+}
+function islaGrande(g0) {
+  const { R, c0, r1, D, hw, cw } = ISG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 4, hz: r2 + 4 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = ISG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // la orilla ahora es una pared invisible (antes lo era el círculo del lugar), con tres huecos para los muelles
+  for (let k = 0; k < 288; k++) { const a = (k + 0.5) / 288 * TAU; if (islaHueco(a, 0.072)) continue; addBox(Math.cos(a) * (R + 0.8), Math.sin(a) * (R + 0.8), 0.53, 0.8, Math.PI / 2 - a); }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.4); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaIsla(p.x, p.z) }); };
+  const sale = (g, lx, lz, rise = false) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise }); };
+  const madera = lam(0x6a4a2c), maderaO = lam(0x4a3220), cuerda = lam(0xb89a6a), roca = lam(0x3a3632, { flatShading: true });
+  const rocas = [], troncos = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  // borde de un islote: rocas en fila o empalizada de troncos, con su colisión y el hueco del muelle
+  const borde = (g, x0, z0, x1, z1, tipo) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.ceil(L / (tipo === 'troncos' ? 0.55 : 2))), hz = Math.abs(z1 - z0) < 0.01;
+    for (let i = 0; i <= n; i++) { const t = i / n, p = lw(g, x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+      if (tipo === 'troncos') troncos.push([p.x, 1.6, p.z, 0.28, sr(3, 3.6), 0.28]); else { const s = sr(1, 1.8); rocas.push([p.x + sr(-0.3, 0.3), s * 0.35, p.z + sr(-0.3, 0.3), s * 1.2, s * sr(0.7, 1.1), s]); } }
+    col(g, (x0 + x1) / 2, (z0 + z1) / 2, hz ? L / 2 + 0.4 : 0.6, hz ? 0.6 : L / 2 + 0.4);
+  };
+  const G = {};
+  for (const Z of ISG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    // el muelle: tablones sobre pilotes, con postes y cuerda a los lados
+    const bl = r1 - c0 + 1, bc = c0 + bl / 2;
+    box(g, 2 * cw + 0.6, 0.16, bl, madera, 0, 0.08, bc, { cast: false });
+    for (let i = 0; i <= Math.floor(bl / 2); i++) for (const s of [-1, 1]) { box(g, 0.18, 1.3, 0.18, maderaO, s * (cw + 0.2), 0.45, c0 + i * 2, {}); }
+    for (const s of [-1, 1]) { box(g, 0.05, 0.05, bl, cuerda, s * (cw + 0.2), 0.95, bc, { cast: false }); col(g, s * (cw + 0.75), bc, 0.6, bl / 2 + 0.2); }
+    const tipo = Z.k === 'fue' ? 'troncos' : 'rocas';
+    borde(g, -hw, r1, -cw - 0.4, r1, tipo); borde(g, cw + 0.4, r1, hw, r1, tipo); borde(g, -hw, r1, -hw, r2, tipo); borde(g, hw, r1, hw, r2, tipo); borde(g, -hw, r2, hw, r2, tipo);
+  }
+
+  // ================= SUR: EL FARO (torre a rayas con su haz que gira, la casita del farero y una barca) =================
+  { const g = G.far;
+    const rayT = canvasTex(64, 256, (q2, w, h) => { for (let i = 0; i < 8; i++) { q2.fillStyle = i % 2 ? '#c8261e' : '#f2ece0'; q2.fillRect(0, i * h / 8, w, h / 8 + 1); } for (let i = 0; i < 300; i++) { q2.fillStyle = 'rgba(60,40,30,.12)'; q2.fillRect(Math.random() * w, Math.random() * h, 2, 2); } });
+    const tx = 4, tz = lc + 3;
+    M(cyl(1.6, 2.3, 14, 18), lam(0xffffff, { map: rayT }), tx, 7, tz, { p: g }); M(cyl(2.6, 2.6, 0.3, 18), lam(0x2a2a2a), tx, 14.1, tz, { p: g });
+    M(cyl(1.3, 1.3, 1.8, 14), new THREE.MeshBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.85 }), tx, 15.1, tz, { p: g, cast: false });
+    M(new THREE.ConeGeometry(1.6, 1.4, 14), lam(0xc8261e), tx, 16.7, tz, { p: g });
+    colC(g, tx, tz, 2.4);
+    const haz = new THREE.Group(); haz.position.set(tx, 15.1, tz); haz.userData.vivo = 1; g.add(haz);
+    const hg = new THREE.ConeGeometry(3.5, 40, 16, 1, true); hg.translate(0, -20, 0); hg.rotateZ(Math.PI / 2);
+    const hm = new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    for (const s of [0, Math.PI]) { const m = new THREE.Mesh(hg, hm); m.rotation.y = s; haz.add(m); }
+    glow(g, tx, 15.1, tz, 0xfff0b0, 6, 0.8);
+    world.anims.push((dt) => { haz.rotation.y += dt * 0.6; });
+    // la casita del farero, nasas y una barca varada
+    { const hx = -7, hz = r1 + 7; box(g, 5, 2.8, 4, lam(0xe8e0d0), hx, 1.4, hz, {}); M(roofGeo(5.4, 1.6, 4.4), lam(0x3a4a6a), hx, 2.8, hz, { p: g }); box(g, 1, 1.9, 0.06, maderaO, hx + 1, 0.95, hz - 2.03, { cast: false }); box(g, 0.8, 0.7, 0.06, bsc(0xffd890), hx - 1.3, 1.6, hz - 2.03, { cast: false }); col(g, hx, hz, 2.5, 2); glow(g, hx - 1.3, 1.6, hz - 2.4, 0xffc070, 1.6, 0.5); }
+    for (const [x, z] of [[-11, r2 - 5], [-10, r2 - 3.5], [-12.3, r2 - 3]]) { box(g, 1, 0.7, 0.7, lam(0x8a6a3a, { wireframe: true }), x, 0.35, z, { cast: false }); }
+    { const p = lw(g, 9, r1 + 6), b = Grp(p.x, p.z, g.rotation.y + 0.5); b.rotation.z = 0.25; M(bx(1.6, 0.6, 4), lam(0x3a6a8a), 0, 0.3, 0, { p: b }); M(bx(1.4, 0.06, 3.6), madera, 0, 0.55, 0, { p: b }); addBox(p.x, p.z, 0.9, 2.1, g.rotation.y + 0.5); }
+    luz(g, tx, 3.5, tz - 5, 0xffe0b0, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-12, lc + 2], [12, lc + 4], [-3, r2 - 3], [9, r2 - 3], [0, r1 + 4]]) spotK(g, x, z);
+    for (const x of [-9, 0, 10]) sale(g, x, r2 - 2);
+  }
+
+  // ================= OESTE: EL FUERTE PIRATA (empalizada, torre de vigía, cañones y el cofre abierto) =================
+  { const g = G.fue;
+    // torre de vigía
+    const vx = -9, vz = r2 - 6;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, 0.3, 6, 0.3, maderaO, vx + sx * 1.3, 3, vz + sz * 1.3, {});
+    box(g, 3.4, 0.25, 3.4, madera, vx, 6, vz, {}); for (const s of [-1, 1]) { box(g, 3.4, 0.9, 0.12, madera, vx, 6.55, vz + s * 1.65, {}); box(g, 0.12, 0.9, 3.4, madera, vx + s * 1.65, 6.55, vz, {}); }
+    M(roofGeo(3.8, 1.4, 3.8), lam(0x8a6a3a), vx, 7.4, vz, { p: g }); col(g, vx, vz, 1.6, 1.6);
+    // bandera pirata en un mástil
+    { const fx = 6, fz = r2 - 4; box(g, 0.16, 9, 0.16, maderaO, fx, 4.5, fz, {}); colC(g, fx, fz, 0.25);
+      const banT = canvasTex(128, 80, (q2, w, h) => { q2.fillStyle = '#111'; q2.fillRect(0, 0, w, h); q2.fillStyle = '#eee'; q2.beginPath(); q2.arc(64, 32, 16, 0, TAU); q2.fill(); q2.fillRect(56, 40, 16, 10); q2.fillStyle = '#111'; q2.fillRect(57, 28, 5, 6); q2.fillRect(66, 28, 5, 6); q2.strokeStyle = '#eee'; q2.lineWidth = 6; q2.beginPath(); q2.moveTo(36, 54); q2.lineTo(92, 74); q2.moveTo(92, 54); q2.lineTo(36, 74); q2.stroke(); });
+      const ban = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6, 8, 1), lam(0xffffff, { map: banT, side: THREE.DoubleSide })); ban.position.set(fx + 1.35, 8.1, fz); ban.userData.vivo = 1; g.add(ban);
+      const bp = ban.geometry.attributes.position, b0 = Float32Array.from(bp.array);
+      world.anims.push((dt, t) => { for (let i = 0; i < bp.count; i++) { const x = b0[i * 3]; bp.array[i * 3 + 2] = Math.sin(t * 4 + x * 2) * 0.15 * (x + 1.3); } bp.needsUpdate = true; }); }
+    // cañones sobre cureña apuntando al mar
+    for (const [x, z, r] of [[-12, r1 + 4, -0.6], [12, r1 + 4, 0.6], [0, r2 - 2.2, Math.PI]]) { const p = lw(g, x, z), c = Grp(p.x, p.z, g.rotation.y + r); M(bx(1.2, 0.5, 1.6), madera, 0, 0.45, 0, { p: c }); for (const s of [-1, 1]) for (const w of [-0.5, 0.5]) M(cyl(0.3, 0.3, 0.12, 10), maderaO, s * 0.66, 0.3, w, { p: c, rz: Math.PI / 2 }); M(cyl(0.22, 0.32, 2.2, 12), lam(0x1a1a1a), 0, 0.9, 0.5, { p: c, rx: Math.PI / 2 - 0.15 }); addCircle(p.x, p.z, 1); }
+    // barriles y el cofre del tesoro abierto
+    for (const [x, z] of [[-4, r1 + 3], [-3, r1 + 4], [9, lc], [10, lc + 1.2]]) { M(cyl(0.45, 0.45, 1.1, 10), lam(0x7a5430), x, 0.55, z, { p: g }); colC(g, x, z, 0.5); }
+    { const cx = 0, cz = lc + 3; box(g, 1.4, 0.8, 0.9, lam(0x6a3a1a), cx, 0.4, cz, {}); const tapa = box(g, 1.4, 0.15, 0.9, lam(0x6a3a1a), cx, 1.15, cz + 0.42, { rx: -1.1 }); void tapa; M(new THREE.SphereGeometry(0.55, 10, 6, 0, TAU, 0, Math.PI / 2), lam(0xf0c040, { emissive: 0x6a4a08 }), cx, 0.75, cz, { p: g }); glow(g, cx, 1.2, cz, 0xffd060, 3, 0.6); colC(g, cx, cz, 0.9); }
+    // antorchas
+    const llamas = []; for (const [x, z] of [[-cw - 1, r1 + 1], [cw + 1, r1 + 1], [-13, lc], [13, lc]]) { box(g, 0.12, 2, 0.12, maderaO, x, 1, z, {}); llamas.push(glow(g, x, 2.2, z, 0xffa040, 1.4, 0.8)); }
+    world.anims.push(() => { for (const l of llamas) l.material.opacity = 0.6 + Math.random() * 0.35; });
+    luz(g, 0, 4, lc, 0xffa050, 1.3, 24);
+    for (const [x, z] of [[-12, r1 + 7], [12, r1 + 7], [-12.5, lc + 3], [12.5, lc + 4], [-4, r2 - 2.5], [4, r2 - 3], [3, r1 + 3]]) spotK(g, x, z);
+    for (const x of [-12, -3, 11]) sale(g, x, r2 - 2);
+  }
+
+  // ================= ESTE: LA ROCA DE LA CALAVERA (una roca con forma de cráneo, tótems y antorchas) =================
+  { const g = G.cal;
+    const cx = 0, cz = r2 - 8, piedra = lam(0x5a544c, { flatShading: true });
+    const cr = M(new THREE.IcosahedronGeometry(5, 1), piedra, cx, 4, cz, { p: g }); cr.scale.set(1, 0.9, 0.85);
+    M(bx(5.6, 2.2, 3.6), piedra, cx, 1.1, cz - 2, { p: g });
+    for (const s of [-1, 1]) { M(new THREE.CircleGeometry(1.1, 12), bsc(0x050302), cx + s * 1.8, 4.6, cz - 4.15, { p: g, cast: false }); glow(g, cx + s * 1.8, 4.6, cz - 4.4, 0xff3020, 1.8, 0.5); }
+    M(new THREE.CircleGeometry(0.6, 3), bsc(0x050302), cx, 3.2, cz - 4.2, { p: g, cast: false, rz: Math.PI / 2 });
+    for (let i = 0; i < 5; i++) box(g, 0.6, 0.7, 0.3, lam(0xd8d0b8), cx - 1.6 + i * 0.8, 2.4, cz - 3.8, {});
+    col(g, cx, cz, 5, 4.2);
+    // tótems con caras pintadas
+    const caraT = canvasTex(64, 64, (q2, w) => { q2.fillStyle = '#7a4a2a'; q2.fillRect(0, 0, w, w); q2.fillStyle = '#f0e0b0'; q2.fillRect(12, 16, 12, 10); q2.fillRect(40, 16, 12, 10); q2.fillStyle = '#c03018'; q2.fillRect(16, 40, 32, 10); q2.fillStyle = '#111'; q2.fillRect(16, 19, 5, 5); q2.fillRect(43, 19, 5, 5); });
+    const caraM = lam(0xffffff, { map: caraT });
+    for (const [x, z] of [[-9, r1 + 6], [9, r1 + 6], [-11, lc + 4], [11, lc + 4]]) { for (let k = 0; k < 3; k++) box(g, 1, 1.1, 1, caraM, x, 0.55 + k * 1.1, z, { ry: k * 0.3 }); colC(g, x, z, 0.75); }
+    // antorchas y plantas de la selva
+    const llamas = []; for (const [x, z] of [[-4, cz - 6], [4, cz - 6], [-cw - 1, r1 + 1], [cw + 1, r1 + 1]]) { box(g, 0.12, 2, 0.12, maderaO, x, 1, z, {}); llamas.push(glow(g, x, 2.2, z, 0xff8030, 1.4, 0.8)); }
+    for (let i = 0; i < 14; i++) { const x = sr(-hw + 1.5, hw - 1.5), z = sr(r1 + 2, r2 - 2); if (Math.abs(x - cx) < 7 && Math.abs(z - cz) < 6) continue; M(new THREE.ConeGeometry(sr(0.6, 1.1), sr(1, 1.8), 6), lam(pick([0x2a5a22, 0x356a2a, 0x22501c]), { flatShading: true }), x, 0.6, z, { p: g, cast: false }); }
+    world.anims.push(() => { for (const l of llamas) l.material.opacity = 0.6 + Math.random() * 0.35; });
+    luz(g, 0, 4, lc - 4, 0xff7040, 1.3, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-13, lc], [13, lc + 2], [-9, r2 - 2.5], [9, r2 - 2.5], [0, r1 + 5]]) spotK(g, x, z);
+    for (const x of [-11, 11]) sale(g, x, r2 - 2); sale(g, 0, lc, true);
+  }
+  // rocas y troncos de los bordes, cada tipo en una sola malla
+  { const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), roca, rocas.length); rocas.forEach(([x, y, z, sx, sy, sz], i) => { q.setFromEuler(e.set(sr(0, 3), sr(0, 3), 0)); m4.compose(v.set(x, y, z), q, sc.set(sx, sy, sz)); im.setMatrixAt(i, m4); }); im.castShadow = im.receiveShadow = true; world.group.add(im); }
+  { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 7), maderaO, troncos.length); troncos.forEach(([x, y, z, sx, sy, sz], i) => { q.identity(); m4.compose(v.set(x, sy / 2, z), q, sc.set(sx, sy, sz)); im.setMatrixAt(i, m4); }); im.castShadow = im.receiveShadow = true; world.group.add(im); }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildIsland() {
   const _gc = new Map();
   const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
@@ -10301,7 +10440,7 @@ function buildIsland() {
   world.hat = 'straw'; world.hatP = 0.22;
   world.mix = { crawler: 1.4, bloater: 1.4, runner: 1.1 };
   env({ fog: 0x0f1c2a, dens: 0.013, top: 0x02060f, hemiS: 0x7a98c8, hemiG: 0x3a3022, hemiI: 0.6, moonC: 0xcfdcf5, moonI: 0.85, wind: 0.2 });
-  addGround(170, noiseTex(256, '#a8946c', ['#b8a47a', '#988458', '#c6b28a', '#857250', '#d4c096', '#7a6a4c'], 2600, 30)).material.color.setHex(0xe6cc9c);
+  addGround(190, noiseTex(256, '#a8946c', ['#b8a47a', '#988458', '#c6b28a', '#857250', '#d4c096', '#7a6a4c'], 2600, 30)).material.color.setHex(0xe6cc9c);
   const vc = lam(0xffffff, { vertexColors: true }), vcD = lam(0xffffff, { vertexColors: true, side: THREE.DoubleSide });
   const glowSprite = (x, y, z, c, s, o, par) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); (par || world.group).add(sp); return sp; };
   const mt = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
@@ -10345,6 +10484,7 @@ function buildIsland() {
   const seaG = islandDisc(44.2, 380, 96, 26, 2.2, 9, 0, 1.2);
   const sea = M(seaG, new THREE.MeshLambertMaterial({ map: waterT, color: 0x8aa8c8, emissive: 0x040c16 }), 0, 0, 0, { cast: false });
   const sp = seaG.attributes.position, sBase = Float32Array.from(sp.array);
+  const seco = []; for (let i = 0; i < sp.count; i++) { const f = islaSeca(sBase[i * 3], sBase[i * 3 + 2]); if (f > 0) seco.push(i, f); }   // el mar se aparta en los muelles y los islotes
   const surfG = islandDisc(39, 47, 96, 3, 1, 6, 0, 1.4);
   const surf = M(surfG, new THREE.MeshLambertMaterial({ map: waterT, color: 0xa0d0e8, emissive: 0x0a1a28, transparent: true, opacity: 0.5, depthWrite: false }), 0, 0.06, 0, { cast: false });
   const foamT = canvasTex(256, 64, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(230,242,255,.85)'); gr.addColorStop(0.68, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 200; i++) { g.beginPath(); g.arc(rand(0, w), rand(0, h), rand(2, 7), 0, TAU); g.fill(); } }, 0);
@@ -10360,6 +10500,7 @@ function buildIsland() {
   world.anims.push((dt, t) => {
     waterT.offset.set(Math.sin(t * 0.12) * 0.05, t * 0.02);
     for (let i = 0; i < sp.count; i++) { const x = sBase[i * 3], z = sBase[i * 3 + 2], r = Math.hypot(x, z), rp = Math.min(1, (r - 43.6) / 14); sp.array[i * 3 + 1] = 0.05 + rp * (0.35 + Math.sin(r * 0.35 - t * 1.4) * 0.22 + Math.sin(x * 0.11 + z * 0.07 + t * 0.8) * 0.18); }
+    for (let k = 0; k < seco.length; k += 2) { const i = seco[k], f = seco[k + 1]; sp.array[i * 3 + 1] = sp.array[i * 3 + 1] * (1 - f) - 0.6 * f; }
     sp.needsUpdate = true;
     const tide = Math.sin(t * 0.5); surf.scale.setScalar(1 + tide * 0.022); surf.material.opacity = 0.42 + tide * 0.08;
     for (const w of waves) { const u = (t * 0.085 + w.ph) % 1, s = 1 - u * 0.2; w.m.scale.set(s, 1, s); w.m.position.y = 0.1 + (1 - u) * 0.5; w.m.material.opacity = Math.sin(u * Math.PI) * 0.7; }
@@ -10374,9 +10515,9 @@ function buildIsland() {
     world.anims.push((dt, t) => { rf.material.opacity = 0.3 + Math.sin(t * 2.1) * 0.06 + Math.sin(t * 5.3) * 0.04; }); }
   // arrecife: rocas oscuras alrededor (el límite de la isla), algunas con espuma
   { const L = [];
-    for (let c = 0; c < 15; c++) { const ca = c / 15 * TAU + sr(-0.12, 0.12), cr = sr(45, 50), n = 4 + Math.floor(srand() * 5); for (let i = 0; i < n; i++) { const a = ca + sr(-0.07, 0.07), r = cr + sr(-1.6, 1.6), sc = sr(0.6, 2.0) * (i === 0 ? 1.5 : 1); L.push([Math.cos(a) * r, sc * sr(-0.1, 0.25), Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.5, 0.9), sc, pick([0x3a3834, 0x2e2c2a, 0x46423c, 0x524a40])]); } }
-    for (let i = 0; i < 9; i++) { const a = sr(0, TAU), r = sr(58, 95), sc = sr(2.5, 5); L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.9, 1.6), sc, pick([0x2a2826, 0x34302c])]); }
-    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(42.9, 44); if (Math.abs((a * 180 / Math.PI) % 32) < 7) continue; const sc = sr(0.4, 0.8); L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * 0.7, sc, pick([0x4a463e, 0x5a544a])]); }
+    for (let c = 0; c < 15; c++) { const ca = c / 15 * TAU + sr(-0.12, 0.12), cr = sr(45, 50), n = 4 + Math.floor(srand() * 5); if (islaHueco(ca, 0.3)) continue; for (let i = 0; i < n; i++) { const a = ca + sr(-0.07, 0.07), r = cr + sr(-1.6, 1.6), sc = sr(0.6, 2.0) * (i === 0 ? 1.5 : 1); L.push([Math.cos(a) * r, sc * sr(-0.1, 0.25), Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.5, 0.9), sc, pick([0x3a3834, 0x2e2c2a, 0x46423c, 0x524a40])]); } }
+    for (let i = 0; i < 9; i++) { const a = sr(0, TAU), r = sr(58, 95), sc = sr(2.5, 5); if (islaHueco(a, 0.55)) continue; L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * sr(0.9, 1.6), sc, pick([0x2a2826, 0x34302c])]); }
+    for (let i = 0; i < 26; i++) { const a = sr(0, TAU), r = sr(42.9, 44); if (Math.abs((a * 180 / Math.PI) % 32) < 7 || islaHueco(a, 0.1)) continue; const sc = sr(0.4, 0.8); L.push([Math.cos(a) * r, sc * 0.2, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, sc, sc * 0.7, sc, pick([0x4a463e, 0x5a544a])]); }
     const rocks = inst(new THREE.DodecahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), L); solids.push(rocks);
     // salpicaduras en las rocas grandes
     const big = L.filter(a => a[6] > 1.6).slice(0, 24);
@@ -10708,6 +10849,7 @@ function buildIsland() {
     } }); }
 
   mistField(8, 0x8aa0bc, 40);
+  islaGrande(world.group.children.length);   // los muelles y los tres islotes con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Una plataforma perdida en un mar sin fondo. Algo gigante da vueltas debajo, y no está solo.
@@ -27157,7 +27299,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [18, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
