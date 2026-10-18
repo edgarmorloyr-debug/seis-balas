@@ -174,3 +174,18 @@ La Negra es especial secreta, fuera de las 84.
 | 15 | Tragamonedas + Espejo | Doble o nada infinito | Pasiva | Cada vez que una bala de suerte gana, 1 de 2 de repetir el premio |
 
 **Las 84 balas están definidas** (24 base + 60 fusiones). Falta: despertares del nivel 4, familias, cómo se consiguen las balas, el boceto del cañón y el tamaño del slot por personaje.
+
+## Familias (aprobadas el 18-oct-2026)
+**Bono:** juntar 3 balas de la misma familia en tu slot da un bono (como las transformaciones de Isaac).
+
+| Familia | Balas | Bono con 3 |
+|---|---|---|
+| Comida | Caramelo, Cantimplora, Trago de valor, Máquina de chicles, Golosina de la suerte, Helado, Chicle eléctrico, Piñata | Te curas 5 por cada zombi que matas |
+| Casino | Apuesta, Tahúr, Suerte, Dado cargado, Ruleta rusa, Tragamonedas, Dado, Bolsa sin fondo, Carta marcada, Póker de hielo, Truco de manos, Trébol de cuatro hojas, Ruleta dorada, Seis de seis, Jackpot real, Milagro, Doble o nada infinito | Todas las probabilidades +10 % |
+| Oro | Oro, Alcancía, Usurero, Imán, Mercenaria, Rey, Ave de la fortuna, Casino del abismo | +20 % de oro |
+| Máquina | Robot, Gatillo de pluma, Junior, Crupier mecánico, Congelador, Bobina Tesla, Dron | +1 espacio en el slot |
+| Celestial | Ángel, Fénix, Ángel guardián, Resurrección, Corona celestial, Gemelo celestial, Cielo y abismo | Aura que cura al equipo |
+| Elementos | Escarcha, Relámpago, Ventisca, Carámbano, Rayo bumerán, Tormenta, Frita, Reflejo de fuego, Supernova | Los efectos duran el doble |
+| Oscura | Agujero negro, Hipnótica, Invocación, Nigromante, Titiritero, Traición, Legión, Rey del vacío, Horizonte de sucesos, Hipnosis eterna | Los zombis que matas dejan sombras que pelean por ti |
+
+Nota: Caramelo (triple de daño si es la única de comida) va en contra del bono de Comida a propósito: el jugador elige.
