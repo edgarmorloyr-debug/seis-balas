@@ -1852,6 +1852,21 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 #lleno-say{margin:0;font-size:15px}
 #lleno-list{min-height:0}
 #lleno-list .bal-it:disabled{opacity:.5}
+
+/* ===== Duelo de dados (boceto aprobado, 19-oct-2026) ===== */
+#dad-s .card{width:min(760px,100%);max-height:100%;display:flex;flex-direction:column;gap:8px}
+.dad-cols{display:flex;flex-direction:column;gap:10px;min-height:0}
+.dad-mesa{border-radius:14px;background:radial-gradient(#1a6a44,#0e3a26);border:4px solid #5a3a1e;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 8px;gap:6px;min-height:200px}
+.dad-lado{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+.dad-lado img,.dad-cru{width:60px;height:60px;border-radius:12px;object-fit:cover;object-position:50% 15%;border:2px solid #d8a838}
+.dad-cru{display:flex;align-items:center;justify-content:center;background:#1a1208;color:#d8c8a8}.dad-cru .ico{width:38px;height:38px}
+.dad-d{display:flex;gap:6px}.dad-d svg{width:46px;height:46px}
+.dad-d.r circle{fill:#b0201c}
+.dad-t{font:400 28px/1 var(--display);color:#ffd27a;min-height:28px}
+.dad-vs{font:400 30px var(--display);color:#fbf0dc;text-shadow:0 0 12px rgba(255,200,90,.6)}
+.dad-der{display:flex;flex-direction:column;gap:10px;justify-content:space-between}
+.dad-msg{margin:0;text-align:center;font:700 15px/1.35 var(--hud);color:#9fe6dc;min-height:2.7em}
+@media (orientation:landscape) and (max-height:600px){#dad-s .card{width:min(900px,100%);padding-top:8px;padding-bottom:8px}#dad-s .card>.title{font-size:22px;margin:0}.dad-cols{flex-direction:row}.dad-mesa{flex:1;min-height:0}.dad-der{flex:0 0 42%}}
 /* ===== Carrera de caballos (boceto aprobado, 19-oct-2026) ===== */
 #car-s .card{width:min(760px,100%);max-height:100%;display:flex;flex-direction:column;gap:8px}
 #car-s .car-cols{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1}
@@ -2307,6 +2322,13 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <h2 class="title sm">Carrera de caballos</h2>
       <div class="car-cols"><div class="car-izq"><div class="car-pista" id="car-pista"></div><div class="car-grupo" id="car-grupo"></div></div>
       <div class="car-der"><p class="tag car-nota" id="car-nota"></p><div class="car-apuestas" id="car-apuestas"></div><div class="car-pie" id="car-pie"></div></div></div>
+    </div>
+  </div>
+  <div class="overlay" id="dad-s" hidden>
+    <div class="card">
+      <h2 class="title sm">Duelo de dados</h2>
+      <div class="dad-cols"><div class="dad-mesa"><div class="dad-lado" id="dad-yo"></div><span class="dad-vs">VS</span><div class="dad-lado" id="dad-cr"></div></div>
+      <div class="dad-der"><p class="dad-msg" id="dad-msg"></p><div class="car-pie" id="dad-pie"></div></div></div>
     </div>
   </div>
   <div class="overlay" id="bj-s" hidden>
@@ -20714,6 +20736,7 @@ const BAL = {
   // Máquinas de cartas de la Trastienda (pedido del dueño, 18-oct-2026). p = probabilidad de salir en cada visita (en la versión de prueba, 1 = siempre)
   // Trastienda (bocetos aprobados por el dueño, 19-oct-2026): carrera de caballos 6 % y duelo de dados 5 %; se apuestan fichas de miembro
   carrera: { p: 0.06, pagos: [2, 3, 4, 6], max: 5, dur: 8 },
+  dados: { p: 0.05, paga: 2, max: 5, porVisita: 3 },   // duelo de dados contra el crupier (empate: se vuelve a tirar)
   maquinas: {
     madame: { p: 0.5, fichas: 1, cartas: 3,   // sale como salía la puerta de Madame: 1 de cada 2 visitas   // cada carta: un premio y un castigo
       premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 80, zona: 30 } },
@@ -28498,6 +28521,7 @@ function prepRoom() {
   game.lastDoor = null; game.roomSlot = rr() < 0.15 * cas + arbP('slot'); game.roomWheel = rr() < 0.10 * cas + arbP('ruleta');
   game.roomRamen = rr() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
   game.roomTiro = rr() < 0.05;
+  game.roomDad = rr() < BAL.dados.p; game.dad = null;
   game.roomCar = rr() < BAL.carrera.p; game.car = game.roomCar ? carNueva() : null; game.carPag = 0;
   game.fuseN = 0;
   game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
@@ -28692,6 +28716,64 @@ function buildCarrera(x, z) {
   addBox(x, z, 0.65, 1.65);
   world.anims.push((dt, t) => toys.forEach((h, i) => { h.position.x = -1.2 + ((t * (0.18 + i * 0.03) + i * 0.3) % 1) * 2.4; h.position.y = 1.1 + Math.abs(Math.sin(t * 8 + i)) * 0.04; }));
   return { kind: 'carrera', x: x + 1.5, z, r: 1.5 };
+}
+/* ===== Duelo de dados (evento de la Trastienda, 5 %; boceto aprobado por el dueño, 19-oct-2026) =====
+   Contra el crupier y nada más (decisión del dueño: entre compañeros no se pasan fichas). Cada uno tira 2 dados y gana el que suma más;
+   el crupier paga x2 y el empate se vuelve a tirar. Se apuestan fichas de miembro. En grupo, cada jugador juega su propio duelo. */
+let dadN = 1, dadTO = [];
+function abrirDados() {
+  game.dad = game.dad || { n: 0, yo: [0, 0], cr: [0, 0], msg: '', rueda: false };
+  state = 'dados'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
+  dadN = Math.max(1, Math.min(dadN, BAL.dados.max, game.poker | 0)); show('dad-s'); renderDados();
+}
+function cerrarDados() { if (state !== 'dados' || (game.dad && game.dad.rueda)) return; for (const t of dadTO) clearTimeout(t); show(null); state = 'play'; requestLock(); canvas.focus(); }
+const dadQuedan = () => BAL.dados.porVisita - ((game.dad && game.dad.n) | 0);
+function renderDados() {
+  const D = game.dad, f = game.poker | 0, cara = n => n ? dadoCara(n) : `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="18" fill="#fbf4e2" stroke="#1a1208" stroke-width="4" opacity=".35"/></svg>`;
+  const tot = a => a[0] + a[1];
+  $('#dad-yo').innerHTML = `<img alt="" src="${charPic(game.char)}"><b>Tú</b><div class="dad-d">${cara(D.yo[0])}${cara(D.yo[1])}</div><span class="dad-t">${D.yo[0] ? tot(D.yo) : ''}</span>`;
+  $('#dad-cr').innerHTML = `<i class="dad-cru">${ico('tophat')}</i><b>El crupier</b><div class="dad-d r">${cara(D.cr[0])}${cara(D.cr[1])}</div><span class="dad-t">${D.cr[0] ? tot(D.cr) : ''}</span>`;
+  $('#dad-msg').textContent = D.msg || `Cada uno tira 2 dados: gana el que suma más. El crupier paga x${BAL.dados.paga}; si empatan, se vuelve a tirar. Te quedan ${Math.max(0, dadQuedan())} ${dadQuedan() === 1 ? 'duelo' : 'duelos'} en esta visita.`;
+  const ok = !D.rueda && f > 0 && dadQuedan() > 0;
+  $('#dad-pie').innerHTML = `<div class="car-paso"><button type="button" id="dad-menos" aria-label="Una ficha menos"${ok && dadN > 1 ? '' : ' disabled'}>−</button><span class="car-ficha">${fichaMini()}</span><b>${f ? dadN : 0}</b><button type="button" id="dad-mas" aria-label="Una ficha más"${ok && dadN < Math.min(BAL.dados.max, f) ? '' : ' disabled'}>+</button></div>`
+    + `<button type="button" class="btn2" id="dad-out"${D.rueda ? ' disabled' : ''}>Volver</button><button type="button" class="btn" id="dad-go"${ok ? '' : ' disabled'}>${dadQuedan() <= 0 ? 'Sin duelos' : f ? 'Tirar' : 'Sin fichas'}</button>`;
+  const on = (id, fn) => { const b = $('#' + id); if (b) b.addEventListener('click', fn); };
+  on('dad-menos', () => { dadN = Math.max(1, dadN - 1); renderDados(); });
+  on('dad-mas', () => { dadN = Math.min(BAL.dados.max, game.poker | 0, dadN + 1); renderDados(); });
+  on('dad-out', cerrarDados);
+  on('dad-go', dadTirar);
+}
+function dadTirar() {
+  const D = game.dad; if (D.rueda || dadQuedan() <= 0) return; const n = Math.min(dadN, game.poker | 0); if (n < 1) return;
+  game.poker -= n; D.n++; D.apuesta = n; renderChips(); Sfx.coin(); dadRonda();
+}
+function dadRonda() {
+  const D = game.dad, d6 = () => 1 + Math.floor(Math.random() * 6);
+  D.rueda = true; D.msg = '¡Ruedan los dados!'; Sfx.dice();
+  const fin = { yo: [d6(), d6()], cr: [d6(), d6()] };
+  for (let k = 0; k < 9; k++) dadTO.push(setTimeout(() => { if (!game || !game.dad) return; D.yo = [d6(), d6()]; D.cr = [d6(), d6()]; if (state === 'dados') renderDados(); }, k * 110));
+  dadTO.push(setTimeout(() => {
+    if (!game || !game.dad) return; D.yo = fin.yo; D.cr = fin.cr; const a = fin.yo[0] + fin.yo[1], b = fin.cr[0] + fin.cr[1];
+    if (a === b) { D.msg = `Empate a ${a}: se vuelve a tirar…`; if (state === 'dados') renderDados(); dadTO.push(setTimeout(dadRonda, 900)); return; }
+    D.rueda = false;
+    if (a > b) { const g = D.apuesta * BAL.dados.paga; game.poker = (game.poker | 0) + g; D.msg = `¡Ganas ${a} a ${b}! Cobras ${g} fichas de miembro`; Sfx.cash(); feed(D.msg, 'gold'); }
+    else { D.msg = `El crupier gana ${b} a ${a}. Perdiste ${D.apuesta} ${D.apuesta === 1 ? 'ficha' : 'fichas'}`; Sfx.ouch(0, 0.6); }
+    dadN = Math.max(1, Math.min(dadN, game.poker | 0)); renderChips(); if (state === 'dados') renderDados();
+  }, 1100));
+  if (state === 'dados') renderDados();
+}
+function buildDados(x, z) {
+  const P = Grp(x, z, 0), q = { p: P }, felt = lam(0x1a6a3a), wood = lam(0x5a3018), dk = lam(0x2a1a10);
+  M(cyl(1.1, 1.1, 0.1, 24), felt, 0, 0.92, 0, q); M(cyl(1.2, 1.2, 0.08, 24), wood, 0, 0.86, 0, q); M(cyl(0.25, 0.35, 0.86, 10), dk, 0, 0.43, 0, q);
+  const dT = canvasTex(64, 64, g => { g.fillStyle = '#fbf4e2'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#b0201c'; for (const [a, b] of [[16, 16], [48, 48], [32, 32]]) { g.beginPath(); g.arc(a, b, 6, 0, TAU); g.fill(); } }), dM = lam(0xffffff, { map: dT });
+  const d1 = M(bx(0.16, 0.16, 0.16), dM, -0.2, 1.05, 0.1, q), d2 = M(bx(0.16, 0.16, 0.16), dM, 0.15, 1.05, -0.1, q);
+  M(cyl(0.18, 0.2, 0.25, 12), lam(0x3a1a10), 0.55, 1.08, 0.3, q);   // el cubilete
+  M(bx(0.45, 1.4, 0.35), dk, 0, 0.7, 1.5, q); M(new THREE.SphereGeometry(0.17, 10, 8), lam(0xd8b090), 0, 1.55, 1.5, q); M(cyl(0.2, 0.22, 0.25, 10), lam(0x111111), 0, 1.78, 1.5, q);   // el crupier, con galera
+  addBox(x, z + 0.4, 1.2, 1.6);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({ map: canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#2a0a0a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ffd47a'; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10); g.fillStyle = '#ffe9b8'; g.font = 'bold 56px Georgia'; g.textAlign = 'center'; g.fillText('DADOS', w / 2, 84); }) }));
+  sign.position.set(0, 2.3, 1.7); sign.rotation.y = Math.PI; P.add(sign);
+  world.anims.push((dt, t) => { d1.rotation.y = t * 0.6; d2.rotation.y = -t * 0.5; });
+  return { kind: 'dados', x, z: z - 1.6, r: 1.4 };
 }
 function buildBlackjack(x, z) {
   const P = Grp(x, z, 0), q = { p: P }, felt = lam(0x1a6a3a), wood = lam(0x5a3018), dk = lam(0x2a1a10), brass = lam(0xd8a838, { emissive: 0x2a1c04 });
@@ -29736,7 +29818,8 @@ function buildShopRoom() {
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
   if (game && game.roomWheel) R.objs.push(buildWheel(HX - 0.55, 6.2));
   if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
-  if (game && game.roomCar) R.objs.push(buildCarrera(-HX + 0.7, 2.6));   // pared izquierda, adelante: la carrera de caballos
+  if (game && game.roomCar) R.objs.push(buildCarrera(-HX + 0.7, 2.6));
+  if (game && game.roomDad) R.objs.push(buildDados(-4.6, 5.3));   // adelante a la izquierda (enfrente del blackjack): el duelo de dados   // pared izquierda, adelante: la carrera de caballos
   // Madame y el diablo o el ángel: donde estaban sus puertas, en la pared del fondo (x −5 y x 0); la de cápsulas y La Garra se corren a un lado
   if (game && game.roomMadame) R.objs.push(buildMaqCartas(-4.4, -HZ + 0.43, 'madame'));
   if (game && game.roomDva) R.objs.push(buildMaqCartas(0, -HZ + 0.43, game.roomDva));
@@ -29772,6 +29855,7 @@ function useLabel(o) {
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
   if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
+  if (o.kind === 'dados') { const f = game.poker | 0, q = dadQuedan(); return { key: 'dd' + f + q, t: 'Duelo de dados', r: '', d: `Tú contra el crupier: 2 dados cada uno, gana el que suma más. Paga x${BAL.dados.paga}; el empate se vuelve a tirar. Hasta ${BAL.dados.porVisita} duelos por visita. Tienes ${f} fichas de miembro.`, b: q <= 0 ? 'Ya jugaste' : f ? 'Jugar' : 'Sin fichas de miembro', ok: q > 0 && f > 0 }; }
   if (o.kind === 'carrera') { const C = game.car, f = game.poker | 0, mia = C && C.bets[carYo()]; return { key: 'ca' + f + (C ? C.f + (C.f2 || '') : '') + !!mia, t: 'Carrera de caballos', r: '', d: `Apuesta fichas de miembro a un caballo: pagan x2, x3, x4 y x6. Una carrera por visita. Tienes ${f}.`, b: C && C.f2 === 'fin' ? 'Ver el resultado' : mia ? 'Ver la carrera' : f ? 'Apostar' : 'Sin fichas de miembro', ok: !!(C && (mia || C.f2 === 'fin' || f > 0)) }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
@@ -29810,6 +29894,8 @@ function useObj(o) {
     useCur = null; showUse(null); abrirBj();
   } else if (o.kind === 'maq') {
     useCur = null; showUse(null); abrirMaq(o);
+  } else if (o.kind === 'dados') {
+    useCur = null; showUse(null); abrirDados();
   } else if (o.kind === 'carrera') {
     useCur = null; showUse(null); abrirCarrera();
   } else if (o.kind === 'tiro') {
