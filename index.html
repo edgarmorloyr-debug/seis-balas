@@ -5458,6 +5458,135 @@ function heavenPuffs(list, mat, cast) {
   list.forEach((a, i) => { p.set(a[0], a[1], a[2]); s.set(a[3], a[4], a[5]); mt.compose(p, q, s); m.setMatrixAt(i, mt); m.setColorAt(i, c.setHex(a[6] || 0xffffff)); });
   m.instanceColor.needsUpdate = true; m.castShadow = !!cast; m.receiveShadow = true; world.group.add(m); return m;
 }
+/* ===== El Cielo grande (PENDIENTES 44, 19-oct-2026): la plaza de nubes de siempre queda en el centro y por los tres tramos
+   rotos de la barandilla salen puentes de mármol a 3 islas flotantes con zona de llave: el jardín del Edén, la biblioteca
+   celestial y el salón del trono. Alrededor sigue el vacío. */
+const CIG = { R: 42.5, c0: 41, r1: 56, D: 28, hw: 15, cw: 2.4, z: [] };
+function cieloLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['ede', 1.285, 'en el jardín del Edén'], ['bib', 3.985, 'en la biblioteca celestial'], ['tro', 5.34, 'en el salón del trono']])
+  CIG.z.push({ k, a, nombre, en: (x, z) => { const q = cieloLocal(a, x, z); return Math.abs(q.lx) < CIG.hw - 0.8 && q.lz > CIG.r1 + 0.8 && q.lz < CIG.r1 + CIG.D - 0.8; } });
+const enEden = CIG.z[0].en, enBiblio = CIG.z[1].en, enTrono = CIG.z[2].en;
+function zonaCielo(x, z) { return enEden(x, z) ? 'en el jardín del Edén' : enBiblio(x, z) ? 'en la biblioteca celestial' : enTrono(x, z) ? 'en el salón del trono' : 'en la plaza'; }
+const cieloHueco = (a, m) => CIG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m);
+function cieloGrande(g0, mt) {
+  const { R, c0, r1, D, hw, cw } = CIG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 4, hz: r2 + 4 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = CIG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el borde de la plaza ahora es una pared invisible (antes lo era el círculo del lugar), con tres huecos para los puentes
+  for (let k = 0; k < 288; k++) { const a = (k + 0.5) / 288 * TAU; if (cieloHueco(a, 0.0716)) continue; addBox(Math.cos(a) * (R + 0.8), Math.sin(a) * (R + 0.8), 0.53, 0.8, Math.PI / 2 - a); }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.3); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaCielo(p.x, p.z) }); };
+  const sale = (g, lx, lz) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise: true }); };
+  const piso = (g, w, d, lz, mat) => M(new THREE.PlaneGeometry(w, d), mat, 0, 0.02, lz, { p: g, rx: -Math.PI / 2, cast: false });
+  const marmol = lam(0xf2ede6, { map: mt.marbleTex }), oro = lam(0xe0b048, { emissive: 0x4a3008 }), nubes = [];
+  // ---- puentes e islas: losa de mármol, barandilla dorada, borde de nubes y nubes colgando por debajo
+  const G = {};
+  for (const Z of CIG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    const bl = r1 - c0 + 1, bc = c0 + bl / 2 - 0.5;
+    box(g, 2 * cw + 0.4, 0.4, bl, marmol, 0, -0.18, bc, {});
+    for (const s of [-1, 1]) {
+      box(g, 0.12, 0.12, bl, oro, s * (cw + 0.1), 1.05, bc, { cast: false });
+      for (let i = 0; i <= Math.floor(bl / 1.6); i++) box(g, 0.1, 1.05, 0.1, oro, s * (cw + 0.1), 0.52, c0 + i * 1.6, { cast: false });
+      col(g, s * (cw + 0.75), bc, 0.6, bl / 2 + 0.2);
+    }
+    for (let i = 0; i < 9; i++) { const p = lw(g, sr(-cw, cw), c0 + 2 + i * 1.5), sy = sr(0.6, 1); nubes.push([p.x, -0.45 - sy, p.z, sr(1.4, 2.2), sy, sr(1.4, 2.2), pick([0xfff6f2, 0xf4e2e2, 0xe8d4dc])]); }
+    // la isla: borde de nubes y nubes debajo
+    for (let i = 0; i < 34; i++) { const t = i / 34, per = 2 * (2 * hw + D), u = t * per; let lx, lz; if (u < 2 * hw) { lx = -hw + u; lz = r1; } else if (u < 2 * hw + D) { lx = hw; lz = r1 + u - 2 * hw; } else if (u < 4 * hw + D) { lx = hw - (u - 2 * hw - D); lz = r2; } else { lx = -hw; lz = r2 - (u - 4 * hw - D); }
+      if (lz === r1 && Math.abs(lx) < cw + 1) continue; const ox = lx <= -hw + 0.01 ? -1.4 : lx >= hw - 0.01 ? 1.4 : 0, oz = lz <= r1 + 0.01 ? -1.4 : lz >= r2 - 0.01 ? 1.4 : 0, p = lw(g, lx + ox + sr(-0.4, 0.4), lz + oz + sr(-0.4, 0.4)), s = sr(1.6, 3); nubes.push([p.x, -0.2 - s * 0.3, p.z, s * 1.3, s * 0.55, s * 1.3, pick([0xfff6f2, 0xf4e2e2, 0xe8d4dc, 0xffefe0])]); }
+    for (let i = 0; i < (fast ? 10 : 18); i++) { const p = lw(g, sr(-hw + 2, hw - 2), sr(r1 + 2, r2 - 2)), s = sr(3, 6); nubes.push([p.x, -1.2 - s * 0.7, p.z, s * 1.3, s * 0.7, s * 1.3, pick([0xe8d4dc, 0xd8c0cc, 0xf0dcdc])]); }
+    // barandilla baja de mármol alrededor de la isla (con su hueco hacia el puente)
+    const rail = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, hz = Math.abs(z1 - z0) < 0.01; box(g, hz ? L : 0.3, 0.9, hz ? 0.3 : L, marmol, cx, 0.45, cz, {}); box(g, hz ? L + 0.1 : 0.45, 0.14, hz ? 0.45 : L + 0.1, marmol, cx, 0.95, cz, { cast: false }); col(g, cx, cz, hz ? L / 2 + 0.3 : 0.5, hz ? 0.5 : L / 2 + 0.3); };
+    rail(-hw, r1, -cw - 0.2, r1); rail(cw + 0.2, r1, hw, r1); rail(-hw, r1, -hw, r2); rail(hw, r1, hw, r2); rail(-hw, r2, hw, r2);
+    for (const s of [-1, 1]) { box(g, 0.5, 1.6, 0.5, marmol, s * (cw + 0.45), 0.8, r1, {}); M(new THREE.SphereGeometry(0.3, 10, 8), oro, s * (cw + 0.45), 1.8, r1, { p: g }); }
+  }
+  heavenPuffs(nubes, lam(0xffffff), false);
+
+  // ================= EL JARDÍN DEL EDÉN: el manzano, flores, el estanque y una serpiente enroscada =================
+  { const g = G.ede;
+    const pastoT = noiseTex(256, '#5a8a3a', ['#6a9a46', '#4a7a30', '#76a850', '#527f36'], 2200, 8, (q, w) => { for (let i = 0; i < 160; i++) { q.fillStyle = pick(['#ffe070', '#ff8ab0', '#ffffff', '#b090ff']); q.fillRect(Math.random() * w, Math.random() * w, 3, 3); } });
+    piso(g, 2 * hw, D, lc, new THREE.MeshLambertMaterial({ map: pastoT, polygonOffset: true, polygonOffsetFactor: -1 }));
+    const tp = lw(g, 0, lc + 2); oak(tp.x, tp.z, 1.7, 0x2a5a22); addCircle(tp.x, tp.z, 1.1);
+    const manz = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 8, 6), lam(0xd81e1e, { emissive: 0x3a0404 }), 22), m4 = new THREE.Matrix4();
+    for (let i = 0; i < 22; i++) { const a = sr(0, TAU), r = sr(1.5, 3.2); m4.makeTranslation(tp.x + Math.cos(a) * r, sr(3.6, 6), tp.z + Math.sin(a) * r); manz.setMatrixAt(i, m4); }
+    world.group.add(manz);
+    // la serpiente: un tubo verde que sube en espiral por el tronco
+    { const pts = []; for (let i = 0; i <= 40; i++) { const t = i / 40, a = t * 9; pts.push(new THREE.Vector3(tp.x + Math.cos(a) * 0.55, 0.3 + t * 3, tp.z + Math.sin(a) * 0.55)); }
+      M(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.09, 6), lam(0x2a8a2a, { emissive: 0x062a06 }), 0, 0, 0, {}); }
+    // estanque con nenúfares
+    const ep = [-8, r2 - 7]; M(new THREE.CircleGeometry(3.4, 28), bsc(0x5ab0d0, { transparent: true, opacity: 0.85 }), ep[0], 0.04, ep[1], { p: g, rx: -Math.PI / 2, cast: false });
+    M(new THREE.TorusGeometry(3.5, 0.25, 6, 28), lam(0x9a9488), ep[0], 0.06, ep[1], { p: g, rx: Math.PI / 2 });
+    for (let i = 0; i < 5; i++) M(new THREE.CircleGeometry(0.4, 10), lam(0x3a8a3a), ep[0] + sr(-2.2, 2.2), 0.06, ep[1] + sr(-2.2, 2.2), { p: g, rx: -Math.PI / 2, cast: false });
+    colC(g, ep[0], ep[1], 3.5);
+    // flores en matas
+    const fl = []; for (let i = 0; i < (fast ? 40 : 90); i++) { const p = lw(g, sr(-hw + 1, hw - 1), sr(r1 + 1, r2 - 1)); fl.push([p.x, p.z, pick([0xffe070, 0xff8ab0, 0xffffff, 0xb090ff, 0xff6a50])]); }
+    { const im = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x2a2a2a }), fl.length), cc = new THREE.Color(); fl.forEach(([x, z, c], i) => { m4.makeTranslation(x, 0.25, z); im.setMatrixAt(i, m4); im.setColorAt(i, cc.setHex(c)); }); world.group.add(im); }
+    for (const [x, z] of [[9, r1 + 6], [10, r2 - 5], [-11, r1 + 5]]) { const p = lw(g, x, z); oak(p.x, p.z, sr(0.9, 1.1), 0x3a6a2a); addCircle(p.x, p.z, 0.6); }
+    glow(g, 0, 4.5, lc + 2, 0xfff0a0, 9, 0.25);
+    luz(g, 0, 5, lc - 3, 0xfff0c0, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 2.5], [12, r1 + 3], [-12, lc], [12, lc + 2], [0, r2 - 2.5], [4, r1 + 3], [-3, lc - 4]]) spotK(g, x, z);
+    for (const x of [-10, 2, 11]) sale(g, x, r2 - 2);
+  }
+
+  // ================= LA BIBLIOTECA CELESTIAL: estanterías de mármol, libros que flotan y el atril que brilla =================
+  { const g = G.bib;
+    const t = mt.marbleTex.clone(); t.needsUpdate = true; t.repeat.set(6, 6);
+    piso(g, 2 * hw, D, lc, new THREE.MeshLambertMaterial({ map: t, color: 0xe8e0d8, polygonOffset: true, polygonOffsetFactor: -1 }));
+    const lomosT = canvasTex(256, 256, (q, w) => { q.fillStyle = '#3a2a1a'; q.fillRect(0, 0, w, w); for (let f = 0; f < 4; f++) { let x = 4; while (x < w - 6) { const bw = rand(6, 14); q.fillStyle = pick(['#8a1a1a', '#1a3a8a', '#2a6a2a', '#7a5a1a', '#5a1a5a', '#c8a040', '#e8e0d0']); q.fillRect(x, f * 64 + 8, bw, 52 - rand(0, 10)); q.fillStyle = 'rgba(255,215,120,.6)'; q.fillRect(x + 1, f * 64 + 18, bw - 2, 2); x += bw + 1; } q.fillStyle = '#d8d0c4'; q.fillRect(0, f * 64 + 60, w, 4); } });
+    const lomosM = lam(0xffffff, { map: lomosT });
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { const z = r1 + 5 + i * 8; box(g, 1.2, 4.6, 5.4, marmol, s * 11.5, 2.3, z, {}); M(new THREE.PlaneGeometry(5, 4.2), lomosM, s * 11.5 - s * 0.61, 2.3, z, { p: g, ry: -s * Math.PI / 2, cast: false }); M(new THREE.PlaneGeometry(5, 4.2), lomosM, s * 11.5 + s * 0.61, 2.3, z, { p: g, ry: s * Math.PI / 2, cast: false }); col(g, s * 11.5, z, 0.6, 2.7); }
+    for (let i = 0; i < 2; i++) { const z = r1 + 9 + i * 8; box(g, 5.4, 3.2, 1, marmol, 0, 1.6, z, {}); M(new THREE.PlaneGeometry(5, 2.8), lomosM, 0, 1.6, z - 0.51, { p: g, ry: Math.PI, cast: false }); M(new THREE.PlaneGeometry(5, 2.8), lomosM, 0, 1.6, z + 0.51, { p: g, cast: false }); col(g, 0, z, 2.7, 0.5); }
+    // el atril con el libro abierto que brilla
+    { const z = r2 - 4; box(g, 0.8, 1.2, 0.6, oro, 0, 0.6, z, {}); box(g, 1.2, 0.08, 0.9, lam(0xf8f0d8, { emissive: 0x6a5a30 }), 0, 1.25, z, { rx: -0.3 }); glow(g, 0, 1.6, z, 0xfff0b0, 3, 0.6); colC(g, 0, z, 0.6); }
+    // libros que flotan dando vueltas despacio
+    const NB = fast ? 10 : 22, lib = new THREE.InstancedMesh(bx(0.5, 0.12, 0.7), lam(0xffffff), NB), bd = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), cc = new THREE.Color();
+    for (let i = 0; i < NB; i++) { bd.push({ x: sr(-9, 9), z: sr(r1 + 3, r2 - 3), y: sr(2.4, 5), p: sr(0, TAU), w: sr(0.3, 0.8) }); lib.setColorAt(i, cc.setHex(pick([0x8a1a1a, 0x1a3a8a, 0x2a6a2a, 0x7a5a1a, 0x5a1a5a]))); }
+    lib.userData.vivo = 1; g.add(lib);
+    world.anims.push((dt, tt) => { for (let i = 0; i < NB; i++) { const o = bd[i]; e.set(Math.sin(tt * o.w + o.p) * 0.4, tt * o.w * 0.5 + o.p, 0); q.setFromEuler(e); v.set(o.x + Math.sin(tt * 0.3 + o.p) * 0.6, o.y + Math.sin(tt * o.w + o.p) * 0.3, o.z); m4.compose(v, q, one); lib.setMatrixAt(i, m4); } lib.instanceMatrix.needsUpdate = true; });
+    // hojas sueltas que caen
+    world.anims.push(() => { if (Math.random() < (fast ? 0.05 : 0.15)) { const p = lw(g, rand(-9, 9), rand(r1 + 3, r2 - 3)); P.add(p.x, 6, p.z, rand(-0.3, 0.3), -0.5, rand(-0.3, 0.3), rand(6, 9), 0.12, 0.95, 0.92, 0.85, 0.9, 0.02, 0, 0, 0); } });
+    luz(g, 0, 5, lc, 0xd8e8ff, 1.2, 24);
+    for (const [x, z] of [[-6, r1 + 3], [6, r1 + 3], [-13.5, r1 + 9], [13.5, lc + 3], [-6, lc + 4], [6, r2 - 2.5], [-13.5, r2 - 2.5]]) spotK(g, x, z);
+    for (const x of [-8, 8, -4]) sale(g, x, r2 - 2);
+  }
+
+  // ================= EL SALÓN DEL TRONO: alfombra roja, columnas, braseros y el trono dorado (vacío) =================
+  { const g = G.tro;
+    const t = mt.marbleTex.clone(); t.needsUpdate = true; t.repeat.set(6, 6);
+    piso(g, 2 * hw, D, lc, new THREE.MeshLambertMaterial({ map: t, color: 0xf0e8e0, polygonOffset: true, polygonOffsetFactor: -1 }));
+    M(new THREE.PlaneGeometry(3.2, D - 5), lam(0xa01a1a), 0, 0.03, lc - 1.5, { p: g, rx: -Math.PI / 2, cast: false });
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) { const z = r1 + 4 + i * 6; M(cyl(0.6, 0.7, 7, 16), marmol, s * 5.5, 3.5, z, { p: g }); M(bx(1.6, 0.5, 1.6), marmol, s * 5.5, 0.25, z, { p: g }); M(bx(1.6, 0.5, 1.6), marmol, s * 5.5, 7.2, z, { p: g }); colC(g, s * 5.5, z, 0.8); }
+    // el estrado y el trono
+    const tz = r2 - 4;
+    for (let i = 0; i < 3; i++) box(g, 9 - i * 2, 0.3, 5 - i * 1.2, marmol, 0, 0.15 + i * 0.3, tz, {});
+    box(g, 2, 0.5, 1.6, oro, 0, 1.15, tz, {}); box(g, 2.2, 3.6, 0.4, oro, 0, 2.6, tz + 0.7, {}); for (const s of [-1, 1]) box(g, 0.3, 0.9, 1.6, oro, s * 1.0, 1.6, tz, {});
+    M(new THREE.TorusGeometry(0.8, 0.12, 8, 20), oro, 0, 4.6, tz + 0.7, { p: g });
+    M(new THREE.PlaneGeometry(1.4, 0.5), lam(0xa01a1a), 0, 1.42, tz, { p: g, rx: -Math.PI / 2, cast: false });
+    col(g, 0, tz, 4.5, 2.5);
+    const hal = glow(g, 0, 3.5, tz + 0.5, 0xffd070, 7, 0.4);
+    // braseros con fuego santo
+    const fuegos = [];
+    for (const [x, z] of [[-9, r1 + 6], [9, r1 + 6], [-9, r2 - 8], [9, r2 - 8]]) { M(cyl(0.6, 0.3, 0.6, 12), oro, x, 1.4, z, { p: g }); M(cyl(0.08, 0.12, 1.1, 8), oro, x, 0.55, z, { p: g }); fuegos.push([lw(g, x, z), glow(g, x, 2, z, 0xffe0a0, 2.2, 0.8)]); colC(g, x, z, 0.6); }
+    world.anims.push((dt, tt) => { hal.material.opacity = 0.32 + Math.sin(tt * 1.2) * 0.08; for (const [p, sp] of fuegos) { sp.material.opacity = 0.65 + Math.random() * 0.25; if (Math.random() < (fast ? 0.15 : 0.4)) PA.add(p.x + rand(-0.2, 0.2), 1.8, p.z + rand(-0.2, 0.2), rand(-0.1, 0.1), rand(0.8, 1.6), rand(-0.1, 0.1), rand(0.4, 0.8), rand(0.1, 0.2), 1, 0.9, 0.6, 0.9, -0.3, 0.5, 0.5, 0); } });
+    luz(g, 0, 5, lc + 3, 0xffd8a0, 1.3, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-12.5, lc + 1], [12.5, lc - 2], [-11, r2 - 2.5], [11, r2 - 3], [0, r1 + 4]]) spotK(g, x, z);
+    for (const x of [-12, 12, -7]) sale(g, x, r2 - 2);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildHeaven() {
   const R = 42.5, RB = 43.1;
   world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 4 }; world.noMoon = true;
@@ -5564,12 +5693,12 @@ function buildHeaven() {
   // ---------- Nubes: borde, bultos y cascadas que caen al vacío
   {
     const L = [];
-    for (let i = 0; i < 150; i++) { const a = i / 150 * TAU + sr(-0.02, 0.02), r = sr(43.4, 46.5), s = sr(1.4, 3.4); if (Math.abs(Math.cos(a) * r) < 6 && Math.sin(a) < 0) continue; L.push([Math.cos(a) * r, sr(-1.2, 0.1), Math.sin(a) * r, s * 1.3, s * 0.55, s * 1.3, pick([0xfff6f2, 0xf4e2e2, 0xe8d4dc, 0xffefe0])]); }
+    for (let i = 0; i < 150; i++) { const a = i / 150 * TAU + sr(-0.02, 0.02), r = sr(43.4, 46.5), s = sr(1.4, 3.4); if (Math.abs(Math.cos(a) * r) < 6 && Math.sin(a) < 0) continue; if (cieloHueco(a, 0.08)) continue; L.push([Math.cos(a) * r, sr(-1.2, 0.1), Math.sin(a) * r, s * 1.3, s * 0.55, s * 1.3, pick([0xfff6f2, 0xf4e2e2, 0xe8d4dc, 0xffefe0])]); }
     for (let i = 0; i < 170; i++) { const a = sr(0, TAU), r = Math.sqrt(sr(0.02, 1)) * 41, x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.hypot(x, z - 4) < 4) continue; const s = sr(0.6, 2.1); L.push([x, sr(-0.15, 0), z, s * 1.4, s * sr(0.14, 0.24), s, pick([0xfff8f6, 0xf6e8e8, 0xeedcdf])]); }
     heavenPuffs(L, lam(0xffffff), false);
     // cascadas: bolas de nube que resbalan por el borde y caen
     const N = 96, cm = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 9, 6), lam(0xf6e6e6, { transparent: true, opacity: 0.92 }), N), D = [];
-    for (let i = 0; i < N; i++) { let a; do a = sr(0, TAU); while (Math.abs(Math.cos(a) * 44) < 7 && Math.sin(a) < 0); if (i < 30) a = pick([1.27, 3.98, 5.34]) + sr(-0.06, 0.06); D.push({ a, r: sr(44, 46.5), y: sr(-34, 0), v: sr(1.6, 3.2), s: sr(1.0, 2.2) }); }
+    for (let i = 0; i < N; i++) { let a; do a = sr(0, TAU); while (Math.abs(Math.cos(a) * 44) < 7 && Math.sin(a) < 0); if (i < 30) a = pick([1.27, 3.98, 5.34]) + (srand() < 0.5 ? -1 : 1) * sr(0.1, 0.16); D.push({ a, r: sr(44, 46.5), y: sr(-34, 0), v: sr(1.6, 3.2), s: sr(1.0, 2.2) }); }
     cm.receiveShadow = false; world.group.add(cm);
     const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
     world.anims.push((dt) => {
@@ -5582,7 +5711,7 @@ function buildHeaven() {
 
   // ---------- Barandilla de mármol en el borde (con tramos rotos)
   {
-    const broken = [[1.24, 1.33], [3.95, 4.02], [5.31, 5.37]], isBroken = a => broken.some(([x, y]) => a > x && a < y), gateGap = a => Math.abs(Math.cos(a) * RB) < 6.6 && Math.sin(a) < 0;
+    const broken = [[1.24, 1.33], [3.95, 4.02], [5.31, 5.37]], isBroken = a => broken.some(([x, y]) => a > x && a < y), gateGap = a => (Math.abs(Math.cos(a) * RB) < 6.6 && Math.sin(a) < 0) || cieloHueco(a, 0.065);   // también los huecos de los puentes
     const bal = new THREE.LatheGeometry([[0.12, 0], [0.12, 0.08], [0.07, 0.16], [0.1, 0.36], [0.13, 0.48], [0.06, 0.7], [0.06, 0.78], [0.11, 0.86], [0.11, 0.92]].map(([x, y]) => new THREE.Vector2(x, y)), 7);
     const nB = Math.floor(TAU * RB / 0.42), balM = new THREE.InstancedMesh(bal, marbleI, nB), mt = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
     const c = new THREE.Color(0xf4efe8); let bi = 0;
@@ -5903,6 +6032,7 @@ function buildHeaven() {
   }
   // repaso final: si algún punto de aparición quedó tapado, se corre un poco por el borde
   for (const sp of world.spawns) { if (!pointBlocked(sp.x, sp.z, 0.6)) continue; const a0 = Math.atan2(sp.z, sp.x), r0 = Math.hypot(sp.x, sp.z); for (let k = 1; k < 30; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.03, r = r0 - (k > 14 ? 1.5 : 0), x = Math.cos(a) * r, z = Math.sin(a) * r; if (!pointBlocked(x, z, 0.6)) { sp.x = x; sp.z = z; break; } } }
+  cieloGrande(world.group.children.length, { marbleTex });   // los puentes y las tres islas con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Un bosque encantado de setas que brillan y casitas de duendes. La magia también despertó a los muertos.
@@ -27157,7 +27287,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
