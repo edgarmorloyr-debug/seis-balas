@@ -338,3 +338,13 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Hipnótica | Hipnosis en cadena: lo que mata el hipnotizado también se pasa a tu lado |
 | Reloj | Tiempo detenido: el tiempo se detiene 2 s antes de frenarse |
 | Ruleta rusa | Bala de plata: nunca se encasquilla; si falla, la siguiente sale con 1 de 2 |
+
+### Tanda 4 · Base S (aprobada)
+| Bala | Despertar |
+|---|---|
+| Rey | Rey de reyes: cada 50 muertes da una bala A en vez de B |
+| Fénix | Renacer eterno: se recarga cada 5 oleadas y al revivir quema todo a 8 m |
+| Ángel | Alas: al matar también cura 25 a todo el equipo |
+| Agujero negro | Singularidad: no necesita tiro a la cabeza y dura el doble |
+| Tragamonedas | Máquina trucada: premio menor +50 de oro y explosiones el doble de grandes |
+| Espejo | Sala de espejos: copia las 2 últimas activas a la vez |
