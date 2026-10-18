@@ -11040,6 +11040,136 @@ function oceanSky(planetDir) {
   const st = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xbfe8e0, size: 1.4, sizeAttenuation: false, transparent: true, opacity: 0.55, depthWrite: false, fog: false })); st.renderOrder = -8; sky.add(st);
   return sky;
 }
+/* ===== Planeta Océano grande (PENDIENTES 44, 19-oct-2026): la plataforma TALASA-7 de siempre queda en el centro y por tres
+   pasarelas de acero sobre el mar negro se llega a 3 plataformas con zona de llave: la torre de perforación (norte), las
+   jaulas de buceo (este) y el criadero (oeste). Las criaturas siguen nadando, pero lejos de las plataformas nuevas. */
+const OCG = { E: 41.6, r1: 54, D: 26, hw: 14, cw: 1.8, z: [] };
+function ocLocal(Z, x, z) { const ry = Math.PI / 2 - Z.a, c = Math.cos(ry), s = Math.sin(ry), dx = x - Z.ox, dz = z - Z.oz; return { lx: dx * c - dz * s, lz: dx * s + dz * c }; }
+for (const [k, a, ox, oz, nombre] of [['per', 1.5 * Math.PI, 6, 0, 'en la torre de perforación'], ['jau', 0, 0, 5, 'en las jaulas de buceo'], ['cri', Math.PI, 0, -2, 'en el criadero']]) {
+  const Z = { k, a, ox, oz, nombre }; Z.en = (x, z) => { const q = ocLocal(Z, x, z); return Math.abs(q.lx) < OCG.hw - 0.8 && q.lz > OCG.r1 + 0.8 && q.lz < OCG.r1 + OCG.D - 0.8; }; OCG.z.push(Z);
+}
+const enPerfora = OCG.z[0].en, enJaulasBuceo = OCG.z[1].en, enCriadero = OCG.z[2].en;
+function zonaOceano(x, z) { return enPerfora(x, z) ? 'en la torre de perforación' : enJaulasBuceo(x, z) ? 'en las jaulas de buceo' : enCriadero(x, z) ? 'en el criadero' : 'en la plataforma'; }
+// las criaturas no salen donde hay plataformas nuevas: ángulos libres y cuánto agua libre hay en un punto (0 encima de una plataforma)
+const ocAnguloLibre = (m = 0.45) => { for (let i = 0; i < 40; i++) { const a = rand(0, TAU); if (!OCG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m)) return a; } return Math.PI / 2; };
+function ocAguaLibre(x, z) { let f = 1; for (const Z of OCG.z) { const q = ocLocal(Z, x, z), d = Math.max(Math.abs(q.lx) - OCG.hw, OCG.E - q.lz, q.lz - OCG.r1 - OCG.D); f = Math.min(f, Math.min(1, Math.max(0, d / 10))); } return f; }
+function oceanoGrande(g0, mt) {
+  const { E, r1, D, hw, cw } = OCG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 4, hz: r2 + 4 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = OCG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el canto de la cubierta ahora es pared (antes lo era el borde del lugar), con un hueco en cada pasarela
+  for (const [ax, s] of [['z', -1], ['z', 1], ['x', -1], ['x', 1]]) {
+    const gaps = OCG.z.filter(Z => (ax === 'z' && Math.round(Math.sin(Z.a)) === s) || (ax === 'x' && Math.round(Math.cos(Z.a)) === s)).map(Z => ax === 'z' ? Z.ox : Z.oz);
+    let u = -E - 1; const tramos = [];
+    for (const g of gaps.sort((a, b) => a - b)) { tramos.push([u, g - cw - 0.3]); u = g + cw + 0.3; }
+    tramos.push([u, E + 1]);
+    for (const [u0, u1] of tramos) { const m = (u0 + u1) / 2, h = (u1 - u0) / 2; if (ax === 'z') addBox(m, s * (E + 0.5), h, 0.5); else addBox(s * (E + 0.5), m, 0.5, h); }
+  }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 2); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaOceano(p.x, p.z) }); };
+  const sale = (g, lx, lz, rise = false) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise }); };
+  const acero = lam(0x5a5a56), oxido = lam(0x6a4a30), oscuro = lam(0x2a2a28), amarillo = lam(0xc8a020);
+  const deck = mt.deckT.clone(); deck.needsUpdate = true; deck.repeat.set(2.8, 2.6);
+  const deckM = new THREE.MeshLambertMaterial({ map: deck, color: 0xb0aca4 });
+  const rejT = canvasTex(64, 64, (q, w) => { q.fillStyle = '#2a2a28'; q.fillRect(0, 0, w, w); q.strokeStyle = '#6a6a64'; q.lineWidth = 3; for (let i = 0; i <= 8; i++) { q.beginPath(); q.moveTo(i * 8, 0); q.lineTo(i * 8, w); q.stroke(); } q.lineWidth = 1.5; for (let i = 0; i <= 8; i++) { q.beginPath(); q.moveTo(0, i * 8); q.lineTo(w, i * 8); q.stroke(); } });
+  rejT.wrapS = rejT.wrapT = THREE.RepeatWrapping;
+  const patas = [];
+  const barandilla = (g, x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), hz = Math.abs(z1 - z0) < 0.01, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    box(g, hz ? L : 0.08, 0.08, hz ? 0.08 : L, amarillo, cx, 1.1, cz, { cast: false }); box(g, hz ? L : 0.06, 0.06, hz ? 0.06 : L, amarillo, cx, 0.6, cz, { cast: false });
+    for (let i = 0; i <= Math.floor(L / 2); i++) { const t = i / Math.max(1, Math.floor(L / 2)); box(g, 0.08, 1.1, 0.08, amarillo, x0 + (x1 - x0) * t, 0.55, z0 + (z1 - z0) * t, { cast: false }); }
+    col(g, cx, cz, hz ? L / 2 + 0.2 : 0.3, hz ? 0.3 : L / 2 + 0.2); };
+  const G = {};
+  for (const Z of OCG.z) {
+    const g = Grp(Z.ox, Z.oz, Math.PI / 2 - Z.a); G[Z.k] = g;
+    // la pasarela de rejilla con barandillas amarillas y sus patas al mar
+    const pl = r1 - E + 0.6, pc = E + pl / 2 - 0.3, rj = rejT.clone(); rj.needsUpdate = true; rj.repeat.set(2 * cw / 1.2, pl / 1.2);
+    box(g, 2 * cw, 0.12, pl, lam(0xffffff, { map: rj }), 0, -0.05, pc, { cast: false });
+    for (const s of [-1, 1]) barandilla(g, s * (cw + 0.05), E - 0.2, s * (cw + 0.05), r1);
+    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { const p = lw(g, s * cw, E + 2 + i * 4.5); patas.push([p.x, p.z, 0.18]); }
+    // la plataforma: cubierta, canto, patas y barandilla alrededor (con hueco hacia la pasarela)
+    box(g, 2 * hw, 0.3, D, deckM, 0, -0.15, lc, {});
+    box(g, 2 * hw + 0.4, 1.2, D + 0.4, lam(0x2e2a26), 0, -0.9, lc, { cast: false });
+    for (const [x, z] of [[-hw + 1.5, r1 + 1.5], [hw - 1.5, r1 + 1.5], [-hw + 1.5, r2 - 1.5], [hw - 1.5, r2 - 1.5], [-hw + 1.5, lc], [hw - 1.5, lc]]) { const p = lw(g, x, z); patas.push([p.x, p.z, 0.9]); }
+    barandilla(g, -hw, r1, -cw - 0.05, r1); barandilla(g, cw + 0.05, r1, hw, r1); barandilla(g, -hw, r1, -hw, r2); barandilla(g, hw, r1, hw, r2); barandilla(g, -hw, r2, hw, r2);
+  }
+  { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 8), lam(0x3a3430), patas.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    patas.forEach(([x, z, r], i) => { m4.compose(v.set(x, -8, z), q, sc.set(r, 16, r)); im.setMatrixAt(i, m4); }); im.castShadow = true; world.group.add(im); }
+
+  // ================= NORTE: LA TORRE DE PERFORACIÓN (la torre de celosía, la tubería que baja al abismo y la antorcha de gas) =================
+  { const g = G.per, roj = lam(0xb83a2a), tx = 0, tz = lc + 2;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, 0.3, 22, 0.3, roj, tx + sx * 2.2, 11, tz + sz * 2.2, { rz: -sx * 0.06, rx: sz * 0.06 });
+    for (let y = 2; y < 22; y += 3) { const s = 1 - y * 0.012; for (const sz of [-1, 1]) { box(g, 4.6 * s, 0.14, 0.14, roj, tx, y, tz + sz * 2.2 * s, { cast: false }); box(g, 0.14, 0.14, 4.6 * s, roj, tx + sz * 2.2 * s, y, tz, { cast: false }); } }
+    box(g, 6, 0.5, 6, oscuro, tx, 0.25, tz, {}); box(g, 1.6, 1.4, 1.6, amarillo, tx, 21.5, tz, {});
+    const tubo = M(cyl(0.3, 0.3, 26, 10), acero, tx, 6, tz, { p: g }); tubo.userData.vivo = 1;
+    col(g, tx, tz, 3, 3);
+    world.anims.push((dt, t) => { tubo.rotation.y += dt * 2.5; tubo.position.y = 6 + Math.sin(t * 0.4) * 0.6; });
+    // estantes de tubos y bombas de lodo
+    for (const z of [r1 + 4, r1 + 7]) { box(g, 7, 0.2, 1.2, acero, -8, 0.9, z, {}); for (let i = 0; i < 5; i++) M(cyl(0.22, 0.22, 7, 8), oxido, -8, 1.2 + (i % 2) * 0.3, z - 0.4 + i * 0.2, { p: g, rz: Math.PI / 2, cast: false }); col(g, -8, z, 3.5, 0.7); }
+    for (const x of [8, 11]) { box(g, 2.2, 1.8, 3, lam(0x3a5a6a), x, 0.9, r1 + 5, {}); M(cyl(0.4, 0.4, 2.4, 10), acero, x, 2.1, r1 + 5, { p: g, rx: Math.PI / 2 }); col(g, x, r1 + 5, 1.1, 1.5); }
+    // la antorcha de gas en su brazo sobre el mar
+    { const fx = hw - 1, fz = r2 - 2; box(g, 0.4, 9, 0.4, acero, fx, 4.5, fz, {}); box(g, 6, 0.3, 0.3, acero, fx + 3, 9, fz, {}); colC(g, fx, fz, 0.4);
+      const ll = glow(g, fx + 6, 9.4, fz, 0xff8030, 4, 0.9); const p = lw(g, fx + 6, fz);
+      world.anims.push(() => { ll.material.opacity = 0.7 + Math.random() * 0.3; if (Math.random() < (fast ? 0.4 : 0.9)) PA.add(p.x + rand(-0.3, 0.3), 9.4, p.z + rand(-0.3, 0.3), rand(-0.3, 0.3), rand(1.5, 3), rand(-0.3, 0.3), rand(0.5, 0.9), rand(0.25, 0.5), 1, rand(0.4, 0.7), 0.1, 0.9, -0.5, 0.6, 1.2, 0); }); }
+    luz(g, 0, 5, r1 + 6, 0xffd0a0, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 10], [12, r1 + 10], [-12, r2 - 3], [12, lc + 3], [-6, r2 - 2.5], [6, r2 - 2.5], [3, r1 + 2.5]]) spotK(g, x, z);
+    for (const x of [-11, 0, 8]) sale(g, x, r2 - 1.5);
+  }
+
+  // ================= ESTE: LAS JAULAS DE BUCEO (el pórtico con jaulas sobre un hueco al mar y la cámara de descompresión) =================
+  { const g = G.jau, hz0 = lc + 2;
+    M(new THREE.PlaneGeometry(8, 6), bsc(0x050a0c), 0, 0.02, hz0, { p: g, rx: -Math.PI / 2, cast: false }); col(g, 0, hz0, 4.2, 3.2);
+    for (const s of [-1, 1]) for (const zz of [-1, 1]) box(g, 0.4, 7, 0.4, amarillo, s * 4.6, 3.5, hz0 + zz * 3.4, {});
+    for (const zz of [-1, 1]) box(g, 9.6, 0.5, 0.5, amarillo, 0, 7, hz0 + zz * 3.4, {});
+    box(g, 0.5, 0.5, 7.3, amarillo, 0, 7.2, hz0, {});
+    const jaulaM = lam(0x8a9a9a, { wireframe: true }), jaulas = [];
+    for (const [x, ph] of [[-2, 0], [2, 2]]) { const j = new THREE.Group(); j.position.set(x, 3, hz0); j.userData.vivo = 1; g.add(j); M(bx(1.8, 2.4, 1.8), jaulaM, 0, 0, 0, { p: j, cast: false }); M(cyl(0.03, 0.03, 4, 4), lam(0x9a9a9a), 0, 3.2, 0, { p: j, cast: false }); jaulas.push([j, ph]); }
+    world.anims.push((dt, t) => { for (const [j, ph] of jaulas) { j.position.y = 1 + Math.sin(t * 0.3 + ph) * 3; j.rotation.y = Math.sin(t * 0.5 + ph) * 0.2; } });
+    // cámara de descompresión, taquillas con trajes y botellas
+    { const cx = -9, cz = r2 - 6; M(cyl(1.6, 1.6, 6, 16), lam(0xc8c4b8), cx, 1.7, cz, { p: g, rx: Math.PI / 2 }); for (const s of [-1, 1]) M(new THREE.SphereGeometry(1.6, 14, 8, 0, TAU, 0, Math.PI / 2), lam(0xc8c4b8), cx, 1.7, cz + s * 3, { p: g, rx: s * Math.PI / 2 }); M(new THREE.CircleGeometry(0.4, 12), bsc(0xffd890), cx + 1.61, 2, cz, { p: g, ry: Math.PI / 2, cast: false }); col(g, cx, cz, 1.7, 4.6); }
+    for (let i = 0; i < 4; i++) { box(g, 1, 2.2, 0.8, lam(0x3a5a7a), 10 + i * 1.05 - 3, 1.1, r2 - 1.2, {}); }
+    col(g, 8.6, r2 - 1.2, 2.2, 0.5);
+    for (let i = 0; i < 6; i++) M(cyl(0.18, 0.18, 1.1, 8), lam(0xe8b020), 11 + (i % 3) * 0.45, 0.55, r1 + 3 + Math.floor(i / 3) * 0.45, { p: g });
+    colC(g, 11.5, r1 + 3.2, 0.9);
+    luz(g, 0, 5, hz0 - 5, 0xa0e0ff, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 7], [-12, lc + 1], [11, lc + 3], [-4, r2 - 2.5], [4, r2 - 2.5], [6, r1 + 3]]) spotK(g, x, z);
+    sale(g, 0, hz0, true); for (const x of [-12, 12]) sale(g, x, r2 - 1.5);
+  }
+
+  // ================= OESTE: EL CRIADERO (acuarios con huevos que brillan y laten, uno roto que gotea) =================
+  { const g = G.cri, vidrio = new THREE.MeshBasicMaterial({ color: 0x6ad8c8, transparent: true, opacity: 0.18, depthWrite: false }), huevos = [];
+    const huevoM = new THREE.MeshLambertMaterial({ color: 0x9a3a6a, emissive: 0x3a0a2a, transparent: true, opacity: 0.85 });
+    for (const [x, z, roto] of [[-8, r1 + 7, 0], [0, r1 + 7, 0], [8, r1 + 7, 1], [-8, r2 - 7, 0], [8, r2 - 7, 0]]) {
+      box(g, 4.4, 0.6, 3.4, oscuro, x, 0.3, z, {});
+      if (!roto) box(g, 4.2, 2.6, 3.2, vidrio, x, 1.9, z, { cast: false });
+      else { for (let k = 0; k < 4; k++) box(g, sr(0.5, 1.2), sr(0.4, 1.4), 0.04, vidrio, x - 2 + k * 1.3, 0.9, z - 1.6, { ry: sr(-0.5, 0.5), cast: false }); M(new THREE.CircleGeometry(2.4, 16), bsc(0x3ac8a8, { transparent: true, opacity: 0.45, depthWrite: false }), x, 0.03, z - 3, { p: g, rx: -Math.PI / 2, cast: false }); }
+      for (let k = 0; k < 4; k++) { const h = M(new THREE.SphereGeometry(0.45, 12, 8), huevoM, x - 1.3 + (k % 2) * 2.6 + sr(-0.3, 0.3), 1, z - 0.6 + Math.floor(k / 2) * 1.2, { p: g, cast: false }); h.scale.y = 1.3; }
+      huevos.push(glow(g, x, 1.4, z, 0xff60b0, 3, 0.35)); col(g, x, z, 2.2, 1.7);
+    }
+    // el huevo enorme del centro, en su cuna de cables
+    { const cz = lc; const big = M(new THREE.SphereGeometry(1.6, 18, 12), huevoM, 0, 2, cz, { p: g, cast: false }); big.scale.y = 1.35;
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; M(cyl(0.06, 0.06, 3.2, 5), oscuro, Math.cos(a) * 1.4, 1.4, cz + Math.sin(a) * 1.4, { p: g, rz: Math.cos(a) * 0.3, rx: -Math.sin(a) * 0.3, cast: false }); }
+      const bg = glow(g, 0, 2, cz, 0xff60b0, 6, 0.4); colC(g, 0, cz, 1.8);
+      world.anims.push((dt, t) => { const k = 0.5 + Math.sin(t * 1.8) * 0.5; huevoM.emissive.setRGB(0.18 + k * 0.2, 0.03, 0.12 + k * 0.12); bg.material.opacity = 0.25 + k * 0.25; huevos.forEach((h, i) => h.material.opacity = 0.2 + (0.5 + Math.sin(t * 1.8 + i) * 0.5) * 0.25); }); }
+    if (!fast) { const p = lw(g, 8, r1 + 5.4); world.anims.push(() => { if (Math.random() < 0.08) P.add(p.x + rand(-1.5, 1.5), 1.2, p.z, 0, -0.5, 0, 0.8, 0.05, 0.3, 0.8, 0.7, 0.8, 9.8, 0, 0, 0); }); }
+    luz(g, 0, 4.5, lc - 4, 0xff70c0, 1.1, 24);
+    for (const [x, z] of [[-12.5, r1 + 3], [12.5, r1 + 3], [-12.5, lc], [12.5, lc], [-4, r2 - 2.5], [4, r2 - 2.5], [-3, r1 + 2.5]]) spotK(g, x, z);
+    for (const x of [-12, 12, 0]) sale(g, x, r2 - 1.5);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildOcean() {
   const _gc = new Map();
   const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
@@ -11452,11 +11582,11 @@ function buildOcean() {
   // ---- Animación de las criaturas, la sirena y el foco
   world.anims.push((dt, t) => {
     // aletas
-    for (const f of fins) { f.a += f.sp * dt; const x = Math.cos(f.a) * f.r, z = Math.sin(f.a) * f.r, up = Math.min(1, Math.max(0, Math.sin(t * 0.11 + f.ph) * 2.2 + 0.4)); f.m.position.set(x, WY + swell(x, z, t) - 0.3 - (1 - up) * 7 * f.sc, z); f.m.rotation.y = -f.a + (f.sp > 0 ? Math.PI : 0) + Math.PI / 2; f.m.rotation.z = Math.sin(t * 1.3 + f.ph) * 0.05;
+    for (const f of fins) { f.a += f.sp * dt; const x = Math.cos(f.a) * f.r, z = Math.sin(f.a) * f.r, up = Math.min(1, Math.max(0, Math.sin(t * 0.11 + f.ph) * 2.2 + 0.4)) * ocAguaLibre(x, z); f.m.position.set(x, WY + swell(x, z, t) - 0.3 - (1 - up) * 7 * f.sc, z); f.m.rotation.y = -f.a + (f.sp > 0 ? Math.PI : 0) + Math.PI / 2; f.m.rotation.z = Math.sin(t * 1.3 + f.ph) * 0.05;
       if (up > 0.3 && Math.random() < dt * (FAST() ? 6 : 14)) P.add(x + rand(-0.6, 0.6), WY + 0.2, z + rand(-0.6, 0.6), rand(-1, 1), rand(0.6, 1.6), rand(-1, 1), 1.4, 0.3 * f.sc, 0.75, 0.85, 0.85, 0.4, 2, 0.6, 0.4, 0); }
     // lomo
     humpS.t -= dt;
-    if (humpS.on === 0 && humpS.t <= 0) { humpS.on = 1; humpS.k = 0; humpS.a = rand(0, TAU); humpS.r = rand(56, 72); humpS.t = 16; }
+    if (humpS.on === 0 && humpS.t <= 0) { humpS.on = 1; humpS.k = 0; humpS.a = rand(0.9, 1.6); humpS.r = rand(56, 72); humpS.t = 16; }
     if (humpS.on) { humpS.k += dt / 16; const e = Math.sin(Math.min(1, humpS.k) * Math.PI), a = humpS.a + humpS.k * 0.25, x = Math.cos(a) * humpS.r, z = Math.sin(a) * humpS.r;
       hump.visible = true; hump.position.set(x, WY - 11 + e * 9.5, z); hump.rotation.y = -a - Math.PI / 2; hump.rotation.z = Math.sin(t * 0.3) * 0.04;
       if (e > 0.4 && Math.random() < dt * (FAST() ? 10 : 25)) P.add(x + rand(-20, 20), WY + 1 + rand(0, 3), z + rand(-4, 4), rand(-1, 1), rand(-0.5, 1), rand(-1, 1), 1.8, 0.4, 0.75, 0.85, 0.85, 0.45, 5, 0.3, 0.3, 0);
@@ -11464,7 +11594,7 @@ function buildOcean() {
     // tentáculos
     for (const tn of tents) {
       tn.t -= dt;
-      if (tn.st === 0 && tn.t <= 0) { tn.st = 1; tn.k = 0; tn.a = rand(0, TAU); tn.r = rand(52, 74); tn.base.position.set(Math.cos(tn.a) * tn.r, 0, Math.sin(tn.a) * tn.r); tn.base.rotation.set(0, -tn.a, 0); tn.base.visible = true; }
+      if (tn.st === 0 && tn.t <= 0) { tn.st = 1; tn.k = 0; tn.a = ocAnguloLibre(0.5); tn.r = rand(52, 74); tn.base.position.set(Math.cos(tn.a) * tn.r, 0, Math.sin(tn.a) * tn.r); tn.base.rotation.set(0, -tn.a, 0); tn.base.visible = true; }
       if (tn.st) { tn.k += dt / 18; const e = Math.min(1, Math.sin(Math.min(1, tn.k) * Math.PI) * 1.6);
         tn.base.position.y = WY - 30 + e * 28; tn.base.rotation.z = 0.3 * e;
         for (let i = 0; i < tn.segs.length; i++) { const s = tn.segs[i]; s.rotation.z = Math.sin(t * 1.1 + i * 0.5 + tn.ph) * (0.1 + i * 0.022) + i * 0.025 * e; s.rotation.x = Math.cos(t * 0.8 + i * 0.4 + tn.ph) * 0.07; }
@@ -11473,7 +11603,7 @@ function buildOcean() {
     }
     // el ojo bajo la superficie
     eyeS.t -= dt;
-    if (eyeS.st === 0 && eyeS.t <= 0) { eyeS.st = 1; eyeS.k = 0; const a = rand(0, TAU), r = rand(47, 54); eye.g.position.set(Math.cos(a) * r, WY - 4.7, Math.sin(a) * r); eye.g.visible = true; }
+    if (eyeS.st === 0 && eyeS.t <= 0) { eyeS.st = 1; eyeS.k = 0; const a = ocAnguloLibre(0.4), r = rand(47, 54); eye.g.position.set(Math.cos(a) * r, WY - 4.7, Math.sin(a) * r); eye.g.visible = true; }
     if (eyeS.st) { eyeS.k += dt / 10; const open = Math.min(1, Math.sin(Math.min(1, eyeS.k) * Math.PI) * 2.5) * (Math.sin(t * 2.7) > 0.97 ? 0.1 : 1);
       eye.g.lookAt(camera.position.x, camera.position.y, camera.position.z); eyeLids(eye, open); eye.glow.material.opacity = open * 0.45;
       if (eyeS.k >= 1) { eyeS.st = 0; eyeS.t = rand(8, 16); eye.g.visible = false; } }
@@ -11507,6 +11637,7 @@ function buildOcean() {
   // ---- Puntos de aparición: trepan por los bordes desde el mar y dos salen de los huecos
   for (const [x, z] of [[-30, -40], [-8, -40], [14, -40], [40, -20], [40, 2], [40, 37], [18, 40], [-6, 40], [-27, 40], [-40, 22], [-40, -4], [-40, -28]]) world.spawns.push({ x, z, rise: false });
   world.spawns.push({ x: 0, z: -12.2, rise: true }, { x: -26.5, z: -9, rise: true });
+  oceanoGrande(world.group.children.length, { deckT });   // las pasarelas y las tres plataformas con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Donde empezó todo. Las tumbas se abren y la campana de la capilla todavía suena.
@@ -27429,7 +27560,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [20, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
