@@ -348,3 +348,22 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Agujero negro | Singularidad: no necesita tiro a la cabeza y dura el doble |
 | Tragamonedas | Máquina trucada: premio menor +50 de oro y explosiones el doble de grandes |
 | Espejo | Sala de espejos: copia las 2 últimas activas a la vez |
+
+### Tanda 5 · Fusiones B (aprobada)
+| Bala | Despertar |
+|---|---|
+| Imán | Imán gigante: también atrae las balas que sueltan los zombis |
+| Alcancía | Cerdito lleno: cada 5 oleadas rompes la alcancía y ganas el triple |
+| Usurero | Banquero: el tope de interés sube de 10 a 30 |
+| Mercenaria | Sin sueldo: ya no cobra 10 de oro por oleada |
+| Dado | Dado de oro: si salen 6 balas, todas cuentan como tiro a la cabeza |
+| Racimo | Racimo de racimos: cada perdigón se parte otra vez en 3 |
+| Junior | Recarga perfecta: al recargar también se recargan los usos de las activas que vuelven |
+| Espuelas | Galope: tras correr 3 s, el siguiente tiro hace doble daño |
+| Bolsa sin fondo | Bolsa mágica: la sorpresa puede ser también una activa A |
+| Taladro | Perforadora: atraviesa también paredes |
+| Vampira | Sed de sangre: con la vida llena, la curación se guarda como escudo (hasta 30) |
+| Frita | Barbacoa: la explosión deja fuego en el suelo 3 s |
+| Segundo aire | Último aliento: con menos de 10 % de vida, 3 s sin recibir daño (1 vez por oleada) |
+| Puntería | Ojo de halcón: los críticos hacen triple daño |
+| Trago de valor | Trago doble: el tiro potenciado también atraviesa |
