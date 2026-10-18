@@ -7,8 +7,8 @@ El dueño eligió las 16 candidatas (hacen falta 12; por decidir qué pasa con l
 
 | Bala | Rango | Efecto |
 |---|---|---|
-| Robot | B | +5 % de probabilidad a los efectos de todas tus balas. Nota del dueño: «debe dar +2 de espacio de slot» (por aclarar) |
-| Combate | B | +1 espacio en el slot; -10 de vida al empezar cada oleada |
+| Robot | B | +2 espacios en el slot (decisión del dueño) |
+| Mercenaria (antes Combate) | B | +2 espacios en el slot; -10 de oro al empezar cada oleada |
 | Suerte | A | La bala de su izquierda activa su efecto con doble probabilidad |
 | Rey | S | Cada 50 zombis muertos te da una bala B al azar |
 | Oro | C | 1 de 5 de ganar 2 de oro por cada muerte |
@@ -23,3 +23,7 @@ El dueño eligió las 16 candidatas (hacen falta 12; por decidir qué pasa con l
 | Fénix | S | Una vez por partida revives con media vida; luego se destruye |
 | Espuelas | C | Caminas un 15 % más rápido |
 | Imán | C | Recoges oro y objetos desde más lejos |
+
+### Decisión (18-oct-2026)
+- Pasan a ser **fusiones** (no son base): Puntería, Espuelas, Imán, Mercenaria, Alcancía y Usurero.
+- **Pasivas base confirmadas (10 de 12):** Robot, Suerte, Rey, Oro, Caramelo, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora y Fénix. Faltan 2.
