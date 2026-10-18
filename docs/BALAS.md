@@ -426,4 +426,22 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Doble o nada infinito | Infinito: el premio se puede repetir hasta 3 veces seguidas |
 | Negra | No sube de nivel: es única |
 
-**Los 84 despertares están definidos** (19-oct-2026). Falta programarlos.
+**Los 84 despertares están definidos** (19-oct-2026) **y programados** (rama `despertares`, 19-oct-2026).
+
+### Cómo quedó programado
+- Todas las cifras de los despertares están en `BAL.despertar` (en `index.html`, junto a las balas). El texto de cada uno se ve en el inventario («Despertar (nivel 4): …»), en Fusionar cuando el resultado llega a nivel 4 y en las cartas de las máquinas que suben de nivel.
+- Cuando una bala llega a nivel 4 por primera vez en la partida: cartel «¡Despertar!», destello, chispas doradas, sonido y el slot brilla.
+- La Negra no sube de nivel (no se junta, las máquinas y los dados no la suben).
+- En grupo: lo que toca a los zombis lo aplica el anfitrión (caballeros que explotan o reviven, chicles, frío contagioso, fuego en el suelo, agujeros que se tragan disparos o colapsan); las curas al equipo (Manantial, Alas) y el +1 nivel de Dinastía llegan a cada compañero por la red; los drones y los gemelos se ven en todos los teléfonos.
+- Si una cifra del despertar es peor que la que ya da el nivel 4 (×3), se queda la mejor (nunca empeora).
+
+### Preguntas para el dueño (despertares)
+1. Estos despertares no suman nada porque el nivel 4 ya da más: **Dados dobles** (nivel 4 ya sube 3 balas), **Banquero** (el tope ya es 30), **Casa de empeño** (ya da 15 de oro), **Trono** (en nivel 4 ya da una S cada 17 muertes), **Escalera real** (ya son 36 críticos), **Duelo al amanecer** (ya quita 75 % a los jefes) y el tiempo de **Gran titiritero** (ya son 18 s; los 10 m sí cuentan). ¿Les damos otro efecto o subimos sus cifras?
+2. **Rey de reyes**: quedó como un contador aparte: cada 50 muertes, una bala A (las B siguen saliendo cada 17). ¿Así?
+3. **Bolsa mágica**: la Bolsa ya podía dar activas A; quedó que 35 de cada 100 sorpresas son A seguro. ¿Así?
+4. **Recarga perfecta (Junior)**: quedó que, al recargar con Junior, primero entran al tambor las activas que vuelven desde la caja. ¿Era eso?
+5. **Lanza de hielo (Carámbano)**: la «pared» es una zona que congela 3 s a los que pasan (no frena las balas). ¿Así?
+6. **Hipnosis en cadena**: el zombi que mata un hipnotizado se levanta a pelear por ti (como los del Nigromante) el tiempo que le quedaba al hipnotizado (mínimo 4 s).
+7. **Manantial y Arena eterna**: «la mitad de la oleada» se mide con los zombis que quedan (los que faltan salir más los vivos).
+8. **Sala de espejos**: sale la última activa y además la penúltima (las dos con el nivel del Espejo).
+9. **Renacer eterno (Fénix)**: en nivel 4 ya no se rompe al revivirte; se recarga cada 5 oleadas.
