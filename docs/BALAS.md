@@ -328,3 +328,13 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Escarcha | Glaciar: los congelados se rompen en pedazos con un tiro a la cabeza |
 | Relámpago | Cadena infinita: el rayo salta mientras haya zombis a menos de 6 m |
 | Bumerán | Bumerán doble: al volver golpea otra vez a todos los que cruza |
+
+### Tanda 3 · Base A (aprobada)
+| Bala | Despertar |
+|---|---|
+| Suerte | Racha: también potencia a la bala de su derecha |
+| Dado cargado | Dados dobles: suben 2 balas por oleada |
+| Invocación | Orden de caballería: 2 caballeros que explotan al morir |
+| Hipnótica | Hipnosis en cadena: lo que mata el hipnotizado también se pasa a tu lado |
+| Reloj | Tiempo detenido: el tiempo se detiene 2 s antes de frenarse |
+| Ruleta rusa | Bala de plata: nunca se encasquilla; si falla, la siguiente sale con 1 de 2 |
