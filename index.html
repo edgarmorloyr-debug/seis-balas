@@ -6068,6 +6068,135 @@ function fairyInst(geo, mat, list, cast) {
   list.forEach((a, i) => { p.set(a[0], a[1], a[2]); e.set(a[3] || 0, a[4] || 0, a[5] || 0, 'YXZ'); q.setFromEuler(e); s.set(a[6] || 1, a[7] || 1, a[8] || 1); mt.compose(p, q, s); m.setMatrixAt(i, mt); m.setColorAt(i, c.setHex(a[9] == null ? 0xffffff : a[9])); });
   m.count = list.length; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.castShadow = !!cast; m.receiveShadow = true; world.group.add(m); return m;
 }
+/* ===== Tierra de los Duendes grande (PENDIENTES 44, 19-oct-2026): el claro de siempre queda en el centro y por tres senderos
+   que se abren en el bosque profundo se llega a 3 claros con zona de llave: el castillo de las hadas (este), el lago de las
+   ninfas (suroeste) y la guarida del troll (noroeste). Entre ellos, el bosque cerrado. */
+const DUG = { R: 42.5, c0: 40, r1: 55, D: 27, hw: 15, cw: 2.6, z: [] };
+function duLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['cas', 0, 'en el castillo de las hadas'], ['lag', 2 * Math.PI / 3, 'en el lago de las ninfas'], ['tro', 4 * Math.PI / 3, 'en la guarida del troll']])
+  DUG.z.push({ k, a, nombre, en: (x, z) => { const q = duLocal(a, x, z); return Math.abs(q.lx) < DUG.hw - 0.8 && q.lz > DUG.r1 + 0.8 && q.lz < DUG.r1 + DUG.D - 0.8; } });
+const enCastillo2 = DUG.z[0].en, enLago = DUG.z[1].en, enTroll = DUG.z[2].en;
+function zonaDuendes(x, z) { return enCastillo2(x, z) ? 'en el castillo de las hadas' : enLago(x, z) ? 'en el lago de las ninfas' : enTroll(x, z) ? 'en la guarida del troll' : 'en el claro'; }
+const duHueco = (a, m) => DUG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m);
+// ¿cae dentro de un sendero o de un claro (con un margen)? para no plantar árboles del bosque ahí
+function duDentro(x, z, m = 2) { return DUG.z.some(Z => { const q = duLocal(Z.a, x, z); return (Math.abs(q.lx) < DUG.hw + m && q.lz > DUG.r1 - m && q.lz < DUG.r1 + DUG.D + m) || (Math.abs(q.lx) < DUG.cw + m + 1 && q.lz > DUG.c0 && q.lz < DUG.r1 + 1); }); }
+function duendesGrande(g0, mt) {
+  const { R, c0, r1, D, hw, cw } = DUG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 4, hz: r2 + 4 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = DUG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el borde del bosque ahora es una pared (antes lo era el círculo del lugar), con tres huecos para los senderos
+  for (let k = 0; k < 288; k++) { const a = (k + 0.5) / 288 * TAU; if (duHueco(a, 0.078)) continue; addBox(Math.cos(a) * (R + 0.8), Math.sin(a) * (R + 0.8), 0.53, 0.8, Math.PI / 2 - a); }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.3); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaDuendes(p.x, p.z) }); };
+  const sale = (g, lx, lz, rise = true) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise }); };
+  // ---- muros de bosque: troncos oscuros con copas, en fila, con su colisión
+  const trunks = [], tops = [];
+  const bosque = (g, x0, z0, x1, z1) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.ceil(L / 2.2)), hz = Math.abs(z1 - z0) < 0.01;
+    for (let i = 0; i <= n; i++) { const t = i / n, p = lw(g, x0 + (x1 - x0) * t + sr(-0.5, 0.5), z0 + (z1 - z0) * t + sr(-0.5, 0.5)), s = sr(0.9, 1.5), h = sr(10, 18);
+      trunks.push([p.x, h / 2, p.z, sr(-0.05, 0.05), 0, sr(-0.05, 0.05), s, h, s, pick([0x2a2420, 0x221e1a, 0x2e2822])]);
+      tops.push([p.x + sr(-1, 1), h + sr(-2, 0.5), p.z + sr(-1, 1), sr(0, 3), sr(0, 3), 0, sr(3, 5), sr(2.5, 4), sr(3, 5), pick([0x101e18, 0x142420, 0x18202a])]);
+      tops.push([p.x, sr(0.4, 0.9), p.z, sr(0, 3), sr(0, 3), 0, sr(1, 1.6), sr(0.6, 1), sr(1, 1.6), pick([0x16261a, 0x1a2c1e, 0x20301e])]); }
+    col(g, (x0 + x1) / 2, (z0 + z1) / 2, hz ? L / 2 + 0.8 : 0.9, hz ? 0.9 : L / 2 + 0.8);
+  };
+  const piedra = lam(0x6a6a72, { flatShading: true }), maderaM = lam(0x5a3a22);
+  const G = {};
+  for (const Z of DUG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    for (const s of [-1, 1]) bosque(g, s * (cw + 1.6), c0 + 3, s * (cw + 1.6), r1);     // el sendero
+    for (const s of [-1, 1]) bosque(g, s * (cw + 1.6), r1, s * (hw + 1), r1);          // el frente del claro
+    for (const s of [-1, 1]) bosque(g, s * (hw + 1), r1, s * (hw + 1), r2 + 1);        // los lados
+    bosque(g, -hw - 1, r2 + 1, hw + 1, r2 + 1);                                         // el fondo
+    // el sendero de tierra con farolillos de seta a los lados
+    M(new THREE.PlaneGeometry(2 * cw, r1 - c0 + 3), new THREE.MeshLambertMaterial({ color: 0x4a3a24, transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 0, 0.02, (c0 + r1 + 3) / 2, { p: g, rx: -Math.PI / 2, cast: false });
+    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) { const z = c0 + 3 + i * 4; M(cyl(0.06, 0.08, 0.5, 6), lam(0xe8e0d0), s * (cw - 0.2), 0.25, z, { p: g, cast: false }); M(new THREE.SphereGeometry(0.25, 10, 6, 0, TAU, 0, Math.PI / 2), bsc(pick([0x60c0ff, 0xff70c0, 0x70ff90])), s * (cw - 0.2), 0.48, z, { p: g, cast: false }); }
+  }
+  mt.fairyInst(new THREE.CylinderGeometry(0.4, 0.6, 1, 7), lam(0xffffff), trunks, false);
+  mt.fairyInst(new THREE.IcosahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), tops, false);
+
+  // ================= ESTE: EL CASTILLO DE LAS HADAS (torres rosas con tejados de pizarra azul, ventanas que brillan) =================
+  { const g = G.cas;
+    const muroM = lam(0xe8c8d8), techoM = lam(0x5a4aa0), ventM = bsc(0xffd890), cz = r2 - 9;
+    box(g, 12, 6, 7, muroM, 0, 3, cz, {});
+    for (const [x, z] of [[-6, cz - 3.5], [6, cz - 3.5], [-6, cz + 3.5], [6, cz + 3.5]]) { M(cyl(1.5, 1.6, 9, 14), muroM, x, 4.5, z, { p: g }); M(new THREE.ConeGeometry(2, 4, 14), techoM, x, 11, z, { p: g }); M(cyl(0.03, 0.03, 1.4, 4), lam(0xd8d8d8), x, 13.6, z, { p: g, cast: false }); box(g, 0.8, 0.45, 0.02, lam(0xff70c0), x + 0.4, 14, z, { cast: false }); }
+    M(cyl(2, 2.2, 11, 16), muroM, 0, 5.5, cz + 1, { p: g }); M(new THREE.ConeGeometry(2.6, 5, 16), techoM, 0, 13.5, cz + 1, { p: g });
+    box(g, 2.6, 3.4, 0.2, lam(0x3a2440), 0, 1.7, cz - 3.52, { cast: false }); M(new THREE.CircleGeometry(1.3, 16, 0, Math.PI), lam(0x3a2440), 0, 3.4, cz - 3.53, { p: g, ry: Math.PI, cast: false });
+    for (const x of [-3.5, 3.5]) for (const y of [2.2, 4.4]) { box(g, 0.7, 1, 0.05, ventM, x, y, cz - 3.53, { cast: false }); glow(g, x, y, cz - 3.9, 0xffc870, 1.6, 0.4); }
+    col(g, 0, cz, 7.6, 5.1);
+    // jardín de flores luminosas y polvo de hada que sube
+    const fl = []; for (let i = 0; i < (fast ? 30 : 60); i++) { const p = lw(g, sr(-hw + 1, hw - 1), sr(r1 + 1, cz - 6)); fl.push([p.x, 0.3, p.z, 0, 0, 0, 0.16, 0.16, 0.16, pick([0xff70c0, 0x70c0ff, 0xffe070, 0xb070ff])]); }
+    mt.fairyInst(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff }), fl, false);
+    world.anims.push(() => { if (Math.random() < (fast ? 0.15 : 0.4)) { const p = lw(g, rand(-hw + 1, hw - 1), rand(r1 + 1, r2 - 1)); PA.add(p.x, 0.3, p.z, rand(-0.1, 0.1), rand(0.3, 0.8), rand(-0.1, 0.1), rand(2, 4), rand(0.04, 0.07), 1, 0.6, 0.9, 0.9, -0.05, 0, 0, 0); } });
+    luz(g, 0, 4, cz - 7, 0xff9ad0, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-12.5, lc], [12.5, lc + 2], [-11, r2 - 2.5], [11, r2 - 2.5], [0, r1 + 5]]) spotK(g, x, z);
+    for (const x of [-12, 12]) sale(g, x, r2 - 2.5); sale(g, 0, r1 + 9);
+  }
+
+  // ================= SUROESTE: EL LAGO DE LAS NINFAS (agua que brilla, nenúfares de luz y una cascada) =================
+  { const g = G.lag;
+    const lx0 = 0, lz0 = lc + 1, LR = 7.5;
+    const agua = mt.waterTex.clone(); agua.needsUpdate = true; agua.repeat.set(3, 3);
+    M(new THREE.CircleGeometry(LR, 32), new THREE.MeshLambertMaterial({ map: agua, color: 0x8ad8ff, emissive: 0x0a3a4a, polygonOffset: true, polygonOffsetFactor: -2 }), lx0, 0.04, lz0, { p: g, rx: -Math.PI / 2, cast: false });
+    world.anims.push((dt, t) => { agua.offset.set(Math.sin(t * 0.2) * 0.05, t * 0.03); });
+    const pie = []; for (let i = 0; i < 26; i++) { const a = i / 26 * TAU, s = sr(0.5, 0.9), p = lw(g, lx0 + Math.cos(a) * (LR + 0.3), lz0 + Math.sin(a) * (LR + 0.3)); pie.push([p.x, s * 0.3, p.z, sr(0, 3), sr(0, 3), 0, s, s * 0.6, s, pick([0x5a5a66, 0x6a6a74, 0x4a4a56])]); }
+    mt.fairyInst(new THREE.IcosahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), pie, true);
+    colC(g, lx0, lz0, LR + 0.4);
+    const nen = []; for (let i = 0; i < 9; i++) { const a = sr(0, TAU), r = sr(1.5, LR - 1.2); nen.push(glow(g, lx0 + Math.cos(a) * r, 0.1, lz0 + Math.sin(a) * r, pick([0x70ffd0, 0xa0c0ff, 0xff90e0]), 1.2, 0.6)); M(new THREE.CircleGeometry(0.45, 10), lam(0x2a8a4a, { emissive: 0x0a2a14 }), lx0 + Math.cos(a) * r, 0.06, lz0 + Math.sin(a) * r, { p: g, rx: -Math.PI / 2, cast: false }); }
+    // la cascada: rocas apiladas y cortinas de agua que caen
+    const wz = r2 - 1.5;
+    for (const [x, y, s] of [[-3, 1.5, 2.6], [3, 1.6, 2.4], [0, 3.8, 2.8], [-2, 5.6, 2], [2, 5.8, 2]]) M(new THREE.DodecahedronGeometry(s, 0), piedra, x, y, wz, { p: g });
+    const cascT = mt.waterTex.clone(); cascT.needsUpdate = true; cascT.repeat.set(1, 2);
+    const casc = M(new THREE.PlaneGeometry(2.4, 6.5), new THREE.MeshBasicMaterial({ map: cascT, color: 0xbff0ff, transparent: true, opacity: 0.75, depthWrite: false }), 0, 3.2, wz - 2.3, { p: g, cast: false, ry: Math.PI });
+    world.anims.push((dt, t) => { cascT.offset.y = t * 0.8; if (Math.random() < (fast ? 0.2 : 0.5)) { const p = lw(g, rand(-1, 1), wz - 2.6); P.add(p.x, 0.3, p.z, rand(-0.6, 0.6), rand(0.5, 1.4), rand(-0.6, 0.6), rand(0.8, 1.4), 0.2, 0.85, 0.95, 1, 0.4, 2, 0.6, 0.6, 0); } nen.forEach((n, i) => n.material.opacity = 0.4 + Math.sin(t * 1.5 + i) * 0.2); });
+    void casc; col(g, 0, wz, 5, 2.5);
+    // juncos que brillan
+    for (let i = 0; i < 18; i++) { const a = sr(0, TAU), r = LR + sr(0.8, 2.5); M(cyl(0.03, 0.04, sr(0.8, 1.6), 4), lam(0x5aa060, { emissive: 0x0a2a10 }), lx0 + Math.cos(a) * r, 0.6, lz0 + Math.sin(a) * r, { p: g, cast: false }); }
+    luz(g, 0, 3.5, lz0 - 3, 0x70e0ff, 1.2, 24);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-12.5, lc], [12.5, lc + 3], [-9, r2 - 2.5], [9, r2 - 2.5], [0, r1 + 2.5]]) spotK(g, x, z);
+    for (const x of [-12, 12, -7]) sale(g, x, r2 - 2.5);
+  }
+
+  // ================= NOROESTE: LA GUARIDA DEL TROLL (la cueva en la roca, la hoguera con el caldero y huesos) =================
+  { const g = G.tro;
+    const cz = r2 - 5;
+    const monte = M(new THREE.IcosahedronGeometry(7, 1), piedra, 0, 1.5, cz + 1.5, { p: g }); monte.scale.set(1.4, 0.95, 0.8);
+    M(new THREE.CircleGeometry(2.4, 16, 0, Math.PI), bsc(0x050403), 0, 0.02, cz - 4.15, { p: g, cast: false });
+    box(g, 4.8, 3.2, 0.05, bsc(0x050403), 0, 1.6, cz - 4.1, { cast: false });
+    glow(g, 0, 1.6, cz - 4.4, 0xff3010, 2.2, 0.25);
+    col(g, 0, cz + 1, 9.5, 5);
+    // la hoguera con el caldero
+    const fx = 0, fz = lc - 2;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; M(new THREE.DodecahedronGeometry(0.35, 0), piedra, fx + Math.cos(a) * 1.3, 0.2, fz + Math.sin(a) * 1.3, { p: g }); }
+    for (const s of [-1, 1]) box(g, 0.15, 2.4, 0.15, maderaM, fx + s * 1.5, 1.2, fz, {}); box(g, 3.2, 0.15, 0.15, maderaM, fx, 2.4, fz, {});
+    M(new THREE.SphereGeometry(0.9, 14, 10, 0, TAU, Math.PI / 2, Math.PI / 2), lam(0x1a1a1a), fx, 1.6, fz, { p: g }); M(new THREE.CircleGeometry(0.85, 14), bsc(0x60c040), fx, 1.58, fz, { p: g, rx: -Math.PI / 2, cast: false });
+    const fuego = glow(g, fx, 0.6, fz, 0xff8030, 2.6, 0.8); colC(g, fx, fz, 1.6);
+    world.anims.push(() => { fuego.material.opacity = 0.6 + Math.random() * 0.35; const p = lw(g, fx, fz); if (Math.random() < (fast ? 0.3 : 0.7)) PA.add(p.x + rand(-0.4, 0.4), 0.4, p.z + rand(-0.4, 0.4), rand(-0.2, 0.2), rand(1, 2), rand(-0.2, 0.2), rand(0.4, 0.8), rand(0.1, 0.25), 1, rand(0.4, 0.7), 0.1, 0.9, -0.3, 0.5, 0.8, 0); if (Math.random() < 0.2) P.add(p.x, 1.8, p.z, rand(-0.2, 0.2), rand(0.5, 1), rand(-0.2, 0.2), rand(2, 3), 0.3, 0.4, 0.75, 0.3, 0.4, -0.05, 0.4, 0.6, 0); });
+    // huesos, un garrote gigante y jaulas colgando de un árbol seco
+    const hueso = lam(0xe0d8c0);
+    for (let i = 0; i < 14; i++) M(cyl(0.06, 0.06, sr(0.5, 1), 5), hueso, sr(-6, 6), 0.06, sr(cz - 9, cz - 5), { p: g, rz: Math.PI / 2, ry: sr(0, 3), cast: false });
+    for (const [x, z] of [[-4, cz - 6], [3.5, cz - 7]]) M(new THREE.SphereGeometry(0.22, 8, 6), hueso, x, 0.2, z, { p: g });
+    { const p = lw(g, 6, cz - 5); const gg = Grp(p.x, p.z, g.rotation.y); gg.rotation.z = 0.5; M(cyl(0.25, 0.45, 3.2, 8), maderaM, 0, 1.5, 0, { p: gg }); addCircle(p.x, p.z, 0.5); }
+    { const tx = -10, tz = r1 + 6; M(cyl(0.35, 0.5, 7, 7), lam(0x2a2420), tx, 3.5, tz, { p: g }); box(g, 5, 0.25, 0.25, lam(0x2a2420), tx + 2.2, 6.2, tz, { rz: 0.15 }); colC(g, tx, tz, 0.6);
+      for (const s of [1.5, 3.6]) { box(g, 0.03, 1.4, 0.03, lam(0x8a8a8a), tx + s, 5.4, tz, { cast: false }); const jaula = lam(0x3a3a3a, { wireframe: true }); M(cyl(0.6, 0.6, 1.3, 8), jaula, tx + s, 4.1, tz, { p: g, cast: false }); } }
+    luz(g, 0, 3, fz - 2, 0xff8040, 1.3, 22);
+    for (const [x, z] of [[-12, r1 + 3], [12, r1 + 3], [-12.5, lc + 1], [12.5, lc], [-12, r2 - 3], [12, r2 - 3], [5, r1 + 4]]) spotK(g, x, z);
+    sale(g, 0, cz - 5.5, false); for (const x of [-12, 12]) sale(g, x, r2 - 2.5);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildFairy() {
   const R = 42.5;
   world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 6 };
@@ -6113,7 +6242,7 @@ function buildFairy() {
   const S = new THREE.SphereGeometry(1, 7, 5), HEMI = new THREE.SphereGeometry(1, 14, 6, 0, TAU, 0, Math.PI / 2), HEMI2 = new THREE.SphereGeometry(1, 8, 3, 0, TAU, 0, Math.PI / 2);
 
   // ---------- Suelo, senderos y musgo que brilla
-  addGround(150, groundTex);
+  addGround(190, groundTex);
   const TREE = { x: 0, z: -17 }, RUNE = { x: -21, z: 4 }, WELL = { x: -10, z: 27 };
   const HOUSES = [[-31, -12], [-17, -29], [23, -25], [27, 20], [-28, 19]];
   overlayPlane(90, (g, w) => {
@@ -6338,8 +6467,8 @@ function buildFairy() {
   // ---------- Borde: zarzas, troncos oscuros del bosque profundo
   {
     const br = [], trunks = [], tops = [];
-    for (let i = 0; i < 170; i++) { const a = i / 170 * TAU + sr(-0.01, 0.01), r = sr(43.6, 45.5), s = sr(0.9, 1.7); br.push([Math.cos(a) * r, s * 0.45, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, s * 1.2, s * 0.8, s, pick([0x16261a, 0x1a2c1e, 0x20301e, 0x141e18])]); }
-    for (let i = 0; i < 80; i++) { const a = sr(0, TAU), r = sr(47, 75), s = sr(0.8, 1.6), h = sr(14, 24); trunks.push([Math.cos(a) * r, h / 2, Math.sin(a) * r, sr(-0.05, 0.05), 0, sr(-0.05, 0.05), s, h, s, pick([0x2a2420, 0x221e1a, 0x2e2822])]); for (let k = 0; k < 2; k++) tops.push([Math.cos(a) * r + sr(-2, 2), h + sr(-3, 1), Math.sin(a) * r + sr(-2, 2), sr(0, 3), sr(0, 3), 0, sr(4, 7), sr(3, 5), sr(4, 7), pick([0x101e18, 0x142420, 0x18202a])]); }
+    for (let i = 0; i < 170; i++) { const a = i / 170 * TAU + sr(-0.01, 0.01), r = sr(43.6, 45.5), s = sr(0.9, 1.7); if (duHueco(a, 0.085)) continue; br.push([Math.cos(a) * r, s * 0.45, Math.sin(a) * r, sr(0, 3), sr(0, 3), 0, s * 1.2, s * 0.8, s, pick([0x16261a, 0x1a2c1e, 0x20301e, 0x141e18])]); }
+    for (let i = 0; i < 80; i++) { const a = sr(0, TAU), r = sr(47, 75), s = sr(0.8, 1.6), h = sr(14, 24); if (duDentro(Math.cos(a) * r, Math.sin(a) * r, 3)) continue; trunks.push([Math.cos(a) * r, h / 2, Math.sin(a) * r, sr(-0.05, 0.05), 0, sr(-0.05, 0.05), s, h, s, pick([0x2a2420, 0x221e1a, 0x2e2822])]); for (let k = 0; k < 2; k++) tops.push([Math.cos(a) * r + sr(-2, 2), h + sr(-3, 1), Math.sin(a) * r + sr(-2, 2), sr(0, 3), sr(0, 3), 0, sr(4, 7), sr(3, 5), sr(4, 7), pick([0x101e18, 0x142420, 0x18202a])]); }
     fairyInst(new THREE.IcosahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), br, true);
     fairyInst(new THREE.CylinderGeometry(0.4, 0.6, 1, 7), lam(0xffffff), trunks, false);
     fairyInst(new THREE.IcosahedronGeometry(1, 0), lam(0xffffff, { flatShading: true }), tops, false);
@@ -6469,6 +6598,7 @@ function buildFairy() {
   }
   // repaso final: si algún punto de aparición quedó tapado, se corre un poco por el borde
   for (const sp of world.spawns) { if (!pointBlocked(sp.x, sp.z, 0.6)) continue; const a0 = Math.atan2(sp.z, sp.x), r0 = Math.hypot(sp.x, sp.z); for (let k = 1; k < 30; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.03, r = r0 - (k > 14 ? 1.5 : 0), x = Math.cos(a) * r, z = Math.sin(a) * r; if (!pointBlocked(x, z, 0.6)) { sp.x = x; sp.z = z; break; } } }
+  duendesGrande(world.group.children.length, { fairyInst, waterTex });   // los senderos y los tres claros con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Ríos de chocolate y árboles de algodón de azúcar. Los pasteleros no se fueron: se quedaron a probar.
@@ -27287,7 +27417,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [19, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
