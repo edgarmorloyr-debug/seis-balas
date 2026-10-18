@@ -71,9 +71,9 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 ## Etapa 4 · Combate y contenido
 36. **Sonidos de los zombis al recibir balazos.** *Hecho (19-oct-2026): cada tipo de zombi tiene su quejido (grave en los grandes, agudo en corredores y gritonas, aullido en el perro) y un «chof» húmedo; como mucho 3 quejidos a la vez y en el menú van al 30 %.*
 37. **Animación 2D de un dado** para la habilidad de Johnny. *Hecho (19-oct-2026): al usar la Ludopatía, un dado 2D rueda por la pantalla cambiando de cara y cae en el número que salió (el mismo que decide el arma); después se desvanece.*
-38. **Animaciones de entrada para los jefes.**
-39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia).
-40. **Zombi raro (1 %) con tragamonedas:** al matarlo gira y se transforma en otro zombi (no jefe) al azar.
+38. **Animaciones de entrada para los jefes.** *Hecho (19-oct-2026): franjas de cine, cartel (saloon para jefes y minijefes, neón para los del casino), golpe de sonido y cámara que se acerca al jefe en cámara muy lenta (solo jugando solo; en grupo solo el cartel). Un toque o una tecla la salta.*
+39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia). *Hecho (19-oct-2026): el «Matón» (ver la propuesta al final).*
+40. **Zombi raro (1 %) con tragamonedas:** al matarlo gira y se transforma en otro zombi (no jefe) al azar. *Hecho (19-oct-2026): 1 de cada 100 zombis de las oleadas lleva una tragamonedas a la espalda (asoma por encima de los hombros); al matarlo, una máquina gira en el aire, estalla en fichas y sale otro zombi al azar (nunca un jefe). También en grupo.*
 41. ~~Animaciones de Mixamo y poses a dos manos~~ (hecho, 17-oct-2026). Falta la mano en primera persona por personaje y los detalles de la Etapa 6.
 42. Voces de las habilidades definitivas con un actor de voz (en espera).
 43. Renders 3D de todos los zombis.
@@ -110,12 +110,24 @@ Por ahora no se toca nada más en 3D. Al terminar las etapas anteriores se mejor
 Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 - **Carta:** As de diamantes. Sale como «???» (silueta, sin arma ni ficha) hasta vencerlo en el casino.
 - **Vida:** 90. **Arma:** dos revólveres cortos, uno en cada mano (como su jefe, que pelea con dos).
-- **Pasiva «Pies ligeros»:** se mueve un 15 % más rápido (su jefe se mueve mucho).
+- **Pasiva «Cliente VIP» (decisión del dueño, 19-oct-2026):** cada oleada recibe 2 fichas de miembro gratis para los juegos de azar (tragamonedas, ruleta, blackjack). Reemplaza a «Pies ligeros».
 - **Ultimate «Mi turno»:** 8 s con dos revólveres minigun, uno en cada mano, con balas sin fin.
 - **Bala con la que empieza:** Apuesta (familia casino, como Johnny: las 6 balas iniciales son de rareza C).
 - **Retrato y modelo:** retrato dibujado por código (chaqueta roja de cuello mao, lentes oscuros, neón del casino); en 3D usa el modelo del pistolero, porque el arte 3D está congelado.
 
 **Preguntas para el dueño:**
-1. ¿Te gusta la pasiva «Pies ligeros» (+15 % de velocidad) o prefieres otra? Opciones: (a) «Por turnos»: tras recargar, el primer tambor hace +30 % de daño; (b) esquivar: un pequeño impulso al cambiar de dirección.
+1. ~~Pasiva~~ — contestada: «Cliente VIP», 2 fichas de miembro por oleada.
 2. ¿La ultimate «Mi turno» (8 s con dos revólveres minigun) está bien, o la quieres más corta y más fuerte?
-3. ¿Le hacemos retrato dibujado y modelo 3D propios cuando se descongele el arte?
+3. ~~Modelo 3D propio~~ — contestada: el 3D sigue congelado hasta la Etapa 6.
+
+
+### Zombi nuevo «Matón» · propuesta para aprobar (19-oct-2026, PENDIENTES 39)
+- **Qué es:** corre a paso firme (más que el caminante, menos que el corredor), pega fuerte y aguanta; los balazos casi no lo frenan.
+- **Cifras puestas:** vida 300 (caminante 100, corredor 62), velocidad 2,7 a 3,1 m/s (caminante 1,3 a 1,9; corredor 4,1 a 4,8), golpe 22, tamaño 1,22, se frena con los balazos un 35 % de lo normal, da 350 puntos, 3 de oro y suelta cosas un 30 % de las veces. Sale desde la oleada 4 y cada vez más seguido (más o menos 1 de cada 30 zombis en el nivel 9).
+- **Aspecto:** cuerpo de zombi de siempre con hombros y brazos más anchos, camiseta sin mangas y un cinturón de lucha con hebilla dorada (nada importado).
+- **Tres formas de avanzar propias:** «embestida» (el hombro por delante y la cabeza gacha), «zancadas» (erguido, pasos muy largos, brazos bombeando) y «boxeador» (guardia alta, rebotando de lado a lado).
+
+**Preguntas para el dueño:**
+1. ¿Te gusta el nombre «Matón»? Otras ideas: «El Grandote», «Toro», «Bulldozer».
+2. ¿Las cifras están bien (vida 300, golpe 22, velocidad 2,7 a 3,1) o lo quieres más duro o más rápido?
+3. ¿Desde qué oleada quieres que salga? Ahora desde la 4.

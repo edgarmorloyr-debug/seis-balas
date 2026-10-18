@@ -1852,6 +1852,27 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 #lleno-say{margin:0;font-size:15px}
 #lleno-list{min-height:0}
 #lleno-list .bal-it:disabled{opacity:.5}
+/* ===== Entrada de los jefes (PENDIENTES 38): franjas de cine y cartel con su nombre ===== */
+#intro{position:fixed;inset:0;z-index:38;pointer-events:none}
+#hud,#touch,#hint,#xh{transition:opacity .25s}.intro-cine #hud,.intro-cine #touch,.intro-cine #hint,.intro-cine #xh{opacity:0}
+#intro .lb{position:absolute;left:0;right:0;height:11vh;background:#000;transition:transform .35s ease-out}
+#intro .lb.t{top:0;transform:translateY(-100%)}#intro .lb.b{bottom:0;transform:translateY(100%)}
+#intro.on .lb{transform:none}
+#intro .ic{position:absolute;left:50%;bottom:calc(11vh + 14px);transform:translate(-50%,24px) scale(.96);opacity:0;transition:opacity .3s,transform .35s cubic-bezier(.2,1.2,.4,1);
+  width:min(560px,calc(100vw - 32px));box-sizing:border-box;padding:10px 18px 12px;border-radius:14px;text-align:center;display:flex;flex-direction:column;gap:2px}
+#intro.on .ic{opacity:1;transform:translate(-50%,0) scale(1)}
+#intro .ic small{font:800 14px/1.2 var(--hud);letter-spacing:.18em;text-transform:uppercase}
+#intro .ic b{font:400 clamp(26px,6vw,40px)/1.05 var(--display)}
+#intro .ic span{font:600 15px/1.3 var(--hud)}
+#intro .sk{position:absolute;right:16px;bottom:calc(11vh - 34px);font:600 14px/1 var(--hud);font-style:normal;color:#d8ccb0;opacity:.8}
+#intro.k-jefe .ic,#intro.k-mini .ic{background:linear-gradient(#6a4424,#3e2412);border:3px solid #d8a838;box-shadow:0 0 0 2px #1d120b,0 10px 24px rgba(0,0,0,.6),inset 0 0 18px rgba(0,0,0,.45);color:#fbf0dc}
+#intro.k-jefe .ic small,#intro.k-mini .ic small{color:#ffd27a}#intro.k-jefe .ic span,#intro.k-mini .ic span{color:#f2e4c4}
+#intro.k-mini .ic b{font-size:clamp(22px,5vw,32px)}
+#intro.k-casino .ic{background:linear-gradient(#2a0d33,#14061c);border:3px solid #ff3fd0;box-shadow:0 0 18px rgba(255,63,208,.65),inset 0 0 22px rgba(255,63,208,.25);color:#ffe9fb}
+#intro.k-casino .ic small{color:#7ff6ff;text-shadow:0 0 8px #3ff0ff}#intro.k-casino .ic b{text-shadow:0 0 8px #ff3fd0,0 0 18px #ff3fd0}#intro.k-casino .ic span{color:#f6d8f0}
+@media (max-height:500px){#intro .lb{height:8vh}#intro .ic{bottom:calc(8vh + 8px);padding:6px 14px 8px}#intro .ic b{font-size:26px}#intro .sk{bottom:calc(8vh + 8px);right:12px}}
+@media (prefers-reduced-motion:reduce){#intro .lb,#intro .ic{transition:none}}
+
 /* ===== Etapa 3: dificultades cerradas, visita que toca y lo que se abrió al ganar ===== */
 #modo-diff .diff-row button.cerrada{opacity:.62;border-style:dashed}
 #modo-diff .diff-row button .ico{width:16px;height:16px;vertical-align:-2px}
@@ -1986,6 +2007,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
     <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Caja <b id="caja-n">50 / 50</b><br><span class="cj-l">activas dentro</span><span class="cj-c">activas</span>: <b id="caja-a">0</b></div><div id="canon"></div></div>
   </div>
 
+  <div id="intro" hidden aria-live="polite"><i class="lb t" aria-hidden="true"></i><i class="lb b" aria-hidden="true"></i><div class="ic"><small id="intro-k"></small><b id="intro-t"></b><span id="intro-s"></span></div><em class="sk">Toca para saltar</em></div>
   <div id="dado2d" aria-hidden="true"><div class="dd"></div><i class="sombra"></i></div>
   <div id="banner"><div id="banner-i"></div><div id="banner-t"></div><div id="banner-s"></div></div>
   <div id="dnums" aria-hidden="true"></div>
@@ -2535,7 +2557,8 @@ const Sfx = (() => {
     abom: { f: 42, F: [380, 700, 1750], v: 'a', r: 0.48, w: 1.6 },
     bandit: { f: 122, F: [640, 1120, 2500], v: 'a', r: 1.05, w: 0.9 },
     axer: { f: 98, F: [560, 940, 2250], v: 'u', r: 0.9, w: 1 },
-    caballero: { f: 90, F: [520, 900, 2200], v: 'm', r: 0.86, w: 0.8 }
+    caballero: { f: 90, F: [520, 900, 2200], v: 'm', r: 0.86, w: 0.8 },
+    maton: { f: 70, F: [470, 820, 2050], v: 'a', r: 0.7, w: 1.1 }
   };
   // para que una multitud no se vuelva ruido: como mucho 3 quejidos a la vez (con menos volumen cuantos más suenan),
   // 5 «chof» cada cuarto de segundo y cada zombi se queja otra vez solo pasado un rato
@@ -2726,6 +2749,13 @@ const Sfx = (() => {
       else if (model === 'corto') burst({ ftype: 'highpass', f0: 5000, q: 0.8, dur: 0.03, vol: 0.5, wet: 0.05 });
       else if (model === 'cowboy') { tone({ type: 'triangle', f0: 3400, f1: 2600, dur: 0.06, vol: 0.06, delay: 0.02, wet: 0.2 }); burst({ ftype: 'lowpass', f0: 600, f1: 150, dur: 0.8, vol: 0.25, delay: 0.15, wet: 1 }); }
       else if (model === 'uzi') burst({ ftype: 'bandpass', f0: 1600, q: 2, dur: 0.03, vol: 0.25, wet: 0.05 });
+    },
+    // golpe de entrada de un jefe: casino (arpegio de neón), jefe (metales graves) o minijefe (más corto)
+    sting(k) {
+      if (!ctx) return;
+      tone({ f0: 78, f1: 34, dur: 0.9, vol: 0.7, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 1800, f1: 120, dur: 0.7, vol: 0.5, wet: 0.6 });
+      if (k === 'casino') [0, 4, 7, 12, 16].forEach((s2, i) => tone({ type: 'square', f0: 330 * Math.pow(2, s2 / 12), dur: 0.32, vol: 0.05, delay: 0.08 + i * 0.07, wet: 0.7 }));
+      else { const n = k === 'mini' ? 2 : 3; for (let i = 0; i < n; i++) tone({ type: 'sawtooth', f0: [110, 104, 98][i], f1: [108, 100, 82][i], dur: 0.5, vol: 0.12, delay: 0.1 + i * 0.22, wet: 0.6, attack: 0.02 }); }
     },
     reel() {   // rodillos de tragamonedas: tic-tic-tic y una campanita
       if (!ctx) return;
@@ -21333,7 +21363,9 @@ const ZDEF = {
   conjurador: { name: 'Conjurador', hp: 300, speed: [0.95, 1.15], dmg: 14, reach: 1.3, scale: 1.12, pts: 500, eye: 0xff2a00, drop: 0.5, gold: 6, skin: [0x8a2420, 0x7a1e1a] },
   esqueleto: { name: 'Esqueleto', hp: 45, speed: [2.0, 2.6], dmg: 8, reach: 1.2, scale: 0.95, pts: 60, eye: 0x40c0ff, drop: 0.02, gold: 0, skin: [0xd8d0b8] },
   oro: { name: 'Zombi de oro', hp: 160, speed: [1.7, 2.1], dmg: 10, reach: 1.25, scale: 1, pts: 1000, eye: 0xffffff, drop: 1, gold: 50, skin: [0xd8a838] },
-  enfermera: { name: 'Enfermera cuchillos', hp: 115, speed: [2.0, 2.5], dmg: 13, reach: 1.4, scale: 1, pts: 280, eye: 0xff3060, drop: 0.2, gold: 2, skin: [0xc8c0b0, 0xb8b0a0] }
+  enfermera: { name: 'Enfermera cuchillos', hp: 115, speed: [2.0, 2.5], dmg: 13, reach: 1.4, scale: 1, pts: 280, eye: 0xff3060, drop: 0.2, gold: 2, skin: [0xc8c0b0, 0xb8b0a0] },
+  // Matón (PENDIENTES 39): corre a paso firme, pega fuerte y aguanta; casi no se frena con los balazos. Cifras para que el dueño las apruebe.
+  maton: { name: 'Matón', hp: 300, speed: [2.7, 3.1], dmg: 22, reach: 1.4, scale: 1.22, pts: 350, eye: 0xff8a20, drop: 0.3, gold: 3, firme: 0.35, skin: [0x6a7a58, 0x77805e, 0x5f6e52] }
 };
 const eyeMats = {}; Object.keys(ZDEF).forEach(k => eyeMats[k] = new THREE.MeshBasicMaterial({ color: ZDEF[k].eye }));
 const bellyMat = new THREE.MeshLambertMaterial({ color: 0x6fae2a, emissive: 0x2a5a08 });
@@ -21422,8 +21454,11 @@ const MAP_LOOKS = [['Novia', 'Momia', 'Vaquero', 'Carbonizado', 'Minero'], ['Gra
 /* ===== Formas de caminar: cada zombi saca una al azar (velocidad propia) ===== */
 const GAITS_WALK = { clasico: 1, arrastra: 0.8, encorvado: 0.95, tambaleante: 0.9, cuellorroto: 1, espasmos: 1.06, colgando: 0.85 };
 const GAITS_RUN = { sprint: 1, atras: 1.06, frenetico: 0.97 };
+// las tres formas de avanzar del Matón (propias, no copiadas): embestida con el hombro, zancadas largas y guardia de boxeador
+const GAITS_MATON = { embestida: 1.05, zancadas: 1, boxeador: 0.92 };
 function pickGait(type) {
   if (type === 'runner') return pick(Object.keys(GAITS_RUN));
+  if (type === 'maton') return pick(Object.keys(GAITS_MATON));
   if (['walker', 'copz', 'spitter', 'screamer', 'armored'].includes(type)) return pick(Object.keys(GAITS_WALK));
   return null;
 }
@@ -21452,6 +21487,16 @@ function applyGait(z, sw, moving, dt, idle) {
     if (idle) { z.armLG.rotation.x = -0.12 - sw * 0.28; z.armRG.rotation.x = -0.12 + sw * 0.28; z.armLG.rotation.z = -0.05; z.armRG.rotation.z = 0.05; }
   } else if (g === 'atras') {
     if (idle) { z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.7, 10, dt); z.armLG.rotation.x = 1.0 + sw * 0.15; z.armRG.rotation.x = 1.0 - sw * 0.15; z.armLG.rotation.z = -0.2; z.armRG.rotation.z = 0.2; z.neck.rotation.x = -0.6; }
+  } else if (g === 'embestida') {   // el hombro por delante, cabeza gacha, un brazo cubriendo y el otro balanceando ancho
+    z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.5, 8, dt); z.torsoG.rotation.y = -0.45; z.neck.rotation.x = -0.35; z.body.position.y -= 0.04;
+    z.legL.rotation.x *= 1.25; z.legR.rotation.x *= 1.25;
+    if (idle) { z.armLG.rotation.x = -1.2; z.armLG.rotation.z = 0.5; z.armRG.rotation.x = 0.2 + sw * 0.9; z.armRG.rotation.z = 0.35; }
+  } else if (g === 'zancadas') {   // erguido, pasos muy largos y los brazos bombeando como un atleta pesado
+    z.legL.rotation.x *= 1.55; z.legR.rotation.x *= 1.55; z.body.position.y += Math.abs(Math.cos(ph)) * 0.05 * mv; z.torsoG.rotation.x = damp(z.torsoG.rotation.x, 0.05, 8, dt);
+    if (idle) { z.armLG.rotation.x = -0.6 - sw * 1.2; z.armRG.rotation.x = -0.6 + sw * 1.2; z.armLG.rotation.z = -0.15; z.armRG.rotation.z = 0.15; }
+  } else if (g === 'boxeador') {   // guardia alta: los puños delante de la cara, rebotando de lado a lado
+    z.body.position.x = Math.sin(ph) * 0.07 * mv; z.torsoG.rotation.z = Math.sin(ph) * 0.12; z.neck.rotation.x = -0.2;
+    if (idle) { z.armLG.rotation.x = -2.0 + Math.sin(ph) * 0.15; z.armRG.rotation.x = -2.0 - Math.sin(ph) * 0.15; z.armLG.rotation.z = 0.45; z.armRG.rotation.z = -0.45; }
   } else if (g === 'frenetico') {
     if (idle) { z.armLG.rotation.x = -1.7 + Math.sin(t * 15 + z.seed) * 1.0; z.armRG.rotation.x = -1.7 + Math.cos(t * 13 + z.seed) * 1.0; z.armLG.rotation.z = -0.4 + Math.sin(t * 9) * 0.3; z.armRG.rotation.z = 0.4 + Math.cos(t * 11) * 0.3; z.neck.rotation.z = Math.sin(t * 9) * 0.35; }
   }
@@ -21615,7 +21660,12 @@ function spawnZombie(type, x, zz, wave, rise = true) {
   const z = buildZombie(type), d = z.def, w = wave || 1;
   z.maxHp = z.hp = d.hp * (game && state !== 'menu' ? waveHp(game.wave) : 1);
   z.speed = rand(d.speed[0], d.speed[1]) * (1 + Math.min(0.35, (w - 1) * 0.02));
-  z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || 1);
+  if (type === 'maton' && z.torso && !z.def.quad) {
+    z.torso.scale.set(1.35, 1.05, 1.2); z.mats[1].color.setHex(pick([0x6a1a1a, 0x2a2a30, 0x4a3a2a]));
+    addL(z.torso, LG.box(0.62, 0.1, 0.38), LM(0x2a1a10), 0, -0.26, 0); addL(z.torso, LG.box(0.16, 0.12, 0.04), LM(0xd8a838, { emissive: 0x302008 }), 0, -0.26, 0.2);
+    for (const a of [z.armL, z.armR]) if (a) a.scale.set(1.3, 1, 1.3);
+  }
+  z.gait = pickGait(type); if (z.gait) z.speed *= (GAITS_WALK[z.gait] || GAITS_RUN[z.gait] || GAITS_MATON[z.gait] || 1);
   z.dmg = (d.dmg + (z.dmgExtra || 0)) * (1 + (w - 1) * 0.04);
   if (game && state !== 'menu' && !tuto) { const D_ = DF(); z.maxHp = z.hp = z.maxHp * D_.hp; z.dmg *= D_.dmg; z.speed *= D_.spd; }
   z.r = d.quad ? 0.32 : 0.33 * z.s;
@@ -22789,7 +22839,7 @@ function chooseType(n) {
     ['copz', world.mix.copz && n >= 3 ? world.mix.copz * (1 + n * 0.05) : 0], ['armored', n >= 8 ? (1 + n * 0.2) * mx('armored') : 0],
     ['axer', (0.6 + n * 0.15) * mx('axer')], ['knight', n >= 6 && !Net.on ? (0.5 + n * 0.08) * mx('saw') : 0], ['saw', n >= 6 ? (0.5 + n * 0.08) * mx('saw') : 0],
     ['caballero', n >= 4 ? (0.8 + n * 0.12) * mx('caballero') : 0], ['enfermera', n >= 3 ? (0.9 + n * 0.12) * mx('enfermera') : 0], ['conjurador', n >= 8 ? (0.3 + n * 0.04) * mx('conjurador') : 0],
-    ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0]];
+    ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0], ['maton', n >= 4 ? (0.6 + n * 0.1) * mx('maton') : 0]];
   let tot = 0; w.forEach(x => tot += x[1]); let r = Math.random() * tot;
   for (const [k, v] of w) { if ((r -= v) < 0) return k; }
   return 'walker';
@@ -22798,6 +22848,7 @@ function maxAlive() { return Math.min(8 + diffW(game.wave) * 2 + (zoneOf(game.wa
 
 function hurtPlayer(amount, src, opt = {}) {
   if (tuto) return;
+  if (INTRO.on && INTRO.cine) return;   // durante la entrada del jefe (jugando solo) nada te hace daño
   if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv' || state === 'lleno'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
@@ -23981,7 +24032,7 @@ function damageZombie(z, amount, info) {
     bloodBurst(info.point, info.dir || _up, armorHit ? 3 : head ? 26 : 14, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
     if (!armorHit) Sfx.zHit(z, z.type, pan, volOf(z.root.position, info.ally ? 0.45 : 0.9), head, z.hp <= 0);   // su quejido y el «chof» (PENDIENTES 36)
-    z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
+    z.stagger = Math.max(z.stagger, (z.def.big ? 0.05 : head ? 0.45 : 0.25) * (z.def.firme || 1));
     if (!armorHit) goreHit(z, info, amount, false);
     if (!armorHit && z.hp > 0) zoneHit(z, info);
     if (z.hp > 0) hitReact(z, info, amount);
@@ -24012,6 +24063,7 @@ function killZombie(z, info) {
   const inGame = !!game && state !== 'menu';
   if (inGame && !z.noCuenta) { game.alive--; game.kills++; }
   if (inGame && !z.net) balAlMorirZombi(z, info);   // sombras, Nigromante y Piñata
+  if (inGame && !z.net && z.slotZ && !Net.client) slotTransforma(z);   // zombi tragamonedas: se transforma en otro
   if (inGame && game.phase === 'fight' && !Net.client) {
     if (game.toSpawn <= 0 && game.alive <= 0 && !(game.bossQ && game.bossQ.length)) killcam(1.0, -7);
     else if (info && info.part === 'head' && !info.ally && !Net.on && game.time - (game.kcLast || -99) > 8 && Math.random() < 0.18) killcam(0.32, -3);
@@ -24658,6 +24710,17 @@ function cartasPon(z) {
 function cfxSpawn(kind, a) {
   if (kind === 'cban') { const B = CBAN[a[0]]; if (B) { banner(B[0], B[1], 3000, 'skull'); Sfx.bell(); } if (a[0] === 6 && !tuto) META.st.casBj = (META.st.casBj | 0) + 1; return true; }
   if (kind === 'cbj') { const z = zombies.find(q => q.id === a[0]); if (!z) return true; if (a[1] < 0) z.bjS = null; else { z.bjS = { d: a[1], t: a[2], m: a[3], v: a.slice(4) }; } return true; }
+  if (kind === 'czs') {   // zombi tragamonedas: una máquina grande gira en el aire y estalla en fichas
+    const [x, zz, ti] = a, g = new THREE.Group(); g.position.set(x, 1.4, zz); scene.add(g);
+    const body = new THREE.Mesh(LG.box(0.9, 1.1, 0.5), LM(0xa01a2a, { emissive: 0x401018 })); g.add(body);
+    const t = slotScreenT.clone(); t.needsUpdate = true;
+    for (const sz of [1, -1]) { const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.3), new THREE.MeshBasicMaterial({ map: t })); scr.position.set(0, 0.15, sz * 0.26); if (sz < 0) scr.rotation.y = Math.PI; g.add(scr); }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffd040, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); gl.scale.setScalar(3.2); g.add(gl);
+    CFX.push({ k: 'czs', g, t: 1.1, T: 1.1, tex: t, x, z: zz }); Sfx.reel();
+    const nm = ZDEF[ZTYPES[ti]] ? ZDEF[ZTYPES[ti]].name : 'otro zombi';
+    if (game && state === 'play') feed(`¡Tragamonedas! Se transforma en ${nm}`, 'gold');
+    return true;
+  }
   if (kind === 'cslot') { const z = zombies.find(q => q.id === a[0]); if (z) { z.palanca = 0.5; Sfx.reel(); } return true; }
   if (kind === 'crul') {   // ruleta: tiempo, daño, color que sale (0 rojo, 1 negro, 2 cero verde) y los centros de los círculos
     const [t, dmg, win, ...xy] = a, discs = [];
@@ -24672,9 +24735,16 @@ function cfxSpawn(kind, a) {
   return false;
 }
 function cfxStep(dt) {
+  slotFxStep(dt);
   for (const z of CF.conCartas) if (z.dead || !zombies.includes(z)) { z.bjS = null; cartasPon(z); CF.conCartas.delete(z); }
   for (let i = CFX.length - 1; i >= 0; i--) {
     const f = CFX[i]; f.t -= dt;
+    if (f.k === 'czs') {
+      const u = 1 - f.t / f.T; f.tex.offset.y = (f.tex.offset.y + dt * (14 - 12 * u)) % 1; f.g.rotation.y += dt * 6 * (1 - u); f.g.position.y = 1.4 + Math.sin(u * Math.PI) * 0.6; f.g.scale.setScalar(1 + 0.15 * Math.sin(u * 30) * (1 - u));
+      if (f.t > 0) continue;
+      for (let k = 0; k < 30; k++) { const c = new THREE.Color(pick([0xff3fd0, 0x3ff0ff, 0xffd040, 0x7a5aff])); PA.add(f.x, 1.4, f.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(0.6, 1.2), 0.14, c.r, c.g, c.b, 1, 6, 0.5, 0, 0); }
+      Sfx.coin && Sfx.coin(); Sfx.boom(); scene.remove(f.g); f.g.traverse(o => { if (o.material) { if (o.material.map && o.material.map !== glowTex && o.material.map !== slotScreenT) o.material.map.dispose(); } }); CFX.splice(i, 1); continue;
+    }
     if (f.k === 'rul') {
       const u = 1 - f.t / f.T; f.discs.forEach((d, k) => { d.g.children[1].material.opacity = (Math.floor(u * 14) % f.discs.length) === k ? 1 : 0.35; });
       if (f.t > 0) continue;
@@ -24691,7 +24761,7 @@ function cfxStep(dt) {
     }
   }
 }
-function cfxClear() { for (const f of CFX) if (f.discs) for (const d of f.discs) scene.remove(d.g); CFX.length = 0; for (const z of zombies) if (z.cartas) { z.bjS = null; cartasPon(z); } CF.tag = ''; }
+function cfxClear() { for (const f of CFX) { if (f.discs) for (const d of f.discs) scene.remove(d.g); if (f.k === 'czs') scene.remove(f.g); } CFX.length = 0; for (const z of zombies) if (z.cartas) { z.bjS = null; cartasPon(z); } CF.tag = ''; }
 
 // ===================== EL PACIENTE CERO (jefe final, cuatro fases) =====================
 // Decide el anfitrión (zeroTick); todo lo que se ve o duele va por bossEv, así lo ven todos los teléfonos.
@@ -25421,10 +25491,71 @@ function applyBoss(z, idx, opt = {}) {
   } else { z.maxHp = z.hp = 100; }
   B.look(z);
 }
+
+
+// ===================== ZOMBI TRAGAMONEDAS (PENDIENTES 40) =====================
+// 1 de cada 100 zombis de las oleadas lleva una tragamonedas a la espalda. Al matarlo, los rodillos giran y se transforma
+// en otro zombi al azar (nunca un jefe). Lo decide el anfitrión; los demás ven la máquina (bit 2048) y el giro (bossEv 'czs').
+const SLOTZ_P = 0.01, SLOTZ_TIPOS = ['walker', 'crawler', 'runner', 'dog', 'spitter', 'screamer', 'armored', 'copz', 'axer', 'caballero', 'enfermera', 'bloater', 'saw', 'brute', 'maton'];
+function slotPon(z) {
+  if (z.slotM || !z.torso) return; z.slotZ = true;
+  const g = new THREE.Group(); g.position.set(0, 0.2, -0.21); g.scale.setScalar(1.2); z.torso.add(g); z.slotM = g;   // asoma por encima de los hombros: se ve también de frente
+  addL(g, LG.box(0.36, 0.44, 0.2), LM(0xa01a2a, { emissive: 0x200408 }), 0, 0, 0);
+  addL(g, LG.box(0.38, 0.05, 0.22), LM(0xd8a838, { emissive: 0x403008 }), 0, 0.23, 0);
+  const t = slotScreenT.clone(); t.needsUpdate = true; z.slotT = t;
+  addL(g, new THREE.PlaneGeometry(0.28, 0.12), new THREE.MeshBasicMaterial({ map: t }), 0, 0.06, -0.105, 0, Math.PI, 0);
+  addL(g, LG.box(0.3, 0.06, 0.02), LM(0xffd040, { emissive: 0xffa020 }), 0, 0.17, -0.105);
+  const lv = addL(g, LG.cyl(0.015, 0.015, 0.22, 6), GMAT.steel, 0.2, 0.08, 0); addL(lv, LG.sph(0.04), GMAT.red, 0, 0.12, 0);
+}
+function slotTipo(z) { const ok = SLOTZ_TIPOS.filter(t => ZDEF[t] && t !== z.type); return pick(ok); }
+// al morir: gira y sale otro zombi del mismo lugar (el de la oleada no termina antes: el nuevo cuenta enseguida)
+function slotTransforma(z) {
+  const p = z.root.position, tipo = slotTipo(z); if (!tipo) return;
+  const nz = spawnZombie(tipo, p.x, p.z, diffW(game.wave), true); game.alive++; nz.slotDe = true;
+  bossEv('czs', p.x, p.z, ZTYPES.indexOf(tipo));
+}
+function slotFxStep(dt) { for (const z of zombies) if (z.slotT && !z.dead) z.slotT.offset.y = (z.slotT.offset.y + dt * 2.5) % 1; }
+
+// ===================== ENTRADA DE LOS JEFES (PENDIENTES 38) =====================
+// Al aparecer un jefe (de mapa o del casino) o un minijefe: unos 2,6 s de presentación con franjas de cine, su cartel y un golpe de sonido.
+// Jugando solo, la cámara se acerca al jefe y el mundo va en cámara muy lenta (nada te hace daño). En grupo solo se ve el cartel
+// (la cámara y el tiempo no cambian, así nadie se desincroniza). Un toque o cualquier tecla la salta.
+const INTRO = { on: false, t0: 0, T: 2.6, z: null, cine: false };
+const introCamObj = new THREE.PerspectiveCamera(), _iP = new THREE.Vector3(), _iL = new THREE.Vector3();
+function bossIntro(z, o) {
+  if (!game || tuto || state === 'menu' || !z) return false;
+  const el = $('#intro'); if (!el) return false;
+  $('#intro-k').textContent = o.kick || ''; $('#intro-t').textContent = o.t || ''; $('#intro-s').textContent = o.s || '';
+  el.className = 'k-' + (o.k || 'jefe'); el.hidden = false; void el.offsetWidth; el.classList.add('on');
+  INTRO.on = true; INTRO.z = z; INTRO.t0 = performance.now(); INTRO.cine = !Net.on && state === 'play' && !REDUCED;
+  INTRO.T = o.k === 'mini' ? 2.1 : 2.6;
+  if (INTRO.cine) game.introT = INTRO.T; document.body.classList.toggle('intro-cine', INTRO.cine);
+  Sfx.sting(o.k || 'jefe'); return true;
+}
+function introFin() {
+  if (!INTRO.on) return; INTRO.on = false; INTRO.z = null; if (game) game.introT = 0; document.body.classList.remove('intro-cine');
+  const el = $('#intro'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!INTRO.on) el.hidden = true; }, 260); }
+}
+const introEase = u => u * u * (3 - 2 * u);
+function introCam() {
+  if (!INTRO.on) return;
+  const t = (performance.now() - INTRO.t0) / 1000;
+  if (t >= INTRO.T || !game || state === 'menu') { introFin(); return; }
+  const z = INTRO.z; if (!INTRO.cine || !z || z.dead || state !== 'play') return;
+  const p = z.root.position, sc = z.s || 1, dx = camera.position.x - p.x, dz = camera.position.z - p.z, d = Math.hypot(dx, dz) || 1;
+  const dist = Math.min(d, 2.6 + 1.5 * sc), k = introEase(t < 0.5 ? t / 0.5 : t > INTRO.T - 0.45 ? Math.max(0, (INTRO.T - t) / 0.45) : 1);
+  _iP.set(p.x + dx / d * dist, 0.7 + 0.62 * sc, p.z + dz / d * dist); resolve(_iP, 0.2);
+  _iL.set(p.x, 1.05 * sc, p.z);
+  introCamObj.position.copy(_iP); introCamObj.lookAt(_iL);
+  camera.position.lerp(_iP, k); camera.quaternion.slerp(introCamObj.quaternion, k);
+}
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (INTRO.on && performance.now() - INTRO.t0 > 250) introFin(); }, true);
 function spawnBoss(z, idx) {
   applyBoss(z, idx); const B = BOSSES[idx];
   if (B.spawn) B.spawn(z);
-  banner(B.name, B.sub, 3600); hint(`Jefe: ${B.sub}`, 4500);
+  const j = CAS_JEFES.indexOf(B.id);
+  if (B.final || B.helper || !bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub })) banner(B.name, B.sub, 3600);
+  hint(`Jefe: ${B.sub}`, 4500);
   Sfx.roar(panOf(z.root.position), 2); player.shake = Math.min(1, player.shake + 0.4);
 }
 function bossTick(z, dt, c) { const B = z.B; return B && B.tick ? B.tick(z, dt, c) : null; }
@@ -25559,7 +25690,7 @@ function bfxSpawn(kind, ...a) {
   }
 }
 function bossClear() {
-  zeroReset(); cfxClear();
+  zeroReset(); cfxClear(); introFin();
   for (const f of BFX) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } if (f.g) scene.remove(f.g); }
   BFX.length = 0; player.webT = 0;
   if (game && game.plague) { player.maxHp += game.plague; game.plague = 0; }
@@ -25826,7 +25957,7 @@ function applyMini(z, idx, net) {
   if (!net) {
     z.maxHp = z.hp = MINI_HP * DF().hp * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
-    banner(`¡Minijefe: ${M.name}!`, MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}${MINI_ATK[M.id] ? ' · ' + MINI_ATK[M.id].d.toLowerCase() : ''}`, 4200);
+    if (!bossIntro(z, { k: 'mini', kick: 'Minijefe', t: M.name, s: MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d })) banner(`¡Minijefe: ${M.name}!`, MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}${MINI_ATK[M.id] ? ' · ' + MINI_ATK[M.id].d.toLowerCase() : ''}`, 4200);
     Sfx.roar(panOf(z.root.position), 1.8); player.shake = Math.min(1, player.shake + 0.3);
   } else if (game && state === 'play' && !z.dead) { banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); Sfx.roar(panOf(z.root.position), 1.8); }
 }
@@ -26167,10 +26298,12 @@ function contractText() {
 }
 
 /* ---- Oleadas, mejoras, tienda y lugares ---- */
+const LUDO_VIP = 2;   // fichas de miembro gratis por oleada para Ludo Cheng (pasiva «Cliente VIP»)
 function waveSupplies(n) {
   game.shieldW = 0;
   waveEvent(n);
   { const r = Balas.addNormales(game, 12 + 2 * zoneOf(n) + (game.char === 'francois' ? 12 : 0)); feed(r ? `Ración de la oleada: +${r} balas` : 'Tu caja está llena', 'gold'); }
+  if (game.char === 'ludo' && !tuto) { game.poker = (game.poker | 0) + LUDO_VIP; feed(`Cliente VIP: +${LUDO_VIP} fichas de miembro · tienes ${game.poker}`, 'gold'); renderChips(); }   // Ludo Cheng (decisión del dueño, 19-oct-2026)
   balOleadaInicio(n);   // Cantimplora, Mercenaria, Dado cargado, Ángel guardián, Reloj de arena
   if (world.idx === 23 && !Net.client) policiasDeGuardia();
   else if (world.idx === MAID_IDX && !Net.client) maidsDelCafe();
@@ -26217,6 +26350,7 @@ function updateWave(dt) {
         const mini = game.miniAt != null && game.toSpawn <= game.miniAt + 1 && MINIS[world.idx]; if (mini) game.miniAt = null;
         const t = mini ? mini.base : chooseType(diffW(game.wave)), sp = spawnPoint(mini || t === 'abom' || t === 'boss' ? 16 : 12);
         const nz = spawnZombie(t, sp.x, sp.z, diffW(game.wave), t === 'boss' || t === 'bandit' ? false : sp.rise); game.alive++; game.toSpawn--;
+        if (!mini && t !== 'boss' && t !== 'oro' && t !== 'knight' && !nz.def.big && Math.random() < SLOTZ_P) slotPon(nz);   // zombi tragamonedas (1 %)
         if (mini) applyMini(nz, world.idx);
         else if (t === 'boss') spawnBoss(nz, game.bossPick);
         else maybeElite(nz);
@@ -27093,7 +27227,7 @@ function updatePlayer(dt) {
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
   if (sprint && state === 'play') stMas('corre', 8 * len * dt);   // metros corridos (para «Piernas de acero»)
-  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (game && game.char === 'ludo' ? 1.15 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
+  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
   player.vx = damp(player.vx, tvx, acc, dt); player.vz = damp(player.vz, tvz, acc, dt);
@@ -27124,7 +27258,8 @@ function specCamera(dt) {
   setText($('#spec-name'), 'specn', `Viendo a ${p.name}`);
   setText($('#spec-sub'), 'specs', `Vida ${p.hp == null ? '?' : p.hp} %${t.length > 1 ? (IS_TOUCH ? ' · Toca las flechas para cambiar' : ' · Clic o ← → para cambiar') : ''}`);
 }
-function updateCamera(dt) {
+function updateCamera(dt) { updateCameraBase(dt); introCam(); }
+function updateCameraBase(dt) {
   { const on = specActive(); if (on !== spec.on) { spec.on = on; $('#spec').hidden = !on; $('#xh').style.visibility = on ? 'hidden' : ''; spec.snap = true; $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; } if (on) { $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; specCamera(dt); return; } }
   player.recoil *= Math.exp(-7 * dt);
   player.shake = Math.max(0, player.shake - dt * 2.2);
@@ -27797,7 +27932,7 @@ function updatePlay(dt) {
   if (game.deOn) { game.de -= dt * 22 / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
   if (game.killcamT > 0) game.killcamT -= dt;
-  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
+  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.introT > 0 && INTRO.on ? 0.04 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
   if (state === 'play' || state === 'pause' || state === 'inv' || state === 'lleno') {
     game.time += dt;
@@ -30221,7 +30356,7 @@ let snapKey = 0;
 function zPedir(id) { (zPedir.q || (zPedir.q = new Set())).add(id); }
 zPedir.flush = () => { const q = zPedir.q; if (!q || !q.size || !Net.client) return; const now = performance.now(); if (now - (zPedir.t || 0) < 250) return; zPedir.t = now; Net.ev(['zq', [...q].slice(0, 40)]); q.clear(); };
 function zSnap(z) {
-  const f = (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | (z.mSh > 0 ? 1024 : 0) | lostBits(z);
+  const f = (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | (z.mSh > 0 ? 1024 : 0) | (z.slotZ ? 2048 : 0) | lostBits(z);
   const a = [z.id, Math.round(z.root.position.x * 10), Math.round(z.root.position.z * 10), ((Math.round(z.yaw / TAU * 64) % 64) + 64) % 64, Math.round(z.root.position.y * 10), f, Math.max(0, Math.round(z.hp / z.maxHp * 100))];
   if ((z.sentInfo = (z.sentInfo | 0) + 1) <= 3 || snapKey || z.boss != null) a.push(ZTYPES.indexOf(z.type), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1, z.mini ? z.miniIdx : -1);
   else { let k = a.length; while (k > 4 && a[k - 1] === (k === 7 ? 100 : 0)) k--; a.length = k; }
@@ -30271,15 +30406,15 @@ function applySnapshot(s) {
       if (a[1] < 0) { zPedir(a[0]); continue; }   // sin el tipo todavía: se le pide al anfitrión y se crea con el próximo envío
       z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4];
       if (z.type === 'caballero') armarCaballero(z);
-      if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); }
+      if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); const B = BOSSES[a[8]]; if (B && !B.helper && !B.final && !(a[9] | 0) && (B.id !== 'mass')) { const j = CAS_JEFES.indexOf(B.id); bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub }); } }
       if (a[10] >= 0) makeElite(z, ELITE_KEYS[a[10]], true);
-      if (a[11] >= 0) applyMini(z, a[11], true);
+      if (a[11] >= 0) { applyMini(z, a[11], true); const M = MINIS[a[11]]; if (M) bossIntro(z, { k: 'mini', kick: 'Minijefe', t: M.name, s: '' }); }
     }
     if (a[9] !== undefined) z.bst = a[9] | 0;
     { const tn = performance.now(), ht = s.t || tn, dts = z.nht ? Math.max(0.05, (ht - z.nht) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; if (z.vx * z.vx + z.vz * z.vz > 196) z.vx = z.vz = 0; } else { z.vx = z.vz = 0; } z.nt = tn; z.nht = ht; }
     z.nx = a[2]; z.nz = a[3]; z.nyaw = a[4]; z.ny = a[5];
     if (a[6] & 960) syncLost(z, a[6]);
-    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0; z.mSh = a[6] & 1024 ? 1 : 0;
+    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0; z.mSh = a[6] & 1024 ? 1 : 0; if ((a[6] & 2048) && !z.slotM && !z.dead) slotPon(z);
     if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0 || (z.B && z.B.final) || z.boss != null || z.mini || z.elite || performance.now() - (z.cHitT || 0) > 700) z.hp = hp; }
     if ((a[6] & 1) && !z.dead) proxyDie(z, null);
   }
@@ -31151,7 +31286,7 @@ const CHARS = {
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
   lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'jefe', n: 0, t: 'Vence en el casino al jefe 1, el Crupier de Hielo y Fuego' } },
   carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.', req: { k: 'jefe', n: 3, t: 'Vence en el casino al jefe 4, la Escolta Zombi' } },
-  ludo: { name: 'Ludo Cheng', gun: 'corto', ab: 'Pies ligeros', desc: 'Empieza con dos revólveres cortos, uno en cada mano, y se mueve un 15 % más rápido.', req: { k: 'jefe', n: 1, t: 'Vence en el casino al jefe 2, Ludo Cheng' } },
+  ludo: { name: 'Ludo Cheng', gun: 'corto', ab: 'Cliente VIP', desc: 'Cada oleada recibe 2 fichas de miembro gratis para los juegos de azar. Empieza con dos revólveres cortos, uno en cada mano.', req: { k: 'jefe', n: 1, t: 'Vence en el casino al jefe 2, Ludo Cheng' } },
   francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'jefe', n: 2, t: 'Vence en el casino al jefe 3, el Crupier Mayor' } }
 };
 // Logros entre partidas para desbloquear personajes
@@ -32249,7 +32384,7 @@ const TU_ABIL = {
   lilith: 'Tu Ojo Muerto se carga un 50 % más rápido y dura el doble. Úsalo seguido: es tu mejor arma.',
   francois: 'Al empezar cada oleada recibes 12 balas extra en la caja. Siempre está activa.',
   carlos: 'Disparas con dos revólveres de acero .44 a la vez y no pierdes puntería por llevar dos. Disparan sin amartillar: cada mano es un revólver.',
-  ludo: 'Empiezas con dos revólveres cortos, uno en cada mano, y te mueves un 15 % más rápido. Muévete mucho: es tu mejor defensa.'
+  ludo: 'Cada oleada recibes 2 fichas de miembro gratis: gástalas en la tragamonedas, la ruleta y el blackjack. Empiezas con dos revólveres cortos, uno en cada mano.'
 };
 function tuAhead(d, side) { const f = tuto.f, o = tuto.o; return { x: o.x - Math.sin(f) * d + Math.cos(f) * side, z: o.z - Math.cos(f) * d - Math.sin(f) * side }; }
 // Busca hacia dónde poner los blancos: lo más cerca posible de donde mira el jugador, sin lápidas ni muros en medio
