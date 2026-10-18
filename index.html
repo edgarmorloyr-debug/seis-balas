@@ -17518,6 +17518,150 @@ function issSignGeo(row, rows, w, h) {
   for (let i = 0; i < uv.count; i++) uv.setY(i, (rows - 1 - row + uv.getY(i)) / rows);
   return g;
 }
+/* ===== Estación Espacial grande (PENDIENTES 44, 19-oct-2026): la cúpula de siempre queda en el centro y por tres pasillos
+   presurizados que salen de su borde se llega a 3 módulos con zona de llave: el hangar (con la lanzadera), el laboratorio
+   (los tubos de muestras, dos rotos) y el reactor. Cada módulo es un cuarto cerrado; lo de fuera es el espacio. */
+const ISSG = { A: 90, r1: 54, L: 32, hw: 16, cw: 3, gap: 5 * Math.PI / 180, z: [] };
+function issLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['han', 1.5 * Math.PI, 'en el hangar'], ['lab', Math.PI / 6, 'en el laboratorio'], ['rea', 5 * Math.PI / 6, 'en el reactor']])
+  ISSG.z.push({ k, a, nombre, en: (x, z) => { const q = issLocal(a, x, z); return Math.abs(q.lx) < ISSG.hw - 0.5 && q.lz > ISSG.r1 + 0.5 && q.lz < ISSG.r1 + ISSG.L - 0.5; } });
+const enHangar = ISSG.z[0].en, enLab = ISSG.z[1].en, enReactor = ISSG.z[2].en;
+function zonaISS(x, z) { return enHangar(x, z) ? 'en el hangar' : enLab(x, z) ? 'en el laboratorio' : enReactor(x, z) ? 'en el reactor' : 'en la cúpula'; }
+function issGrande(g0, DR, mt) {
+  const { A, r1, L, hw, cw } = ISSG, r2 = r1 + L, cz = r1 + L / 2, H = 5, fast = FAST();
+  world.arena = { t: 'r', hx: A, hz: A };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = ISSG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el borde de la cúpula ahora es una pared (antes lo era el círculo del lugar), con tres huecos para los pasillos
+  for (let k = 0; k < 144; k++) {
+    const a = (k + 0.5) / 144 * TAU;
+    if (ISSG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < 0.0733)) continue;
+    addBox(Math.cos(a) * (DR - 0.1), Math.sin(a) * (DR - 0.1), 1.05, 0.8, Math.PI / 2 - a);
+  }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const piso = (g, w, d, lz, tex) => M(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -1 }), 0, 0.012, lz, { p: g, rx: -Math.PI / 2, cast: false });
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.2); };
+  const modT = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#b8bec8'; g.fillRect(0, 0, w, h); for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#a8aeb8' : '#c4cad2'; g.fillRect(i * 64 + 3, 6, 58, h - 30); g.fillStyle = '#5a6270'; g.fillRect(i * 64 + 12, 16, 40, 5); } g.fillStyle = '#2a3038'; g.fillRect(0, h - 22, w, 22); g.fillStyle = '#40e0ff'; g.fillRect(0, h - 26, w, 3); });
+  modT.wrapS = THREE.RepeatWrapping; modT.repeat.set(6, 1);
+  const modM = lam(0xffffff, { map: modT }), ceilM = lam(0x2a2e36), stripM = bsc(0x9fe8ff);
+  const cartel = (txt, bg, fg) => bsc(0xffffff, { map: canvasTex(512, 128, (g, w, h) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = fg; g.font = 'bold 66px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 4); }) });
+  const pisoT = (base, fn) => canvasTex(256, 256, (g, w) => { g.fillStyle = base; g.fillRect(0, 0, w, w); g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 2; for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, w); g.stroke(); g.beginPath(); g.moveTo(0, i * 64); g.lineTo(w, i * 64); g.stroke(); } for (let i = 0; i < 500; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.05)'; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); } if (fn) fn(g, w); });
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaISS(p.x, p.z) }); };
+  const sale = (g, lx, lz) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise: false }); };
+  const corrT = pisoT('#4a505a', (g, w) => { g.fillStyle = '#e8b020'; g.fillRect(0, 0, 18, w); g.fillRect(w - 18, 0, 18, w); g.fillStyle = '#1a1a1a'; for (let y = 0; y < w; y += 24) { g.fillRect(0, y, 18, 10); g.fillRect(w - 18, y + 12, 18, 10); } });
+  const G = {};
+  for (const Z of ISSG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    // ---- el pasillo presurizado (de la cúpula al módulo)
+    const c0 = 42, cl = r1 - 1 - c0, cc = c0 + cl / 2;
+    piso(g, 2 * cw, cl + 1, cc + 0.5, corrT);
+    for (const s of [-1, 1]) { box(g, 1, 3.4, cl, modM, s * (cw + 0.5), 1.7, cc, { cast: false }); col(g, s * (cw + 0.5), cc, 0.5, cl / 2); }
+    box(g, 2 * cw + 2, 0.3, cl, ceilM, 0, 3.55, cc, { cast: false });
+    box(g, 0.35, 0.06, cl - 1, stripM, 0, 3.38, cc, { cast: false });
+    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) box(g, 0.08, 0.5, 0.08, mt.cyan, s * (cw - 0.02), 0.5, c0 + 1.5 + i * 3, { cast: false });
+    // el cartel sobre la entrada, del lado de la cúpula
+    box(g, 6.6, 1.7, 0.25, mt.dark, 0, 4.1, c0 - 0.05, { cast: false });
+    M(new THREE.PlaneGeometry(6.2, 1.4), cartel(Z.k === 'han' ? 'HANGAR' : Z.k === 'lab' ? 'LABORATORIO' : 'REACTOR', Z.k === 'han' ? '#1a3a5a' : Z.k === 'lab' ? '#0e3a1e' : '#4a1a08', Z.k === 'han' ? '#cfe8ff' : Z.k === 'lab' ? '#9fffb0' : '#ffb060'), 0, 4.1, c0 - 0.2, { p: g, ry: Math.PI, cast: false });
+    // ---- el módulo: cuatro paredes, techo con paneles de luz y la puerta del pasillo
+    for (const s of [-1, 1]) { box(g, 1, H, L + 2, modM, s * (hw + 0.5), H / 2, cz, { cast: false }); col(g, s * (hw + 0.5), cz, 0.5, L / 2 + 1); }
+    box(g, 2 * hw + 2, H, 1, modM, 0, H / 2, r2 + 0.5, { cast: false }); col(g, 0, r2 + 0.5, hw + 1, 0.5);
+    for (const s of [-1, 1]) { const w = hw + 1 - cw; box(g, w, H, 1, modM, s * (cw + w / 2), H / 2, r1 - 0.5, { cast: false }); col(g, s * (cw + w / 2), r1 - 0.5, w / 2, 0.5); }
+    box(g, 2 * cw, H - 3.4, 1, modM, 0, 3.4 + (H - 3.4) / 2, r1 - 0.5, { cast: false });
+    box(g, 2 * hw + 2, 0.3, L + 2, ceilM, 0, H + 0.15, cz, { cast: false });
+    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(g, 0.5, 0.06, 7, stripM, s * 7, H - 0.02, r1 + 6 + i * 10, { cast: false });
+  }
+
+  // ================= EL HANGAR: la lanzadera, tanques de combustible y la gran compuerta =================
+  { const g = G.han;
+    piso(g, 2 * hw, L, cz, pisoT('#3a3e46', (q, w) => { q.strokeStyle = '#e8b020'; q.lineWidth = 10; q.beginPath(); q.arc(w / 2, w / 2, w * 0.4, 0, TAU); q.stroke(); q.fillStyle = 'rgba(232,176,32,.8)'; q.font = 'bold 120px sans-serif'; q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText('H', w / 2, w / 2 + 6); }));
+    const white = lam(0xe8ecf2), orange = lam(0xd86a20), s = new THREE.Group(); s.position.set(1, 0, cz + 1); s.rotation.y = 0.12; g.add(s);
+    M(cyl(1.6, 1.6, 11, 16), white, 0, 2.2, 0, { p: s, rz: Math.PI / 2 });
+    M(new THREE.ConeGeometry(1.6, 3.2, 16), white, 7.1, 2.2, 0, { p: s, rz: -Math.PI / 2 });
+    M(bx(1.4, 0.7, 2.2), bsc(0x183850), 6, 3, 0, { p: s, cast: false });
+    M(cyl(1.62, 1.62, 1, 16), orange, 2.5, 2.2, 0, { p: s, rz: Math.PI / 2 });
+    M(bx(4.5, 0.22, 10), white, -1.6, 1.85, 0, { p: s }); M(bx(4.5, 0.24, 0.3), orange, -1.6, 1.86, 4.9, { p: s }); M(bx(4.5, 0.24, 0.3), orange, -1.6, 1.86, -4.9, { p: s });
+    M(bx(2.2, 1, 0.22), white, -4.8, 4.2, 0, { p: s });
+    for (const sz of [-0.8, 0.8]) { M(cyl(0.6, 0.8, 1.2, 12), mt.dark, -6, 2.2, sz, { p: s, rz: Math.PI / 2 }); glow(s, -6.8, 2.2, sz, 0xff9a40, 1.6, 0.5); }
+    for (const [x, z] of [[4.5, 0], [-2, -1.6], [-2, 1.6]]) M(cyl(0.12, 0.12, 0.9, 6), mt.steel, x, 0.45, z, { p: s });
+    { const p = lw(g, 1, cz + 1); addBox(p.x, p.z, 8.6, 1.7, g.rotation.y + 0.12); const q = lw(g, 1 - 1.6 * Math.cos(0.12), cz + 1 + 1.6 * Math.sin(0.12)); addBox(q.x, q.z, 2.3, 5.1, g.rotation.y + 0.12); }
+    // tanques de combustible y carga
+    for (const [x, z] of [[-12.5, r1 + 3], [-12.5, r1 + 6.5], [-9, r1 + 3]]) { M(cyl(1.2, 1.2, 3, 14), lam(0xc0302a), x, 1.5, z, { p: g, solid: true }); M(cyl(1.25, 1.25, 0.3, 14), mt.hazM, x, 2.6, z, { p: g }); colC(g, x, z, 1.25); }
+    for (const [x, z, sz] of [[12.5, r1 + 3, 1.4], [13, r1 + 5.2, 1.1], [11, r1 + 3.5, 1], [-13, r2 - 9, 1.3], [-12, r2 - 7.5, 1]]) { const p = lw(g, x, z); crate(p.x, p.z, sz, lam(pick([0xe8e8e0, 0xf0c040, 0x8a9aa8]))); }
+    // la gran compuerta del fondo (por ahí entran) con su baliza giratoria
+    box(g, 14, 4.4, 0.3, mt.hazM, 0, 2.2, r2 - 0.1, { cast: false }); box(g, 12, 3.6, 0.32, mt.hullD, 0, 2, r2 - 0.1, { cast: false });
+    box(g, 0.2, 3.6, 0.34, mt.dark, 0, 2, r2 - 0.1, { cast: false });
+    const bz = new THREE.Group(); bz.position.set(0, 4.6, r2 - 0.4); bz.userData.vivo = 1; g.add(bz);
+    M(cyl(0.22, 0.22, 0.3, 10), mt.red, 0, 0, 0, { p: bz, cast: false }); const bb = glow(bz, 0.6, 0, 0, 0xff3030, 1.8, 0.6);
+    world.anims.push((dt, t) => { bz.rotation.y += dt * 5; bb.material.opacity = 0.3 + Math.abs(Math.sin(t * 2.5)) * 0.4; });
+    luz(g, 0, 4.4, cz, 0xdde8ff, 1.3, 26);
+    for (const [x, z] of [[-11, r1 + 11], [12, r1 + 12], [0, r1 + 3], [-13, cz + 2], [13, cz + 6], [-8, r2 - 3], [9, r2 - 4]]) spotK(g, x, z);
+    for (const x of [-7, 0, 7]) sale(g, x, r2 - 2);
+  }
+
+  // ================= EL LABORATORIO: mesas, pantallas y los tubos de muestras (dos rotos) =================
+  { const g = G.lab;
+    piso(g, 2 * hw, L, cz, pisoT('#c8ccd0', (q, w) => { for (let i = 0; i < 5; i++) { q.fillStyle = 'rgba(60,200,80,.35)'; q.beginPath(); q.ellipse(Math.random() * w, Math.random() * w, 10 + Math.random() * 16, 6 + Math.random() * 8, Math.random() * 3, 0, TAU); q.fill(); } }));
+    const mesa = lam(0xd8dde4), verde = bsc(0x50ff7a);
+    for (const lz of [r1 + 8, r1 + 16]) for (const lx of [-8, 8]) {
+      box(g, 7, 1, 1.4, mesa, lx, 0.5, lz, { solid: true }); box(g, 7.1, 0.08, 1.5, mt.dark, lx, 1.04, lz, {}); col(g, lx, lz, 3.5, 0.7);
+      M(new THREE.PlaneGeometry(1.5, 0.85), mt.scrM, lx - 1.6, 1.6, lz - 0.45, { p: g, cast: false, ry: Math.PI }); box(g, 1.6, 0.95, 0.06, mt.dark, lx - 1.6, 1.6, lz - 0.42, {});
+      for (let i = 0; i < 3; i++) M(cyl(0.12, 0.16, 0.36, 8), i % 2 ? verde : bsc(0x6ac8ff), lx + 0.8 + i * 0.6, 1.26, lz + 0.1, { p: g, cast: false });
+    }
+    // tubos de muestras contra la pared del fondo: zombis flotando en líquido verde; dos están rotos y por ahí salen
+    const vidrio = new THREE.MeshBasicMaterial({ color: 0x60ff90, transparent: true, opacity: 0.22, depthWrite: false }), sombra = lam(0x1a2a1a), rotos = [];
+    for (let i = 0; i < 6; i++) {
+      const lx = -12.5 + i * 5, lz = r2 - 2.2, roto = i === 1 || i === 4;
+      M(cyl(1.05, 1.15, 0.5, 16), mt.hullD, lx, 0.25, lz, { p: g, solid: true }); M(cyl(1.05, 1.05, 0.4, 16), mt.hullD, lx, 4.3, lz, { p: g });
+      if (!roto) { M(new THREE.CylinderGeometry(0.85, 0.85, 3.6, 16, 1, true), vidrio, lx, 2.3, lz, { p: g, cast: false }); M(cyl(0.3, 0.26, 1.5, 8), sombra, lx, 2, lz, { p: g, cast: false }); M(new THREE.SphereGeometry(0.24, 8, 6), sombra, lx, 3, lz, { p: g, cast: false }); glow(g, lx, 2.2, lz, 0x50ff7a, 2.6, 0.35); }
+      else { for (let k = 0; k < 4; k++) M(bx(0.3, sr(0.4, 0.9), 0.04), vidrio, lx + Math.cos(k * 1.7) * 0.8, 0.8, lz + Math.sin(k * 1.7) * 0.8, { p: g, ry: k, cast: false }); M(new THREE.CircleGeometry(1.8, 16), bsc(0x3ac85a, { transparent: true, opacity: 0.55, depthWrite: false }), lx, 0.03, lz - 2, { p: g, rx: -Math.PI / 2, cast: false }); rotos.push(lx); }
+      colC(g, lx, lz, 1.15);
+    }
+    if (!fast) world.anims.push(() => { if (Math.random() < 0.15) { const i = Math.floor(Math.random() * 6); if (i === 1 || i === 4) return; const p = lw(g, -12.5 + i * 5 + rand(-0.4, 0.4), r2 - 2.2); PA.add(p.x, 0.7, p.z, 0, rand(0.5, 0.9), 0, rand(3, 4.5), rand(0.04, 0.07), 0.5, 1, 0.6, 0.8, 0, 0, 0, 0); } });
+    M(new THREE.PlaneGeometry(5, 1.2), cartel('CUARENTENA', '#c01818', '#ffffff'), 0, 3.6, r1 - 0.02 + 0.05, { p: g, cast: false });
+    luz(g, 0, 4.4, cz + 4, 0xc8ffd8, 1.3, 24);
+    for (const [x, z] of [[-13, r1 + 3], [13, r1 + 3], [0, r1 + 12], [-13, cz + 4], [13, cz + 4], [0, r2 - 6], [-4, r1 + 2]]) spotK(g, x, z);
+    for (const x of rotos) sale(g, x, r2 - 4.5); sale(g, 0, r2 - 4.5);
+  }
+
+  // ================= EL REACTOR: el núcleo que brilla, anillos que giran, tuberías y vapor =================
+  { const g = G.rea;
+    piso(g, 2 * hw, L, cz, pisoT('#2c2e34', (q, w) => { q.strokeStyle = 'rgba(255,140,40,.7)'; q.lineWidth = 8; q.setLineDash([18, 12]); q.beginPath(); q.arc(w / 2, w / 2, w * 0.3, 0, TAU); q.stroke(); q.setLineDash([]); }));
+    M(cyl(4, 4.4, 0.8, 24), mt.hullD, 0, 0.4, cz, { p: g, solid: true }); colC(g, 0, cz, 4.4);
+    M(cyl(2.6, 2.8, 0.5, 20), mt.dark, 0, 4.75, cz, { p: g });
+    const nucleo = M(cyl(1.5, 1.5, 3.7, 20), bsc(0xffa040), 0, 2.65, cz, { p: g, cast: false });
+    M(new THREE.CylinderGeometry(1.9, 1.9, 3.7, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), 0, 2.65, cz, { p: g, cast: false });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; M(cyl(0.18, 0.18, 3.7, 6), mt.steel, Math.cos(a) * 2.05, 2.65, cz + Math.sin(a) * 2.05, { p: g }); }
+    const an = new THREE.Group(); an.position.set(0, 2.6, cz); an.userData.vivo = 1; g.add(an); const anillos = [];
+    for (let i = 0; i < 3; i++) { const r = new THREE.Group(); an.add(r); M(new THREE.TorusGeometry(2.6 + i * 0.35, 0.07, 6, 40), bsc(i === 1 ? 0x5ae0ff : 0xffb040), 0, 0, 0, { p: r, cast: false }); anillos.push(r); }
+    const halo = glow(g, 0, 2.7, cz, 0xff9a40, 9, 0.45);
+    world.anims.push((dt, t) => { anillos[0].rotation.x += dt * 0.9; anillos[1].rotation.y += dt * 1.3; anillos[1].rotation.x = 1.2; anillos[2].rotation.z += dt * 0.7; anillos[2].rotation.y = 0.6; const k = 0.5 + Math.sin(t * 2.2) * 0.5; nucleo.material.color.setRGB(1, 0.55 + k * 0.25, 0.2 + k * 0.15); halo.material.opacity = 0.35 + k * 0.2; });
+    // tuberías por las paredes y generadores con luces
+    for (const s of [-1, 1]) { M(cyl(0.35, 0.35, L, 10), mt.steel, s * (hw - 0.6), 3.9, cz, { p: g, rx: Math.PI / 2, cast: false }); M(cyl(0.22, 0.22, L, 8), lam(0xc0302a), s * (hw - 0.6), 3.2, cz, { p: g, rx: Math.PI / 2, cast: false }); for (let i = 0; i < 4; i++) M(cyl(0.3, 0.3, 3.9, 8), mt.steel, s * (hw - 0.6), 1.95, r1 + 4 + i * 8, { p: g, cast: false }); }
+    const leds = [];
+    for (const [x, z] of [[-11, r1 + 5], [11, r1 + 5], [-11, r2 - 5], [11, r2 - 5]]) { box(g, 3, 2.4, 2.4, mt.hullD, x, 1.2, z, { solid: true }); box(g, 3.05, 0.3, 2.45, mt.hazM, x, 2.2, z, {}); const l = box(g, 0.5, 0.3, 0.06, bsc(0x30ff60), x, 1.5, z + (z < cz ? 1.23 : -1.23), { cast: false }); leds.push(l); col(g, x, z, 1.5, 1.2); }
+    world.anims.push((dt, t) => { leds.forEach((l, i) => l.material.color.setHex(Math.sin(t * 3 + i * 1.7) > 0.3 ? 0x30ff60 : 0xff4030)); });
+    // vapor que sale de las rejillas del suelo
+    const vents = [[-6, r1 + 4], [6, r2 - 4], [-6, r2 - 4], [6, r1 + 4]];
+    for (const [x, z] of vents) box(g, 1.4, 0.04, 1.4, mt.dark, x, 0.025, z, { cast: false });
+    world.anims.push(() => { if (Math.random() < (fast ? 0.08 : 0.25)) { const [x, z] = pick(vents), p = lw(g, x + rand(-0.4, 0.4), z + rand(-0.4, 0.4)); P.add(p.x, 0.1, p.z, rand(-0.2, 0.2), rand(0.8, 1.6), rand(-0.2, 0.2), rand(1.5, 2.8), 0.14, 0.85, 0.85, 0.9, 0.25, 0, 0.6, 0.45, 0); } });
+    luz(g, 0, 4.2, cz, 0xff8a3a, 1.6, 24);
+    for (const [x, z] of [[0, r1 + 3], [-13.5, cz], [13.5, cz], [-7, cz - 7], [7, cz + 7], [0, r2 - 3], [-13.5, r2 - 2]]) spotK(g, x, z);
+    for (const [x, z] of vents.slice(0, 3)) sale(g, x, z);
+  }
+
+  // ningún punto de aparición ni de llave encima de algo sólido
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildISS() {
   const R = 44;
   world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 12 }; world.grav = 0.55; world.noMoon = true;
@@ -17567,11 +17711,14 @@ function buildISS() {
   world.anims.push((dt) => { scrT.offset.x += dt * 0.06; });
   // ---- borde del domo: muro bajo con paneles, barandilla de luz y la gran cúpula geodésica de cristal
   const panT = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#c8ced8'; g.fillRect(0, 0, w, h); for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#b8bec8' : '#d4dae2'; g.fillRect(i * 64 + 3, 6, 58, h - 12); g.fillStyle = '#5a6270'; g.fillRect(i * 64 + 12, 18, 40, 6); } g.fillStyle = '#2a3038'; g.fillRect(0, h - 10, w, 10); g.fillStyle = '#40e0ff'; g.fillRect(0, h - 22, w, 3); });
-  panT.wrapS = THREE.RepeatWrapping; panT.repeat.set(36, 1);
-  const wallH = 2.6, DR = R + 0.9;
-  M(new THREE.CylinderGeometry(DR, DR, wallH, 96, 1, true), lam(0xffffff, { map: panT, side: THREE.DoubleSide }), 0, wallH / 2, 0, { cast: false });
-  M(new THREE.TorusGeometry(DR - 0.15, 0.22, 6, 96), steel, 0, wallH, 0, { rx: Math.PI / 2, cast: false });
-  M(new THREE.TorusGeometry(DR - 0.6, 0.06, 4, 96), cyan, 0, 1.1, 0, { rx: Math.PI / 2, cast: false });
+  panT.wrapS = THREE.RepeatWrapping; panT.repeat.set(11, 1);
+  const wallH = 2.6, DR = R + 0.9, wallM = lam(0xffffff, { map: panT, side: THREE.DoubleSide });
+  for (const Z of ISSG.z) {   // un arco entre cada pasillo y el siguiente (Estación grande)
+    const a0 = Z.a + ISSG.gap, len = TAU / 3 - 2 * ISSG.gap;
+    M(new THREE.CylinderGeometry(DR, DR, wallH, 32, 1, true, Math.PI / 2 - a0 - len, len), wallM, 0, wallH / 2, 0, { cast: false });
+    const t1 = new THREE.TorusGeometry(DR - 0.15, 0.22, 6, 32, len); t1.rotateZ(a0); M(t1, steel, 0, wallH, 0, { rx: Math.PI / 2, cast: false });
+    const t2 = new THREE.TorusGeometry(DR - 0.6, 0.06, 4, 32, len); t2.rotateZ(a0); M(t2, cyan, 0, 1.1, 0, { rx: Math.PI / 2, cast: false });
+  }
   // cúpula: nervios y nudos instanciados sobre un icosaedro recortado
   const DY = 27, base = wallH;
   {
@@ -17740,7 +17887,7 @@ function buildISS() {
     addCircle(31, -3, 1.7);
     world.anims.push((dt, t) => { turret.rotation.y = Math.sin(t * 0.25) * 1.4 + 1.6; sh.rotation.z = 0.5 + Math.sin(t * 0.33) * 0.35; el.rotation.z = 1.1 + Math.sin(t * 0.41 + 1) * 0.45; wr.rotation.z = -0.4 + Math.sin(t * 0.6) * 0.3; tip.visible = (t % 1) < 0.5; });
     // carga apilada
-    [[34, 3, 1.4], [35, 1.2, 1.1], [27.5, -8.5, 1.3], [35.5, -7, 1.5], [33.5, 4.8, 1]].forEach(([x, z, s], i) => crate(x, z, s, lam(i % 2 ? 0xe8e8e0 : 0x8a9aa8)));
+    [[34, 3, 1.4], [36.5, -9.5, 1.1], [27.5, -8.5, 1.3], [35.5, -7, 1.5], [33.5, 4.8, 1]].forEach(([x, z, s], i) => crate(x, z, s, lam(i % 2 ? 0xe8e8e0 : 0x8a9aa8)));
     M(bx(1, 1, 1), lam(0xe8b020), 34.2, 1.4 + 0.5, 3.1, { solid: true, ry: 0.4 });
   }
   // ---- dormitorio: cápsulas de dormir (oeste); una está rota y abierta
@@ -17769,6 +17916,7 @@ function buildISS() {
   // ---- compuertas de esclusa en el borde (puntos de aparición)
   const doors = [];
   for (let i = 0; i < 10; i++) {
+    if (i === 7) continue;   // ahí sale el pasillo del hangar
     const a = (i + 0.5) / 10 * TAU, x = Math.cos(a) * (DR - 0.35), z = Math.sin(a) * (DR - 0.35), g = Grp(x, z, -a - Math.PI / 2);
     M(bx(4.2, 3.8, 0.7), hullD, 0, 1.9, -0.2, { p: g, solid: true });
     M(bx(3.8, 0.3, 0.12), hazM, 0, 3.55, 0.17, { p: g, cast: false });
@@ -17933,6 +18081,7 @@ function buildISS() {
     M(bg, beamM, 0, 0, 0, { p: rot, cast: false, recv: false });
     world.anims.push((dt) => { rot.rotation.y += dt * 4; });
   }
+  issGrande(world.group.children.length, DR, { cyan, dark, steel, hazM, hullD, red, scrM });   // los tres módulos con zona de llave (PENDIENTES 44)
 }
 
 // DESC: Moqueta húmeda, zumbido eterno y pasillos amarillos que no terminan. No te fíes de la salida.
@@ -26728,7 +26877,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [11, 12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
