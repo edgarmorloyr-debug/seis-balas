@@ -20243,7 +20243,7 @@ const BAL = {
     elementos: { name: 'Elementos', bono: 'los efectos duran el doble', dura: 2 },
     oscura: { name: 'Oscura', bono: 'los zombis que matas dejan sombras que pelean por ti', t: 10, max: 3 }
   },
-  caballero: { vida: 300, dano: 40 },   // el caballero que invocan Invocación, Legión, Ángel guardián, Duelo y Caballero del tiempo (antes del nivel)
+  caballero: { vida: 300, dano: 40, max: 8 },   // el caballero que invocan (máximo 8 a la vez) Invocación, Legión, Ángel guardián, Duelo y Caballero del tiempo (antes del nivel)
   arbolEspacio: { max: 2, coste: [8, 15] }   // Tienda calavera: espacios de slot extra (caros)
 };
 // t: 'p' pasiva · 'a' activa · vuelve: true = vuelve a la caja, false = se rompe · f: familia · c: nombre corto para el slot y el cañón
@@ -21189,6 +21189,7 @@ const ALLY = {
   maid_rubia: { name: 'Alice, la maid', short: 'Alice', al: 'a Alice', desc: 'Maid del café con pistola: dispara rápido y casi no falla.', price: 60, hp: 100, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [0.75, 1.05], dmg: 22, acc: 0.74, head: 0.2, maid: 1 },
   maid_rosa: { name: 'Sakura, la maid', short: 'Sakura', al: 'a Sakura', desc: 'Maid del café con pistola: la más veloz, dispara sin parar.', price: 60, hp: 95, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [0.55, 0.85], dmg: 16, acc: 0.66, head: 0.15, maid: 1 },
   maid_plata: { name: 'Yuki, la maid', short: 'Yuki', al: 'a Yuki', desc: 'Maid del café con pistola: lenta pero certera, apunta a la cabeza.', price: 65, hp: 100, shirt: 0x4a5a9a, pants: 0x4a5a9a, hat: null, gun: 'pistol', cd: [1.05, 1.4], dmg: 32, acc: 0.82, head: 0.35, maid: 1 },
+  guerrero: { name: 'Caballero', short: 'Un caballero', al: 'a un caballero', desc: 'Lo invoca una bala: pelea cuerpo a cuerpo a tu lado hasta morir.', price: 0, hp: BAL.caballero.vida, shirt: 0x8a8e96, pants: 0x3a3c42, hat: 'helmet', gun: 'machete', cd: [0.7, 1.0], dmg: BAL.caballero.dano, melee: true, bait: true, range: 14, hab: true },
   carnicero: { name: 'El Carnicero', short: 'El Carnicero', al: 'al Carnicero', desc: 'Pelea cuerpo a cuerpo con un machete. Aguanta mucho y los zombis lo prefieren a él.', price: 50, hp: 220, shirt: 0xb0a090, pants: 0x3a3027, hat: null, gun: 'machete', cd: [0.8, 1.1], dmg: 45, melee: true, bait: true, range: 14 }
 };
 const ALLY_KEYS = Object.keys(ALLY), ALLY_POOL = ALLY_KEYS.filter(k => k !== 'cop' && !ALLY[k].hab);
@@ -21412,11 +21413,17 @@ const wellGeo = new THREE.SphereGeometry(0.35, 14, 10), wellMat = new THREE.Mesh
 const wellHalo = new THREE.SpriteMaterial({ map: glowTex, color: 0x9a5aff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
 const trapMat = new THREE.MeshLambertMaterial({ color: 0x5a5a5e }), trapBaseGeo = new THREE.CircleGeometry(0.42, 14), trapJawGeo = new THREE.TorusGeometry(0.38, 0.035, 4, 14, Math.PI);
 const holeMat = new THREE.MeshBasicMaterial({ color: 0x000000 }), holeHalo = new THREE.SpriteMaterial({ color: 0x8a3aff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
-function addWell(p, hole) {
+function addWell(p, hole, o = {}) {
   const m = new THREE.Mesh(wellGeo, hole ? holeMat : wellMat), q = { x: p.x, z: p.z }; clampArena(q, 0.5);
   m.position.set(q.x, clamp(p.y, 0.9, 2.2), q.z); const halo = new THREE.Sprite(hole ? holeHalo : wellHalo); halo.scale.set(hole ? 6 : 3, hole ? 6 : 3, 1); m.add(halo);
   if (hole) { m.scale.setScalar(1.8); if (holeHalo.map !== wellHalo.map) { holeHalo.map = wellHalo.map; holeHalo.needsUpdate = true; } }
-  scene.add(m); wells.push({ m, t: 5, hole: !!hole, r: hole ? 16 : 11 }); Sfx.whoosh(panOf(m.position)); if (hole) { Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.4); }
+  const w = { m, t: o.t || 5, hole: !!hole, r: o.r || (hole ? 16 : 11), by: o.by || Net.id, oro: o.oro || 0, mata: !!o.mata }; scene.add(m); wells.push(w); Sfx.whoosh(panOf(m.position)); if (hole) { Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.4); }
+  return w;
+}
+// un zombi tragado por un agujero negro: muere y, con el Casino del abismo, da oro a quien disparó
+function balTragado(w, z) {
+  const yo = w.by === Net.id, killed = damageZombie(z, 1e6, yo ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: w.by });
+  if (killed && w.oro) { if (yo) addGold(w.oro, true); else Net.ev(['bal', 'oro', w.by, w.oro]); }
 }
 function nearestWell(p) { let b = null, bd = 99; for (const w of wells) { const d = Math.hypot(w.m.position.x - p.x, w.m.position.z - p.z); if (d < w.r && d < bd) { bd = d; b = w; } } return b; }
 function updateWells(dt) {
@@ -21427,11 +21434,13 @@ function updateWells(dt) {
       if (!Net.client) for (const z of zombies) {
         if (z.dead) continue; const d = Math.hypot(z.root.position.x - q.x, z.root.position.z - q.z); if (d > w.r) continue;
         if (z.boss != null) { if (d < 4) damageZombie(z, z.maxHp * 0.05 * dt, { part: 'body', dir: null, ally: true }); continue; }
-        if (d < 1.6) { z.body.scale.multiplyScalar(0.5); damageZombie(z, 1e6, { part: 'body', dir: null }); }
+        if (d < 1.6) { z.body.scale.multiplyScalar(0.5); balTragado(w, z); }
       }
     }
     for (let k = 0; k < 3; k++) { const a = rand(0, TAU), r = rand(1.5, 4); PA.add(q.x + Math.cos(a) * r, q.y + rand(-0.6, 0.6), q.z + Math.sin(a) * r, -Math.cos(a) * r * 1.6, 0, -Math.sin(a) * r * 1.6, 0.6, 0.08, 0.6, 0.3, 1, 0.9, 0, 0, 0, 0); }
-    if (w.t <= 0) { for (let k = 0; k < 20; k++) PA.add(q.x, q.y, q.z, rand(-4, 4), rand(-2, 4), rand(-4, 4), 0.5, 0.1, 0.6, 0.3, 1, 1, 0, 2, 0, 0); scene.remove(w.m); wells.splice(i, 1); }
+    if (w.par && wells.includes(w.par)) { const o = w.par.m.position, dx = o.x - q.x, dz = o.z - q.z, dd = Math.hypot(dx, dz); if (dd > 0.6) { q.x += dx / dd * 2.2 * dt; q.z += dz / dd * 2.2 * dt; } else w.t = Math.min(w.t, 0.3); }   // Horizonte de sucesos: los dos se atraen
+    if (w.t <= 0) { if (w.mata && !Net.client) for (const z of zombies) if (!z.dead && z.boss == null && Math.hypot(z.root.position.x - q.x, z.root.position.z - q.z) < w.r) balTragado(w, z);   // los que siguen dentro mueren al cerrarse
+      for (let k = 0; k < 20; k++) PA.add(q.x, q.y, q.z, rand(-4, 4), rand(-2, 4), rand(-4, 4), 0.5, 0.1, 0.6, 0.3, 1, 1, 0, 2, 0, 0); scene.remove(w.m); wells.splice(i, 1); }
   }
 }
 function addTrap(x, z) {
@@ -21887,14 +21896,13 @@ function refreshQueueAfterShop() {}
 // Sacas una bala al azar de tu caja; si está vacía, el hueco queda sin bala
 function drawBullet() {
   if (!game.box.length) return null;
-  let i = Math.floor(Math.random() * game.box.length);
-  if (game.box[i] === 'normal' && lv('deck') && Math.random() < 0.3 * lv('deck')) { const sp = []; game.box.forEach((b, k) => { if (b !== 'normal' && b !== 'mala') sp.push(k); }); if (sp.length) i = pick(sp); }
+  const i = Math.floor(Math.random() * game.box.length);
   return game.box.splice(i, 1)[0];
 }
 function loadChamber(h, i) {
-  let b = drawBullet(); if (b == null) return false; if (b === 'normal' && prohib('feria')) b = randomBullet() || 'normal';   // Tambor de feria
+  const b = drawBullet(); if (b == null) return false;
   h.loaded[i] = b; h.ammo++;
-  if (b === 'mcrev') for (let j = 1; j < h.cap; j++) { const k = (i + j) % h.cap; if (h.loaded[k] === 0) { h.loaded[k] = 3; break; } }
+  balAlCargar(h, i);   // Tahúr, Crupier mecánico y Bolsa sin fondo
   return true;
 }
 function resetHand(h, id) { const m = MODELS[id]; h.loaded = new Array(m.cap).fill(0); h.idx = 0; h.ammo = 0; if (h.active) for (let i = 0; i < m.cap; i++) if (h.loaded[i] === 0) loadChamber(h, i); h.full = true; h.cShots = h.cKills = 0; h.cd = 0; h.streak = 0; }
@@ -21985,14 +21993,13 @@ function waveCount(n) { const z = zoneOf(n), p = wavePos(n), base = p === 0 ? 10
 // Lo que cada jugador hace por su cuenta al empezar una oleada (también los invitados)
 function waveStartLocal(n) {
   if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
-  if (rl('mapa') && n > 1) { addGold(15, true); feed('Mapa del tesoro: +15 $', 'gold'); }
 }
 function startWave(n) {
   if (tuto) { game.wave = n; game.phase = 'tuto'; game.toSpawn = 0; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0; return; }
   game.wave = n; game.toSpawn = Math.round(waveCount(n) * DF().n * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
   if (world.llaves && !Net.client) llvOleada(n);
   let sub;
-  if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; if (S('fichaNivel')) { game.poker = (game.poker | 0) + S('fichaNivel'); feed('Fichero: +1 ficha de miembro', 'gold'); } if (S('chalecoNivel')) { game.vest = Math.min(3, (game.vest | 0) + S('chalecoNivel')); feed('Chaleco de cuero: +1 chaleco', 'blue'); } }
+  if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
   waveSupplies(n);
   game.waveMod = game.nextMod || null; game.nextMod = null;
@@ -22039,9 +22046,9 @@ function hurtPlayer(amount, src, opt = {}) {
   if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
-  if (!opt.tick && S('shieldWave') && (game.shieldW || 0) < S('shieldWave')) { game.shieldW = (game.shieldW || 0) + 1; feed('La tapa de barril paró el golpe', 'blue'); Sfx.clang(0); return; }
-  amount *= (1 - 0.15 * game.vest) * (1 - 0.08 * lv('lizard')) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
+  amount *= (1 - 0.15 * game.vest) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
   player.hp -= amount; player.lastHurt = game.time; if (amount > 0) stMas('dano', amount);
+  balAlRecibir(amount, !!opt.tick);   // Reflejo de fuego y Ave de la fortuna
   fx.dmg = Math.min(1, fx.dmg + amount / (opt.tick ? 60 : 22));
   if (opt.acid) fx.acid = Math.min(1, fx.acid + (opt.tick ? 0.05 : 0.9));
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
@@ -22049,11 +22056,8 @@ function hurtPlayer(amount, src, opt = {}) {
   { const k = opt.k === undefined ? (opt.acid ? 'acid' : opt.tick ? 'burn' : 'blunt') : opt.k; if (k) Golpes.marca(k, amount, src, !!opt.tick); }
   if (player.hp > 0) Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo');   // quejido de dolor de tu personaje (al morir suena su grito)
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
-  if (!opt.tick && lv('thorns')) for (const o of zombies) { if (o.dead) continue; if (Math.hypot(o.root.position.x - player.pos.x, o.root.position.z - player.pos.z) < 2.5) damageZombie(o, 40 * lv('thorns'), { part: 'body', dir: null, ally: true }); }
-  if (player.hp <= 0 && rl('biblia') && game.bibleWave !== game.wave) { game.bibleWave = game.wave; player.hp = 1; banner('La Biblia te salvó', 'La bala se quedó en sus páginas', 2000); return; }
-  if (player.hp <= 0 && lv('second') && game.secondZone !== zoneOf(game.wave)) { game.secondZone = zoneOf(game.wave); player.hp = Math.round(player.maxHp * 0.3); banner('¡Segunda oportunidad!', 'Te levantas una vez más', 2200); Sfx.heart(); return; }
-  if (player.hp <= 0 && S('rosario') && game.rosarioW !== game.wave) { game.rosarioW = game.wave; player.hp = 1; banner('El rosario te salvó', 'Te quedas con 1 de vida', 2000, 'rosary'); return; }
   if (player.hp <= 0 && game.char === 'armando' && !game.veloUsed) { game.veloUsed = 1; player.hp = Math.round(player.maxHp * 0.3); banner('¡Don Velorio se levanta!', 'Su única segunda vida de la partida', 2400); Sfx.heart(); return; }
+  if (player.hp <= 0 && balRevivir()) return;   // Resurrección, Emperador inmortal y Fénix
   if (player.hp <= 0) { player.hp = 0; die(); }
 }
 const YO3 = { inst: null, t: 0 };
@@ -22444,21 +22448,21 @@ function shoot(h, fanned, yawOff = 0) {
   let guard = 0;
   while (!isLoaded(h.loaded[h.idx]) && guard++ < h.cap) { h.idx = (h.idx + 1) % h.cap; h.cylTarget += TAU / h.cap; h.hudRot -= 360 / h.cap; }
   const fired = h.idx;
-  let type = isLoaded(h.loaded[fired]) ? h.loaded[fired] : 'normal';
-  if (hasB(type, 'eco')) type = game.lastSpecial || 'normal'; else if (type !== 'normal' && type !== 'mala') game.lastSpecial = type;
+  const sBala = isLoaded(h.loaded[fired]) ? h.loaded[fired] : 'normal';   // lo que había en la recámara («k*» = copia gratis)
+  let type = Balas.base(sBala), kLv = Balas.esActiva(type) ? balNv(type) : 0;
+  if (type === 'espejo') { const u = game.ultActiva; type = u && u !== 'espejo' ? u : 'normal'; if (type === 'normal') feed('Espejo: todavía no disparaste ninguna activa', 'red'); }   // Espejo copia la última activa (con su propio nivel)
+  else if (Balas.esActiva(type)) game.ultActiva = type;
   h.loaded[fired] = 2; h.idx = (h.idx + 1) % h.cap; h.ammo--; h.cylTarget += TAU / h.cap;
-  const vuelve = () => { if (h.loaded[fired] !== 2) return false; h.loaded[fired] = 'normal'; h.ammo++; return true; };   // la bala vuelve al tambor (una sola vez por disparo)
+  const vuelve = () => { if (h.loaded[fired] !== 2 || sBala !== 'normal') return false; h.loaded[fired] = 'normal'; h.ammo++; return true; };   // la bala normal vuelve al tambor (una sola vez por disparo)
   if ((game.habK === 'lluvia' || game.habK === 'minigun' || game.habK === 'rafaga') && game.habT > 0) vuelve();   // Lluvia de plomo y minigun de Geronimo
-  if (sigOn(h.model, 'sinfondo') && Math.random() < 0.25) vuelve();
   if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) vuelve();
-  if (prohib('diablo') && player.hp > 1.5 && !player.down && vuelve()) player.hp = Math.max(1, player.hp - 2);   // Gatillo del diablo: la bala vuelve, pagas con sangre
-  else if (S('refund') && Math.random() < S('refund') / 100) { game.box.push(type); if (game.time - (game.refT || -9) > 1) { game.refT = game.time; feed('Bala recuperada', 'gold'); } }
   h.hudRot -= 360 / h.cap; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`;
-  const adren = (lv('adren') && player.hp < player.maxHp * 0.35 ? 1 + 0.25 * lv('adren') : 1) * (lv('frenzy') && game.time - game.lastKill < 3 ? 1 + 0.2 * lv('frenzy') : 1);
-  h.cdMax = m.cd / (1 + 0.18 * lv('rate')) / adren / ST.rateX / (h.model === sigGun() ? 1 + 0.2 * sigLv('gatillo') : 1) / (1 + 0.08 * forjaLv('equilibrar')); if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
+  const adren = balT('segundoaire') && player.hp < player.maxHp * balV('segundoaire', 'hp') ? 1 + balV('segundoaire', 'cad') : 1;   // Segundo aire
+  h.cdMax = m.cd / adren / ST.rateX; if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
   game.shots++; game.w.shots++; stMas('tiros');
   if (type !== 'normal' && type !== 'mala') { game.specShots = (game.specShots || 0) + 1; stMas('tirosEsp'); if (!tuto && BULLETS[type]) { META.bt = META.bt || {}; META.bt[type] = 1; } }
-  if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name, 'gold'); lastBulletFeed = game.time; }
+  if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name + (kLv > 1 ? ' · nivel ' + kLv : ''), 'gold'); lastBulletFeed = game.time; }
+  h.tamborN = (h.tamborN | 0) + 1;   // cuántas balas van desde que recargaste (Póker de hielo)
   camera.updateMatrixWorld(); camera.getWorldPosition(_cp);
   const cam = camera.getWorldDirection(new THREE.Vector3());
   _r.setFromMatrixColumn(camera.matrixWorld, 0); _u.setFromMatrixColumn(camera.matrixWorld, 1);
@@ -22477,7 +22481,10 @@ function shoot(h, fanned, yawOff = 0) {
   const firstOfDrum = !!h.firstShot; h.firstShot = false;
   game.shotN = (game.shotN || 0) + 1;
   const W_ = WFX[h.model];
-  const ctx = { type, h, m, kills: 0, hitZ: false, boomRelic: rl('polvora') && game.shotN % 10 === 0, dmgMul: (rl('herradura') && firstOfDrum ? 3 : 1), first: firstOfDrum, last: h.ammo === 0, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : W_ ? W_.tr : 0xffe2a0) : hexCol(BULLETS[type].col) };
+  const ctx = { type, k: type, lv: kLv, s: sBala, h, m, kills: 0, hitZ: false, dmgMul: 1, first: firstOfDrum, last: h.ammo === 0, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : W_ ? W_.tr : 0xffe2a0) : hexCol(BULLETS[type] ? BULLETS[type].col : '#ffe2a0') };
+  if (Balas.esActiva(type) && !(BALAS[type].up || []).length) ctx.dmgMul *= BAL.nivelMul[Math.max(1, kLv) - 1];   // las activas sin cifras propias hacen más daño con el nivel
+  if (game.tragoX) { ctx.dmgMul *= game.tragoX; game.tragoX = 0; }   // Trago de valor: este tiro hace doble daño
+  ctx.poker = balT('pokerhielo') && h.tamborN === balV('pokerhielo', 'cada');
   if (W_) { flashMat.color.setHex(W_.flash); for (const hh of hands) hh.flashLight.color && hh.flashLight.color.setHex(W_.light); player.shake = Math.min(1, player.shake + 0.04 * W_.shake); }
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
   if (game.habK === 'rafaga' && game.habT > 0 && h.model === 'mp5') { ctx.fuego = true; ctx.col = 0xff7a20; }
@@ -22488,34 +22495,23 @@ function shoot(h, fanned, yawOff = 0) {
     if (r < luck(1 / 1000, 1.5)) { addGold(500); banner('¡JACKPOT!', '+500 $', 2600); Sfx.win(); Sfx.cash(); for (let i = 0; i < 40; i++) PA.add(_mp.x, _mp.y, _mp.z, rand(-3, 3), rand(1, 5), rand(-3, 3), 1.2, 0.07, 1, 0.82, 0.25, 1, 6, 0.5, 0, 0); }
     else if (r < luck(1 / 1000, 1.5) + luck(wlv('jackpot') >= 3 ? 1 / 35 : 1 / 50, 1.5)) { addGold(20); feed('¡Premio! +20 $', 'gold'); Sfx.coin(); }
   }
-  if (hasB(type, 'iman')) { for (const p of pickups) p.mag = true; Sfx.whoosh(0); }
-  if (hasB(type, 'reloj')) { game.slowT = 4; applySlowFx(); Sfx.deadeye(true); }
-  if (hasB(type, 'dado')) { pellets = 1 + Math.floor(Math.random() * 6); if (game.char === 'johnny') pellets = Math.max(3, pellets); Sfx.dice(); feed(`Dado: ${pellets} ${pellets === 1 ? 'bala' : 'balas'}`, 'gold'); }
-  ctx.bnc = m.bounce || (sigOn(h.model, 'rebote') ? 1 : 0);
-  if (hasB(type, 'ruleta')) { ctx.roulette = Math.random() < luck(1 / 3, 1.5); if (ctx.roulette) { feed('¡BANG!', 'red'); ctx.col = 0xff2020; } else { Sfx.dry(); feed('Clic… se encasquilló', 'red'); pellets = 0; } }
-  if (sigOn(h.model, 'doble') && pellets > 0) pellets *= 2;
-  if (hasB(type, 'dragon')) { dragonCone(h, cam); pellets = 0; }
-  if (hasB(type, 'acme')) hurtPlayer(20, null, { k: 'burn' });
-  if (pellets > 0 && S('twinC') && Math.random() < S('twinC') / 100) pellets++;
-  if (h.loaded.includes(3)) pellets *= 2;
+  ctx.bnc = m.bounce || 0;
+  if (Balas.esActiva(type)) { ctx.pellets = pellets; pellets = balAlDisparar(h, ctx, cam); if (type === 'dron') balDron(kLv); if (type === 'chicles') pellets = Math.max(pellets, Math.round(balX('chicles', 'n', kLv))); }
   const sp = spread() + (fanned ? 0.055 : 0) + (m.pellets ? m.pSpread : pellets > 1 ? 0.025 : 0);
-  if (prohib('iman')) { ctx.dmgMul *= 0.75; const zz = imanCabeza(_cp, cam); if (zz) cam.copy(zz); }   // Plomo imantado: la bala dobla hacia la cabeza más cercana a la mira
   for (let i = 0; i < pellets; i++) {
     const a = Math.random() * TAU, rr = Math.sqrt(Math.random()) * sp, d = cam.clone();
     d.addScaledVector(_r, Math.cos(a) * Math.tan(rr)).addScaledVector(_u, Math.sin(a) * Math.tan(rr)).normalize();
     const end = castBullet(_cp, d, ctx);
-    addTracer(_mp, end, type === 'normal' && m.tr ? m.tr : ctx.col, hasB(type, 'laser') ? 4 : m.boom ? 3.5 : m.tr ? 2.2 : W_ && type === 'normal' && !(game.goldT > 0) ? W_.tw : (game.goldT > 0 || h.model === 'magnum' || type !== 'normal') ? 1.8 : 1);
+    addTracer(_mp, end, type === 'normal' && m.tr ? m.tr : ctx.col, m.boom ? 3.5 : m.tr ? 2.2 : W_ && type === 'normal' && !(game.goldT > 0) ? W_.tw : (game.goldT > 0 || h.model === 'magnum' || type !== 'normal') ? 1.8 : 1);
     if (i === 0 && Net.on) Net.ev(['sh', r2(_mp.x), r2(_mp.y), r2(_mp.z), r2(end.x), r2(end.y), r2(end.z), ctx.col]);
   }
-  if (prohib('espejo') && pellets > 0) {   // Cañón espejo: el mismo disparo sale también hacia atrás
-    const atras = Object.assign({}, ctx, { kills: 0, hitZ: false }), d = cam.clone().negate(), end = castBullet(_cp, d, atras);
-    addTracer(_cp.clone().addScaledVector(d, 0.6).setY(_cp.y - 0.2), end, ctx.col, 1.4); ctx.kills += atras.kills; if (atras.hitZ) ctx.hitZ = true;
+  if (balT('gemelo') && pellets > 0) {   // Gemelo celestial: un doble a tu derecha copia el disparo
+    const o2 = _cp.clone().addScaledVector(_r, 1.1), gem = Object.assign({}, ctx, { k: 'normal', type: 'normal', lv: 0, sub: true, kills: 0, hitZ: false, dmgMul: ctx.dmgMul * balV('gemelo', 'dano') }), end = castBullet(o2, cam, gem);
+    addTracer(o2.clone().addScaledVector(_u, -0.25), end, 0xfff6c0, 1.6); ctx.kills += gem.kills; if (gem.hitZ) ctx.hitZ = true;
+    if (Net.on) Net.ev(['sh', r2(o2.x), r2(o2.y - 0.25), r2(o2.z), r2(end.x), r2(end.y), r2(end.z), 0xfff6c0]);
   }
-  if (hasB(type, 'acme')) {
-    const ring = Object.assign({}, ctx, { type: 'normal', kills: 0, hitZ: false });
-    for (let i = 0; i < 10; i++) { const a = player.yaw + i * TAU / 10, d = new THREE.Vector3(-Math.sin(a), -0.03, -Math.cos(a)); const end = castBullet(_cp, d, ring); addTracer(_cp.clone().addScaledVector(d, 0.5).setY(_cp.y - 0.3), end, 0xff2ad0, 1.6); }
-    ctx.kills += ring.kills; if (ring.hitZ) ctx.hitZ = true; Sfx.boom();
-  }
+  balEspejos(h, ctx, cam);   // Corte de espejos
+  if (game.asN > 0) game.asN--;   // As de espadas
   if (ctx.hitZ) game.hits++;
   if (W_) {
     smokePuff(_mp, cam, W_.smoke, W_.sb);
@@ -22528,8 +22524,10 @@ function shoot(h, fanned, yawOff = 0) {
   }
   const rec = h.model === 'silen' ? (Sfx.silen(), true) : Sfx.shot(h.model === 'cowboy' && game.char === 'carlos' ? 'gomez' : ({ glock: 'corto', sniper: 'magnum', tommy: 'uzi', ak47: 'magnum' })[h.model] || h.model, game.goldT > 0, h.ammo === 0);
   if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
-  if (ctx.hitZ && hasB(type, 'bumeran')) { h.loaded[fired] = 'bumeran'; h.ammo++; feed('La bumerán volvió al tambor', 'gold'); }
-  if (ctx.hitZ && hasB(type, 'junior')) {
+  // después del tiro, la activa vuelve a la caja o se rompe; la Bumerán y el Carámbano vuelven al cañón si pegan
+  if ((ctx.k === 'bumeran' || ctx.k === 'carambano') && ctx.hitZ && sBala !== 'normal') { h.loaded[fired] = sBala; h.ammo++; feed(`${BULLETS[ctx.k].name} volvió al cañón`, 'gold'); }
+  else if (sBala !== 'normal' && sBala !== 'mala') { const r = Balas.trasDisparo(game, sBala); if (r === 'rota') { feed(`${BULLETS[Balas.base(sBala)].name} se rompió${Balas.tiene(game, Balas.base(sBala)) ? ' (pierde 1 nivel)' : ''}`, 'red'); balCambio(); } else if (r === 'truco') feed('Truco de manos: la bala volvió a la caja', 'gold'); }
+  if (ctx.hitZ && ctx.k === 'junior') {
     let n = 0;
     for (let j = 0; j < h.cap && n < 6; j++) { const i = (h.idx + j) % h.cap; if (h.loaded[i] === 0 || h.loaded[i] === 2) { h.loaded[i] = 0; loadChamber(h, i); n++; } }
     if (n) { Sfx.insert(); Sfx.close(); feed('¡Recarga junior!', 'gold'); }
@@ -22537,7 +22535,7 @@ function shoot(h, fanned, yawOff = 0) {
   refreshChambers();
   const kills = ctx.kills;
   if (kills >= 2) { game.colls = (game.colls || 0) + 1; stMas('colls'); }
-  if (kills >= 2 && !m.auto && pellets <= 1 && type !== 'acme') { addGold(kills - 1, true); feed(`${kills >= 3 ? '¡Triple colateral!' : '¡Colateral!'} · +${kills - 1} $`, 'gold'); }
+  if (kills >= 2 && !m.auto && pellets <= 1) { addGold(kills - 1, true); feed(`${kills >= 3 ? '¡Triple colateral!' : '¡Colateral!'} · +${kills - 1} $`, 'gold'); }
   if (h.full) {
     h.cShots++; if (kills > 0) h.cKills++;
     if (h.cShots >= h.cap) {
@@ -22554,11 +22552,11 @@ function imanCabeza(o, f) {
 }
 function castBullet(o, d, ctx) {
   const t = ctx.type, h = ctx.h, m = ctx.m;
-  ray.set(o, d); ray.far = hasB(t, 'gravedad') || hasB(t, 'agujero') ? 13 : 200;
-  const hits = ray.intersectObjects(hasB(t, 'fantasma') ? zTargets : targets, false);
-  let pen = 1 + m.pierce + lv('pierce') + (hasB(t, 'fantasma') ? 1 : 0);
-  if (hasB(t, 'taladro') || hasB(t, 'laser') || ctx.roulette) pen = 999;
-  let dmg = bulletDmg(h) * ctx.dmgMul * (hasB(t, 'laser') ? 3 : 1);
+  ray.set(o, d); ray.far = 200;
+  const hits = ray.intersectObjects(targets, false);
+  const atraviesa = ctx.k === 'taladro' || ctx.k === 'carambano' || ctx.roulette;   // Taladro y Carámbano atraviesan a todos en línea
+  let pen = atraviesa ? 999 : 1 + m.pierce;
+  let dmg = bulletDmg(h) * ctx.dmgMul;
   if (ctx.roulette) dmg = 1e6;
   if (t === 'mala') dmg *= 0.5;
   if (player.down) dmg *= 0.3;   // desde el suelo: 70 % menos de daño
@@ -22571,28 +22569,28 @@ function castBullet(o, d, ctx) {
       if (hh.object.userData.part === 'hacha') { if (hh.object.visible && z.handAxe && z.handAxe.visible !== false) { sparks(hh.point, 10, null); Sfx.hacha(panOf(hh.point)); end = hh.point; break; } continue; }   // la bala pega en el hacha
       done.add(z); ctx.hitZ = true;
       let part = hh.object.userData.part;
-      if (hasB(t, 'cabeza') && (part === 'body' || part === 'limb')) part = 'head';
-      let dd = dmg * (part === 'head' ? 2.4 * (1 + 0.6 * lv('head')) * (rl('ojo') ? 1.5 : 1) : part === 'limb' ? 0.7 : 1);
+      let dd = dmg * (part === 'head' ? 2.4 : part === 'limb' ? 0.7 : 1);
       if (part === 'body' || part === 'limb' || part === 'vest') dd /= 1.75;   // cuerpo y extremidades aguantan un 75 % más: siguen caminando tras varios tiros
       if (m.near) dd *= hh.distance < 8 ? 1.2 : hh.distance < 16 ? 1 : 0.6;
       if (h.model === 'corto' && wlv('corto') >= 3 && hh.distance < 6) dd *= 1.6;
       if (ST.piernaX && part === 'limb') { let o = hh.object; for (let k = 0; k < 3 && o; k++, o = o.parent) if (o === z.legL || o === z.legR) { dd *= ST.piernaX; break; } }
       if (ST.lejosX && hh.distance > 20) dd *= ST.lejosX; if (ST.cercaX && hh.distance < 5) dd *= ST.cercaX;
-      dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX * (1 + 0.2 * forjaLv('templar')) : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
-      let crit = false; if (Math.random() < 0.08 * lv('crit') + S('critC') / 100 + (h.model === sigGun() ? 0.1 * sigLv('grabado') : 0)) { dd *= 3 + S('critX'); crit = true; }
+      dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
+      let crit = false; if (!ctx.sub && game.asN > 0) { dd *= balX('asespadas', 'x', 1); crit = true; } else if (balT('punteria') && Math.random() < balP('punteria', balV('punteria', 'p'))) { dd *= balV('punteria', 'x'); crit = true; }   // As de espadas y Puntería
+      ctx.part = part; const ops = ctx.sub ? [] : balOps(z, ctx, part);
       const hpBefore = z.hp; z.cLast = 0;
-      const killed = damageZombie(z, dd, { negra: hasB(t, 'negra'), part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: ctx.fuego ? 'burn' : (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : t });
+      const killed = damageZombie(z, dd, { part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: ops.length ? 'b' + JSON.stringify(ops) : ctx.fuego ? 'burn' : (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : '' });
+      if (!Net.client && ops.length) balAplicarOps(z, ops, killed, Net.id);
       if (killed) { ctx.kills++; achTiro(t, hh.distance, crit, ctx); }
       if (hpBefore > 0) hitNum(z, Math.max(0, hpBefore - Math.max(0, z.hp)) || (z.net ? z.cLast : 0), dd / m.dmg, part === 'head', crit, killed, hh.point);
       if (h.model === 'viejo' && wlv('viejo') >= 3 && !killed) z.stagger = Math.max(z.stagger, 1);
       if (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15 && !killed) { z.burn = 3; z.burnDps = 20; }
       if (ctx.fuego && !killed) { z.burn = Math.max(z.burn || 0, HAB.lilith.fuego); z.burnDps = Math.max(z.burnDps || 0, 25); }
-      onHitZombie(z, hh.point, d, ctx, killed);
+      if (!ctx.sub) balAlPegar(z, hh.point, d, ctx, killed, crit);
       if (h.model === 'ballesta' && wlv('ballesta') >= 3 && !killed) z.stagger = Math.max(z.stagger, 1);
       if (m.chain) teslaChain(z, hh.point, d, dd * 0.6, h.model === 'tesla' && wlv('tesla') >= 3 ? 5 : m.chain);
-      if (killed && lv('ricochet') && Math.random() < 0.2 * lv('ricochet')) { const nz = nearestZombies(z.root.position, 1, 9, done)[0]; if (nz) { nz.torso.getWorldPosition(_tmp); addTracer(hh.point, _tmp, 0xffe0a0, 1.2); done.add(nz); damageZombie(nz, dd * 0.7, { part: 'body', dir: d.clone(), point: _tmp.clone(), bullet: true, weapon: h.model }); } }
       if (part === 'head' && h.model === 'magnum' && wlv('magnum') >= 3) pen = 999;
-      pen--; if (!(hasB(t, 'taladro') || hasB(t, 'laser') || ctx.roulette || m.noFall)) dmg *= 0.75;
+      pen--; if (!(atraviesa || m.noFall)) dmg *= 0.75;
       if (pen <= 0) { end = hh.point; break; }
     } else {
       end = hh.point;
@@ -22605,9 +22603,8 @@ function castBullet(o, d, ctx) {
       break;
     }
   }
-  end = end ? end.clone() : o.clone().addScaledVector(d, hasB(t, 'gravedad') || hasB(t, 'agujero') ? 12 : 120);
-  impactFx(end, d, ctx);
-  if (ctx.boomRelic) { ctx.boomRelic = false; Sfx.boom(); explode(end, 3, 120, 0, false); }
+  end = end ? end.clone() : o.clone().addScaledVector(d, 120);
+  if (!ctx.sub) balImpacto(end, d, ctx);
   if (m.boom) rocketBoom(end, h.model === 'bazuca' && wlv('bazuca') >= 3 ? m.boom * 1.4 : m.boom, bulletDmg(h) / m.dmg * m.boomDmg);
   if (ctx.bounceN) {
     const n = ctx.bounceN; ctx.bounceN = null; ctx.bounced = (ctx.bounced || 0) + 1;
@@ -22632,45 +22629,338 @@ function rocketBoom(p, r, dmg) {
   const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z); if (pd < r * 0.7) hurtPlayer(30 * (1 - pd / (r * 0.7)), p, { knock: 7, k: 'burn' });
   for (let i = 0; i < 30; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
 }
-function onHitZombie(z, pt, d, ctx, killed) { const ty = ctx.type; if (typeof ty === 'string' && ty.indexOf('+') > 0) { for (const p of ty.split('+')) { ctx.type = p; onHitZombie1(z, pt, d, ctx, killed); } ctx.type = ty; return; } onHitZombie1(z, pt, d, ctx, killed); }
-function onHitZombie1(z, pt, d, ctx, killed) {
-  if (Net.client && ['fria', 'mula', 'sangre', 'trebol', 'serpiente', 'hipno'].includes(ctx.type)) return;
-  const t = ctx.type, sc = effSc();
-  if (t === 'dorada') addGold(4, true);
-  else if (t === 'vampira') player.hp = Math.min(player.maxHp, player.hp + 8);
-  else if (t === 'fria') { if (!killed) freeze(z, 2); }
-  else if (t === 'mula') { if (!killed) { z.kbx = d.x * 10; z.kbz = d.z * 10; z.stagger = Math.max(z.stagger, 1.2); } }
-  else if (t === 'sangre') z.mark = 6;
-  else if (t === 'trebol') { if (killed) makePickup(pick(['health', 'deadeye', 'bag', 'gold']), z.root.position.x, z.root.position.z, 3); }
-  else if (t === 'serpiente') { if (!killed) { z.poison = 5; z.poisonDps = 22 * sc; } }
-  else if (t === 'hipno') { if (!killed && !ZDEF[z.type].big) { z.charm = 10; z.tgtT = 0; feed('Zombi hipnotizado', 'gold'); } }
-  else if (t === 'saltarina') {
-    for (const o of nearestZombies(pt, 2, 10, new Set([z]))) { const tp = torsoPos(o); addTracer(pt, tp, 0xffe060, 1.4); damageZombie(o, bulletDmg(ctx.h) * 0.7, { part: 'body', dir: d, point: tp, bullet: true, weapon: ctx.h.model }); }
-  } else if (t === 'rayo') {
-    const ex = new Set([z]); let from = pt.clone();
-    for (let i = 0; i < 4; i++) {
-      const o = nearestZombies(from, 1, 7, ex)[0]; if (!o) break; ex.add(o);
-      const tp = torsoPos(o); addTracer(from, tp, 0x9ac8ff, 2.2);
-      for (let k = 0; k < 6; k++) PA.add(tp.x, tp.y, tp.z, rand(-2, 2), rand(-1, 2), rand(-2, 2), 0.25, 0.06, 0.6, 0.8, 1, 1, 0, 2, 0, 0);
-      o.stagger = Math.max(o.stagger, 0.8); damageZombie(o, 45 * sc, { part: 'body', dir: d, point: tp, bullet: true, weapon: ctx.h.model }); from = tp;
-    }
-    Sfx.zap(panOf(pt));
+/* ===================== EFECTOS DE LAS BALAS (las cifras están en BALAS y BAL) =====================
+   Quién hace qué en grupo: el que dispara decide (tira los dados de probabilidad) y el anfitrión aplica lo que toca a los zombis
+   (congelar, aturdir, hipnotizar, pegar, agujeros negros, caballeros, sombras…), así todos ven lo mismo. */
+const balV = (k, key) => game ? Balas.v(game, k, key) : 0;
+const balT = k => !!game && Balas.tiene(game, k);
+const balP = (k, p) => Balas.prob(game, k, p);
+const balDur = t => t * (game && Balas.famOn(game, 'elementos') ? BAL.familia.elementos.dura : 1);   // familia Elementos: los efectos duran el doble
+const balRepite = () => balT('doblenada') && Math.random() < balP('doblenada', balV('doblenada', 'p'));   // Doble o nada infinito
+// una activa al azar de todo el juego (Bolsa sin fondo): sin secretas
+const balActivaAzar = () => pick(Object.keys(BALAS).filter(k => BALAS[k].t === 'a' && BALAS[k].r !== 'X'));
+// el nivel con el que sale una bala (la copia gratis sale con el nivel de la bala; si ya no está en el slot, nivel 1)
+const balNv = k => Math.max(1, Balas.nivel(game, k));
+const balX = (k, key, lv) => balValor(k, key, lv);
+// ---- al cargar una recámara: Tahúr y Crupier mecánico pueden repetir la activa gratis; Bolsa sin fondo vuelve activa una normal
+function balAlCargar(h, i) {
+  const s = h.loaded[i];
+  if (s === 'normal' && balT('bolsa') && Math.random() < balP('bolsa', balV('bolsa', 'p'))) { h.loaded[i] = balActivaAzar() + '*'; return; }
+  if (typeof s !== 'string' || s.endsWith('*') || !Balas.esActiva(s)) return;
+  let n = 0;
+  if (balT('tahur') && Math.random() < balP('tahur', balV('tahur', 'p'))) n += balRepite() ? 2 : 1;
+  if (balT('crupier') && Math.random() < balP('crupier', balV('crupier', 'p'))) n++;
+  for (let j = 1; j < h.cap && n > 0; j++) { const q = (i + j) % h.cap; if (h.loaded[q] === 0) { h.loaded[q] = s + '*'; h.ammo++; n--; if (game.time - (game.tahurT || -9) > 1) { game.tahurT = game.time; feed(`¡${BULLETS[s].name} se repite gratis!`, 'gold'); } } }
+}
+// ---- al disparar: lo que pasa antes de que salga la bala (cuántas balas salen, si se encasquilla…)
+const TRAGA_SIM = ['Siete', 'BAR', 'Cereza', 'Diamante', 'Campana', 'Herradura', 'Trébol', 'Corona'];
+function balTragamonedas(lv, siempre, ctx, x3) {
+  const n = Math.min(TRAGA_SIM.length, balX('tragamonedas', 'sim', 1) | 0), r = [0, 1, 2].map(() => Math.floor(Math.random() * n));
+  if (siempre) r[1] = r[2] = r[0];
+  const tres = r[0] === r[1] && r[1] === r[2], dos = !tres && (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]);
+  Sfx.reel && Sfx.reel(); banner('Tragamonedas', r.map(i => TRAGA_SIM[i]).join(' · '), 2000, 'cards');
+  const premio = () => {
+    if (tres) { balRed('todos', player.pos, {}); feed('¡Tres iguales! Caen todos menos los jefes', 'gold'); stMas('slot3'); }
+    else if (dos) ctx.boom = (ctx.boom || 0) + 1;
+    else { const g = Math.round(balX('tragamonedas', 'oro', lv)); addGold(g, true); feed(`Tragamonedas: +${g} $`, 'gold'); }
+  };
+  premio(); if (balRepite()) { feed('Doble o nada: ¡otra vez!', 'gold'); premio(); }
+}
+function balAlDisparar(h, ctx, cam) {
+  const k = ctx.k, lv = ctx.lv; let pel = ctx.pellets;
+  if (k === 'apuesta') { ctx.apuesta = Math.random() < balP('apuesta', balX('apuesta', 'p', lv)); if (ctx.apuesta) { ctx.dmgMul *= balX('apuesta', 'x', lv) * (balRepite() ? balX('apuesta', 'x', lv) : 1); feed('¡Apuesta ganada!', 'gold'); Sfx.coin(); } else { ctx.dmgMul = 0; feed('Apuesta perdida: nada', 'red'); } }
+  else if (k === 'reloj') { game.slowT = balDur(balX('reloj', 't', lv)); applySlowFx(); Sfx.deadeye(true); }
+  else if (k === 'dado') { pel = 1 + Math.floor(Math.random() * 6); if (balRepite()) pel += 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Dado: ${pel} ${pel === 1 ? 'bala' : 'balas'}`, 'gold'); }
+  else if (k === 'ruleta' || k === 'ruletadorada') { ctx.roulette = Math.random() < balP(k, balX(k, 'p', lv)); if (ctx.roulette) { feed('¡BANG!', 'red'); ctx.col = 0xff2020; } else if (k === 'ruleta') { Sfx.dry(); feed('Clic… se encasquilló', 'red'); pel = 0; } }
+  else if (k === 'trago') { player.hp = Math.min(player.maxHp, player.hp + balX('trago', 'cura', lv)); game.tragoX = balX('trago', 'x', lv); feed('Trago de valor: el próximo tiro hace doble daño', 'gold'); Sfx.heart(); }
+  else if (k === 'asespadas') { game.asN = Math.round(balX('asespadas', 'n', lv)); feed(`As de espadas: ${game.asN} tiros críticos`, 'gold'); }
+  else if (k === 'tragamonedas' || k === 'jackpot') balTragamonedas(lv, k === 'jackpot', ctx);
+  else if (k === 'milagro') { const n = balX('milagro', 'n', lv) | 0; for (let i = 0; i < n; i++) setTimeout(() => { if (game && state === 'play') { const c2 = {}; balTragamonedas(lv, false, c2); if (c2.boom) balRed('boom', player.pos, { r: balX('tragamonedas', 'r', 1), dano: balX('tragamonedas', 'dano', lv) }); } }, i * 700); }
+  else if (k === 'seisdeseis') { const d6 = 1 + Math.floor(Math.random() * 6); Sfx.dice(); banner('Seis de seis', d6 === 6 ? '¡Seis! Caen todos menos los jefes' : `${d6} ${d6 === 1 ? 'explosión' : 'explosiones'}`, 2000, 'dice'); if (d6 === 6) balRed('todos', player.pos, {}); else ctx.seis = d6 * (balRepite() ? 2 : 1); }
+  else if (k === 'invocacion') balRed('caballero', player.pos, { lv, n: 1 });
+  else if (k === 'legion') { const n = 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Legión: ${n} ${n === 1 ? 'caballero' : 'caballeros'}`, 'gold'); balRed('caballero', player.pos, { lv, n }); }
+  else if (k === 'caballerotiempo') balRed('caballero', player.pos, { lv, n: 1, t: balDur(balX(k, 't', lv)), r: balX(k, 'r', lv) });
+  else if (k === 'hipnosiseterna') { const t = balDur(balX(k, 't', lv)); game.hipnoHasta = game.time + t; game.hipnoX = balX(k, 'oro', lv); balRed('detener', player.pos, { t }); banner('Hipnosis eterna', `Todos quietos ${Math.round(t)} s · oro ×${game.hipnoX}`, 2200, 'eye'); }
+  else if (k === 'negra') { balRed('negra', player.pos, {}); }
+  else if (k === 'cieloabismo') { ctx.cielo = Math.random() < 0.5; if (ctx.cielo) { player.hp = player.maxHp; if (Net.on) Net.ev(['bal', 'curamax']); banner('Cielo', 'Todo el equipo se cura por completo', 2000, 'cross'); Sfx.heart(); } }
+  return pel;
+}
+// ---- antes de pegarle a un zombi: qué le pasa (lo decide quien dispara). Lista de órdenes para el anfitrión:
+// ['f', s] congelar · ['F', s, x] congelar y que reciba ×x de daño · ['s', s] aturdir · ['c', s] hipnotizar · ['r', s] pegar al suelo
+// ['k'] matar seguro · ['j', fracción] quitar parte de la vida a un jefe · ['e', daño, s, r] chicle eléctrico · ['b', daño, r, s] bomba (Traición)
+// ['p', oro] piñata · ['a', r, s] congelar alrededor · ['hb', r, s] agujero negro donde pega
+function balOps(z, ctx, part) {
+  const o = [], k = ctx.k, lv = ctx.lv, D = balDur;
+  if (k === 'escarcha') { o.push(['f', D(balX(k, 't', lv))], ['a', balX(k, 'r', lv), D(balX(k, 't', lv))]); }
+  else if (k === 'hipnotica') o.push(['c', D(balX(k, 't', lv))]);
+  else if (k === 'chicles') o.push(['r', D(balX(k, 't', lv))]);
+  else if (k === 'chicleelec') o.push(['e', balX(k, 'dano', lv) * effSc(), D(balX(k, 't', lv)), balX(k, 'r', lv)]);
+  else if (k === 'pinata') o.push(['p', Math.round(balX(k, 'oro', lv))]);
+  else if (k === 'carambano') o.push(['f', D(balX(k, 't', lv))]);
+  else if (k === 'traicion') o.push(['c', D(balX(k, 't', lv))], ['b', balX(k, 'dano', lv) * effSc(), balX(k, 'r', lv), balX(k, 't', lv)]);
+  else if (k === 'duelo') o.push(z.boss != null ? ['j', balX(k, 'jefe', lv)] : ['k']);
+  // pasivas que cuentan en cada impacto
+  if (balT('congelador') && Math.random() < balP('congelador', balV('congelador', 'p'))) o.push(['f', D(balV('congelador', 't'))]);
+  if (balT('encantador') && Math.random() < balP('encantador', balV('encantador', 'p'))) o.push(['c', D(balV('encantador', 't'))]);
+  if (ctx.poker) o.push(['f', D(balV('pokerhielo', 't'))]);
+  return o;
+}
+// el anfitrión (o el jugador solo) aplica las órdenes a un zombi
+function balAplicarOps(z, ops, killed, by) {
+  for (const op of ops || []) {
+    const t = op[1];
+    if (op[0] === 'p') { z.pinata = { oro: t, by }; if (killed) balPinata(z); continue; }
+    if (op[0] === 'a') { balAplicar('congela', z.root.position, { r: t, t: op[2] }, by); continue; }
+    if (killed || z.dead) continue;
+    const grande = z.boss != null || z.def.big;
+    if (op[0] === 'f') freeze(z, t);
+    else if (op[0] === 'F') { freeze(z, t); z.heladoX = op[2]; z.heladoT = t; }
+    else if (op[0] === 's') z.stagger = Math.max(z.stagger, t);
+    else if (op[0] === 'c') { if (!grande) { z.charm = Math.max(z.charm || 0, t); z.tgtT = 0; } }
+    else if (op[0] === 'r') z.trapped = Math.max(z.trapped || 0, t);
+    else if (op[0] === 'k') { bfxSpawn && bfxSpawn('puff', z.root.position.x, z.root.position.z); damageZombie(z, 1e9, { part: 'body', dir: null, remote: by !== Net.id, ally: by !== Net.id, by }); feed('¡Duelo! El caballero lo venció', 'gold'); }
+    else if (op[0] === 'j') { damageZombie(z, z.maxHp * t, { part: 'body', dir: null, remote: by !== Net.id, ally: by !== Net.id, by }); }
+    else if (op[0] === 'e') { z.chicle = { dps: t, t: op[2], r: op[3], cd: 0, by }; }
+    else if (op[0] === 'b') { if (!grande) z.bomba = { dano: t, r: op[2], t: op[3], by }; }
   }
 }
-function impactFx(p, d, ctx) { const ty = ctx.type; if (typeof ty === 'string' && ty.indexOf('+') > 0) { for (const q of ty.split('+')) { ctx.type = q; impactFx1(p, d, ctx); } ctx.type = ty; return; } impactFx1(p, d, ctx); }
-function impactFx1(p, d, ctx) {
-  const t = ctx.type, sc = effSc();
-  if (t === 'frita') { Sfx.boom(); explode(p, 3.4, 90 * sc, 0, false); }
-  else if (t === 'racimo') {
-    const sub = Object.assign({}, ctx, { type: 'normal', dmgMul: 0.45, kills: 0, hitZ: false }), back = p.clone().addScaledVector(d, -0.3);
-    for (let i = 0; i < 6; i++) { const nd = d.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(-0.3, 0.5), rand(-0.8, 0.8))).normalize(); addTracer(back, castBullet(back, nd, sub), 0xe0a060, 1); }
+function balPinata(z) {
+  if (!z.pinata) return; const p = z.root.position; const P = z.pinata; z.pinata = null;
+  makePickup('bag', p.x + 0.6, p.z, P.oro); makePickup('bala', p.x - 0.6, p.z, BKEYS.indexOf(randomBullet()));
+  for (let i = 0; i < 40; i++) PA.add(p.x, 1, p.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.8, 1.6), rand(0.05, 0.1), Math.random(), Math.random(), Math.random(), 1, 6, 0.4, 0, 0);
+  Sfx.boom();
+}
+// ---- al pegar (efectos de quien dispara: curar, rayos…)
+function balAlPegar(z, pt, d, ctx, killed, crit) {
+  const k = ctx.k, lv = ctx.lv;
+  if (k === 'vampira') player.hp = Math.min(player.maxHp, player.hp + balX(k, 'cura', lv));
+  else if (k === 'relampago') balRayos(z, pt, d, balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(balX(k, 'aturde', lv)), ctx, 1);
+  else if (k === 'rayobum') balRayos(z, pt, d, balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(0.8), ctx, 2);
+  else if (k === 'angel' && killed) { const n = Math.max(1, Math.round(player.maxHp * balX(k, 'vida', lv))); player.maxHp += n; player.hp += n; banner('Ángel', `+${n} de vida máxima para toda la partida`, 2200, 'cross'); Sfx.heart(); }
+  else if (k === 'agujero' && ctx.part === 'head' && !ctx.hoyo) { ctx.hoyo = 1; balRed('agujero', pt, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) }); }
+  if (crit && balT('carta')) balRayos(z, pt, d, balV('carta', 'n'), balV('carta', 'dano') * effSc(), balDur(0.4), ctx, 1);
+}
+// rayo que salta de zombi en zombi (vueltas = 2: va y vuelve)
+function balRayos(z, pt, d, n, dano, aturde, ctx, vueltas) {
+  const ex = new Set([z]), lista = []; let from = pt.clone();
+  for (let i = 0; i < n; i++) { const o = nearestZombies(from, 1, 7, ex)[0]; if (!o) break; ex.add(o); const tp = torsoPos(o); lista.push([o, tp]); addTracer(from, tp, 0x9ac8ff, 2.2); from = tp; }
+  for (let v = 0; v < vueltas; v++) for (const [o, tp] of lista) { if (o.dead) continue; for (let q = 0; q < 6; q++) PA.add(tp.x, tp.y, tp.z, rand(-2, 2), rand(-1, 2), rand(-2, 2), 0.25, 0.06, 0.6, 0.8, 1, 1, 0, 2, 0, 0); damageZombie(o, dano, { part: 'body', dir: d, point: tp, bullet: true, weapon: ctx.h.model, fx: aturde > 0 ? 'b' + JSON.stringify([['s', aturde]]) : '' }); if (!Net.client && aturde > 0 && !o.dead) o.stagger = Math.max(o.stagger, aturde); }
+  if (lista.length > 1 && vueltas > 1) addTracer(lista[lista.length - 1][1], pt, 0x9ac8ff, 2.2);
+  Sfx.zap(panOf(pt));
+}
+// ---- donde pega la bala (explosiones, perdigones, agujeros, hielo…)
+function balImpacto(p, d, ctx) {
+  const k = ctx.k, lv = ctx.lv, sc = effSc();
+  if (k === 'frita') { Sfx.boom(); explode(p, balX(k, 'r', lv), balX(k, 'dano', lv) * sc, 0, false); }
+  else if (k === 'racimo') {
+    const sub = Object.assign({}, ctx, { k: 'normal', type: 'normal', dmgMul: balX(k, 'dano', lv), kills: 0, hitZ: false, sub: true }), back = p.clone().addScaledVector(d, -0.3);
+    for (let i = 0; i < balX(k, 'n', lv); i++) { const nd = d.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(-0.3, 0.5), rand(-0.8, 0.8))).normalize(); addTracer(back, castBullet(back, nd, sub), 0xe0a060, 1); }
     ctx.kills += sub.kills;
   }
-  else if (t === 'gravedad') netFx('w', p);
-  else if (t === 'agujero') netFx('b', p);
-  else if (t === 'trampa') netFx('t', p);
-  else if (t === 'acida') netFx('a', p);
-  else if (t === 'tormenta') netFx('s', p);
+  else if (k === 'tormenta') netFx('s', p);
+  else if (k === 'reyvacio' || k === 'casinoabismo' || (k === 'cieloabismo' && !ctx.cielo)) balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), oro: k === 'casinoabismo' ? Math.round(balX(k, 'oro', lv)) : 0 });
+  else if (k === 'horizonte') balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), par: 1 });
+  else if (k === 'helado') balRed('congela', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), x: balX(k, 'x', lv) });
+  else if (k === 'ventisca') balRed('congela', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), aturde: 1, tormenta: 1 });
+  else if (k === 'titiritero') balRed('hipno', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) });
+  else if (k === 'supernova') balRed('nova', p, { r: balX(k, 'r', lv), jefe: balX(k, 'jefe', lv) });
+  if (ctx.boom) { balRed('boom', p, { r: balX('tragamonedas', 'r', 1), dano: balX('tragamonedas', 'dano', lv) * sc }); ctx.boom = 0; }
+  if (ctx.seis) { const n = ctx.seis; ctx.seis = 0; for (let i = 0; i < n; i++) setTimeout(() => { if (game) balRed('boom', { x: p.x + rand(-3, 3), y: p.y, z: p.z + rand(-3, 3) }, { r: balX('seisdeseis', 'r', lv), dano: balX('seisdeseis', 'dano', lv) * sc }); }, i * 220); }
+}
+// ---- efectos de zona en grupo: quien dispara los pide y el anfitrión los aplica (y todos ven el efecto)
+function balRed(kind, p, v) {
+  const q = { x: r2(p.x), y: r2(p.y || 1), z: r2(p.z) };
+  if (Net.client) { Net.ev(['bxa', kind, q.x, q.y, q.z, v]); balVer(kind, q, v); }
+  else { balAplicar(kind, q, v, Net.id); if (Net.host) Net.ev(['bxv', kind, q.x, q.y, q.z, v, Net.id]); balVer(kind, q, v); }
+}
+// lo que se ve (en todos los teléfonos)
+function balVer(kind, p, v) {
+  if (kind === 'congela') { for (let i = 0; i < 40; i++) { const a = rand(0, TAU), r = rand(0, v.r); PA.add(p.x + Math.cos(a) * r, 0.3 + rand(0, 1.5), p.z + Math.sin(a) * r, rand(-1, 1), rand(0.5, 2), rand(-1, 1), 0.8, 0.08, 0.6, 0.85, 1, 1, 2, 1, 0, 0); } Sfx.ice(panOf(p)); }
+  else if (kind === 'hipno' || kind === 'detener') { for (let i = 0; i < 40; i++) { const a = i / 40 * TAU, r = kind === 'hipno' ? v.r : 9; PA.add(p.x + Math.cos(a) * r, 1, p.z + Math.sin(a) * r, 0, 0.6, 0, 1, 0.12, 1, 0.4, 0.8, 1, 0, 1, 0.3, 0); } }
+  else if (kind === 'nova') { fx.flash = 0.8; Sfx.boom(); Sfx.thunder(); for (let i = 0; i < 80; i++) { const a = rand(0, TAU), s = rand(6, 18); PA.add(p.x, 1, p.z, Math.cos(a) * s, rand(0, 4), Math.sin(a) * s, 1.2, 0.2, 1, 0.8, 0.4, 1, 0, 2, 0, 0); } player.shake = Math.min(1, player.shake + 0.6); }
+  else if (kind === 'todos') { fx.flash = 0.6; Sfx.thunder(); }
+  else if (kind === 'llamas') { for (let i = 0; i < 20; i++) PA.add(p.x + rand(-v.r, v.r), 0.5, p.z + rand(-v.r, v.r), 0, rand(1, 3), 0, rand(0.4, 0.8), rand(0.1, 0.25), 1, 0.5, 0.1, 1, -1, 1, 0, 0); }
+}
+// el efecto real (solo el anfitrión o el jugador solo)
+function balAplicar(kind, p, v, by) {
+  const zs = () => zombies.filter(z => !z.dead && z.state !== 'rise');
+  const lejos = (z, r) => Math.hypot(z.root.position.x - p.x, z.root.position.z - p.z) > r;
+  const tuyo = by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by };
+  if (kind === 'congela') { for (const z of zs()) if (!lejos(z, v.r)) { freeze(z, v.t); if (v.x) { z.heladoX = v.x; z.heladoT = v.t; } if (v.aturde) z.stagger = Math.max(z.stagger, v.t); } if (v.tormenta) game.balAreas.push({ tipo: 'congela', x: p.x, z: p.z, r: v.r, t: v.t, cd: 0, by }); }
+  else if (kind === 'hipno') { for (const z of zs()) if (!lejos(z, v.r) && z.boss == null && !z.def.big) { z.charm = Math.max(z.charm || 0, v.t); z.tgtT = 0; } }
+  else if (kind === 'detener') { for (const z of zs()) { z.trapped = Math.max(z.trapped || 0, v.t); z.stagger = Math.max(z.stagger, v.t); } }
+  else if (kind === 'todos') { for (const z of zs()) if (z.boss == null && !z.mini) damageZombie(z, 1e9, tuyo); }
+  else if (kind === 'nova') { for (const z of zs()) if (!lejos(z, v.r)) damageZombie(z, z.boss != null ? z.maxHp * v.jefe : 1e9, tuyo); }
+  else if (kind === 'boom') { Sfx.boom(); explode(p, v.r, v.dano, 0, false); }
+  else if (kind === 'agujero') {
+    if (v.par) { const a = addWell({ x: p.x - 3, y: p.y, z: p.z }, true, { r: v.r, t: v.t, by, mata: 1 }), b = addWell({ x: p.x + 3, y: p.y, z: p.z }, true, { r: v.r, t: v.t, by, mata: 1 }); if (a && b) { a.par = b; b.par = a; } }
+    else addWell(p, true, { r: v.r, t: v.t, by, oro: v.oro, mata: 1 });
+  }
+  else if (kind === 'caballero') { for (let i = 0; i < (v.n || 1); i++) balCaballero(by, v.lv, p, v.t ? { t: v.t, r: v.r } : null, v.duelo); }
+  else if (kind === 'llamas') { for (const z of zs()) if (!lejos(z, v.r)) { z.burn = Math.max(z.burn || 0, 3); z.burnDps = Math.max(z.burnDps || 0, v.dps); } }
+  else if (kind === 'negra') balNegra();
+}
+// la Negra: abre una puerta directa al siguiente mapa (termina el lugar sin pelear sus oleadas que faltan)
+function balNegra() {
+  if (!game || game.phase !== 'fight' || Net.client) return;
+  game.toSpawn = 0; game.bossQ = []; game.miniAt = null;
+  for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
+  game.alive = 0; game.wave = Math.ceil(game.wave / WAVES_PER_MAP) * WAVES_PER_MAP;
+  banner('La Negra', 'Se abre una puerta al siguiente mapa', 3000, 'skull'); Sfx.thunder(); fx.flash = 0.8;
+}
+// el caballero que pelea por ti (Invocación, Legión, Ángel guardián, Caballero del tiempo y Duelo)
+function balCaballero(owner, lv, p, tiempo, guardian) {
+  if (cops.filter(c => c.kind === 'guerrero' && !c.dead).length >= BAL.caballero.max) return null;
+  const m = BAL.nivelMul[Math.max(1, Math.min(BAL.nivelMax, lv || 1)) - 1], c = spawnCop('guerrero', owner && owner !== Net.id ? owner : null, 1, 0);
+  c.temp = 1; c.maxHp = c.hp = BAL.caballero.vida * m; c.dmgX = m; if (guardian) c.guardian = 1;
+  const a = rand(0, TAU); c.root.position.set(p.x + Math.cos(a) * 1.8, 0, p.z + Math.sin(a) * 1.8); resolve(c.root.position, 0.35);
+  if (tiempo) game.balAreas.push({ tipo: 'congela', cop: c, r: tiempo.r, t: tiempo.t, cd: 0 });
+  bfxSpawn && bfxSpawn('puff', c.root.position.x, c.root.position.z); Sfx.clang(0);
+  return c;
+}
+// la sombra (familia Oscura) o el muerto que se levanta (Nigromante): pelea por ti un rato y se deshace
+function balSombra(z, t) {
+  if (!game || Net.client || z.boss != null || z.def.big) return;
+  if (zombies.filter(o => o.sombra && !o.dead).length >= BAL.familia.oscura.max * 2) return;
+  const p = z.root.position, nz = spawnZombie(z.type, p.x, p.z, diffW(game.wave), false);
+  nz.charm = t; nz.sombra = 1; nz.noCuenta = 1; nz.tgtT = 0; nz.state = 'chase';
+}
+// ---- cada cuadro (en la pelea): Bobina Tesla, aura Celestial, el dron, chicles eléctricos, bombas, tormentas, sombras
+function balPaso(dt) {
+  if (!game || !game.slot) return;
+  game.balAreas = game.balAreas || [];
+  if (game.arenaT > 0) game.arenaT -= dt;
+  if (game.phase === 'fight' && !player.down) {
+    if (balT('tesla') && (game.teslaT = (game.teslaT || 0) + dt) >= balV('tesla', 'cada')) { game.teslaT = 0; const yo = player.pos.clone().setY(1.2), L = nearestZombies(player.pos, balV('tesla', 'n'), 12, new Set()); for (const o of L) { const tp = torsoPos(o); addTracer(yo, tp, 0x9ac8ff, 2.2); damageZombie(o, balV('tesla', 'dano') * effSc(), { part: 'body', dir: null, point: tp, bullet: true, weapon: game.equip }); } if (L.length) Sfx.zap(0); }
+    if (Balas.famOn(game, 'celestial') && (game.auraT = (game.auraT || 0) + dt) >= 1) { const F = BAL.familia.celestial; game.auraT = 0; player.hp = Math.min(player.maxHp, player.hp + F.cura); if (Net.on) for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(pr.pos.x - player.pos.x, pr.pos.z - player.pos.z) < F.r) Net.ev(['bal', 'cura', pr.id, F.cura]); for (const c of cops) if (!c.dead && Math.hypot(c.root.position.x - player.pos.x, c.root.position.z - player.pos.z) < F.r) c.hp = Math.min(c.maxHp, c.hp + F.cura); }
+  }
+  // los drones de los compañeros (solo se ven: sus disparos llegan como tiros normales)
+  for (let i = (game.dronesPeer || []).length - 1; i >= 0; i--) { const D_ = game.dronesPeer[i], q = D_.p.pos; D_.t -= dt; if (q) D_.m.position.set(q.x + Math.cos(game.time * 2) * 1.4, 2.3, q.z + Math.sin(game.time * 2) * 1.4); D_.m.rotation.y += dt * 18; if (D_.t <= 0) { scene.remove(D_.m); game.dronesPeer.splice(i, 1); } }
+  // el dron
+  for (let i = (game.drones || []).length - 1; i >= 0; i--) {
+    const D_ = game.drones[i]; D_.t -= dt; D_.cd -= dt;
+    const a = game.time * 2 + i, q = D_.m.position; q.set(player.pos.x + Math.cos(a) * 1.4, player.pos.y + 2.3 + Math.sin(game.time * 3) * 0.15, player.pos.z + Math.sin(a) * 1.4); D_.m.rotation.y += dt * 18;
+    if (D_.cd <= 0 && game.phase === 'fight') { const o = nearestZombies(q, 1, 25, new Set())[0]; D_.cd = D_.cad; if (o && lineClear(q.x, q.z, o.root.position.x, o.root.position.z, 0.1)) { const tp = torsoPos(o); addTracer(q, tp, 0x7ad0ff, 1.4); if (Net.on) Net.ev(['sh', r2(q.x), r2(q.y), r2(q.z), r2(tp.x), r2(tp.y), r2(tp.z), 0x7ad0ff]); damageZombie(o, D_.dano, { part: 'body', dir: tp.clone().sub(q).normalize(), point: tp, bullet: true, weapon: game.equip }); Sfx.pistol && Sfx.pistol(0, 0.3); } }
+    if (D_.t <= 0) { scene.remove(D_.m); game.drones.splice(i, 1); }
+  }
+  // lo demás lo lleva el anfitrión (o el jugador solo)
+  if (Net.client) return;
+  for (const z of zombies) {
+    if (z.dead) continue;
+    if (z.heladoT > 0) { z.heladoT -= dt; if (z.heladoT <= 0) z.heladoX = 0; }
+    if (z.chicle) { const C = z.chicle; C.t -= dt; C.cd -= dt; if (C.cd <= 0) { C.cd = 0.5; const L = nearestZombies(z.root.position, 3, C.r, new Set([z])), f = torsoPos(z); for (const o of L) { const tp = torsoPos(o); addTracer(f, tp, 0xffa0ff, 1.6); o.stagger = Math.max(o.stagger, 0.3); damageZombie(o, C.dps * 0.5, C.by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: C.by }); } if (L.length) Sfx.zap(panOf(z.root.position)); } if (C.t <= 0) z.chicle = null; }
+    if (z.bomba) { const B = z.bomba; B.t -= dt; const otro = zombies.find(o => o !== z && !o.dead && Math.hypot(o.root.position.x - z.root.position.x, o.root.position.z - z.root.position.z) < 1.4); if (B.t <= 0 || (otro && B.t < 2.5)) { z.bomba = null; const c = z.root.position.clone().setY(1); Sfx.boom(); explode(c, B.r, B.dano, 0, false); if (!z.dead) damageZombie(z, 1e9, B.by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: B.by }); } }
+    if (z.sombra && !(z.charm > 0)) { z.dead = true; z.deadT = 0; z.fallDir = 1; }
+  }
+  for (let i = game.balAreas.length - 1; i >= 0; i--) {
+    const A = game.balAreas[i]; A.t -= dt; A.cd -= dt;
+    if (A.cop && A.cop.dead) A.t = 0;
+    if (A.cd <= 0) { A.cd = 0.5; const c = A.cop ? A.cop.root.position : A; for (const z of zombies) if (!z.dead && z.boss == null && Math.hypot(z.root.position.x - c.x, z.root.position.z - c.z) < A.r) { z.frozen = Math.max(z.frozen || 0, 0.6); z.stagger = Math.max(z.stagger, 0.6); } if (!A.cop) for (let k = 0; k < 14; k++) { const a = rand(0, TAU), r = rand(0, A.r); PA.add(c.x + Math.cos(a) * r, 3, c.z + Math.sin(a) * r, rand(-1, 1), -4, rand(-1, 1), 0.7, 0.07, 0.75, 0.9, 1, 1, 2, 1, 0, 0); } }
+    if (A.t <= 0) game.balAreas.splice(i, 1);
+  }
+  for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (c.balT > 0 && (c.balT -= dt) <= 0) removeCop(i); }
+}
+function balDron(lv) {
+  const g = new THREE.Group(), mt = new THREE.MeshLambertMaterial({ color: 0x3a4a5a, emissive: 0x0a1a2a }), lz = new THREE.MeshBasicMaterial({ color: 0x7ad0ff });
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.34), mt)); for (const [x, z] of [[0.2, 0.2], [-0.2, 0.2], [0.2, -0.2], [-0.2, -0.2]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.01, 0.03), lz); r.position.set(x, 0.06, z); g.add(r); }
+  scene.add(g); game.drones = game.drones || [];
+  game.drones.push({ m: g, t: balDur(balX('dron', 't', lv)), cd: 0.2, cad: balX('dron', 'cad', lv), dano: balX('dron', 'dano', lv) * effSc() });
+  if (Net.on) Net.ev(['bal', 'dron', r2(balDur(balX('dron', 't', lv)))]);
+}
+// mensajes de balas en grupo: curas, oro, el dron de un compañero y las pasivas que el anfitrión necesita
+function balRedIn(p, e) {
+  if (!game) return; const s = e[1];
+  if (s === 'curamax') { if (!player.down) player.hp = player.maxHp; feed(`${p.name}: Cielo y abismo te cura por completo`, 'gold'); }
+  else if (s === 'cura') { if (e[2] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + (+e[3] || 0)); }
+  else if (s === 'oro') { if (e[2] === Net.id) addGold(e[3] | 0, true); }
+  else if (s === 'pas') { if (Net.host) p.bal = e[2]; }
+  else if (s === 'dron') { const g = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.34), new THREE.MeshLambertMaterial({ color: 0x3a4a5a, emissive: 0x0a1a2a })); scene.add(g); (game.dronesPeer = game.dronesPeer || []).push({ m: g, t: +e[2] || 10, p }); }
+}
+// ---- al matar (las muertes que cuentan para ti)
+function balMuerte(def, head) {
+  if (!game || !game.slot) return;
+  game.balCont = game.balCont || {};
+  if (balT('oro') && Math.random() < balP('oro', balV('oro', 'p'))) addGold(Math.round(balV('oro', 'oro')) * (balRepite() ? 2 : 1), true);
+  if (Balas.famOn(game, 'comida')) player.hp = Math.min(player.maxHp, player.hp + BAL.familia.comida.cura);
+  if (game.hipnoHasta > game.time && game.hipnoX > 1) addGold(Math.round(def.gold * (game.hipnoX - 1)), true);
+  for (const [k, r] of [['rey', 'B'], ['corona', 'S']]) if (balT(k)) { game.balCont[k] = (game.balCont[k] | 0) + 1; if (game.balCont[k] >= balV(k, 'cada')) { game.balCont[k] = 0; const b = Balas.deRango(r); balGanar(b, { quiet: true }); banner(BULLETS[k].name, `Te regala la bala ${BULLETS[b].name}`, 2400, 'star'); } }
+  if (balT('golosina') && Math.random() < balP('golosina', balV('golosina', 'p'))) { if (game.golosinaW !== game.wave) { game.golosinaW = game.wave; game.golosinaN = 0; } game.golosinaN++; player.hp = Math.min(player.maxHp, player.hp + balV('golosina', 'cura')); calcStats(); feed(`¡Un dulce! +${balV('golosina', 'cura')} de vida y +${Math.round(balV('golosina', 'dano') * 100)} % de daño en la oleada`, 'gold'); }
+}
+// el anfitrión levanta sombras (familia Oscura) y muertos (Nigromante) de quien mató
+function balAlMorirZombi(z, info) {
+  if (!game || Net.client || z.noCuenta || !info) return;
+  let pas = null;
+  if (!info.remote && !info.ally) pas = { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 };
+  else if (info.remote && info.by) { const pr = Net.peers.get(info.by); pas = pr && pr.bal; }
+  if (z.pinata) balPinata(z);
+  if (!pas) return;
+  if (pas.nig && Math.random() < pas.nig) balSombra(z, pas.nigT || 15);
+  else if (pas.osc && zombies.filter(o => o.sombra && !o.dead).length < BAL.familia.oscura.max) balSombra(z, BAL.familia.oscura.t);
+}
+// en grupo, el anfitrión necesita saber las pasivas de cada uno que levantan muertos
+function balAvisarPasivas() { if (!Net.client || !game) return; Net.ev(['bal', 'pas', { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 }]); }
+// ---- empieza la oleada
+function balOleadaInicio(n) {
+  if (!game || !game.slot) return;
+  // lo que subió solo por la oleada anterior se termina
+  game.balTemp = {}; game.box = game.box.filter(b => !String(b).endsWith('*')); game.arenaT = 0; game.aveW = 0;
+  if (balT('cantimplora')) { player.hp = Math.min(player.maxHp, player.hp + balV('cantimplora', 'cura')); feed(`Cantimplora: +${balV('cantimplora', 'cura')} de vida`, 'gold'); }
+  if (balT('mercenaria')) { const c = balV('mercenaria', 'coste'); game.gold = Math.max(0, game.gold - c); feed(`Mercenaria: −${c} $`, 'red'); }
+  if (balT('dadocargado')) {
+    const pool = game.slot.filter(e => e.lv < BAL.nivelMax).map(e => e.k), n = Math.round(balV('dadocargado', 'n')), out = [];
+    for (let i = 0; i < n && pool.length; i++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    for (const k of out) { game.balTemp[k] = 1; if (Balas.esActiva(k)) game.box.push(k + '*'); }
+    if (out.length) feed(`Dado cargado: ${out.map(k => BULLETS[k].name).join(', ')} sube 1 nivel esta oleada`, 'gold');
+  }
+  if (balT('angelguardian') && !cops.some(c => c.kind === 'guerrero' && c.guardian && !c.dead && (c.owner || Net.id) === Net.id)) balRed('caballero', player.pos, { lv: balNv('angelguardian'), n: 1, duelo: 1 });
+  if (balT('relojarena')) game.arenaT = balDur(balV('relojarena', 't'));
+  balAvisarPasivas(); calcStats(); balCambio();
+}
+// ---- termina la oleada
+function balOleadaFin() {
+  if (!game || !game.slot) return 0;
+  let g = 0;
+  if (balT('alcancia')) { const a = Math.round(balV('alcancia', 'oro')); game.sum.push(['Alcancía', a]); g += a; }
+  if (balT('usurero')) { const u = Math.min(Math.round(balV('usurero', 'max')), Math.floor(game.gold * balV('usurero', 'pct'))); if (u) { game.sum.push(['Usurero', u]); g += u; } }
+  return g;
+}
+// ---- te pegan: Reflejo de fuego y Ave de la fortuna
+function balAlRecibir(amount, tick) {
+  if (!game || !game.slot || amount <= 0) return;
+  if (!tick && balT('reflejo')) balRed('llamas', player.pos, { r: balV('reflejo', 'r'), dps: amount * balV('reflejo', 'x') / 3 });
+  if (balT('avefortuna') && player.hp > 0 && player.hp < player.maxHp * balV('avefortuna', 'hp') && game.aveW !== game.wave) { game.aveW = game.wave; addGold(Math.round(balV('avefortuna', 'oro')), true); player.hp = Math.min(player.maxHp, player.hp + balV('avefortuna', 'cura')); banner('Ave de la fortuna', `+${Math.round(balV('avefortuna', 'oro'))} $ y +${balV('avefortuna', 'cura')} de vida`, 2200, 'star'); Sfx.coin(); }
+}
+// ---- te iban a matar: Resurrección, Emperador inmortal y Fénix (en ese orden)
+function balRevivir() {
+  if (!game || !game.slot) return false;
+  game.balCont = game.balCont || {};
+  if (balT('resurreccion') && (game.resW == null || game.wave - game.resW >= balV('resurreccion', 'cada'))) {
+    game.resW = game.wave; player.hp = player.maxHp; balRed('boom', player.pos, { r: balV('resurreccion', 'r'), dano: balV('resurreccion', 'dano') * effSc() });
+    banner('Resurrección', 'Vuelves con toda la vida y fuego sagrado', 2600, 'cross'); Sfx.heart(); return true;
+  }
+  if (balT('emperador') && (game.balCont.emp | 0) < Math.round(balV('emperador', 'n'))) {
+    game.balCont.emp = (game.balCont.emp | 0) + 1; player.hp = Math.round(player.maxHp * Math.min(1, balV('emperador', 'vida')));
+    for (const e of game.slot) if (e.lv < BAL.nivelMax && !game.balTemp[e.k]) { game.balTemp[e.k] = 1; if (Balas.esActiva(e.k)) game.box.push(e.k + '*'); }
+    balCambio(); banner('Emperador inmortal', `Revives (${game.balCont.emp} de ${Math.round(balV('emperador', 'n'))}) · tus balas suben 1 nivel esta oleada`, 2800, 'star'); Sfx.heart(); return true;
+  }
+  if (balT('fenix')) {
+    player.hp = Math.round(player.maxHp * Math.min(1, balV('fenix', 'vida'))); Balas.quitar(game, 'fenix', balManos()); balCambio();
+    banner('Fénix', 'Revives… y la bala del Fénix se rompe', 2600, 'lantern'); Sfx.heart(); return true;
+  }
+  return false;
+}
+// cuando cambia el nivel de la Corona celestial, cambia tu vida máxima
+function balVidaCorona() {
+  if (!game) return; const quiero = balT('corona') ? Math.round((player.maxHp - (game.coronaVida | 0)) * balV('corona', 'vida')) : 0, d = quiero - (game.coronaVida | 0);
+  if (d) { game.coronaVida = quiero; player.maxHp = Math.max(1, player.maxHp + d); player.hp = clamp(player.hp + Math.max(0, d), 1, player.maxHp); }
+}
+// Corte de espejos: cada activa que disparas lanza también una bala fantasma que impacta (al zombi más cercano a la mira)
+function balEspejos(h, ctx, cam) {
+  if (!balT('cortespejos') || !Balas.esActiva(ctx.k)) return;
+  let best = null, bd = 0.6; const v = new THREE.Vector3();
+  for (const z of zombies) { if (z.dead || z.state === 'rise') continue; z.torso.getWorldPosition(v); const d = v.clone().sub(_cp), dist = d.length(); if (dist > 45) continue; d.normalize(); const ang = Math.acos(clamp(d.dot(cam), -1, 1)); if (ang < bd) { bd = ang; best = z; } }
+  if (!best) return; const tp = torsoPos(best); addTracer(_mp, tp, 0xe8f6ff, 1.6);
+  damageZombie(best, bulletDmg(h) * balV('cortespejos', 'dano'), { part: 'body', dir: cam.clone(), point: tp, bullet: true, weapon: h.model });
 }
 function dragonCone(h, cam) {
   const sc = effSc(), fx_ = cam.x, fz = cam.z, fl = Math.hypot(fx_, fz) || 1;
@@ -22822,6 +23112,7 @@ function damageZombie(z, amount, info) {
   const pan = panOf(z.root.position);
   let armorHit = false;
   if (z.mark > 0) amount *= 1.5;
+  if (z.heladoX > 1 && z.frozen > 0) amount *= z.heladoX;   // Helado
   if (info.part === 'helmet' && z.helmet) {
     armorHit = true; z.helmetHp -= amount; amount *= 0.12;
     if (info.point) sparks(info.point, 10, info.dir ? _t2.copy(info.dir).negate() : null);
@@ -22834,7 +23125,6 @@ function damageZombie(z, amount, info) {
     if (z.shieldHp <= 0) { const sh = z.shield; z.shield = null; dropHit(z, sh); detach(sh, new THREE.Vector3((info.dir ? info.dir.x : 0) * 3, rand(2, 4), (info.dir ? info.dir.z : 0) * 3)); if (!info.ally) feed('¡Escudo roto!', 'blue'); }
     info.part = 'body';
   }
-  { const exe = info.remote ? info.exe | 0 : info.ally ? 0 : lv('execute'); if (info.bullet && exe && z.type !== 'abom' && z.boss == null && z.hp - amount < z.maxHp * 0.1 * exe) amount = z.hp + 1; }
   z.hp -= amount; z.flash = 0.1;
   const head = info.part === 'head';
   if (info.bullet && info.point) {
@@ -22842,7 +23132,6 @@ function damageZombie(z, amount, info) {
     bloodBurst(info.point, info.dir, armorHit ? 3 : head ? 26 : 14, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
-    if (lv('fire') && !info.ally) { z.burn = 3; z.burnDps = 18 * lv('fire'); }
     if (!armorHit) goreHit(z, info, amount, false);
     if (!armorHit && z.hp > 0) zoneHit(z, info);
     if (z.hp > 0) hitReact(z, info, amount);
@@ -22866,12 +23155,13 @@ function explode(c, r, dmgZ, dmgP, green) {
   player.shake = Math.min(1, player.shake + Math.max(0, 0.6 - pd * 0.03));
 }
 function killZombie(z, info) {
-  if (info && !info.remote && !z.net && game && info.weapon && sigOn(info.weapon, 'pinata') && Math.random() < 1 / 3) { const c = z.root.position.clone().setY(1); setTimeout(() => { if (!game) return; for (let i = 0; i < 40; i++) PA.add(c.x, c.y, c.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.8, 1.6), rand(0.05, 0.1), Math.random(), Math.random(), Math.random(), 1, 6, 0.4, 0, 0); Sfx.boom(); explode(c, 3, 70, 0, false); }, 60); }
+  if (false) { const c = z.root.position.clone().setY(1); setTimeout(() => { if (!game) return; for (let i = 0; i < 40; i++) PA.add(c.x, c.y, c.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.8, 1.6), rand(0.05, 0.1), Math.random(), Math.random(), Math.random(), 1, 6, 0.4, 0, 0); Sfx.boom(); explode(c, 3, 70, 0, false); }, 60); }
   if (z.boss != null && !z.net && bossPreDeath(z, info)) return;
   const ardia = z.burn > 0;
   z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false;
   const inGame = !!game && state !== 'menu';
-  if (inGame) { game.alive--; game.kills++; }
+  if (inGame && !z.noCuenta) { game.alive--; game.kills++; }
+  if (inGame && !z.net) balAlMorirZombi(z, info);   // sombras, Nigromante y Piñata
   if (inGame && game.phase === 'fight' && !Net.client) {
     if (game.toSpawn <= 0 && game.alive <= 0 && !(game.bossQ && game.bossQ.length)) killcam(1.0, -7);
     else if (info && info.part === 'head' && !info.ally && !Net.on && game.time - (game.kcLast || -99) > 8 && Math.random() < 0.18) killcam(0.32, -3);
@@ -22885,7 +23175,7 @@ function killZombie(z, info) {
   { z.torso.getWorldPosition(_tmp); bloodBurst(_tmp, info.dir || new THREE.Vector3(0, 1, 0), z.def.big ? 30 : 18, true); }
   if (z.def.big) { Sfx.thud(panOf(p)); player.shake = Math.min(1, player.shake + 0.35); } else Sfx.splat(panOf(p), volOf(p, 0.6));
   if (z.type === 'bloater') { z.torso.getWorldPosition(_tmp); const c = _tmp.clone(); z.body.visible = false; Sfx.gas(panOf(p)); explode(c, 4.2, 140, inGame ? 26 : 0, true); makePuddle(c.x, c.z, 2.2, 4); }
-  if (!inGame) return;
+  if (!inGame || z.noCuenta) return;   // las sombras no dan nada
   achMuerte(z, info, ardia);
   if (info && info.bullet && !info.remote && !info.ally && S('boomC') && Math.random() < S('boomC') / 100) { const c = p.clone().setY(1); Sfx.boom(); explode(c, 3, 70 * effSc(), 0, false); }
   if (z.frozen > 0) for (const o of nearestZombies(p, 2, 6, new Set([z]))) freeze(o, 2);
@@ -22893,7 +23183,7 @@ function killZombie(z, info) {
   if (head && info.bullet && (!info.ally || info.remote)) {
     if (!info.remote) { game.heads++; stMas('heads'); }
     z.head.getWorldPosition(_tmp);
-    const boomLv = info.remote ? info.boom | 0 : lv('boom');
+    const boomLv = 0;
     if (boomLv) {
       z.head.visible = false; dropHit(z, z.head); z.headless = true;
       for (let i = 0; i < 40; i++) P.add(_tmp.x, _tmp.y, _tmp.z, rand(-5, 5), rand(0, 6), rand(-5, 5), rand(1, 3), rand(0.05, 0.12), rand(0.3, 0.5), 0.02, 0.02, 1, 9.8, 0.5, 0, 1);
@@ -22901,7 +23191,6 @@ function killZombie(z, info) {
       for (const o of zombies) { if (o === z || o.dead) continue; const d = Math.hypot(o.root.position.x - c.x, o.root.position.z - c.z); if (d < 3.4) { o.stagger = 0.6; damageZombie(o, 75 * boomLv * (1 - d / 3.4 * 0.5), info.remote ? { part: 'body', dir: null, remote: true, ally: true, by: info.by } : { part: 'body', dir: null }); } }
     } else if (!z.def.quad && info.dir) { dropHit(z, z.head); z.headless = true; detach(z.head, new THREE.Vector3(info.dir.x * rand(3, 5), rand(3, 5.5), info.dir.z * rand(3, 5))); }
     if (!z.def.quad) z.neckSpurt = 1.3;
-    if (lv('vamp') && !info.remote) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp'));
   }
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
@@ -22920,16 +23209,13 @@ function killZombie(z, info) {
 }
 function creditKill(def, head, ally, weapon) {
   if (def === ZDEF.oro && !ally) { banner('¡Zombi de oro!', `+${def.gold} $`, 2400, 'coins'); Sfx.win(); Sfx.cash(); }
-  const hb = head && !ally ? (def.big ? 3 : 0) + lv('bounty') : 0;
+  const hb = head && !ally ? (def.big ? 3 : 0) : 0;
   addGold(Math.round((def.gold + hb) * (dareOn() && !ally ? 1.5 : 1)));
   if (!ally && !tuto) { META.st.kills++; if (def.human) META.st.bandits = (META.st.bandits | 0) + 1; }
-  game.gold5++; if (lv('greed') && game.gold5 % 5 === 0) addGold(lv('greed'), true);
+  game.gold5++;
   if (!ally) {
     game.w.kills++; game.misK = (game.misK | 0) + 1;
-    if (rl('diente')) addGold(1, true);
-    if (S('killGold')) addGold(S('killGold'), true);
-    if (S('killHeal')) player.hp = Math.min(player.maxHp, player.hp + S('killHeal'));
-    if (rl('corazon')) player.hp = Math.min(player.maxHp, player.hp + 2);
+    balMuerte(def, head);   // Oro, Rey, Corona, Golosina, familia Comida…
     const kb = Math.min(ALLY.contador.killMax, myAllies().reduce((t, c) => t + (c.kind === 'contador' ? ALLY.contador.kill * (c.lv || 1) : 0), 0)); if (kb) addGold(kb, true);
     if (weapon && MODELS[weapon]) gainXp(weapon);
     if (game.time - game.lastKill < 1.4) game.multi++; else { game.multi = 1; game.comboDmg = 0; }
@@ -22940,9 +23226,8 @@ function creditKill(def, head, ally, weapon) {
     else if (def.big) feed(`${def.name} abatido · +${5 + hb} $`, 'gold');
     else if (head) feed(`Tiro a la cabeza · +${def.gold + hb} $`, '');
   } else if (def.big) feed(`Un oficial abatió al ${def.name}`, 'blue');
-  game.de = Math.min(100, game.de + (head ? 11 : 6) * ST.deX * (1 + 0.3 * lv('cold')) * (game.char === 'lilith' ? 1.5 : 1));
+  game.de = Math.min(100, game.de + (head ? 11 : 6) * ST.deX * (game.char === 'lilith' ? 1.5 : 1));
   if (!(game.habT > 0)) game.hab = Math.min(100, (game.hab || 0) + (head ? HAB_CARGA.cabeza : HAB_CARGA.muerte) * (ST.habX || 1));
-  if (game.deOn && S('deKill')) game.de = Math.min(100, game.de + S('deKill') * 22);   // Calma del pistolero: cada muerte alarga el Ojo Muerto
 }
 const recMul = () => 1 + ALLY.recargador.reload * Math.min(3, myAllies().filter(c => c.kind === 'recargador').length);
 function startReload() {
@@ -22974,7 +23259,7 @@ function reloadStep(dt) {
     if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'close') {
     gs.reloading = false; gs.phase = ''; Sfx.close();
-    for (const h of act) h.firstShot = true;
+    for (const h of act) { h.firstShot = true; h.tamborN = 0; }
     for (const h of act) { h.full = !h.loaded.some(x => x === 0 || x === 2); h.cShots = h.cKills = 0; }
     if (act.every(h => h.full) && !gs.wantStop) { for (const h of act) { h.cylTarget += TAU; h.hudRot -= 360; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`; } Sfx.spin(); }
     if (gs.wantStop) { gs.wantStop = false; act.forEach(h => h.cd = 0); tryFire(); }
@@ -24769,6 +25054,7 @@ function waveSupplies(n) {
   game.shieldW = 0;
   waveEvent(n);
   { const r = Balas.addNormales(game, 12 + 2 * zoneOf(n) + (game.char === 'francois' ? 12 : 0)); feed(r ? `Ración de la oleada: +${r} balas` : 'Tu caja está llena', 'gold'); }
+  balOleadaInicio(n);   // Cantimplora, Mercenaria, Dado cargado, Ángel guardián, Reloj de arena
   if (world.idx === 23 && !Net.client) policiasDeGuardia();
   else if (world.idx === MAID_IDX && !Net.client) maidsDelCafe();
   else for (let i = cops.length - 1; i >= 0; i--) if (cops[i].indep && !cops[i].radio) removeCop(i);   // fuera de la comisaría no hay guardia
@@ -24871,11 +25157,10 @@ function waveSummary() {
   let pw = 0;
   for (const c of mine) if (c.kind === 'recargador') pw += ALLY.recargador.powder * (c.lv || 1);
   if (pw) { game.powder = Math.min(9, game.powder + pw); feed(`El Recargador fabricó ${pw} ${pw === 1 ? 'barril' : 'barriles'} de pólvora`, 'gold'); }
-  if (S('waveGold')) { game.sum.push(['Cartera', S('waveGold')]); g += S('waveGold'); }
-  if (S('interest')) { const it = Math.min(S('interest'), Math.floor(game.gold / 10)); if (it) { game.sum.push(['Intereses', it]); g += it; } }
+  g += balOleadaFin();   // Alcancía y Usurero
   addGold(g, true); waveEventEnd();
   banner(`Oleada ${wv} superada`, `+${g} $ · +20 de vida${clean ? ' · ¡sin un rasguño!' : ''}`, 2300);
-  if (!player.down) player.hp = Math.min(player.maxHp, player.hp + (sk(8) ? 0 : 20) + 25 * lv('medic'));
+  if (!player.down) player.hp = Math.min(player.maxHp, player.hp + (sk(8) ? 0 : 20));
   if (!game.w.hurt) game.cleanW = (game.cleanW || 0) + 1;
   contractStep(isMapEnd(wv));
 }
@@ -26207,7 +26492,7 @@ function updatePickups(dt) {
   for (let i = pickups.length - 1; i >= 0; i--) {
     const p = pickups[i]; p.t += dt;
     p.g.rotation.y += dt * 2; p.g.position.y = 0.65 + Math.sin(p.t * 3) * 0.1;
-    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (lv('magpie') && pdd < 5) || (rl('iman') && pdd < 8)) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
+    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (balT('iman') && pdd < balV('iman', 'r'))) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
       if (Net.client && p.net) { Net.ev(['pk', p.id]); Net.gone.set(p.id, performance.now()); }
@@ -26320,15 +26605,13 @@ let flowT = 0;
 function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx - nav.tx, tz - nav.tz) > (world.big ? 2.4 : 1.2)) { nav.dist = nav.mainDist; computeFlow(tx, tz); flowT = world.big ? 0.6 : 0.4; } }
 function updatePlay(dt) {
   grabStep(dt);
-  if (game.deOn) { game.de -= dt * 22 / (1 + 0.35 * lv('cold')) / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
+  if (game.deOn) { game.de -= dt * 22 / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
   if (game.killcamT > 0) game.killcamT -= dt;
-  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : 1, game.killcamT > 0 ? 30 : 10, dt);
+  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
   if (state === 'play' || state === 'pause' || state === 'inv') {
     game.time += dt;
-    if (rl('calavera') && !game.deOn) game.de = Math.min(100, game.de + 1.5 * dt);
-    if (rl('escapulario') && !player.down) player.hp = Math.min(player.maxHp, player.hp + dt);
     if (arb('regen') && !player.down && player.hp < player.maxHp && game.time - (player.lastHurt || -9) > 4) player.hp = Math.min(player.maxHp, player.hp + arbP('regen') * dt);   // árbol: recuperación
     if (game.waveMod && game.waveMod.acid && game.phase === 'fight' && !player.down && player.hp > 5) player.hp -= 1.2 * dt;
     updatePlayer(dt);
@@ -26339,8 +26622,7 @@ function updatePlay(dt) {
     if (tuto) tutoStep(dt);
     if (Net.host) netHostStep();
     if (game.goldT > 0) game.goldT -= dt;
-    if (S('cercaCura') && Net.on && !player.down && player.hp < player.maxHp) { for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(pr.pos.x - player.pos.x, pr.pos.z - player.pos.z) < 6) { player.hp = Math.min(player.maxHp, player.hp + S('cercaCura') * dt); break; } }   // Cantimplora compartida
-    habStep(dt);
+    habStep(dt); balPaso(dt);
     if (player.hp < player.maxHp * 0.3 && !game.deOn) { heartT -= dt; if (heartT <= 0) { heartT = 0.9; Sfx.heart(); } }
   } else {
     dyingT += dt;
@@ -26602,7 +26884,7 @@ function balManos() { const L = hands.map(h => h.loaded); for (const id in game.
 // algo cambió en tu slot: estadísticas, cuántas balas caben y la pantalla
 function balCambio() {
   if (!game) return;
-  calcStats(); game.slotV = (game.slotV | 0) + 1;
+  calcStats(); balVidaCorona(); game.slotV = (game.slotV | 0) + 1; if (typeof balAvisarPasivas === 'function') balAvisarPasivas();
   for (const h of hands) h.ammo = h.loaded.filter(isLoaded).length;
   if (typeof refreshChambers === 'function' && hands[0].hud) refreshChambers();
 }
@@ -28386,6 +28668,9 @@ function netEvent(p, e) {
     if (Net.host && game) { if (t === 'rsAdd') game.pot = (game.pot || 0) + Math.max(0, e[1] | 0); if (t === 'rsPay') { rescuePay(true); return; } Net.ev(['rsPot', game.pot || 0, rescueFee(game.wave)]); renderRescue(); }
     return;
   }
+  if (t === 'bxa') { if (Net.host && game) { const q = { x: e[2], y: e[3], z: e[4] }; balAplicar(e[1], q, e[5] || {}, p.id); Net.ev(['bxv', e[1], e[2], e[3], e[4], e[5], p.id]); balVer(e[1], q, e[5] || {}); } return; }
+  if (t === 'bxv') { if (!Net.host && game && e[6] !== Net.id) balVer(e[1], { x: e[2], y: e[3], z: e[4] }, e[5] || {}); return; }
+  if (t === 'bal') { balRedIn(p, e); return; }
   if (t === 'sh') { if (p && p.av && p.av.p3d) { p.av.p3d.aimR = 1.6; p.av.p3d.kick = 1; p.av.p3d.tiro = 0; }
     const a = new THREE.Vector3(e[1], e[2], e[3]), b = new THREE.Vector3(e[4], e[5], e[6]); addTracer(a, b, e[7], 1.2); for (let i = 0; i < 4; i++) PA.add(a.x, a.y, a.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.08, 0.06, 1, 0.8, 0.4, 1, 0, 2, 0, 0); Sfx.shotAt(p && (MODEL_ORDER[p.model] || (CHARS[p.char] && CHARS[p.char].gun)), panOf(a), volOf(a, 1.3)); return; }
   if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; Net.diff = DIFF_KEYS[e[2] | 0] || 'normal'; netStartAsClient(); } return; }
@@ -28486,6 +28771,7 @@ function applyRemoteDamage(from, e) {
   const [pt, lk] = String(e[3]).split(':'), lo = lk && /^(arm|leg)[LR]$/.test(lk) ? z[lk] : undefined;
   const killed = damageZombie(z, e[2], { part: pt, obj: lo, dir, point: torsoPos(z), bullet: true, weapon: e[7], by: from, remote: true, ally: true, exe: e[8] | 0, boom: e[9] | 0 });
   const t = e[4], sc = effSc();
+  if (typeof t === 'string' && t[0] === 'b' && t[1] === '[') { try { balAplicarOps(z, JSON.parse(t.slice(1)), killed, from); } catch (er) {} }
   if (t === 'fria' && !killed) freeze(z, 2);
   else if (t === 'mula' && !killed) { z.kbx = dir.x * 10; z.kbz = dir.z * 10; z.stagger = Math.max(z.stagger, 1.2); }
   else if (t === 'sangre') z.mark = 6;
@@ -28594,7 +28880,7 @@ function clientDamage(z, amount, info) {
   if (mapFx > 0) { z.flash = 0.1; return false; }
   const pan = panOf(z.root.position), head = info.part === 'head';
   const lk = info.part === 'limb' && info.obj ? limbKey(z, info.obj) : null;
-  Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '', info.bullet && !info.ally ? lv('execute') : 0, info.bullet && !info.ally ? lv('boom') : 0, info.bullet && !info.ally ? lv('fire') : 0]);
+  Net.ev(['d', z.id, Math.round(amount * 10) / 10, (info.part || 'body') + (lk ? ':' + lk : ''), info.fx || '', info.dir ? r2(info.dir.x) : 0, info.dir ? r2(info.dir.z) : 0, info.weapon || '', 0, 0, 0]);
   let a = amount;
   if (info.part === 'helmet' && z.helmet) { a *= 0.12; if (info.point) sparks(info.point, 8, null); Sfx.clang(pan); }
   else if (info.part === 'vest') a *= 0.5;

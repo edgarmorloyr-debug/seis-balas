@@ -232,3 +232,29 @@ Ludo Cheng: por decidir cuando se haga.
 - **Se queda la mesa de fusión:** fusiona y sube de nivel las balas.
 - **Se queda el árbol de la Tienda calavera**, ajustado al sistema nuevo: mejoras permanentes como más espacios de slot (caras), más velocidad y más vida inicial. Igual que hoy, pero sin nada de lo que se quitó.
 - **Se hace todo de una vez** (decisión del dueño), en una rama aparte; no se publica hasta que el dueño lo pruebe y lo apruebe.
+
+## Cómo quedó programado (rama `sistema-balas`, 18-oct-2026)
+- **Todas las cifras** están en `index.html`, en el bloque «SISTEMA DE BALAS»: `BAL` (reglas generales: slot, caja, niveles, precios, sobres, cofres, familias, caballero, árbol) y `BALAS` (las 85 balas con sus números). Para rebalancear se cambia solo ahí.
+- En cada bala, `up` dice qué cifra crece con el nivel (×1,5 / ×2 / ×3). Las activas sin cifras propias (Bumerán, Taladro, Dado…) hacen más daño con el nivel.
+- **Secreta:** color carmesí con brillo (`#ff3d6e`). La Negra se ve negra con borde rojo.
+- **Fusiones descubiertas:** se guardan en el progreso del jugador (`META.recetas`). La primera vez sale «?»; después, el nombre.
+
+### Supuestos que hay que confirmar con el dueño
+- Una bala repetida sube de nivel sola al conseguirla (no ocupa otro espacio). Si el slot está lleno o la bala ya está en nivel 4, la que llega se vende sola por la mitad.
+- «Se rompe» = esa copia se pierde: la bala baja 1 nivel (con nivel 0 sale del slot).
+- La caja sigue siendo munición contada: se llena hasta 50 (60 con el Cinturón) con la ración de cada oleada, el suelo y la máquina; ya no pasa de ese tope.
+- Vender devuelve la mitad del precio por cada nivel. Las secretas no se venden.
+- No se puede fusionar ni vender si el slot quedaría con más balas que espacios (por ejemplo, al quitar el Robot).
+- Teclas 1 a 9: el número de la recámara. Con dos armas o cargadores de más de 8 balas, el cañón se ve chico y las activas salen en fila con su número. Las armas se cambian con la rueda del ratón.
+
+## Despertares del nivel 4 (por definir con el dueño)
+Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.despierta`). Falta inventar el efecto extra de cada una:
+- [ ] Base C: Oro, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora, Apuesta
+- [ ] Base B: Robot, Caramelo, Tahúr, Escarcha, Relámpago, Bumerán
+- [ ] Base A: Suerte, Dado cargado, Invocación, Hipnótica, Reloj, Ruleta rusa
+- [ ] Base S: Rey, Fénix, Ángel, Agujero negro, Tragamonedas, Espejo
+- [ ] Fusiones B: Imán, Alcancía, Usurero, Mercenaria, Dado, Racimo, Junior, Espuelas, Bolsa sin fondo, Taladro, Vampira, Frita, Segundo aire, Puntería, Trago de valor
+- [ ] Fusiones A: Máquina de chicles, Crupier mecánico, Congelador, Bobina Tesla, Dron, Golosina de la suerte, Helado, Chicle eléctrico, Piñata, Póker de hielo, Carta marcada, Truco de manos, Ventisca, Carámbano, Rayo bumerán
+- [ ] Fusiones S: Trébol de cuatro hojas, Ángel guardián, Encantador, As de espadas, Ruleta dorada, Legión, Titiritero, Reloj de arena, Seis de seis, Nigromante, Caballero del tiempo, Duelo, Hipnosis eterna, Traición, Tormenta
+- [ ] Secretas: Emperador inmortal, Corona celestial, Rey del vacío, Jackpot real, Corte de espejos, Resurrección, Supernova, Ave de la fortuna, Reflejo de fuego, Cielo y abismo, Milagro, Gemelo celestial, Casino del abismo, Horizonte de sucesos, Doble o nada infinito
+- [ ] Especial: Negra
