@@ -55,18 +55,18 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección. **Hecho (19-oct-2026):** cambiar teclas en Configuración → Controles (también las del cañón 1 a 9; se guardan en el teléfono o la computadora; botón «Restablecer teclas»); inglés de todo lo nuevo. **Falta:** la tecla O (necesita animar a tu personaje en tercera persona: trabajo de modelos y animaciones) y la Colección.
 
 ## Etapa 3 · Estructura del juego y final (con diagrama antes de construir)
-30. **Partidas que se alargan según el jefe** (decisión del dueño, 17-oct-2026): jefe 1 del casino al final del mapa 5, jefe 2 a los 7 mapas, jefe 3 a los 9, jefe 4 a los 10, y los 5 jefes seguidos también a los 10.
-31. **BIG NEON CASINO es el mapa final:** una ciudad casino con 5 oleadas y un jefe propio en cada una, cada uno más difícil:
+30. **Partidas que se alargan según el jefe** (decisión del dueño, 17-oct-2026): jefe 1 del casino al final del mapa 5, jefe 2 a los 7 mapas, jefe 3 a los 9, jefe 4 a los 10, y los 5 jefes seguidos también a los 10. *Hecho (19-oct-2026, rama etapa3): 5/7/9/10/10 mapas + el casino; si pierdes, repites la visita.*
+31. **BIG NEON CASINO es el mapa final:** una ciudad casino con 5 oleadas y un jefe propio en cada una, cada uno más difícil: *Hecho (19-oct-2026): el mapa y los 5 jefes con sus mecánicas (ver los commits de la rama etapa3).*
     1. El Crupier de Hielo y Fuego
     2. Ludo Cheng (humano, 2 revólveres minigun, ataca por turnos, mucha movilidad)
     3. El Crupier Mayor
     4. Escolta Zombi
     5. Big Big Slot Machine Zombie: muchas habilidades y convoca seguido; saca 2 cartas de blackjack al aire, si disparas la tapada se voltea y suma (blackjack en vivo); si le ganas la mano llora y queda vulnerable 3 s (cada bala hace 5000 + tu daño). Tiene 1 millón de vida.
     - 1.ª vez en el casino: solo el jefe 1; 2.ª: el 2; 3.ª: el 3; 4.ª: el 4; la última: los 5 seguidos, una oleada tras otra.
-32. **Cada jefe vencido desbloquea 4 mapas nuevos** y el siguiente jefe, hasta tener todos los mapas y ganar el juego venciendo a Big Slot Machine Zombie. Logros: «Gana el juego por primera vez», «Desbloquea 4 mapas nuevos», «Nuevo jefe»…
-33. **Ludo Cheng, personaje nuevo:** sale bloqueado como «???» y se desbloquea al vencerlo en el casino.
-34. **Personajes que se desbloquean por jefes del casino** (decisión del dueño, 17-oct-2026): Lilith venciendo al jefe 1, Geronimo al jefe 2, Françoise al jefe 3 (Ludo Cheng al vencerlo en el casino).
-35. **Diagrama de todo el sistema de progresión** para aclarar dudas antes de construir.
+32. **Cada jefe vencido desbloquea 4 mapas nuevos** y el siguiente jefe, hasta tener todos los mapas y ganar el juego venciendo a Big Slot Machine Zombie. Logros: «Gana el juego por primera vez», «Desbloquea 4 mapas nuevos», «Nuevo jefe»… *Hecho (19-oct-2026): 6 mapas al empezar, +4 por jefe, todos al ganar; logros de la etapa con 1 ficha cada uno.*
+33. **Ludo Cheng, personaje nuevo:** sale bloqueado como «???» y se desbloquea al vencerlo en el casino. *Hecho (19-oct-2026): ver «Ludo Cheng jugable · propuesta para aprobar» al final.*
+34. **Personajes que se desbloquean por jefes del casino** (decisión del dueño, 17-oct-2026): Lilith venciendo al jefe 1, Geronimo al jefe 2, Françoise al jefe 3 (Ludo Cheng al vencerlo en el casino). *Hecho (19-oct-2026).*
+35. **Diagrama de todo el sistema de progresión** para aclarar dudas antes de construir. *Hecho (19-oct-2026): diagrama aprobado; decisiones abajo.*
 
 ## Etapa 4 · Combate y contenido
 36. **Sonidos de los zombis al recibir balazos.** *Hecho (19-oct-2026): cada tipo de zombi tiene su quejido (grave en los grandes, agudo en corredores y gritonas, aullido en el perro) y un «chof» húmedo; como mucho 3 quejidos a la vez y en el menú van al 30 %.*
