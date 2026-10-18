@@ -132,3 +132,23 @@ La Negra es especial secreta, fuera de las 84.
 | 13 | Escarcha + Relámpago | Ventisca | Activa, vuelve | Tormenta de hielo de 5 s que congela y aturde en 8 m |
 | 14 | Escarcha + Bumerán | Carámbano | Activa, vuelve | Atraviesa, congela a todos en su camino y regresa |
 | 15 | Relámpago + Bumerán | Rayo bumerán | Activa, vuelve | El rayo va y vuelve: golpea a todos dos veces |
+
+## Ronda 5 · Fusiones A + A = S (aprobadas el 18-oct-2026)
+
+| # | Pareja | Resultado (S) | Tipo | Efecto |
+|---|---|---|---|---|
+| 1 | Suerte + Dado cargado | Trébol de cuatro hojas | Pasiva | Todas las probabilidades de tus balas se duplican |
+| 2 | Suerte + Invocación | Ángel guardián | Pasiva | En cada oleada aparece un caballero que pelea a tu lado |
+| 3 | Suerte + Hipnótica | Encantador | Pasiva | 1 de 15 de que cada zombi que hieres se pase a tu lado 8 s |
+| 4 | Suerte + Reloj | As de espadas | Activa, se rompe | Tus próximos 12 tiros son críticos |
+| 5 | Suerte + Ruleta rusa | Ruleta dorada | Activa, vuelve | 1 de 2 mata todo lo que atraviesa; nunca se encasquilla |
+| 6 | Dado cargado + Invocación | Legión | Activa, se rompe | Tiras un dado: invocas de 1 a 6 caballeros |
+| 7 | Dado cargado + Hipnótica | Titiritero | Activa, vuelve | Hipnotiza a todos los zombis en 6 m por 6 s |
+| 8 | Dado cargado + Reloj | Reloj de arena | Pasiva | Los primeros 10 s de cada oleada el tiempo va 30 % más lento |
+| 9 | Dado cargado + Ruleta rusa | Seis de seis | Activa, se rompe | Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones |
+| 10 | Invocación + Hipnótica | Nigromante | Pasiva | 1 de 5 zombis que matas se levanta a pelear por ti 15 s |
+| 11 | Invocación + Reloj | Caballero del tiempo | Activa, se rompe | Un caballero que congela el tiempo a su alrededor 5 s |
+| 12 | Invocación + Ruleta rusa | Duelo | Activa, vuelve | Un caballero reta a un zombi y lo mata seguro (jefes: -25 % de vida) |
+| 13 | Hipnótica + Reloj | Hipnosis eterna | Activa, se rompe | Todos los zombis de la pantalla se detienen 6 s; los que mates dan doble oro |
+| 14 | Hipnótica + Ruleta rusa | Traición | Activa, vuelve | El zombi se vuelve una bomba que corre hacia los demás y explota |
+| 15 | Reloj + Ruleta rusa | Tormenta | Activa, vuelve | Relámpago del cielo que arrasa la zona |
