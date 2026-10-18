@@ -32,7 +32,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 Cambio grande de mecánica para que el juego sea original (referencia de diseño: los objetos de The Binding of Isaac, pero con ideas propias).
 - **Se quitan todos los objetos** (objetos nuevos, mejoras y reliquias) y sus efectos se convierten en balas.
 - **El tambor** (6 espacios, puede subir o bajar según el personaje o algunas balas) guarda tus balas especiales; **no se gastan**.
-- **300 balas posibles:** 24 balas base + todas sus parejas distintas (276 fusiones) = 300.
+- **84 balas al lanzar** (decisión del dueño, 18-oct-2026): 24 base (6 por rango) + 60 fusiones; solo se fusionan balas del mismo rango y el resultado sube un rango (S+S = secreta). Se crece después con actualizaciones. Diseño en docs/BALAS.md.
 - **Niveles:** 2 balas iguales suben de nivel, del 1 al 4. Los efectos empiezan suaves y cambian mucho al subir.
 - **Rangos:** C, B, A, S y uno secreto.
 - **Familias** (comida, ángel, robot…) para combinaciones entre balas.

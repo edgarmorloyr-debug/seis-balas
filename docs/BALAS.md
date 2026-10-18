@@ -59,3 +59,10 @@ El dueño eligió las 16 candidatas (hacen falta 12; 4 pasan a fusiones).
 - Pasan a ser **fusiones:** Racimo, Taladro, Vampira, Junior, Frita y Dado.
 - **La Negra queda fuera de las 24:** es una bala especial secreta aparte.
 - **Activas base confirmadas (9 de 12):** Ángel, Agujero negro, Invocación, Escarcha, Relámpago, Hipnótica, Reloj, Ruleta rusa y Bumerán. Faltan 3.
+
+## Fusiones · regla nueva (decisión del dueño, 18-oct-2026)
+- **Solo se fusionan balas del mismo rango** (C+C, B+B, A+A, S+S).
+- **El resultado sube un rango:** C+C = B, B+B = A, A+A = S, S+S = secreta.
+- **6 balas base por rango** → 15 parejas por rango → **60 fusiones**. **Al lanzar: 84 balas** (24 base + 60 fusiones). Más adelante se crece con actualizaciones agregando balas base.
+- Rangos: C, B, A, S y secreto (sin rango D).
+- Para cuadrar 6 por rango, las 3 activas que faltan son 1 de rango C y 2 de rango S.
