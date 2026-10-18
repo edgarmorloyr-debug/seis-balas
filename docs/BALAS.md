@@ -213,3 +213,9 @@ Nota: Caramelo (triple de daño si es la única de comida) va en contra del bono
 | Geronimo | Cinturón | 6 |
 | Françoise | Oro | 6 |
 Ludo Cheng: por decidir cuando se haga.
+
+## Pantalla (boceto aprobado el 18-oct-2026)
+- Abajo a la izquierda, el **slot**: pasivas cuadradas y activas redondas; color por rango (C gris, B azul, A morado, S dorado brillante; secreta por definir); número = nivel; espacios vacíos con línea punteada. Encima, el bono de familia cuando hay 3 (ej. «Familia Casino 3/3 · probabilidades +10 %»).
+- Abajo a la derecha, el **cañón** (la «mano»): las 6 balas que te tocaron al recargar; normales doradas, activas de color con su nombre; borde blanco = el próximo tiro. En el teléfono se acomoda para no tapar los botones.
+- Junto al cañón, la **caja**: «Caja 38 / 50 · activas dentro: 4».
+- Boceto: scratchpad/boceto/canon_tel.png y canon_pc.png.
