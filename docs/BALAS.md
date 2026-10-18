@@ -405,3 +405,25 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Hipnosis eterna | Trance: los detenidos dan triple oro |
 | Traición | Motín: contagia la traición a 2 más antes de explotar |
 | Tormenta | Diluvio: caen 3 relámpagos |
+
+### Tanda 8 · Secretas (aprobada)
+| Bala | Despertar |
+|---|---|
+| Emperador inmortal | Dinastía: al revivir, todo el equipo recibe +1 nivel en sus balas esa oleada |
+| Corona celestial | Trono: bala S cada 30 muertes |
+| Rey del vacío | Señor del abismo: el agujero negro también se traga los disparos enemigos |
+| Jackpot real | Jackpot eterno: ya no se rompe; se recarga cada 2 oleadas |
+| Corte de espejos | Laberinto: 2 balas fantasma |
+| Resurrección | Santo: se recarga cada 2 oleadas |
+| Supernova | Big bang: tras la explosión, 10 s de daño doble |
+| Ave de la fortuna | Ave dorada: 2 veces por oleada |
+| Reflejo de fuego | Infierno: el doble de fuego y llamas en el suelo |
+| Cielo y abismo | Equilibrio: hace las dos cosas a la vez |
+| Milagro | Milagro mayor: 5 tiradas |
+| Gemelo celestial | Trillizos: 2 dobles |
+| Casino del abismo | Casa de empeño: 15 de oro por zombi tragado |
+| Horizonte de sucesos | Colapso: al juntarse explotan y arrasan la pantalla (jefes -30 %) |
+| Doble o nada infinito | Infinito: el premio se puede repetir hasta 3 veces seguidas |
+| Negra | No sube de nivel: es única |
+
+**Los 84 despertares están definidos** (19-oct-2026). Falta programarlos.
