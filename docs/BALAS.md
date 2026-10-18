@@ -318,3 +318,13 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Gatillo de pluma | Ráfaga: al vaciar el tambor sin fallar, la siguiente recarga es instantánea |
 | Cantimplora | Manantial: a mitad de cada oleada te curas otra vez y curas al equipo |
 | Apuesta | Doble o nada: cuando gana, el siguiente tiro también hace triple daño |
+
+### Tanda 2 · Base B (aprobada)
+| Bala | Despertar |
+|---|---|
+| Robot | Robot obrero: la bala a su derecha sube 1 nivel durante la oleada (máx. 4) |
+| Caramelo | Fiebre de azúcar: al matar, 1 de 10 de soltar un caramelo que da 5 s de velocidad doble |
+| Tahúr | As bajo la manga: la primera activa de cada oleada siempre se repite |
+| Escarcha | Glaciar: los congelados se rompen en pedazos con un tiro a la cabeza |
+| Relámpago | Cadena infinita: el rayo salta mientras haya zombis a menos de 6 m |
+| Bumerán | Bumerán doble: al volver golpea otra vez a todos los que cruza |
