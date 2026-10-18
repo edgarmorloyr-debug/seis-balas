@@ -189,3 +189,16 @@ La Negra es especial secreta, fuera de las 84.
 | Oscura | Agujero negro, Hipnótica, Invocación, Nigromante, Titiritero, Traición, Legión, Rey del vacío, Horizonte de sucesos, Hipnosis eterna | Los zombis que matas dejan sombras que pelean por ti |
 
 Nota: Caramelo (triple de daño si es la única de comida) va en contra del bono de Comida a propósito: el jugador elige.
+
+## Cómo se consiguen (aprobado el 18-oct-2026)
+| Dónde | Qué da |
+|---|---|
+| Máquina · Sueltas | 3 balas al azar por visita (C a A) |
+| Máquina · Sobres | 3 balas: Standard casi todas C; Terminator más B y alguna A; Especial muchas A. 25 % de cada espacio sale mojada (no sirve) |
+| Cofres | 1 bala C o B |
+| Jefes de mapa | 1 bala A segura |
+| Jefes del casino | 1 bala S segura |
+| Fusión | Única forma de conseguir las secretas |
+- Las S solo salen de jefes del casino y fusiones.
+- Precios sueltos: C 20, B 40, A 80, S 300 de oro (los de hoy). Vender devuelve la mitad.
+- Cada personaje empieza la partida con 1 bala C propia.
