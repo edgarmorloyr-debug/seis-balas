@@ -1852,6 +1852,27 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 #lleno-say{margin:0;font-size:15px}
 #lleno-list{min-height:0}
 #lleno-list .bal-it:disabled{opacity:.5}
+/* ===== Entrada de los jefes (PENDIENTES 38): franjas de cine y cartel con su nombre ===== */
+#intro{position:fixed;inset:0;z-index:38;pointer-events:none}
+#hud,#touch,#hint,#xh{transition:opacity .25s}.intro-cine #hud,.intro-cine #touch,.intro-cine #hint,.intro-cine #xh{opacity:0}
+#intro .lb{position:absolute;left:0;right:0;height:11vh;background:#000;transition:transform .35s ease-out}
+#intro .lb.t{top:0;transform:translateY(-100%)}#intro .lb.b{bottom:0;transform:translateY(100%)}
+#intro.on .lb{transform:none}
+#intro .ic{position:absolute;left:50%;bottom:calc(11vh + 14px);transform:translate(-50%,24px) scale(.96);opacity:0;transition:opacity .3s,transform .35s cubic-bezier(.2,1.2,.4,1);
+  width:min(560px,calc(100vw - 32px));box-sizing:border-box;padding:10px 18px 12px;border-radius:14px;text-align:center;display:flex;flex-direction:column;gap:2px}
+#intro.on .ic{opacity:1;transform:translate(-50%,0) scale(1)}
+#intro .ic small{font:800 14px/1.2 var(--hud);letter-spacing:.18em;text-transform:uppercase}
+#intro .ic b{font:400 clamp(26px,6vw,40px)/1.05 var(--display)}
+#intro .ic span{font:600 15px/1.3 var(--hud)}
+#intro .sk{position:absolute;right:16px;bottom:calc(11vh - 34px);font:600 14px/1 var(--hud);font-style:normal;color:#d8ccb0;opacity:.8}
+#intro.k-jefe .ic,#intro.k-mini .ic{background:linear-gradient(#6a4424,#3e2412);border:3px solid #d8a838;box-shadow:0 0 0 2px #1d120b,0 10px 24px rgba(0,0,0,.6),inset 0 0 18px rgba(0,0,0,.45);color:#fbf0dc}
+#intro.k-jefe .ic small,#intro.k-mini .ic small{color:#ffd27a}#intro.k-jefe .ic span,#intro.k-mini .ic span{color:#f2e4c4}
+#intro.k-mini .ic b{font-size:clamp(22px,5vw,32px)}
+#intro.k-casino .ic{background:linear-gradient(#2a0d33,#14061c);border:3px solid #ff3fd0;box-shadow:0 0 18px rgba(255,63,208,.65),inset 0 0 22px rgba(255,63,208,.25);color:#ffe9fb}
+#intro.k-casino .ic small{color:#7ff6ff;text-shadow:0 0 8px #3ff0ff}#intro.k-casino .ic b{text-shadow:0 0 8px #ff3fd0,0 0 18px #ff3fd0}#intro.k-casino .ic span{color:#f6d8f0}
+@media (max-height:500px){#intro .lb{height:8vh}#intro .ic{bottom:calc(8vh + 8px);padding:6px 14px 8px}#intro .ic b{font-size:26px}#intro .sk{bottom:calc(8vh + 8px);right:12px}}
+@media (prefers-reduced-motion:reduce){#intro .lb,#intro .ic{transition:none}}
+
 /* ===== Etapa 3: dificultades cerradas, visita que toca y lo que se abrió al ganar ===== */
 #modo-diff .diff-row button.cerrada{opacity:.62;border-style:dashed}
 #modo-diff .diff-row button .ico{width:16px;height:16px;vertical-align:-2px}
@@ -1986,6 +2007,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
     <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Caja <b id="caja-n">50 / 50</b><br><span class="cj-l">activas dentro</span><span class="cj-c">activas</span>: <b id="caja-a">0</b></div><div id="canon"></div></div>
   </div>
 
+  <div id="intro" hidden aria-live="polite"><i class="lb t" aria-hidden="true"></i><i class="lb b" aria-hidden="true"></i><div class="ic"><small id="intro-k"></small><b id="intro-t"></b><span id="intro-s"></span></div><em class="sk">Toca para saltar</em></div>
   <div id="dado2d" aria-hidden="true"><div class="dd"></div><i class="sombra"></i></div>
   <div id="banner"><div id="banner-i"></div><div id="banner-t"></div><div id="banner-s"></div></div>
   <div id="dnums" aria-hidden="true"></div>
@@ -2726,6 +2748,13 @@ const Sfx = (() => {
       else if (model === 'corto') burst({ ftype: 'highpass', f0: 5000, q: 0.8, dur: 0.03, vol: 0.5, wet: 0.05 });
       else if (model === 'cowboy') { tone({ type: 'triangle', f0: 3400, f1: 2600, dur: 0.06, vol: 0.06, delay: 0.02, wet: 0.2 }); burst({ ftype: 'lowpass', f0: 600, f1: 150, dur: 0.8, vol: 0.25, delay: 0.15, wet: 1 }); }
       else if (model === 'uzi') burst({ ftype: 'bandpass', f0: 1600, q: 2, dur: 0.03, vol: 0.25, wet: 0.05 });
+    },
+    // golpe de entrada de un jefe: casino (arpegio de neón), jefe (metales graves) o minijefe (más corto)
+    sting(k) {
+      if (!ctx) return;
+      tone({ f0: 78, f1: 34, dur: 0.9, vol: 0.7, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 1800, f1: 120, dur: 0.7, vol: 0.5, wet: 0.6 });
+      if (k === 'casino') [0, 4, 7, 12, 16].forEach((s2, i) => tone({ type: 'square', f0: 330 * Math.pow(2, s2 / 12), dur: 0.32, vol: 0.05, delay: 0.08 + i * 0.07, wet: 0.7 }));
+      else { const n = k === 'mini' ? 2 : 3; for (let i = 0; i < n; i++) tone({ type: 'sawtooth', f0: [110, 104, 98][i], f1: [108, 100, 82][i], dur: 0.5, vol: 0.12, delay: 0.1 + i * 0.22, wet: 0.6, attack: 0.02 }); }
     },
     reel() {   // rodillos de tragamonedas: tic-tic-tic y una campanita
       if (!ctx) return;
@@ -22798,6 +22827,7 @@ function maxAlive() { return Math.min(8 + diffW(game.wave) * 2 + (zoneOf(game.wa
 
 function hurtPlayer(amount, src, opt = {}) {
   if (tuto) return;
+  if (INTRO.on && INTRO.cine) return;   // durante la entrada del jefe (jugando solo) nada te hace daño
   if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv' || state === 'lleno'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
@@ -25421,10 +25451,47 @@ function applyBoss(z, idx, opt = {}) {
   } else { z.maxHp = z.hp = 100; }
   B.look(z);
 }
+
+// ===================== ENTRADA DE LOS JEFES (PENDIENTES 38) =====================
+// Al aparecer un jefe (de mapa o del casino) o un minijefe: unos 2,6 s de presentación con franjas de cine, su cartel y un golpe de sonido.
+// Jugando solo, la cámara se acerca al jefe y el mundo va en cámara muy lenta (nada te hace daño). En grupo solo se ve el cartel
+// (la cámara y el tiempo no cambian, así nadie se desincroniza). Un toque o cualquier tecla la salta.
+const INTRO = { on: false, t0: 0, T: 2.6, z: null, cine: false };
+const introCamObj = new THREE.PerspectiveCamera(), _iP = new THREE.Vector3(), _iL = new THREE.Vector3();
+function bossIntro(z, o) {
+  if (!game || tuto || state === 'menu' || !z) return false;
+  const el = $('#intro'); if (!el) return false;
+  $('#intro-k').textContent = o.kick || ''; $('#intro-t').textContent = o.t || ''; $('#intro-s').textContent = o.s || '';
+  el.className = 'k-' + (o.k || 'jefe'); el.hidden = false; void el.offsetWidth; el.classList.add('on');
+  INTRO.on = true; INTRO.z = z; INTRO.t0 = performance.now(); INTRO.cine = !Net.on && state === 'play' && !REDUCED;
+  INTRO.T = o.k === 'mini' ? 2.1 : 2.6;
+  if (INTRO.cine) game.introT = INTRO.T; document.body.classList.toggle('intro-cine', INTRO.cine);
+  Sfx.sting(o.k || 'jefe'); return true;
+}
+function introFin() {
+  if (!INTRO.on) return; INTRO.on = false; INTRO.z = null; if (game) game.introT = 0; document.body.classList.remove('intro-cine');
+  const el = $('#intro'); if (el) { el.classList.remove('on'); setTimeout(() => { if (!INTRO.on) el.hidden = true; }, 260); }
+}
+const introEase = u => u * u * (3 - 2 * u);
+function introCam() {
+  if (!INTRO.on) return;
+  const t = (performance.now() - INTRO.t0) / 1000;
+  if (t >= INTRO.T || !game || state === 'menu') { introFin(); return; }
+  const z = INTRO.z; if (!INTRO.cine || !z || z.dead || state !== 'play') return;
+  const p = z.root.position, sc = z.s || 1, dx = camera.position.x - p.x, dz = camera.position.z - p.z, d = Math.hypot(dx, dz) || 1;
+  const dist = Math.min(d, 2.6 + 1.5 * sc), k = introEase(t < 0.5 ? t / 0.5 : t > INTRO.T - 0.45 ? Math.max(0, (INTRO.T - t) / 0.45) : 1);
+  _iP.set(p.x + dx / d * dist, 0.7 + 0.62 * sc, p.z + dz / d * dist); resolve(_iP, 0.2);
+  _iL.set(p.x, 1.05 * sc, p.z);
+  introCamObj.position.copy(_iP); introCamObj.lookAt(_iL);
+  camera.position.lerp(_iP, k); camera.quaternion.slerp(introCamObj.quaternion, k);
+}
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (INTRO.on && performance.now() - INTRO.t0 > 250) introFin(); }, true);
 function spawnBoss(z, idx) {
   applyBoss(z, idx); const B = BOSSES[idx];
   if (B.spawn) B.spawn(z);
-  banner(B.name, B.sub, 3600); hint(`Jefe: ${B.sub}`, 4500);
+  const j = CAS_JEFES.indexOf(B.id);
+  if (B.final || B.helper || !bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub })) banner(B.name, B.sub, 3600);
+  hint(`Jefe: ${B.sub}`, 4500);
   Sfx.roar(panOf(z.root.position), 2); player.shake = Math.min(1, player.shake + 0.4);
 }
 function bossTick(z, dt, c) { const B = z.B; return B && B.tick ? B.tick(z, dt, c) : null; }
@@ -25559,7 +25626,7 @@ function bfxSpawn(kind, ...a) {
   }
 }
 function bossClear() {
-  zeroReset(); cfxClear();
+  zeroReset(); cfxClear(); introFin();
   for (const f of BFX) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } if (f.g) scene.remove(f.g); }
   BFX.length = 0; player.webT = 0;
   if (game && game.plague) { player.maxHp += game.plague; game.plague = 0; }
@@ -25826,7 +25893,7 @@ function applyMini(z, idx, net) {
   if (!net) {
     z.maxHp = z.hp = MINI_HP * DF().hp * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
-    banner(`¡Minijefe: ${M.name}!`, MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}${MINI_ATK[M.id] ? ' · ' + MINI_ATK[M.id].d.toLowerCase() : ''}`, 4200);
+    if (!bossIntro(z, { k: 'mini', kick: 'Minijefe', t: M.name, s: MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d })) banner(`¡Minijefe: ${M.name}!`, MINI_ATK[M.id] ? MINI_ATK[M.id].d : MINI_AB[M.ab].d, 3200, 'skull'); hint(`${M.name}: ${MINI_AB[M.ab].d.toLowerCase()}${MINI_ATK[M.id] ? ' · ' + MINI_ATK[M.id].d.toLowerCase() : ''}`, 4200);
     Sfx.roar(panOf(z.root.position), 1.8); player.shake = Math.min(1, player.shake + 0.3);
   } else if (game && state === 'play' && !z.dead) { banner(`¡Minijefe: ${M.name}!`, MINI_AB[M.ab].d, 3200, 'skull'); Sfx.roar(panOf(z.root.position), 1.8); }
 }
@@ -27126,7 +27193,8 @@ function specCamera(dt) {
   setText($('#spec-name'), 'specn', `Viendo a ${p.name}`);
   setText($('#spec-sub'), 'specs', `Vida ${p.hp == null ? '?' : p.hp} %${t.length > 1 ? (IS_TOUCH ? ' · Toca las flechas para cambiar' : ' · Clic o ← → para cambiar') : ''}`);
 }
-function updateCamera(dt) {
+function updateCamera(dt) { updateCameraBase(dt); introCam(); }
+function updateCameraBase(dt) {
   { const on = specActive(); if (on !== spec.on) { spec.on = on; $('#spec').hidden = !on; $('#xh').style.visibility = on ? 'hidden' : ''; spec.snap = true; $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; } if (on) { $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; specCamera(dt); return; } }
   player.recoil *= Math.exp(-7 * dt);
   player.shake = Math.max(0, player.shake - dt * 2.2);
@@ -27799,7 +27867,7 @@ function updatePlay(dt) {
   if (game.deOn) { game.de -= dt * 22 / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
   if (game.killcamT > 0) game.killcamT -= dt;
-  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
+  game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.introT > 0 && INTRO.on ? 0.04 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
   if (state === 'play' || state === 'pause' || state === 'inv' || state === 'lleno') {
     game.time += dt;
@@ -30273,9 +30341,9 @@ function applySnapshot(s) {
       if (a[1] < 0) { zPedir(a[0]); continue; }   // sin el tipo todavía: se le pide al anfitrión y se crea con el próximo envío
       z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4];
       if (z.type === 'caballero') armarCaballero(z);
-      if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); }
+      if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); const B = BOSSES[a[8]]; if (B && !B.helper && !B.final && !(a[9] | 0) && (B.id !== 'mass')) { const j = CAS_JEFES.indexOf(B.id); bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub }); } }
       if (a[10] >= 0) makeElite(z, ELITE_KEYS[a[10]], true);
-      if (a[11] >= 0) applyMini(z, a[11], true);
+      if (a[11] >= 0) { applyMini(z, a[11], true); const M = MINIS[a[11]]; if (M) bossIntro(z, { k: 'mini', kick: 'Minijefe', t: M.name, s: '' }); }
     }
     if (a[9] !== undefined) z.bst = a[9] | 0;
     { const tn = performance.now(), ht = s.t || tn, dts = z.nht ? Math.max(0.05, (ht - z.nht) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; if (z.vx * z.vx + z.vz * z.vz > 196) z.vx = z.vz = 0; } else { z.vx = z.vz = 0; } z.nt = tn; z.nht = ht; }

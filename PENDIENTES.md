@@ -71,7 +71,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 ## Etapa 4 · Combate y contenido
 36. **Sonidos de los zombis al recibir balazos.** *Hecho (19-oct-2026): cada tipo de zombi tiene su quejido (grave en los grandes, agudo en corredores y gritonas, aullido en el perro) y un «chof» húmedo; como mucho 3 quejidos a la vez y en el menú van al 30 %.*
 37. **Animación 2D de un dado** para la habilidad de Johnny. *Hecho (19-oct-2026): al usar la Ludopatía, un dado 2D rueda por la pantalla cambiando de cara y cae en el número que salió (el mismo que decide el arma); después se desvanece.*
-38. **Animaciones de entrada para los jefes.**
+38. **Animaciones de entrada para los jefes.** *Hecho (19-oct-2026): franjas de cine, cartel (saloon para jefes y minijefes, neón para los del casino), golpe de sonido y cámara que se acerca al jefe en cámara muy lenta (solo jugando solo; en grupo solo el cartel). Un toque o una tecla la salta.*
 39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia).
 40. **Zombi raro (1 %) con tragamonedas:** al matarlo gira y se transforma en otro zombi (no jefe) al azar.
 41. ~~Animaciones de Mixamo y poses a dos manos~~ (hecho, 17-oct-2026). Falta la mano en primera persona por personaje y los detalles de la Etapa 6.
