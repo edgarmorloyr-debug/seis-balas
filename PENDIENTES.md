@@ -69,6 +69,12 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 46. **Puertas secretas y easter eggs** en distintos lugares.
 47. Ideas extra: empujón, ruido, golpes que empujan, objetos rompibles, balas que atraviesan.
 
+## Etapa 6 · Mejorar todo lo 3D (al final, decisión del dueño, 18-oct-2026)
+Por ahora no se toca nada más en 3D. Al terminar las etapas anteriores se mejora todo lo posible, siempre de acuerdo con el plan y sin afectar el lanzamiento en Steam (solo modelos con licencia CC0, CC BY con créditos o Free Standard; nada NonCommercial, de marcas reales ni de personajes de otros juegos; aligerados para el teléfono).
+48. **Modo de pruebas de animaciones dentro del juego:** en el Cementerio, sin zombis y sin límite de tiempo. Se ponen copias del mismo personaje (por ejemplo, 5 Johnnys) haciendo cada uno una variante distinta de la misma acción (caídas, festejos, disparos, recargas, golpes, caminar, correr…). El dueño elige desde ahí cuál le queda mejor a cada personaje, uno por uno, y así quedan solo las mejores.
+49. Detalles pendientes de las animaciones: mano izquierda que flota con el francotirador, la bazuca y la minigun en algunos personajes; recargar mientras corre; saltar y agacharse; animaciones de comer y beber para el ramen (hacerlas a mano si no hay); decidir si se activan para todos los zombis 3D (hoy solo con ?zombi3d).
+50. **Máquina expendedora japonesa** con modelo 3D (lista de 10 opciones enviada el 17-oct-2026; se conservan La Garra y las Cápsulas).
+51. **Modelos 3D de Sketchfab y BlendSwap** (el dueño dio acceso, 18-oct-2026) para mejorar mapas, objetos y máquinas, uno a la vez y probando en el teléfono.
+
 ## Del dueño (fuera del código)
-- Subir el .zip con las 14 animaciones de Mixamo.
 - Borrar el proyecto viejo de Supabase cuando todo lleve unos días bien.
