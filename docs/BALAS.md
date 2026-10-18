@@ -107,7 +107,7 @@ La Negra es especial secreta, fuera de las 84.
 | 15 | Cantimplora + Apuesta | Trago de valor | Activa, vuelve | Cura 20 y el próximo tiro hace doble daño |
 
 ## Niveles (decisión del dueño, 18-oct-2026)
-- 2 balas iguales suben de nivel (ejemplo: Oro + Oro = Oro nivel 2), hasta el nivel 4.
+- 2 balas iguales suben de nivel (ejemplo: Oro + Oro = Oro nivel 2), hasta el nivel 4. Se juntan en la mesa de fusión (1 ficha); la repetida no sube sola.
 - **Se suma 1 copia por nivel:** nivel 2 + nivel 1 = nivel 3. El nivel 4 cuesta 4 copias en total.
 - **Crecimiento:** nivel 2 = ×1,5; nivel 3 = ×2; nivel 4 = ×3 y además un **«despertar»**, un efecto extra propio de cada bala (por inventar con el dueño).
 - **Al fusionar dos balas con nivel, la nueva sale en nivel 1.**
@@ -239,13 +239,24 @@ Ludo Cheng: por decidir cuando se haga.
 - **Secreta:** color carmesí con brillo (`#ff3d6e`). La Negra se ve negra con borde rojo.
 - **Fusiones descubiertas:** se guardan en el progreso del jugador (`META.recetas`). La primera vez sale «?»; después, el nombre.
 
-### Supuestos que hay que confirmar con el dueño
-- Una bala repetida sube de nivel sola al conseguirla (no ocupa otro espacio). Si el slot está lleno o la bala ya está en nivel 4, la que llega se vende sola por la mitad.
-- «Se rompe» = esa copia se pierde: la bala baja 1 nivel (con nivel 0 sale del slot).
-- La caja sigue siendo munición contada: se llena hasta 50 (60 con el Cinturón) con la ración de cada oleada, el suelo y la máquina; ya no pasa de ese tope.
-- Vender devuelve la mitad del precio por cada nivel. Las secretas no se venden.
-- No se puede fusionar ni vender si el slot quedaría con más balas que espacios (por ejemplo, al quitar el Robot).
+### Reglas decididas por el dueño (18-oct-2026)
+1. **Bala repetida:** NO sube de nivel sola. Ocupa su propio espacio en el slot. Las dos copias se juntan en la **mesa de fusión** (bala + la misma bala = sube de nivel; se suman los niveles, hasta el 4). Juntar cuesta lo mismo que una fusión: **1 ficha de miembro** (no choca con nada). En la mesa, el botón dice «Juntar · 1 ficha» y el resultado «Sube a nivel N»; dos copias que pasarían del nivel 4 no se juntan. Dos copias iguales sin juntar cuentan una sola vez para la familia y para su efecto (vale la de nivel más alto).
+2. **Slot lleno:** el juego **pregunta**. Sale el cartel «Tu slot está lleno» con la bala nueva arriba y las balas del slot en botones («Vender · +X»): eliges una para venderla (la mitad de su precio por nivel) y la nueva entra. El botón naranja vende la nueva por la mitad («Vender la nueva · +X»; si es secreta, «Dejar la nueva»). Si llegan varias a la vez (un sobre, la ruleta), se preguntan una tras otra. En plena oleada el juego se detiene mientras eliges. En la máquina, las sueltas ya no se bloquean con el slot lleno: al comprar, se pregunta.
+3. **«Se rompe»** = la bala pierde 1 nivel (en nivel 1 desaparece). Si tienes dos copias iguales sin juntar, se rompe la de nivel más bajo.
+4. **Las normales se gastan** (tope 50; 60 con el Cinturón). **Trampa arreglada:** si en la caja no quedan balas normales, **no puedes recargar**: las activas se quedan en la caja pero no salen solas («Sin balas normales en la caja: las activas no salen solas. Consigue más normales»). Las que ya estaban en el tambor sí se disparan. El Bumerán y el Carámbano, al volver, regresan a la caja (no al tambor) cuando ya no hay normales. Así hay que comprar o recoger normales para seguir disparando.
+5. **Vender** devuelve la mitad del precio por cada nivel. Las secretas no se venden.
+6. **Robot y Mercenaria** no se venden ni se fusionan si el slot quedaría con más balas que espacios: primero hay que vender otra.
+7. **Bolsa sin fondo** saca cualquier activa del juego, menos las secretas.
+8. **Bono Casino** = probabilidades ×1,1 (50 de 100 pasa a 55 de 100).
+9. **«Balas de suerte»** del Doble o nada infinito = las de la familia Casino.
+10. **Emperador inmortal** te revive con la mitad de la vida.
+
+### Pendiente con el dueño (por ahora quedan los valores propuestos)
+11. Las cifras de los bonos de familia, las del caballero, los costos del árbol y las probabilidades de cofres y sueltas.
+
+### Otros detalles de cómo quedó
 - Teclas 1 a 9: el número de la recámara. Con dos armas o cargadores de más de 8 balas, el cañón se ve chico y las activas salen en fila con su número. Las armas se cambian con la rueda del ratón.
+- En teléfono acostado, el recuadro «Caja 46/60 · activas: 2» va abajo, a la izquierda del cañón (texto corto), para no tapar la mira ni los botones.
 
 ## Despertares del nivel 4 (por definir con el dueño)
 Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.despierta`). Falta inventar el efecto extra de cada una:

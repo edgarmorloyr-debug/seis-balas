@@ -1761,6 +1761,8 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
 /* teléfono acostado: el slot abajo a la izquierda (sobre «Mover», sin atrapar el dedo), el cañón a la izquierda de los botones */
 .touch #canon-w{right:calc(270px + env(safe-area-inset-right,0px));bottom:calc(6px + env(safe-area-inset-bottom,0px));flex-direction:column;align-items:flex-end;gap:6px}
 .touch #caja-hud{padding:4px 8px}
+.cj-c{display:none}
+@media (orientation:landscape){.touch .cj-l{display:none}.touch .cj-c{display:inline}.touch #caja-hud{position:absolute;right:calc(100% + 8px);bottom:0}.touch #canon-w{gap:0}}
 .touch .cn-ring{--d:156px}.touch .cn-ring.n7,.touch .cn-ring.n8{--d:180px}
 .touch #hud-br{left:auto;transform:none;top:auto;right:calc(270px + env(safe-area-inset-right,0px));bottom:calc(12px + var(--cnh,200px) + env(safe-area-inset-bottom,0px));align-items:flex-end;max-width:300px}
 .touch #hud-br #ammo-txt{display:none}
@@ -1811,6 +1813,14 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 @media (max-width:520px){.fz{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px}.fz-pick{min-width:0;padding:4px 6px;gap:6px;min-height:52px}.fz-pick .rk{display:none}.fz>.fz-op:nth-of-type(2){display:none}#fz-r{grid-column:1/-1;justify-self:center}#inv-fuse>.note{font-size:14px}#inv-sum{font-size:14px}}
 #inv-s #inv-fuse>.note{margin:0}
 #caja-hud{pointer-events:auto;cursor:pointer}
+#lleno-s{z-index:60;background:radial-gradient(ellipse at 50% 40%,rgba(20,12,6,.55) 0%,rgba(10,6,3,.92) 78%)}
+#lleno-s .card{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px)}
+.lleno-new{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px;border:2px solid #ffd77a;background:rgba(0,0,0,.3);text-align:left;font-size:15px;line-height:1.35}
+.lleno-new .dim{color:var(--bone-dim);font-size:14px}
+#lleno-say{margin:0;font-size:15px}
+#lleno-list{min-height:0}
+#lleno-list .bal-it:disabled{opacity:.5}
+@media (max-height:500px){#lleno-s .card{gap:6px}#lleno-s .title.sm{font-size:20px}.lleno-new .dim{display:none}}
 .cn-ring.mini,.touch .cn-ring.mini{--d:76px}
 @media (orientation:portrait) and (max-width:600px){.touch .cn-ring.mini{--d:70px}}
 </style>
@@ -1861,7 +1871,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <div id="ammo-row"><div id="ammo-txt"><div id="ammo-n">6</div><div id="ammo-h">de 6</div></div></div>
     </div>
     <div id="bal-hud" aria-hidden="true"><div id="fam-hud"></div><div id="slot-hud"></div></div>
-    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Caja <b id="caja-n">50 / 50</b><br>activas dentro: <b id="caja-a">0</b></div><div id="canon"></div></div>
+    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Caja <b id="caja-n">50 / 50</b><br><span class="cj-l">activas dentro</span><span class="cj-c">activas</span>: <b id="caja-a">0</b></div><div id="canon"></div></div>
   </div>
 
   <div id="banner"><div id="banner-i"></div><div id="banner-t"></div><div id="banner-s"></div></div>
@@ -2191,6 +2201,16 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <div class="sh-pane" id="sh-supplies" hidden><div class="sh-grid" id="shop-help"></div></div>
       <div class="sh-pane" id="sh-sig" hidden><div class="sig-head" id="sig-head"></div><div class="sh-grid" id="shop-sig"></div></div>
       <div class="sh-go" id="sh-go"><button class="btn" id="btn-shop-go">Seguir</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="lleno-s" hidden role="dialog" aria-label="Tu slot está lleno">
+    <div class="card wide">
+      <h2 class="title sm">Tu slot está lleno</h2>
+      <div class="lleno-new" id="lleno-new"></div>
+      <p class="tag" id="lleno-say"></p>
+      <div id="lleno-list" class="bal-grid"></div>
+      <div class="row items-ft" id="lleno-ft"><button class="btn" id="btn-lleno-no">Vender la nueva</button></div>
     </div>
   </div>
 
@@ -20395,19 +20415,23 @@ function balValor(k, key, lv) {
   if (['esp', 'n', 'max', 'oro', 'cura', 'extra'].includes(key) && B.up && B.up.includes(key)) v = Math.round(v);
   return v;
 }
-/* ---- Motor de reglas (solo cuentas: no dibuja nada; lo prueban las pruebas automáticas) ---- */
+/* ---- Motor de reglas (solo cuentas: no dibuja nada; lo prueban las pruebas automáticas) ----
+   Decisión del dueño (18-oct-2026): una bala repetida NO sube de nivel sola: ocupa su propio espacio y las dos copias
+   se juntan en la mesa de fusión (bala + la misma bala = sube de nivel, 1 copia por nivel). Si el slot está lleno, el juego pregunta. */
 const Balas = {
   esActiva: k => !!(BALAS[k] && BALAS[k].t === 'a'),
   esPasiva: k => !!(BALAS[k] && BALAS[k].t === 'p'),
   base: s => typeof s === 'string' ? s.replace(/\*$/, '') : s,   // «k*» = copia fantasma (no vuelve a la caja)
-  entrada: (g, k) => (g.slot || []).find(e => e.k === k) || null,
+  // la copia de nivel más alto de una bala en el slot (si tienes dos iguales sin juntar, cuenta la mejor; no se suman)
+  entrada: (g, k) => (g.slot || []).filter(e => e.k === k).sort((a, b) => b.lv - a.lv)[0] || null,
   tiene: (g, k) => !!Balas.entrada(g, k),
   // nivel real (con lo que suba solo por esta oleada: Dado cargado, Emperador)
   nivel(g, k) { const e = Balas.entrada(g, k); if (!e) return 0; return Math.min(BAL.nivelMax, e.lv + ((g.balTemp || {})[k] | 0)); },
   v(g, k, key) { const l = Balas.nivel(g, k); return l ? balValor(k, key, l) : 0; },
   mul(g, k) { const l = Balas.nivel(g, k); return l ? BAL.nivelMul[l - 1] : 1; },
   despierta: (g, k) => Balas.nivel(g, k) >= BAL.nivelMax,   // nivel 4: el despertar se define después (DESPERTAR)
-  famCuenta(g, f) { return (g.slot || []).filter(e => BALAS[e.k] && BALAS[e.k].f === f).length; },
+  // familias: cuentan balas distintas (dos copias iguales cuentan una vez)
+  famCuenta(g, f) { return new Set((g.slot || []).filter(e => BALAS[e.k] && BALAS[e.k].f === f).map(e => e.k)).size; },
   famOn: (g, f) => Balas.famCuenta(g, f) >= BAL.familiaMin,
   familias(g) { return Object.keys(BAL.familia).filter(f => Balas.famOn(g, f)); },
   slotN(g, arbolEsp) {
@@ -20420,29 +20444,33 @@ const Balas = {
   normales: g => (g.box || []).filter(b => b === 'normal' || b === 'mala').length,
   activasDentro: g => (g.box || []).filter(b => b !== 'normal' && b !== 'mala').length,
   addNormales(g, n) { const libre = Math.max(0, Balas.cajaCap(g) - Balas.normales(g)), k = Math.max(0, Math.min(n, libre)); for (let i = 0; i < k; i++) g.box.push('normal'); return k; },
-  // ganar una bala: nueva en el slot, o +1 nivel si ya la tienes. Devuelve 'nuevo' | 'nivel' | 'max' (ya en nivel 4) | 'lleno' (no hay espacio)
-  puedeGanar(g, k, arbolEsp) { const e = Balas.entrada(g, k); if (e) return e.lv >= BAL.nivelMax ? 'max' : 'nivel'; return (g.slot || []).length < Balas.slotN(g, arbolEsp) ? 'nuevo' : 'lleno'; },
+  // ganar una bala: siempre entra como copia nueva de nivel 1 en un espacio libre. 'nuevo' o 'lleno' (no hay espacio: se pregunta al jugador)
+  puedeGanar(g, k, arbolEsp) { return (g.slot || []).length < Balas.slotN(g, arbolEsp) ? 'nuevo' : 'lleno'; },
   ganar(g, k, arbolEsp) {
     if (!BALAS[k]) return 'no';
     g.slot = g.slot || []; const r = Balas.puedeGanar(g, k, arbolEsp);
-    if (r === 'nuevo') g.slot.push({ k, lv: 1 });
-    else if (r === 'nivel') Balas.entrada(g, k).lv++;
-    else return r;
+    if (r !== 'nuevo') return r;
+    g.slot.push({ k, lv: 1 });
     if (Balas.esActiva(k)) g.box.push(k);   // 1 copia por nivel en la caja
     return r;
   },
   // cuántas copias de una activa hay en la caja y en los tambores (sin las fantasma)
   copias(g, k, manos) { let n = (g.box || []).filter(b => b === k).length; for (const L of manos || []) for (const b of L) if (b === k) n++; return n; },
-  // quitar una bala del slot (vender o fusionar): sus copias salen de la caja y de los tambores
-  quitar(g, k, manos) {
-    const i = (g.slot || []).findIndex(e => e.k === k); if (i < 0) return false;
+  // saca n copias de una activa: primero de la caja y, si faltan, de los tambores
+  sacarCopias(g, k, n, manos) {
+    for (let j = g.box.length - 1; j >= 0 && n > 0; j--) if (g.box[j] === k) { g.box.splice(j, 1); n--; }
+    for (const L of manos || []) for (let j = 0; j < L.length && n > 0; j++) if (L[j] === k) { L[j] = 0; n--; }
+  },
+  // quitar del slot la copia que está en la posición i (vender o fusionar): sus copias salen de la caja y del tambor
+  quitar(g, i, manos) {
+    const e = (g.slot || [])[i]; if (!e) return false;
     g.slot.splice(i, 1);
-    g.box = g.box.filter(b => Balas.base(b) !== k);
-    for (const L of manos || []) for (let j = 0; j < L.length; j++) if (typeof L[j] === 'string' && Balas.base(L[j]) === k) L[j] = 0;
+    if (Balas.esActiva(e.k)) Balas.sacarCopias(g, e.k, e.lv, manos);
+    if (!Balas.tiene(g, e.k)) { g.box = g.box.filter(b => Balas.base(b) !== e.k); for (const L of manos || []) for (let j = 0; j < L.length; j++) if (typeof L[j] === 'string' && Balas.base(L[j]) === e.k) L[j] = 0; }   // y las copias gratis
     return true;
   },
-  // una copia se rompió: la bala pierde 1 nivel (con 0 sale del slot)
-  romper(g, k) { const e = Balas.entrada(g, k); if (!e) return 0; e.lv--; if (e.lv <= 0) g.slot.splice(g.slot.indexOf(e), 1); return e.lv; },
+  // una copia se rompió: esa bala pierde 1 nivel (la copia de nivel más bajo); con 0 sale del slot
+  romper(g, k) { const L = (g.slot || []).filter(x => x.k === k).sort((a, b) => a.lv - b.lv), e = L[0]; if (!e) return 0; e.lv--; if (e.lv <= 0) g.slot.splice(g.slot.indexOf(e), 1); return e.lv; },
   // tras disparar una activa: vuelve a la caja o se rompe. rnd: azar (para las pruebas)
   trasDisparo(g, s, rnd = Math.random) {
     const k = Balas.base(s); if (!Balas.esActiva(k)) return 'normal';
@@ -20454,40 +20482,45 @@ const Balas = {
   },
   // probabilidad de una bala con Suerte (la de su izquierda), Trébol y el bono de Casino
   prob(g, k, p) {
-    let x = p; const sl = g.slot || [], i = sl.findIndex(e => e.k === k);
-    const si = sl.findIndex(e => e.k === 'suerte'); if (si > 0 && i === si - 1) x *= Balas.v(g, 'suerte', 'x');
+    let x = p; const sl = g.slot || [];
+    const si = sl.findIndex(e => e.k === 'suerte'); if (si > 0 && sl[si - 1].k === k) x *= Balas.v(g, 'suerte', 'x');
     if (Balas.tiene(g, 'trebol')) x *= Balas.v(g, 'trebol', 'x');
     if (Balas.famOn(g, 'casino')) x *= BAL.familia.casino.prob;
     return Math.min(BAL.probMax, x);
   },
   receta: (a, b) => a !== b ? RECETA[fuseKey(a, b)] || null : null,
-  // ¿se pueden fusionar? '' si sí; si no, el motivo
-  porQueNo(g, a, b, arbolEsp) {
-    if (!a || !b) return 'Elige dos balas de tu slot.';
-    if (a === b) return 'Elige dos balas distintas.';
-    if (!Balas.tiene(g, a) || !Balas.tiene(g, b)) return 'Las dos tienen que estar en tu slot.';
-    if (BALAS[a].r !== BALAS[b].r) return 'Solo se fusionan balas del mismo rango.';
-    const r = Balas.receta(a, b); if (!r) return 'Estas dos no tienen fusión.';
-    const e = Balas.entrada(g, r); if (e && e.lv >= BAL.nivelMax) return 'Ya tienes esa bala en el nivel máximo.';
+  // qué sale de juntar las copias de las posiciones ia e ib: { k, lv, nivel: true si es subir de nivel }
+  resultado(g, ia, ib) {
+    const A = (g.slot || [])[ia], B = (g.slot || [])[ib]; if (!A || !B || ia === ib) return null;
+    if (A.k === B.k) return { k: A.k, lv: A.lv + B.lv, nivel: true };
+    const r = Balas.receta(A.k, B.k); return r ? { k: r, lv: 1, nivel: false } : null;
+  },
+  // ¿se pueden juntar? '' si sí; si no, el motivo
+  porQueNo(g, ia, ib, arbolEsp) {
+    const A = (g.slot || [])[ia], B = (g.slot || [])[ib];
+    if (!A || !B) return 'Elige dos balas de tu slot.';
+    if (ia === ib) return 'Elige dos balas distintas.';
+    if (A.k === B.k) { if (A.lv + B.lv > BAL.nivelMax) return `Juntas pasarían del nivel ${BAL.nivelMax}.`; }
+    else { if (BALAS[A.k].r !== BALAS[B.k].r) return 'Solo se fusionan balas del mismo rango.'; if (!Balas.receta(A.k, B.k)) return 'Estas dos no tienen fusión.'; }
     // el slot no puede quedar con más balas que espacios (por ejemplo, al fusionar el Robot)
-    const prueba = { char: g.char, slot: g.slot.filter(x => x.k !== a && x.k !== b).map(x => ({ k: x.k, lv: x.lv })), box: [], balTemp: g.balTemp };
-    if (!e) prueba.slot.push({ k: r, lv: 1 });
+    const R = Balas.resultado(g, ia, ib), prueba = { char: g.char, slot: g.slot.filter((x, j) => j !== ia && j !== ib).map(x => ({ k: x.k, lv: x.lv })).concat([{ k: R.k, lv: R.lv }]), box: [], balTemp: g.balTemp };
     if (prueba.slot.length > Balas.slotN(prueba, arbolEsp)) return 'Tu slot quedaría con más balas que espacios: vende una antes.';
     return '';
   },
-  fusionar(g, a, b, manos, arbolEsp) {
-    if (Balas.porQueNo(g, a, b, arbolEsp)) return null;
-    const r = Balas.receta(a, b), pos = Math.min(g.slot.findIndex(e => e.k === a), g.slot.findIndex(e => e.k === b));
-    Balas.quitar(g, a, manos); Balas.quitar(g, b, manos);
-    const e = Balas.entrada(g, r);
-    if (e) { e.lv++; if (Balas.esActiva(r)) g.box.push(r); }
-    else { g.slot.splice(Math.min(pos, g.slot.length), 0, { k: r, lv: 1 }); if (Balas.esActiva(r)) g.box.push(r); }   // sale en nivel 1, donde estaba la primera
-    return r;
+  fusionar(g, ia, ib, manos, arbolEsp) {
+    if (Balas.porQueNo(g, ia, ib, arbolEsp)) return null;
+    const R = Balas.resultado(g, ia, ib), A = g.slot[ia], B = g.slot[ib], pos = Math.min(ia, ib);
+    if (R.nivel) { A.lv = R.lv; g.slot.splice(ib, 1); return R.k; }   // la misma bala: las copias ya están en la caja, solo se juntan
+    Balas.quitar(g, Math.max(ia, ib), manos); Balas.quitar(g, Math.min(ia, ib), manos);
+    g.slot.splice(Math.min(pos, g.slot.length), 0, { k: R.k, lv: 1 }); if (Balas.esActiva(R.k)) g.box.push(R.k);   // sale en nivel 1, donde estaba la primera
+    return R.k;
   },
-  // ¿cuánto se puede quitar del slot sin que quede con más balas que espacios?
-  puedeVender(g, k, arbolEsp) { const prueba = { char: g.char, slot: g.slot.filter(x => x.k !== k), box: [], balTemp: g.balTemp }; return prueba.slot.length <= Balas.slotN(prueba, arbolEsp); },
+  // ¿se puede vender la copia de la posición i sin que el slot quede con más balas que espacios?
+  puedeVender(g, i, arbolEsp) { const prueba = { char: g.char, slot: g.slot.filter((x, j) => j !== i), box: [], balTemp: g.balTemp }; return prueba.slot.length <= Balas.slotN(prueba, arbolEsp); },
   precio: k => BAL.precio[BALAS[k].r] || 0,
-  venta(g, k) { const e = Balas.entrada(g, k); const base = BAL.precio[BALAS[k].r]; return base ? Math.max(1, Math.floor(base * BAL.venta)) * (e ? e.lv : 1) : 0; },
+  // lo que te dan por vender: la mitad del precio por cada nivel (las secretas no se venden)
+  ventaDe(k, lv) { const base = BAL.precio[BALAS[k].r]; return base ? Math.max(1, Math.floor(base * BAL.venta)) * (lv || 1) : 0; },
+  venta(g, i) { const e = (g.slot || [])[i]; return e ? Balas.ventaDe(e.k, e.lv) : 0; },
   // al azar por rango: pesos { C: 55, B: 33, A: 12 }
   rangoAzar(peso, rnd = Math.random) { let t = 0; for (const r in peso) t += peso[r]; let x = rnd() * t; for (const r in peso) { if ((x -= peso[r]) < 0) return r; } return Object.keys(peso)[0]; },
   deRango: (r, rnd = Math.random) => { const ids = Object.keys(BALAS).filter(k => BALAS[k].r === r && !BALAS[k].especial); return ids[Math.floor(rnd() * ids.length)]; }
@@ -21673,25 +21706,26 @@ function closeInv() { if (state !== 'inv') return; if (game) { game.fuseOpen = f
 function renderInv() {
   const n = Balas.slotN(game, arbEsp()), sl = game.slot || [];
   $('#inv-sum').textContent = `Slot ${sl.length} / ${n} · Caja ${Balas.normales(game)} / ${Balas.cajaCap(game)} · activas dentro: ${Balas.activasDentro(game)} · $ ${game.gold} · ${fichasTxt(game.poker | 0)}`;
-  // ---- Tu slot
-  if (!Balas.tiene(game, game.invSel)) game.invSel = sl.length ? sl[0].k : null;
+  // ---- Tu slot (cada copia en su espacio: las repetidas se juntan en la mesa de fusión)
+  if (!(game.invSel >= 0 && game.invSel < sl.length)) game.invSel = sl.length ? 0 : -1;
+  const rep = k => sl.filter(e => e.k === k).length > 1;
   const g = $('#inv-slot');
-  g.innerHTML = sl.map(e => `<button class="bal-it" type="button" data-k="${e.k}" aria-pressed="${game.invSel === e.k}">${balFicha(e.k, Balas.nivel(game, e.k))}<span><b>${BULLETS[e.k].name}</b><span class="s">Nivel ${Balas.nivel(game, e.k)} · ${BULLETS[e.k].act ? 'activa' : 'pasiva'}</span></span></button>`).join('')
+  g.innerHTML = sl.map((e, i) => `<button class="bal-it" type="button" data-i="${i}" aria-pressed="${game.invSel === i}">${balFicha(e.k, e.lv)}<span><b>${BULLETS[e.k].name}</b><span class="s">Nivel ${e.lv} · ${rep(e.k) ? 'repetida' : BULLETS[e.k].act ? 'activa' : 'pasiva'}</span></span></button>`).join('')
     + Array.from({ length: Math.max(0, n - sl.length) }, () => '<div class="bal-it vac"><span class="bf vacio"></span>Espacio libre</div>').join('');
-  g.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { game.invSel = b.dataset.k; Sfx.ui(); renderInv(); }));
-  const k = game.invSel, D = $('#inv-det');
-  if (!k) D.innerHTML = '<p>Tu slot está vacío. Consigue balas en las máquinas expendedoras, en los cofres y venciendo jefes.</p>';
+  g.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { game.invSel = +b.dataset.i; Sfx.ui(); renderInv(); }));
+  const i = game.invSel, e = sl[i], D = $('#inv-det');
+  if (!e) D.innerHTML = '<p>Tu slot está vacío. Consigue balas en las máquinas expendedoras, en los cofres y venciendo jefes.</p>';
   else {
-    const B = BULLETS[k], lv = Balas.nivel(game, k), fam = BALAS[k].f, venta = Balas.venta(game, k), enSala = game.phase === 'room';
+    const k = e.k, B = BULLETS[k], lv = e.lv, fam = BALAS[k].f, venta = Balas.venta(game, i), enSala = game.phase === 'room';
     D.innerHTML = `<h3>${balFicha(k, lv)}<span>${B.name}</span></h3><div class="pills"><span style="border-color:${BAL.rangos[B.rango].col}">${BAL.rangos[B.rango].name}</span><span>${balTipo(k)}</span>${fam ? `<span>Familia ${BAL.familia[fam].name}</span>` : ''}</div>`
       + `<p><b>Nivel ${lv} de ${BAL.nivelMax}</b> · efecto ×${String(BAL.nivelMul[lv - 1]).replace('.', ',')}</p><p>${balDesc(k, lv)}</p>`
-      + `<p class="dim">${lv < BAL.nivelMax ? `Otra copia la sube a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: despierta (su efecto extra se define pronto).'}${B.act ? ` En la caja: ${Balas.entrada(game, k).lv} ${Balas.entrada(game, k).lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
+      + `<p class="dim">${rep(k) ? 'Tienes otra copia: júntalas en la mesa de fusión para subir de nivel (mientras, cuenta la mejor).' : lv < BAL.nivelMax ? `Junta otra copia en la mesa de fusión para subirla a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: despierta (su efecto extra se define pronto).'}${B.act ? ` En la caja: ${lv} ${lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
       + (enSala && venta ? `<button class="btn2" type="button" id="inv-vender">Vender · +${venta} $</button>` : '');
-    const vb = $('#inv-vender'); if (vb) vb.addEventListener('click', () => { balVender(k); renderInv(); });
+    const vb = $('#inv-vender'); if (vb) vb.addEventListener('click', () => { balVender(i); renderInv(); });
   }
   // ---- Caja y familias
   const dentro = {}; for (const b of game.box) if (b !== 'normal' && b !== 'mala') dentro[b] = (dentro[b] | 0) + 1;
-  $('#inv-caja').innerHTML = `<div class="cj">Caja: <b>${Balas.normales(game)} / ${Balas.cajaCap(game)}</b> balas normales</div><div class="cj">Activas dentro: <b>${Balas.activasDentro(game)}</b>${Object.keys(dentro).length ? ' · ' + Object.keys(dentro).map(x => `${BULLETS[x].name}${dentro[x] > 1 ? ' ×' + dentro[x] : ''}`).join(', ') : ''}</div><div class="cj">En el cañón: <b>${totalAmmo()}</b></div>`;
+  $('#inv-caja').innerHTML = `<div class="cj">Caja: <b>${Balas.normales(game)} / ${Balas.cajaCap(game)}</b> balas normales</div><div class="cj">Activas dentro: <b>${Balas.activasDentro(game)}</b>${Object.keys(dentro).length ? ' · ' + Object.keys(dentro).map(x => `${(BULLETS[Balas.base(x)] || BULLETS.normal).name}${dentro[x] > 1 ? ' ×' + dentro[x] : ''}`).join(', ') : ''}</div><div class="cj">En el cañón: <b>${totalAmmo()}</b></div>`;
   $('#inv-fams').innerHTML = Object.keys(BAL.familia).map(f => { const c = Balas.famCuenta(game, f), on = c >= BAL.familiaMin; return `<div class="fam-it${on ? ' on' : ''}"><b>${BAL.familia[f].name} · ${Math.min(c, BAL.familiaMin)}/${BAL.familiaMin}${on ? ' · activo' : ''}</b>Con ${BAL.familiaMin}: ${BAL.familia[f].bono}</div>`; }).join('');
   // ---- Mesa de fusión
   $('#inv-fuse').hidden = !game.fuseOpen;
@@ -21699,34 +21733,74 @@ function renderInv() {
   if (state === 'inv') invTab();
   for (const id of ['#inv-slot', '#inv-fams', '#fz-slot']) paginar($(id), { navIn: $('#inv-ft'), navFirst: true });
 }
-// mesa de fusión: tocas una bala (A), luego otra del mismo rango (B); la receta es fija
+// mesa de fusión: tocas una bala (A) y otra (B). Dos iguales suben de nivel; dos distintas del mismo rango siguen su receta fija
 function fusePreview() {
-  const F = game.fz = game.fz || { a: null, b: null };
-  if (F.a && !Balas.tiene(game, F.a)) F.a = null; if (F.b && !Balas.tiene(game, F.b)) F.b = null;
-  const pick = (id, k, txt) => { $(id).innerHTML = k ? `${balFicha(k, Balas.nivel(game, k))}<span><b>${BULLETS[k].name}</b><small class="rk">${BAL.rangos[BULLETS[k].rango].name}</small></span>` : `<span class="bf vacio"></span><span>${txt}</span>`; };
-  pick('#fz-a', F.a, 'Toca una bala'); pick('#fz-b', F.b, F.a ? 'Toca otra del mismo rango' : 'y otra más');
-  const r = F.a && F.b ? Balas.receta(F.a, F.b) : null, por = F.a && F.b ? Balas.porQueNo(game, F.a, F.b, arbEsp()) : '', vista = r && (META.recetas || {})[fuseKey(F.a, F.b)];
-  $('#fz-r').innerHTML = !r ? '<span class="bf vacio"></span><span>Resultado</span>' : vista ? `${balFicha(r, 0)}<span><b>${BULLETS[r].name}</b><small class="rk">${BAL.rangos[BULLETS[r].rango].name}</small></span>` : '<span class="mis">?</span><span><b>Fusión misteriosa</b><small class="rk">La primera vez no se sabe</small></span>';
+  const F = game.fz = game.fz || { a: -1, b: -1 }, sl = game.slot || [];
+  if (!(F.a >= 0 && F.a < sl.length)) F.a = -1; if (!(F.b >= 0 && F.b < sl.length) || F.b === F.a) F.b = -1;
+  const A = sl[F.a], B = sl[F.b];
+  const pick = (id, e, txt) => { $(id).innerHTML = e ? `${balFicha(e.k, e.lv)}<span><b>${BULLETS[e.k].name}</b><small class="rk">${BAL.rangos[BULLETS[e.k].rango].name} · nivel ${e.lv}</small></span>` : `<span class="bf vacio"></span><span>${txt}</span>`; };
+  pick('#fz-a', A, 'Toca una bala'); pick('#fz-b', B, A ? 'Otra igual o del mismo rango' : 'y otra más');
+  const R = A && B ? Balas.resultado(game, F.a, F.b) : null, por = A && B ? Balas.porQueNo(game, F.a, F.b, arbEsp()) : '', vista = R && (R.nivel || (META.recetas || {})[fuseKey(A.k, B.k)]);
+  $('#fz-r').innerHTML = !R ? '<span class="bf vacio"></span><span>Resultado</span>' : vista ? `${balFicha(R.k, R.lv)}<span><b>${BULLETS[R.k].name}</b><small class="rk">${R.nivel ? 'Sube a nivel ' + R.lv : BAL.rangos[BULLETS[R.k].rango].name}</small></span>` : '<span class="mis">?</span><span><b>Fusión misteriosa</b><small class="rk">La primera vez no se sabe</small></span>';
   const f = game.poker | 0, out = $('#fuse-out');
-  out.textContent = !F.a || !F.b ? 'Solo se fusionan balas del mismo rango; el resultado sube un rango (S + S = secreta) y sale en nivel 1. Las balas iguales suben de nivel solas al conseguirlas.'
-    : por ? por : (vista ? `Sale ${BULLETS[r].name}: ${balDesc(r, 1)}` : 'Es la primera vez: el resultado es un misterio.') + ` Cuesta ${BAL.fusionFichas} ficha de miembro (tienes ${f}).`;
-  const btn = $('#btn-fuse'); btn.disabled = !r || !!por || f < BAL.fusionFichas; btn.textContent = `Fusionar · ${BAL.fusionFichas} ficha`;
-  const g = $('#fz-slot'); g.innerHTML = (game.slot || []).map(e => { const sel = e.k === F.a || e.k === F.b, off = F.a && !sel && BALAS[e.k].r !== BALAS[F.a].r; return `<button class="bal-it${off ? ' off' : ''}" type="button" data-k="${e.k}" aria-pressed="${sel}">${balFicha(e.k, Balas.nivel(game, e.k))}<span><b>${BULLETS[e.k].name}</b><span class="s">${BAL.rangos[BALAS[e.k].r].name}</span></span></button>`; }).join('');
-  g.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.k; if (F.a === k) { F.a = F.b; F.b = null; } else if (F.b === k) F.b = null; else if (!F.a) F.a = k; else F.b = k;
+  out.textContent = !A || !B ? 'Dos balas iguales se juntan y suben de nivel (se suman sus niveles, hasta el 4). Dos distintas del mismo rango dan una del rango siguiente (S + S = secreta), en nivel 1.'
+    : por ? por : (R.nivel ? `${BULLETS[R.k].name} sube a nivel ${R.lv}: ${balDesc(R.k, R.lv)}` : vista ? `Sale ${BULLETS[R.k].name}: ${balDesc(R.k, 1)}` : 'Es la primera vez: el resultado es un misterio.') + ` Cuesta ${BAL.fusionFichas} ficha de miembro (tienes ${f}).`;
+  const btn = $('#btn-fuse'); btn.disabled = !R || !!por || f < BAL.fusionFichas; btn.textContent = R && R.nivel ? `Juntar · ${BAL.fusionFichas} ficha` : `Fusionar · ${BAL.fusionFichas} ficha`;
+  const g = $('#fz-slot'); g.innerHTML = sl.map((e, i) => { const sel = i === F.a || i === F.b, off = A && !sel && e.k !== A.k && BALAS[e.k].r !== BALAS[A.k].r; return `<button class="bal-it${off ? ' off' : ''}" type="button" data-i="${i}" aria-pressed="${sel}">${balFicha(e.k, e.lv)}<span><b>${BULLETS[e.k].name}</b><span class="s">${BAL.rangos[BALAS[e.k].r].name} · nivel ${e.lv}</span></span></button>`; }).join('');
+  g.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.i; if (F.a === i) { F.a = F.b; F.b = -1; } else if (F.b === i) F.b = -1; else if (F.a < 0) F.a = i; else F.b = i;
     Sfx.ui(); fusePreview(); pagTodas();
   }));
 }
 function balFusionar() {
-  const F = game.fz; if (!F || !F.a || !F.b || !game.fuseOpen) return;
-  if (Balas.porQueNo(game, F.a, F.b, arbEsp())) return;
+  const F = game.fz, sl = game.slot || []; if (!F || !game.fuseOpen) return;
+  const A = sl[F.a], B = sl[F.b]; if (!A || !B || Balas.porQueNo(game, F.a, F.b, arbEsp())) return;
   if (!pagaFicha()) return;
-  const key = fuseKey(F.a, F.b), nueva = !(META.recetas || {})[key];
+  const subir = A.k === B.k, key = fuseKey(A.k, B.k), nueva = !subir && !(META.recetas || {})[key];
   const r = Balas.fusionar(game, F.a, F.b, balManos(), arbEsp()); if (!r) return;
-  if (!tuto) { META.recetas = META.recetas || {}; META.recetas[key] = 1; META.balVistas = META.balVistas || {}; META.balVistas[r] = 1; saveMeta(); }
-  stMas('fusion'); game.fuseN = (game.fuseN | 0) + 1; game.fz = { a: null, b: null }; game.invSel = r; balCambio(); renderChips();
-  Sfx.win(); Sfx.insert(); banner(nueva ? '¡Fusión nueva!' : 'Fusión', `${BULLETS[r].name} · ${BAL.rangos[BULLETS[r].rango].name}`, 2600, 'lantern'); feed(`Fusión: ${BULLETS[r].name}`, 'gold');
+  if (!tuto && !subir) { META.recetas = META.recetas || {}; META.recetas[key] = 1; META.balVistas = META.balVistas || {}; META.balVistas[r] = 1; saveMeta(); }
+  stMas('fusion'); game.fuseN = (game.fuseN | 0) + 1; game.fz = { a: -1, b: -1 }; game.invSel = game.slot.findIndex(e => e.k === r); balCambio(); renderChips();
+  Sfx.win(); Sfx.insert();
+  if (subir) { banner('¡Sube de nivel!', `${BULLETS[r].name} · nivel ${Balas.nivel(game, r)}`, 2600, 'lantern'); feed(`${BULLETS[r].name} sube a nivel ${Balas.nivel(game, r)}`, 'gold'); }
+  else { banner(nueva ? '¡Fusión nueva!' : 'Fusión', `${BULLETS[r].name} · ${BAL.rangos[BULLETS[r].rango].name}`, 2600, 'lantern'); feed(`Fusión: ${BULLETS[r].name}`, 'gold'); }
   renderInv();
+}
+/* ---- Slot lleno: el juego pregunta (decisión del dueño, 18-oct-2026). Eliges una bala de tu slot para venderla
+   (la mitad de su precio por nivel) y te quedas con la nueva, o vendes la nueva. Las que llegan juntas esperan su turno. */
+function balLlenoAbrir() {
+  if (!game || !game.llenoQ || !game.llenoQ.length || !$('#lleno-s').hidden) return;
+  game.llenoAntes = state;
+  if (state === 'play') { state = 'lleno'; input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false); }
+  if (document.pointerLockElement) document.exitPointerLock();
+  releaseInput(); balLlenoPintar(); $('#lleno-s').hidden = false; Sfx.open();
+  setTimeout(() => { const b = $('#btn-lleno-no'); if (b) b.focus(); }, 40);
+}
+function balLlenoPintar() {
+  const k = game.llenoQ[0], N = BULLETS[k], sl = game.slot || [], nueva = Balas.ventaDe(k, 1);
+  $('#lleno-new').innerHTML = `${balFicha(k, 1)}<span><b>${N.name}</b> · ${BAL.rangos[N.rango].name} · ${balTipo(k).toLowerCase()}<br><span class="dim">${balDesc(k, 1)}</span></span>`;
+  $('#lleno-say').textContent = `Tu slot está lleno (${sl.length} de ${Balas.slotN(game, arbEsp())}). Elige una bala para venderla (la mitad de su precio por nivel) y quedarte con la nueva${game.llenoQ.length > 2 ? `. Después vienen ${game.llenoQ.length - 1} más` : game.llenoQ.length > 1 ? '. Después viene otra más' : ''}.`;
+  const L = $('#lleno-list');
+  L.innerHTML = sl.map((e, i) => { const v = Balas.venta(game, i), ok = v > 0 && Balas.puedeVender(game, i, arbEsp()); return `<button class="bal-it" type="button" data-i="${i}"${ok ? '' : ' disabled'}>${balFicha(e.k, e.lv)}<span><b>${BULLETS[e.k].name}</b><span class="s">${ok ? `Vender · +${v} $` : v ? 'No se puede: perderías espacios' : 'Secreta: no se vende'}</span></span></button>`; }).join('');
+  L.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => balLlenoVender(+b.dataset.i)));
+  $('#btn-lleno-no').textContent = nueva ? `Vender la nueva · +${nueva} $` : 'Dejar la nueva';
+  paginar(L, { navIn: $('#lleno-ft'), navFirst: true, reset: true });
+}
+function balLlenoVender(i) {
+  const k = game.llenoQ[0]; if (!k || !balVender(i)) return;
+  Balas.ganar(game, k, arbEsp()); feed(`${BULLETS[k].name} entra a tu slot`, 'gold'); balCambio(); balLlenoSigue();
+}
+function balLlenoRechazar() {
+  const k = game.llenoQ[0]; if (!k) return; const g = Balas.ventaDe(k, 1);
+  if (g) { game.gold += g; Sfx.coin(); feed(`Vendiste ${BULLETS[k].name} · +${g} $`, 'gold'); } else feed(`Dejaste ${BULLETS[k].name}`, 'red');
+  balLlenoSigue();
+}
+function balLlenoSigue() {
+  game.llenoQ.shift();
+  if (game.llenoQ.length) { balLlenoPintar(); return; }
+  $('#lleno-s').hidden = true;
+  if (state === 'lleno') { state = 'play'; releaseInput(); requestLock(); canvas.focus(); }
+  if (state === 'shop') renderShop(); else if (state === 'inv') renderInv();
+  renderChips();
 }
 let bannerTO = 0;
 function banner(t, s, ms = 2400, icn) { const bi = $('#banner-i'); if (bi) bi.innerHTML = icn ? ico(icn) : ''; el.bT.textContent = t; el.bS.textContent = s || ''; el.banner.classList.add('on'); clearTimeout(bannerTO); bannerTO = setTimeout(() => el.banner.classList.remove('on'), ms); }
@@ -21899,7 +21973,7 @@ function shuffleBox() {}
 function refreshQueueAfterShop() {}
 // Sacas una bala al azar de tu caja; si está vacía, el hueco queda sin bala
 function drawBullet() {
-  if (!game.box.length) return null;
+  if (!Balas.normales(game)) return null;   // sin normales en la caja no se carga nada (las activas no salen solas)
   const i = Math.floor(Math.random() * game.box.length);
   return game.box.splice(i, 1)[0];
 }
@@ -22047,7 +22121,7 @@ function maxAlive() { return Math.min(8 + diffW(game.wave) * 2 + (zoneOf(game.wa
 
 function hurtPlayer(amount, src, opt = {}) {
   if (tuto) return;
-  if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv'))) || player.down) return;
+  if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv' || state === 'lleno'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
   amount *= (1 - 0.15 * game.vest) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
@@ -22529,7 +22603,7 @@ function shoot(h, fanned, yawOff = 0) {
   const rec = h.model === 'silen' ? (Sfx.silen(), true) : Sfx.shot(h.model === 'cowboy' && game.char === 'carlos' ? 'gomez' : ({ glock: 'corto', sniper: 'magnum', tommy: 'uzi', ak47: 'magnum' })[h.model] || h.model, game.goldT > 0, h.ammo === 0);
   if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
   // después del tiro, la activa vuelve a la caja o se rompe; la Bumerán y el Carámbano vuelven al cañón si pegan
-  if ((ctx.k === 'bumeran' || ctx.k === 'carambano') && ctx.hitZ && sBala !== 'normal') { h.loaded[fired] = sBala; h.ammo++; feed(`${BULLETS[ctx.k].name} volvió al cañón`, 'gold'); }
+  if ((ctx.k === 'bumeran' || ctx.k === 'carambano') && ctx.hitZ && sBala !== 'normal' && Balas.normales(game)) { h.loaded[fired] = sBala; h.ammo++; feed(`${BULLETS[ctx.k].name} volvió al cañón`, 'gold'); }
   else if (sBala !== 'normal' && sBala !== 'mala') { const r = Balas.trasDisparo(game, sBala); if (r === 'rota') { feed(`${BULLETS[Balas.base(sBala)].name} se rompió${Balas.tiene(game, Balas.base(sBala)) ? ' (pierde 1 nivel)' : ''}`, 'red'); balCambio(); } else if (r === 'truco') feed('Truco de manos: la bala volvió a la caja', 'gold'); }
   if (ctx.hitZ && ctx.k === 'junior') {
     let n = 0;
@@ -22948,7 +23022,7 @@ function balRevivir() {
     balCambio(); banner('Emperador inmortal', `Revives (${game.balCont.emp} de ${Math.round(balV('emperador', 'n'))}) · tus balas suben 1 nivel esta oleada`, 2800, 'star'); Sfx.heart(); return true;
   }
   if (balT('fenix')) {
-    player.hp = Math.round(player.maxHp * Math.min(1, balV('fenix', 'vida'))); Balas.quitar(game, 'fenix', balManos()); balCambio();
+    player.hp = Math.round(player.maxHp * Math.min(1, balV('fenix', 'vida'))); Balas.quitar(game, game.slot.indexOf(Balas.entrada(game, 'fenix')), balManos()); balCambio();
     banner('Fénix', 'Revives… y la bala del Fénix se rompe', 2600, 'lantern'); Sfx.heart(); return true;
   }
   return false;
@@ -23239,7 +23313,7 @@ function startReload() {
   if (game.habMini && game.habK === 'dado') { if (game.habMini.extra > 0 && activeHands().some(h => h.ammo < h.cap)) dadoRecarga(); return; }   // el arma del dado trae sus propios cargadores
   for (const h of hands) h.cocked = false;
   if (!activeHands().some(h => h.loaded.some(x => x === 0 || x === 2))) return;
-  if (!game.box.length) { hint('No te quedan balas en la caja', 1500); return; }
+  if (!Balas.normales(game)) { hint(Balas.activasDentro(game) ? 'Sin balas normales en la caja: las activas no salen solas. Consigue más normales' : 'No te quedan balas en la caja', 2200); return; }
   gs.tactic = lv('tactic') && totalAmmo() > 0 ? 1.5 : 1;
   gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul() / ST.reloadX / (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
   Sfx.open(); stMas('recargas'); if (Net.on) Net.ev(['anim', 'rec']);   // los compañeros ven a tu personaje recargar
@@ -23253,13 +23327,13 @@ function reloadStep(dt) {
     if (spent) { Sfx.shells(); let k = 0; for (const h of act) { h.cylG.getWorldPosition(_mp); const n = Math.min(h.cap, 12); for (let i = 0; i < n && k < spent; i++, k++) ejectCasing(_mp.clone().add(new THREE.Vector3(rand(-0.02, 0.02), rand(-0.03, 0.01), rand(-0.02, 0.02))), h.side ? -1 : 1); } }
     refreshChambers(); gs.phase = 'insert'; gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'insert') {
-    const h = game.box.length ? act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] : null;
+    const h = Balas.normales(game) ? act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] : null;
     if (h) {
       const batch = h.cap > 12 ? 12 : 1; let n = 0;
       for (let j = 0; j < h.cap && n < batch; j++) { const i = (h.idx + j) % h.cap; if (h.loaded[i] === 0) { loadChamber(h, i); n++; } }
       Sfx.insert(); refreshChambers(); h.kick = 0.15;
     }
-    const full = !act.some(x => x.loaded.includes(0)) || !game.box.length;
+    const full = !act.some(x => x.loaded.includes(0)) || !Balas.normales(game);
     if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'close') {
     gs.reloading = false; gs.phase = ''; Sfx.close();
@@ -25087,8 +25161,8 @@ function policiasDeGuardia() {
 // Sin balas: si no hay ninguna en el suelo, a los 6 s se acaba (en grupo, caes y te levantas en la próxima oleada)
 function ammoCheck(dt) {
   if (!game || game.phase !== 'fight' || player.down) return;
-  if (Net.on && totalAmmo() === 0 && !game.box.length && !gs.reloading) { banner('Sin balas', 'Caíste: mira a tu equipo hasta que termine la oleada', 3000); player.hp = 0; die(); return; }
-    if (totalAmmo() === 0 && !game.box.length && !gs.reloading) {
+  if (Net.on && totalAmmo() === 0 && !Balas.normales(game) && !gs.reloading) { banner('Sin balas', 'Caíste: mira a tu equipo hasta que termine la oleada', 3000); player.hp = 0; die(); return; }
+    if (totalAmmo() === 0 && !Balas.normales(game) && !gs.reloading) {
     if (pickups.some(p => p.type === 'ammo' || p.type === 'bala')) { game.noAmmoT = 0; if (!game.noAmmoHint) { game.noAmmoHint = 1; hint('¡Sin balas! Recoge las del suelo', 2600); } }
     else { if (!game.noAmmoT) banner('¡Sin balas!', 'Si no consigues ninguna, se acaba la partida', 2600); game.noAmmoT = (game.noAmmoT || 0) + dt; if (game.noAmmoT > 6) { game.noAmmoT = 0; if (Net.on) { feed('Te quedaste sin balas', 'red'); player.hp = 0; die(); } else { game.outAmmo = true; gameOver(); } return; } }
   } else { game.noAmmoT = 0; game.noAmmoHint = 0; }
@@ -25696,10 +25770,10 @@ function renderShop() {
   if (!vt || vt === 'balas') game.offers.forEach((o, i) => {
     const B = BULLETS[o.id], price = shopP(Balas.precio(o.id)), pg = Balas.puedeGanar(game, o.id, arbEsp()), lvA = Balas.nivel(game, o.id);
     const tipo = B.act ? (B.vuelve ? 'activa, vuelve' : 'activa, se rompe') : 'pasiva';
-    const c = shopCard('b:' + i, { pic: balFicha(o.id, 0, 'sc-bal'), name: B.name, line: balDesc(o.id, Math.max(1, lvA + (pg === 'nivel' ? 1 : 0))), tag: `<span class="rk-${B.rango}">Rango ${B.rango}</span> · ${tipo}${lvA ? ` · tienes nivel ${lvA}` : ''}`, cls: 'r' + B.rar });
-    const txt = o.bought ? 'Comprada' : pg === 'lleno' ? 'Slot lleno' : pg === 'max' ? 'Nivel máximo' : cost(price, pg === 'nivel' ? 'Subir de nivel' : '');
-    shopBtn(c.act, 'buyb-' + i, 'buy', txt, o.bought || pg === 'lleno' || pg === 'max' || game.gold < price, () => {
-      if (o.bought || game.gold < price || ['lleno', 'max'].includes(Balas.puedeGanar(game, o.id, arbEsp()))) return;
+    const c = shopCard('b:' + i, { pic: balFicha(o.id, 0, 'sc-bal'), name: B.name, line: balDesc(o.id, 1), tag: `<span class="rk-${B.rango}">Rango ${B.rango}</span> · ${tipo}${lvA ? ' · ya la tienes' : ''}`, cls: 'r' + B.rar });
+    const txt = o.bought ? 'Comprada' : cost(price);
+    shopBtn(c.act, 'buyb-' + i, 'buy', txt, o.bought || game.gold < price, () => {
+      if (o.bought || game.gold < price) return;
       game.gold -= price; o.bought = true; balGanar(o.id); Sfx.cash(); Sfx.insert(); vende({ t: 'bala', i, k: o.id, col: B.col }); renderShop();
     });
     bl.appendChild(c.d);
@@ -25711,13 +25785,13 @@ function renderShop() {
       shopBtn(c.act, 'buy-ammo-' + n, 'buy', libre <= 0 ? 'Caja llena' : cost(price), libre <= 0 || game.gold < price, () => { if (game.gold < price || Balas.normales(game) >= Balas.cajaCap(game)) return; game.gold -= price; Balas.addNormales(game, n); Sfx.cash(); Sfx.insert(); vende({ t: 'bala', k: 'normal', col: BULLETS.normal.col }); renderShop(); });
       bl.appendChild(c.d);
     }
-    const ks = (game.slot || []).map(e => e.k).concat(game.box.includes('mala') ? ['mala'] : []), PAG = innerHeight <= 520 ? 2 : innerHeight < 800 ? 4 : 6, np = Math.max(1, Math.ceil(ks.length / PAG)), pg = Math.min(game.vendPag | 0, np - 1);
+    const ks = (game.slot || []).map((e, j) => j).concat(game.box.includes('mala') ? ['mala'] : []), PAG = innerHeight <= 520 ? 2 : innerHeight < 800 ? 4 : 6, np = Math.max(1, Math.ceil(ks.length / PAG)), pg = Math.min(game.vendPag | 0, np - 1);
     const vw = document.createElement('div'); vw.className = 'vd-vende';
     vw.innerHTML = `<p>${ks.length ? 'Vender balas de tu slot (la mitad de su precio por nivel)' : 'No tienes balas para vender'}</p>`;
     for (const k of ks.slice(pg * PAG, pg * PAG + PAG)) {
-      const B = BULLETS[k], mala = k === 'mala', refund = mala ? 1 : Balas.venta(game, k), lvK = mala ? 0 : Balas.nivel(game, k), b = document.createElement('button'); b.className = 'btn2';
+      const mala = k === 'mala', E_ = mala ? null : game.slot[k], B = BULLETS[mala ? 'mala' : E_.k], refund = mala ? 1 : Balas.venta(game, k), lvK = mala ? 0 : E_.lv, b = document.createElement('button'); b.className = 'btn2';
       b.disabled = !mala && (!refund || !Balas.puedeVender(game, k, arbEsp()));
-      b.innerHTML = `${mala ? '<i class="dot" style="background:#7a7a7a"></i>' : balFicha(k, lvK, 'mini')}<span>${B.name}${mala ? ` × ${game.box.filter(x => x === 'mala').length}` : ` · nivel ${lvK}`}</span><b><s>${mala ? 'Quitar' : refund ? 'Vender' : 'No se vende'} </s>${refund ? '+' + refund : ''}</b>`;
+      b.innerHTML = `${mala ? '<i class="dot" style="background:#7a7a7a"></i>' : balFicha(E_.k, lvK, 'mini')}<span>${B.name}${mala ? ` × ${game.box.filter(x => x === 'mala').length}` : ` · nivel ${lvK}`}</span><b><s>${mala ? 'Quitar' : refund ? 'Vender' : 'No se vende'} </s>${refund ? '+' + refund : ''}</b>`;
       b.addEventListener('click', () => { if (mala) { const i = game.box.indexOf(k); if (i < 0) return; game.box[i] = 'normal'; game.gold += 1; Sfx.coin(); } else balVender(k); renderShop(); });
       vw.appendChild(b);
     }
@@ -25728,11 +25802,11 @@ function renderShop() {
   $('#box-grid').innerHTML = (game.slot || []).map(e => `<i data-k="${e.k}" class="${game.boxSel === e.k ? 'sel' : ''}" style="background:${BULLETS[e.k].col}" title="${BULLETS[e.k].name}"></i>`).join('');
   boxInfo(game.boxSel); $('#sh-sub-caja').textContent = `Tu slot · ${(game.slot || []).length}`;
   const list = $('#box-list'); list.innerHTML = '';
-  for (const e of game.slot || []) {
-    const k = e.k, B = BULLETS[k], refund = Balas.venta(game, k);
+  for (const [j, e] of (game.slot || []).entries()) {
+    const k = e.k, B = BULLETS[k], refund = Balas.venta(game, j);
     const row = document.createElement('div'); row.className = 'box-row';
     row.innerHTML = `<span class="bx-n${game.boxSel === k ? ' sel' : ''}" data-k="${k}"><i class="dot" style="background:${B.col}"></i>${B.name} · nivel ${e.lv}</span>`;
-    shopBtn(row, null, 'btn2', refund ? `Vender · +${refund} $` : 'No se vende', !refund, () => { balVender(k); renderShop(); });
+    shopBtn(row, null, 'btn2', refund ? `Vender · +${refund} $` : 'No se vende', !refund, () => { balVender(j); renderShop(); });
     list.appendChild(row);
   }
   // ---- Útiles ----
@@ -26614,7 +26688,7 @@ function updatePlay(dt) {
   if (game.killcamT > 0) game.killcamT -= dt;
   game.ts = damp(game.ts, state === 'dying' ? 0.3 : game.killcamT > 0 ? 0.18 : (game.deOn || game.slowT > 0) ? 0.28 : game.arenaT > 0 ? balV('relojarena', 'x') : 1, game.killcamT > 0 ? 30 : 10, dt);
   const wdt = dt * game.ts;
-  if (state === 'play' || state === 'pause' || state === 'inv') {
+  if (state === 'play' || state === 'pause' || state === 'inv' || state === 'lleno') {
     game.time += dt;
     if (arb('regen') && !player.down && player.hp < player.maxHp && game.time - (player.lastHurt || -9) > 4) player.hp = Math.min(player.maxHp, player.hp + arbP('regen') * dt);   // árbol: recuperación
     if (game.waveMod && game.waveMod.acid && game.phase === 'fight' && !player.down && player.hp > 5) player.hp -= 1.2 * dt;
@@ -26636,7 +26710,7 @@ function updatePlay(dt) {
   chase.copy(player.pos);
   if (!Net.client) { updateFlow(dt, player.pos.x, player.pos.z); if (Net.host) netFlows(dt); }
   updateGun(dt); updateCamera(dt);
-  updateZombies(wdt, state === 'play' || state === 'pause' || state === 'inv'); zombieLod(dt);
+  updateZombies(wdt, state === 'play' || state === 'pause' || state === 'inv' || state === 'lleno'); zombieLod(dt);
   bossFx(wdt); rezagados(dt); rastroZombis();
   if (Net.client) updateCopProxies(wdt); else updateCops(wdt);
   updateAcid(wdt); updatePickups(dt); updateChests(dt); updateDebris(wdt); updateStumps(wdt); updateTracers(dt); updateWells(wdt); updateTraps(wdt); updateStrikes(wdt);
@@ -26865,23 +26939,21 @@ function abrirSobre(S_) {
   feed(`${S_.name}: ${buenas} de 3 balas buenas${buenas < 3 ? ` · ${3 - buenas} mojada${3 - buenas > 1 ? 's' : ''}` : ''}`, buenas ? 'gold' : 'red');
 }
 /* ---- Ganar y vender balas en la partida ---- */
-// Ganar una bala (compra, sobre, cofre, jefe, ruleta…): entra al slot o sube 1 nivel. Si no cabe (o ya está en nivel 4), se vende sola por la mitad.
+// Ganar una bala (compra, sobre, cofre, jefe, ruleta…): entra al slot como copia nueva. Si no cabe, el juego pregunta qué vender.
 function balGanar(k, o = {}) {
   if (!game || !BALAS[k]) return 'no';
   const r = Balas.ganar(game, k, arbEsp());
   if (!tuto) { META.balVistas = META.balVistas || {}; if (!META.balVistas[k]) { META.balVistas[k] = 1; saveMeta(); } }
-  if (r === 'lleno' || r === 'max') {
-    const g = Math.max(0, Math.floor((BAL.precio[BALAS[k].r] || 0) * BAL.venta)); if (g) addGold(g, true);
-    feed(r === 'max' ? `${BULLETS[k].name} ya está en el nivel máximo${g ? `: se vendió por ${g} $` : ''}` : `Slot lleno: ${BULLETS[k].name} ${g ? `se vendió por ${g} $` : 'no cabe'}`, 'red');
-  } else if (!o.quiet) feed(r === 'nivel' ? `${BULLETS[k].name} sube a nivel ${Balas.nivel(game, k)}` : `${BULLETS[k].name} entra a tu slot`, 'gold');
+  if (r === 'lleno') { (game.llenoQ = game.llenoQ || []).push(k); setTimeout(balLlenoAbrir, 0); return r; }   // no cabe: el juego pregunta
+  if (!o.quiet) feed(`${BULLETS[k].name} entra a tu slot`, 'gold');
   balCambio(); return r;
 }
 // vender una bala del slot: devuelve la mitad de su precio por cada nivel; sus copias salen de la caja y del tambor
-function balVender(k) {
-  if (!game || !Balas.tiene(game, k)) return 0;
-  if (!Balas.puedeVender(game, k, arbEsp())) { hint('Primero vende otra: tu slot quedaría con más balas que espacios', 2200); Sfx.err(); return 0; }
-  const g = Balas.venta(game, k); if (!g) { hint('Las balas secretas no se venden', 1800); Sfx.err(); return 0; }
-  Balas.quitar(game, k, balManos()); game.gold += g; Sfx.coin(); feed(`Vendiste ${BULLETS[k].name} · +${g} $`, 'gold'); balCambio(); return g;
+function balVender(i) {
+  const e = game && (game.slot || [])[i]; if (!e) return 0;
+  if (!Balas.puedeVender(game, i, arbEsp())) { hint('Primero vende otra: tu slot quedaría con más balas que espacios', 2200); Sfx.err(); return 0; }
+  const g = Balas.venta(game, i); if (!g) { hint('Las balas secretas no se venden', 1800); Sfx.err(); return 0; }
+  Balas.quitar(game, i, balManos()); game.gold += g; Sfx.coin(); feed(`Vendiste ${BULLETS[e.k].name} · +${g} $`, 'gold'); balCambio(); return g;
 }
 // los tambores de todas tus armas (la que llevas y las guardadas)
 function balManos() { const L = hands.map(h => h.loaded); for (const id in game.mag || {}) if (id !== game.equip) for (const sl of game.mag[id] || []) if (sl && sl.loaded) L.push(sl.loaded); return L; }
@@ -28004,7 +28076,7 @@ function useObj(o) {
     useCur = null; showUse(null); abrirBj();
   } else if (o.kind === 'fusion') {
     if (!((game.poker | 0) > 0)) { hint('Cada fusión cuesta 1 ficha de miembro y no tienes', 1800); Sfx.err(); return; }
-    useCur = null; showUse(null); game.fuseOpen = true; game.fz = { a: null, b: null }; openInv(); setTimeout(() => invTab('fuse'), 60);
+    useCur = null; showUse(null); game.fuseOpen = true; game.fz = { a: -1, b: -1 }; openInv(); setTimeout(() => invTab('fuse'), 60);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
   } else if (o.kind === 'caja') {
@@ -30964,6 +31036,7 @@ $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
 // sin el botón de la bolsa: tocar la fila de objetos o el contador de balas abre el inventario
 for (const id of ['#iicons', '#caja-hud']) $(id).addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openInv(); });
 $('#btn-fuse').addEventListener('click', () => { if (game && game.fuseOpen) balFusionar(); });
+$('#btn-lleno-no').addEventListener('click', () => { if (game && game.llenoQ && game.llenoQ.length) balLlenoRechazar(); });
 $('#btn-cards-go').addEventListener('click', () => { if (state === 'cards') continueAfter(); });
 $('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && !game.cardDone) continueAfter(); });
 $('#btn-shop-go').addEventListener('click', () => { if (state === 'shop') { refreshQueueAfterShop(); continueAfter(); } else if (!$('#shop').hidden) { show(null); if (game && world.idx === ROOM_IDX && game.phase !== 'wait') backToRoom(); else { state = 'play'; requestLock(); canvas.focus(); } } });
@@ -31145,7 +31218,7 @@ function frame() {
   if (hitStop > 0) { hitStop -= Math.min(rawDt, 0.05); dt *= 0.12; }
   autoRes(Math.min(rawDt, 0.25));
   tAll += dt;
-  if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv') && game)) { menuT += dt; updatePlay(dt); }
+  if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
