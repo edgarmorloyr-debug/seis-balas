@@ -1862,7 +1862,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 .win-nuevo li img{flex:none;width:40px;height:40px;border-radius:8px;object-fit:cover;object-position:50% 15%}
 .win-nuevo li span{display:flex;flex-direction:column;min-width:0}.win-nuevo li b{font-size:15px;color:#ffd27a}.win-nuevo li small{font-size:14px;color:var(--bone);line-height:1.3}
 .win-nuevo li.wn-pj{border-color:#7fd6cb}.win-nuevo li.wn-dif{border-color:#ef8a73}
-@media (max-height:500px){.win-nuevo{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}.win-nuevo li{padding:4px 8px}#win .note{display:none}}
+@media (max-height:500px){.win-nuevo{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px}.win-nuevo li{padding:3px 8px}.win-nuevo li i{width:28px;height:28px}.win-nuevo li img{width:32px;height:32px}#win .note{display:none}#win:has(#win-nuevo:not([hidden])) .card{gap:5px;padding-top:8px;padding-bottom:8px}#win:has(#win-nuevo:not([hidden])) .tag{margin:0;line-height:1.2}}
 /* de pie: con la lista de novedades, las cifras van más juntas y sin la nota, para que todo quepa sin scroll */
 @media (orientation:portrait){#win:has(#win-nuevo:not([hidden])) .note{display:none}#win:has(#win-nuevo:not([hidden])) .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 6px}#win:has(#win-nuevo:not([hidden])) .stats b{font-size:20px}#win:has(#win-nuevo:not([hidden])) .stats span{letter-spacing:.02em}#win:has(#win-nuevo:not([hidden])) .card{gap:8px}.win-nuevo{gap:6px}.win-nuevo li{padding:5px 8px}#win .tag{margin:0}}
 
@@ -22765,7 +22765,7 @@ function casJefeOla(n) { game.casJ = casJefe(n); game.bossPick = casBossIdx(game
 function casOlaFin(w) {
   if (!game || tuto || !runN()) return; const j = casJefe(w); if (j < 0) return;
   game.casV = game.casV || []; if (game.casV.includes(j)) return; game.casV.push(j);
-  jefeVencido(game.char, j, game.diff); renderEstrellasIni();
+  jefeVencido(game.char, j, game.diff); renderEstrellasIni(); checkUnlocks(); checkAch();
   feed(`¡Venciste ${aJefe(j)}!`, 'gold');
 }
 // Gancho de prueba (?casino=1..5 en la dirección, &ola=1..5): empieza la partida directo en el casino de esa visita
@@ -24656,7 +24656,7 @@ function cartasPon(z) {
 }
 // ---- efectos propios del casino (también en los teléfonos del grupo)
 function cfxSpawn(kind, a) {
-  if (kind === 'cban') { const B = CBAN[a[0]]; if (B) { banner(B[0], B[1], 3000, 'skull'); Sfx.bell(); } return true; }
+  if (kind === 'cban') { const B = CBAN[a[0]]; if (B) { banner(B[0], B[1], 3000, 'skull'); Sfx.bell(); } if (a[0] === 6 && !tuto) META.st.casBj = (META.st.casBj | 0) + 1; return true; }
   if (kind === 'cbj') { const z = zombies.find(q => q.id === a[0]); if (!z) return true; if (a[1] < 0) z.bjS = null; else { z.bjS = { d: a[1], t: a[2], m: a[3], v: a.slice(4) }; } return true; }
   if (kind === 'cslot') { const z = zombies.find(q => q.id === a[0]); if (z) { z.palanca = 0.5; Sfx.reel(); } return true; }
   if (kind === 'crul') {   // ruleta: tiempo, daño, color que sale (0 rojo, 1 negro, 2 cero verde) y los centros de los círculos
@@ -31256,7 +31256,23 @@ const ACH = [
   { id: 'primera100', ic: 'bullet', name: 'Recién cargado', d: 'Mata 100 zombis con la primera bala después de recargar', n: 100, v: () => META.st.kPrim | 0 },
   { id: 'tipos15', ic: 'scroll', name: 'Álbum completo', d: 'Dispara 15 tipos distintos de balas activas sumando todas tus partidas', n: 15, v: () => Object.keys(META.bt || {}).length },
   { id: 'crit100', ic: 'eye', name: 'Golpe certero', d: 'Mata 100 zombis con un golpe crítico', n: 100, v: () => META.st.kCrit | 0 },
-  { id: 'ojo10', ic: 'moon', name: 'Sangre fría', d: 'Mata 10 zombis en un solo Ojo Muerto', n: 10, run: () => game.deMax | 0 }
+  { id: 'ojo10', ic: 'moon', name: 'Sangre fría', d: 'Mata 10 zombis en un solo Ojo Muerto', n: 10, run: () => game.deMax | 0 },
+  // Etapa 3 · el casino (cada logro da 1 ficha de calavera, como todos)
+  { id: 'cas_jefe_nuevo', ic: 'skull', name: 'Nuevo jefe', d: 'Vence al primer jefe del casino y abre el siguiente', n: 1, v: () => jefeHecho(0) ? 1 : 0 },
+  { id: 'cas_mapas', ic: 'compass', name: 'Desbloquea 4 mapas nuevos', d: 'Vence a un jefe del casino y abre 4 mapas', n: 1, v: () => mapasCuenta() > MAPAS_INICIO ? 1 : 0 },
+  { id: 'cas_j0', ic: 'medal', name: 'Hielo y fuego', d: 'Vence al Crupier de Hielo y Fuego en el casino', n: 1, v: () => jefeHecho(0) ? 1 : 0 },
+  { id: 'cas_j1', ic: 'revolver', name: 'Duelo con Ludo', d: 'Vence a Ludo Cheng en el casino', n: 1, v: () => jefeHecho(1) ? 1 : 0 },
+  { id: 'cas_j2', ic: 'cards', name: 'La banca', d: 'Vence al Crupier Mayor en el casino', n: 1, v: () => jefeHecho(2) ? 1 : 0 },
+  { id: 'cas_j3', ic: 'shield', name: 'Sin escolta', d: 'Vence a la Escolta Zombi en el casino', n: 1, v: () => jefeHecho(3) ? 1 : 0 },
+  { id: 'cas_j4', ic: 'coins', name: '¡Jackpot!', d: 'Vence a Big Big Slot Machine Zombie en el casino', n: 1, v: () => jefeHecho(4) ? 1 : 0 },
+  { id: 'cas_ganar', ic: 'star', name: 'Gana el juego por primera vez', d: 'Vence a los 5 jefes seguidos del BIG NEON CASINO', n: 1, v: () => ganadoAlguna() ? 1 : 0 },
+  { id: 'cas_todos_mapas', ic: 'map', name: 'Todos los lugares', d: 'Abre todos los mapas (al ganar el juego)', n: 1, v: () => ganadoAlguna() ? 1 : 0 },
+  { id: 'cas_dificil', ic: 'skull', name: 'La casa tiembla', d: 'Gana el juego en Difícil', n: 1, v: () => juegoGanado('dificil') ? 1 : 0 },
+  { id: 'cas_apoc', ic: 'eclipse', name: 'Fin del mundo', d: 'Gana el juego en Apocalipsis', n: 1, v: () => juegoGanado('apoc') ? 1 : 0 },
+  { id: 'cas_estrellas', ic: 'star', name: 'Cinco estrellas', d: 'Consigue las 5 estrellas doradas con calavera (cada jefe en las 3 dificultades)', n: 5, v: () => estrellasNiveles(null).filter(x => x === 3).length },
+  { id: 'cas_bj', ic: 'cards', name: 'Le ganaste a la casa', d: 'Gánale 3 manos de blackjack a Big Big Slot Machine Zombie', n: 3, v: () => META.st.casBj | 0 },
+  { id: 'cas_ludo', ic: 'hat', name: 'Nuevo en la mesa', d: 'Desbloquea a Ludo Cheng', n: 1, v: () => charOpen('ludo') ? 1 : 0 },
+  { id: 'cas_pers', ic: 'rosary', name: 'Todo el elenco', d: 'Desbloquea a todos los personajes', n: Object.keys(CHARS).length, v: () => Object.keys(CHARS).filter(charOpen).length }
 ];
 META.ach = META.ach || {}; META.ab = META.ab || {};
 // Reinicio de logros pedido por el dueño (15-oct-2026): se borra el avance de logros y las cuentas que los alimentan, una sola vez por jugador
@@ -31421,12 +31437,12 @@ for (const [k, ids] of Object.entries({
   combate: 'sangre cazador exterm leyenda combo5 combo10 kills250 elite10 elite50 cerca150 fuego100 crit100',
   punteria: 'punteria halcon seis seis5 abanico ojo ojo10 kojo100 lejos100 cabezas500 recargas300 tiros5000 ultima50 primera100 quieto100',
   aguante: 'ol5 ol15 ol30 gana sinfin partidas alfilo intacto botiq50 dano3000 duro10 correr2k',
-  jefes: 'jefe1 jefe10 jefe50',
+  jefes: 'jefe1 jefe10 jefe50 cas_jefe_nuevo cas_j0 cas_j1 cas_j2 cas_j3 cas_j4 cas_ganar cas_dificil cas_apoc cas_estrellas cas_bj',
   dinero: 'ahorro rico oroZ3 oro2000 bolsa1000 recoge500 bj25 bjnat slot3 ruleta5 fichas20 gallina saq sobres10 mojadas10',
   armas: 'k_viejo k_tesla k_bazuca k_corto k_ballesta k_magnum k_cowboy kb_vampira kb_apuesta rev3 fusion10 colat50 esp300 tirosesp150 col30 tipos8 tipos15',
-  mundo: 'objetos lugares10 lugares20 llaves10 cofres20 ramen5 calavera',
+  mundo: 'objetos lugares10 lugares20 llaves10 cofres20 ramen5 calavera cas_mapas cas_todos_mapas',
   grupo: 'grupo resc1 resc5 ayud5',
-  pers: 'sheriff todos hab20 hab5 pers5'
+  pers: 'sheriff todos hab20 hab5 pers5 cas_ludo cas_pers'
 })) for (const id of ids.split(' ')) ACH_CLASE[id] = k;
 // un logro nuevo que no esté en la lista va por su nombre de id, o a Combate
 const achClase = A => ACH_CLASE[A.id] || (A.id.startsWith('k_') || A.id.startsWith('kb_') ? 'armas' : A.id.startsWith('jefe') ? 'jefes' : A.id.startsWith('ol') ? 'aguante' : 'combate');
