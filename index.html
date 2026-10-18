@@ -2488,6 +2488,41 @@ const Sfx = (() => {
     lilith: { s: 'grito_francois', f: 204, F: [760, 1290, 2750], corto: [0.42, 0.26, 0.9], fuerte: [0.3, 0.56, 0.84], lp: 4200, hp: 380, g: 1.7 }
   };
   const dolT = {}, dolU = {};
+  // Quejidos de los zombis al recibir un balazo (PENDIENTES 36): cada tipo con su voz.
+  // f: tono (Hz) · F: formantes · v: vocal ('a' grito abierto, 'u' gruñido, 'm' boca cerrada) · r: velocidad del trozo grabado · w: cuánto «chof» húmedo
+  const ZVOZ = {
+    walker: { f: 86, F: [520, 900, 2200], v: 'u', r: 0.82, w: 1 },
+    crawler: { f: 74, F: [480, 820, 2100], v: 'm', r: 0.76, w: 1.5 },
+    runner: { f: 150, F: [700, 1200, 2600], v: 'a', r: 1.15, w: 0.9 },
+    spitter: { f: 96, F: [500, 880, 2150], v: 'u', r: 0.92, w: 1.8 },
+    screamer: { f: 255, F: [850, 1500, 3000], v: 'a', r: 1.4, w: 0.8 },
+    armored: { f: 92, F: [500, 860, 2100], v: 'm', r: 0.88, w: 0.7 },
+    copz: { f: 104, F: [560, 960, 2300], v: 'u', r: 0.95, w: 1 },
+    bloater: { f: 60, F: [420, 760, 1900], v: 'm', r: 0.62, w: 2.2 },
+    brute: { f: 56, F: [440, 800, 2000], v: 'a', r: 0.6, w: 1.3 },
+    saw: { f: 62, F: [460, 820, 2050], v: 'a', r: 0.64, w: 1.2 },
+    boss: { f: 46, F: [400, 720, 1800], v: 'a', r: 0.5, w: 1.4 },
+    abom: { f: 42, F: [380, 700, 1750], v: 'a', r: 0.48, w: 1.6 },
+    bandit: { f: 122, F: [640, 1120, 2500], v: 'a', r: 1.05, w: 0.9 },
+    axer: { f: 98, F: [560, 940, 2250], v: 'u', r: 0.9, w: 1 },
+    caballero: { f: 90, F: [520, 900, 2200], v: 'm', r: 0.86, w: 0.8 }
+  };
+  // para que una multitud no se vuelva ruido: como mucho 3 quejidos a la vez (con menos volumen cuantos más suenan),
+  // 5 «chof» cada cuarto de segundo y cada zombi se queja otra vez solo pasado un rato
+  const zhVoces = [], zhChof = [], zhCada = new WeakMap(); let zhUlt = 0;
+  function zChof(pan, vol, w, head) {
+    burst({ ftype: 'lowpass', f0: 950, f1: 170, q: 2.2, dur: 0.1 + 0.05 * w, vol: 0.32 * vol * Math.min(1.4, w), pan, wet: 0.12 });
+    burst({ ftype: 'bandpass', f0: rand(1300, 1700), f1: rand(420, 560), q: 4, dur: 0.07, vol: 0.18 * vol * w, pan, wet: 0.08, delay: 0.012 });
+    if (head) burst({ ftype: 'highpass', f0: 3200, q: 0.8, dur: 0.03, vol: 0.12 * vol, pan, wet: 0.05 });
+  }
+  function zGrito(V, tipo, pan, vol, muere) {
+    const dur = (muere ? rand(0.45, 0.7) : rand(0.22, 0.38)) * (V.f < 70 ? 1.3 : 1);
+    if (tipo === 'dog') { tone({ type: 'square', f0: rand(820, 980), f1: rand(420, 520), dur: 0.14, vol: 0.09 * vol, pan, wet: 0.2 }); tone({ type: 'sine', f0: 1300, f1: 700, dur: 0.16, vol: 0.07 * vol, pan, wet: 0.2 }); if (muere) tone({ type: 'sine', f0: 900, f1: 380, dur: 0.5, vol: 0.06 * vol, pan, delay: 0.15, wet: 0.4 }); return dur; }
+    // la mitad de las veces, un trozo de un quejido grabado en el tono de ese zombi; si no, su voz sintetizada
+    if (Math.random() < 0.5 && smpCut('zom_ghoul' + Math.floor(Math.random() * 6), { off: rand(0, 0.5), dur, rate: V.r * rand(0.92, 1.08), vol: Math.min(1, 1.6 * vol) * zVol, pan, lp: V.v === 'm' ? 1400 : 4200, wet: 0.25 })) return dur;
+    voz(ctx, bus(pan, 0.25), ctx.currentTime, V, V.v, dur, 0.05 * vol * zVol);
+    return dur;
+  }
   const smpOf = (pre, n, o) => smp(pre + Math.floor(Math.random() * n), o);
   const MODELS_AUTO = new Set(['uzi', 'minigun', 'mp5']);
   // Disparos grabados que eligió el dueño, uno por revólver de cada personaje (el resto, sintetizado)
@@ -2684,6 +2719,19 @@ const Sfx = (() => {
     insert() { if (smpOf('rl_in', 3, { vol: 0.7, rate: rand(0.95, 1.06), wet: 0.03 })) return; if (smpOf('clink', 3, { vol: 0.32, rate: rand(1.5, 1.8), wet: 0.04 })) { smp('tick1', { vol: 0.3, rate: rand(0.9, 1.1), delay: 0.05, wet: 0.03 }); return; } burst({ f0: 1800, f1: 3600, q: 2, dur: 0.06, vol: 0.12, wet: 0.05 }); burst({ f0: 4200, q: 6, dur: 0.02, vol: 0.22, delay: 0.06, wet: 0.05 }); tone({ type: 'square', f0: 2200, f1: 1600, dur: 0.03, vol: 0.05, delay: 0.06 }); tone({ type: 'triangle', f0: 3300, dur: 0.09, vol: 0.035, delay: 0.07, wet: 0.4 }); },
     clink(pan, v = 1) { if (smpOf('rl_tink', 3, { vol: 0.28 * v, pan, rate: rand(1.2, 1.6), wet: 0.1 })) return; tone({ type: 'triangle', f0: rand(3200, 4600), f1: rand(2400, 3000), dur: 0.06, vol: 0.05 * v, pan, wet: 0.2 }); tone({ type: 'sine', f0: rand(6000, 7600), dur: 0.03, vol: 0.02 * v, pan, wet: 0.1 }); },
     shells() { if (SMP.rl_tink0) { for (let i = 0; i < 5; i++) smpOf('rl_tink', 3, { vol: 0.32, rate: rand(1.05, 1.35), pan: rand(-0.3, 0.3), delay: 0.04 + i * rand(0.025, 0.06), wet: 0.05 }); return; } for (let i = 0; i < 6; i++) { const d = 0.22 + i * rand(0.03, 0.08), pn = rand(-0.4, 0.4); tone({ type: 'triangle', f0: rand(2600, 3800), f1: rand(1800, 2400), dur: 0.1, vol: 0.06, delay: d, pan: pn, wet: 0.25 }); tone({ type: 'triangle', f0: rand(4200, 5200), dur: 0.05, vol: 0.025, delay: d + 0.08, pan: pn, wet: 0.3 }); } },
+    // zombi herido por un balazo: «chof» húmedo y, a veces, su quejido (con límite de voces); z solo se usa para su espera
+    zHit(z, tipo, pan, vol, head, muere) {
+      if (!ctx || !(vol >= 0.02)) return;
+      const t = ctx.currentTime, V = ZVOZ[tipo] || ZVOZ.walker;
+      while (zhChof.length && zhChof[0] < t - 0.25) zhChof.shift();
+      if (zhChof.length < 5) { zChof(pan, vol / Math.sqrt(zhChof.length + 1), V.w, head); zhChof.push(t); }
+      for (let i = zhVoces.length - 1; i >= 0; i--) if (zhVoces[i] < t) zhVoces.splice(i, 1);
+      if (zhVoces.length >= 3 || t - zhUlt < 0.07 || (z && (zhCada.get(z) || 0) > t)) return;
+      if (!muere && Math.random() < 0.25) return;   // no todos los balazos arrancan un quejido: así no cansa
+      const d = zGrito(V, tipo, pan, Math.min(1, vol) / (1 + zhVoces.length * 0.6), muere);
+      zhUlt = t; zhVoces.push(t + d); if (z) zhCada.set(z, t + d + rand(0.35, 0.7));
+    },
+    zDiag() { return { voces: zhVoces.filter(x => ctx && x >= ctx.currentTime).length, chof: zhChof.length }; },
     hit(head, pan) {
       burst({ ftype: 'lowpass', f0: 900, f1: 200, q: 1, dur: 0.12, vol: 0.45, pan, wet: 0.1 });
       if (head) { tone({ type: 'triangle', f0: 1300, f1: 900, dur: 0.12, vol: 0.18 }); burst({ f0: 2400, q: 1, dur: 0.07, vol: 0.25, pan });
@@ -23738,6 +23786,7 @@ function damageZombie(z, amount, info) {
     if (!armorHit && Math.random() < (head ? 0.6 : 0.3)) addSplat(z.root.position.x + (info.dir ? info.dir.x * 0.8 : 0), z.root.position.z + (info.dir ? info.dir.z * 0.8 : 0), rand(0.2, 0.42));
     bloodBurst(info.point, info.dir || _up, armorHit ? 3 : head ? 26 : 14, head, z.type === 'bloater' || z.type === 'spitter' ? [0.3, 0.45, 0.08] : null);
     if (!info.ally && !armorHit) Sfx.hit(head, pan);
+    if (!armorHit) Sfx.zHit(z, z.type, pan, volOf(z.root.position, info.ally ? 0.45 : 0.9), head, z.hp <= 0);   // su quejido y el «chof» (PENDIENTES 36)
     z.stagger = Math.max(z.stagger, z.def.big ? 0.05 : head ? 0.45 : 0.25);
     if (!armorHit) goreHit(z, info, amount, false);
     if (!armorHit && z.hp > 0) zoneHit(z, info);

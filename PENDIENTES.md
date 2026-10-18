@@ -69,7 +69,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 35. **Diagrama de todo el sistema de progresión** para aclarar dudas antes de construir.
 
 ## Etapa 4 · Combate y contenido
-36. **Sonidos de los zombis al recibir balazos.**
+36. **Sonidos de los zombis al recibir balazos.** *Hecho (19-oct-2026): cada tipo de zombi tiene su quejido (grave en los grandes, agudo en corredores y gritonas, aullido en el perro) y un «chof» húmedo; como mucho 3 quejidos a la vez y en el menú van al 30 %.*
 37. **Animación 2D de un dado** para la habilidad de Johnny.
 38. **Animaciones de entrada para los jefes.**
 39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia).
