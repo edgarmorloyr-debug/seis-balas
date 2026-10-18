@@ -28,7 +28,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 - Decisiones del dueño (17-oct-2026): las balas normales y la venta de especiales van en la máquina expendedora (pestaña «Normales»), no en la caja registradora; la máquina ofrece 3 balas sueltas al azar por visita; Crisol = primera fusión gratis y Cupón del herrero = 30 % de no pagar; en grupo, la animación de la máquina solo la ve quien compra.
 20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar).
 
-## Etapa 1B · NUEVO SISTEMA DE BALAS (decisión del dueño, 18-oct-2026 · prioridad alta)
+## Etapa 1B · NUEVO SISTEMA DE BALAS (decisión del dueño, 18-oct-2026) · PUBLICADO el 19-oct-2026; se queda definitivamente y se ajusta paso a paso
 Cambio grande de mecánica para que el juego sea original (referencia de diseño: los objetos de The Binding of Isaac, pero con ideas propias).
 - **Se quitan todos los objetos** (objetos nuevos, mejoras y reliquias) y sus efectos se convierten en balas.
 - **El tambor** (6 espacios, puede subir o bajar según el personaje o algunas balas) guarda tus balas especiales; **no se gastan**.
