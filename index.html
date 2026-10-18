@@ -1737,6 +1737,8 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
    Pasivas cuadradas, activas redondas, color = rango, número = nivel, espacio vacío con línea punteada. ===== */
 .bf{--c:#b0b0b0;--f:#3a3a3a;--t:#e8e8e8;position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:48px;height:48px;border:2px solid var(--c);background:var(--f);color:var(--t);border-radius:8px;font:800 14px/1 system-ui,sans-serif;letter-spacing:0;text-transform:none;box-sizing:border-box}
 .bf.a{border-radius:50%}
+.bf .bi{width:92%;height:92%;display:block;pointer-events:none}.bf.a .bi{width:86%;height:86%}
+.bf.glow .bi{filter:drop-shadow(0 0 2px rgba(255,220,120,.6))}
 .bf.glow{box-shadow:0 0 10px var(--c)}
 .bf.neg{border-color:#ff2a2a;color:#ffd0d0;box-shadow:0 0 10px #ff2a2a}
 .bf small{position:absolute;top:-9px;right:-9px;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:#120c06;border:1px solid currentColor;font:700 14px/18px system-ui,sans-serif;text-align:center}
@@ -1761,6 +1763,7 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
 .cn-ring .ch.vc{background:#0a0b0d}
 .cn-ring .ch.ac{background:var(--c);color:#fff;text-shadow:0 1px 2px #000;box-shadow:0 0 12px var(--c)}
 .cn-ring .ch.nx{outline:3px solid #fff;outline-offset:2px}
+.cn-ring .ch .bi{width:82%;height:82%;pointer-events:none}
 .pc-keys .cn-ring .ch::after{content:attr(data-n);position:absolute;bottom:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:#120c06;color:#ffd77a;border:1px solid #b8893a;font:700 14px/16px system-ui,sans-serif;text-shadow:none}
 .cn-ring.mini{--d:76px}.cn-ring.mini .ch{width:12px;height:12px;margin:-6px 0 0 -6px;border-width:1px;pointer-events:none}.cn-ring.mini .ch.nx{outline-width:2px;outline-offset:1px}
 .cn-rings{display:flex;gap:6px}
@@ -21626,12 +21629,155 @@ const cache = {};
 function setText(node, key, v) { if (cache[key] !== v) { cache[key] = v; node.textContent = v; } }
 function setStyle(node, key, prop, v) { if (cache[key] !== v) { cache[key] = v; node.style[prop] = v; } }
 const SVGNS = 'http://www.w3.org/2000/svg';
+/* ---- Dibujo de cada bala (pedido del dueño, 18-oct-2026): un icono propio, plano y grueso, estilo casino del oeste.
+   Todo es SVG dibujado aquí mismo (sin imágenes ni emojis). Caja de 32 × 32; cada figura base mide unos 20 de ancho y se centra en 0,0. */
+// Borrador guardado (el dueño elige primero el estilo del dibujo): con BAL_ICONOS = false las fichas siguen con su nombre corto
+const BAL_ICONOS = false;
+const BAL_ICO = (() => {
+  const K = { cr: '#f6e7c8', go: '#ffc83a', gd: '#b8800e', re: '#ec4a30', ic: '#a6ecff', ib: '#4ab8e8', ye: '#ffe14a', pu: '#c47cff', pd: '#3c0f66', gr: '#6cd46a', st: '#cfd6de', sd: '#7a8490', pk: '#ff8ad8', or: '#ff9a30', br: '#b0702e', bd: '#6a3e16', dk: '#1a120a', wh: '#ffffff', bl: '#5a9aff', ol: '#8a9a5a' };
+  const f2 = n => +n.toFixed(2);
+  const c = (x, y, r, f) => `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(r)}" fill="${f}"/>`;
+  const e = (x, y, rx, ry, f) => `<ellipse cx="${f2(x)}" cy="${f2(y)}" rx="${f2(rx)}" ry="${f2(ry)}" fill="${f}"/>`;
+  const r = (x, y, w, h, rx, f) => `<rect x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" rx="${f2(rx)}" fill="${f}"/>`;
+  const p = (pts, f) => `<polygon points="${pts}" fill="${f}"/>`;
+  const d = (dd, f) => `<path d="${dd}" fill="${f}"/>`;
+  const s = (dd, col, w = 2.4) => `<path d="${dd}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const g = (x, y, k, inner, rot = 0) => `<g transform="translate(${f2(x)} ${f2(y)})${rot ? ` rotate(${rot})` : ''} scale(${f2(k)})">${inner}</g>`;
+  const estrella = (n, ro, ri, f, rot = -90) => { const q = []; for (let i = 0; i < n * 2; i++) { const a = (rot + i * 180 / n) * Math.PI / 180, R = i % 2 ? ri : ro; q.push(f2(Math.cos(a) * R) + ',' + f2(Math.sin(a) * R)); } return p(q.join(' '), f); };
+  // ---- figuras base (centradas en 0,0)
+  const F = {
+    moneda: () => c(0, 0, 10, K.go) + c(0, 0, 7, K.gd) + s('M3.5 -3.5 C3 -6 -3.5 -6 -3.5 -3 C-3.5 0 3.5 -0.5 3.5 2.5 C3.5 5.5 -3 5.5 -3.8 3', K.go, 2.2) + s('M0 -7 V7', K.go, 1.6),
+    dado: (pips, cara = K.cr, pip = K.dk) => { const P_ = { 1: [[0, 0]], 2: [[-4, -4], [4, 4]], 3: [[-4.5, -4.5], [0, 0], [4.5, 4.5]], 5: [[-4.5, -4.5], [4.5, -4.5], [0, 0], [-4.5, 4.5], [4.5, 4.5]], 6: [[-4.5, -5], [4.5, -5], [-4.5, 0], [4.5, 0], [-4.5, 5], [4.5, 5]] }; return r(-9.5, -9.5, 19, 19, 4.5, cara) + P_[pips].map(([x, y]) => c(x, y, 2.1, pip)).join(''); },
+    copo: (col = K.ic) => [0, 60, 120].map(a => `<g transform="rotate(${a})">${s('M0 -10 V10 M-3.5 -7.5 L0 -4.5 L3.5 -7.5 M-3.5 7.5 L0 4.5 L3.5 7.5', col, 2.6)}</g>`).join('') + c(0, 0, 2.2, K.wh),
+    rayo: (col = K.ye) => p('3,-11 -7,1.5 -1,1.5 -4,11 7.5,-2.5 1.5,-2.5 5,-11', col),
+    pica: (col = K.dk) => d('M0 -10 C3 -6 10 -2.5 10 2.5 C10 6.5 5.5 8 1.6 5.6 L3.2 10 L-3.2 10 L-1.6 5.6 C-5.5 8 -10 6.5 -10 2.5 C-10 -2.5 -3 -6 0 -10Z', col),
+    corazon: (col = K.re) => d('M0 9 C-8 3.5 -10.5 -0.5 -10 -4.5 C-9.4 -9 -3 -10 0 -5 C3 -10 9.4 -9 10 -4.5 C10.5 -0.5 8 3.5 0 9Z', col),
+    trebol: (col = K.gr) => c(0, -5, 4.6, col) + c(-5, 1, 4.6, col) + c(5, 1, 4.6, col) + p('-1.4,1 1.4,1 3,10 -3,10', col),
+    rombo: (col = K.re) => p('0,-10 7.5,0 0,10 -7.5,0', col),
+    carta: (palo, col) => r(-7.5, -10.5, 15, 21, 2.2, K.cr) + r(-5.5, -8.5, 11, 17, 1.2, '#efdcb4') + g(0, 0, 0.55, F[palo](col)),
+    ala: lado => `<g transform="scale(${lado} 1)">${d('M0 0 C-3 -8 -11 -11 -14 -8 C-11 -6.5 -9.5 -5 -8.5 -3.2 C-11.5 -3.2 -14 -1 -14 1.5 C-11 0.4 -8.8 0.6 -7 1.6 C-8.5 3.6 -8.5 6 -7.2 7.5 C-4 5.6 -1.5 3.2 0 0Z', K.cr)}</g>`,
+    aureola: (col = K.go) => `<ellipse cx="0" cy="0" rx="7" ry="2.4" fill="none" stroke="${col}" stroke-width="2.4"/>`,
+    corona: (col = K.go) => p('-10,5 -10,-6 -5,-0.5 0,-9.5 5,-0.5 10,-6 10,5', col) + r(-10.5, 4.5, 21, 4, 1.2, col) + c(0, 6.5, 1.5, K.re) + c(-6, 6.5, 1.2, K.bl) + c(6, 6.5, 1.2, K.bl),
+    calavera: (ojo = K.dk) => c(0, -2.5, 8.5, K.cr) + r(-5, 2.5, 10, 7, 2, K.cr) + c(-3.3, -2, 2.4, ojo) + c(3.3, -2, 2.4, ojo) + p('0,1.5 -1.5,4 1.5,4', K.dk) + r(-3.2, 6.5, 1.2, 3, 0.4, K.dk) + r(-0.6, 6.5, 1.2, 3, 0.4, K.dk) + r(2, 6.5, 1.2, 3, 0.4, K.dk),
+    casco: (col = K.st) => d('M-8 10 L-8 -1 C-8 -9.5 8 -9.5 8 -1 L8 10Z', col) + r(-6.5, -1.5, 13, 2.8, 1, K.dk) + r(-0.8, 1.5, 1.6, 7, 0.6, K.sd) + d('M0 -9 C4 -14 9 -12 10 -9 C6 -10 3 -9 0 -7Z', K.re),
+    reloj: () => r(-1.8, -12, 3.6, 3.5, 1, K.go) + c(0, 1, 10, K.go) + c(0, 1, 7.6, K.cr) + s('M0 1 V-4.5 M0 1 L4 3.5', K.dk, 2),
+    arena: () => r(-8, -11, 16, 3, 1, K.br) + r(-8, 8, 16, 3, 1, K.br) + p('-6.5,-8 6.5,-8 0,0', K.ic) + p('0,0 6.5,8 -6.5,8', K.ic) + p('-4,-5.5 4,-5.5 0,-1', K.go) + p('0,2 4.6,8 -4.6,8', K.go),
+    espiral: (col = K.pk) => s('M0 0 C2 -2 4.2 0 3.2 3 C1.6 6.6 -4.6 6 -5.8 1.2 C-7 -4.6 -0.6 -8.6 4.6 -6.6 C10 -4.4 10.4 4 6.4 8', col, 2.8),
+    ojo: (iris = K.pu, centro = null) => d('M-11 0 C-6 -8 6 -8 11 0 C6 8 -6 8 -11 0Z', K.cr) + c(0, 0, 5, iris) + (centro || c(0, 0, 2.2, K.dk)) + c(1.6, -1.8, 1, K.wh),
+    agujero: () => c(0, 0, 10, K.pu) + c(0, 0, 7.4, '#6a2aa8') + c(0, 0, 4.6, '#08020e') + `<ellipse cx="0" cy="0" rx="11.5" ry="3" fill="none" stroke="${K.or}" stroke-width="1.8" transform="rotate(-20)"/>`,
+    tragaperras: (cuerpo = K.re, barra = K.re) => r(-8.5, -10, 15, 20, 3, cuerpo) + r(-6.5, -6, 11, 8, 1.2, K.cr) + [-4.3, -1, 2.3].map(x => r(x - 1.2, -4.5, 2.4, 5, 0.6, barra)).join('') + r(-6.5, 4.5, 11, 3, 1, K.dk) + s('M7 -2 L10 -2 L10 -8', K.st, 2) + c(10, -9, 2.2, K.re),
+    ficha: (col = K.re) => c(0, 0, 10, col) + [0, 60, 120, 180, 240, 300].map(a => `<rect x="-1.6" y="-10" width="3.2" height="3.6" fill="${K.cr}" transform="rotate(${a})"/>`).join('') + c(0, 0, 6, K.cr) + c(0, 0, 4.2, col),
+    llama: (col = K.or, dentro = K.ye) => d('M0 -11 C6 -4.5 8.5 1 6.5 5.5 C5 8.6 2.5 10 0 10 C-2.5 10 -5 8.6 -6.5 5.5 C-8.5 1 -5.5 -2 -3 -5 C-2.5 -2 -1.5 -1 0 -1 C-1 -4 -1 -8 0 -11Z', col) + d('M0 -1 C3 2 3.6 5 2.4 7 C1.6 8.4 -1.6 8.4 -2.4 7 C-3.4 5 -2 2.5 0 -1Z', dentro),
+    escudo: (col = K.st) => d('M0 -10.5 L9 -7 C9 2 6 7.5 0 10.5 C-6 7.5 -9 2 -9 -7Z', col),
+    bomba: () => c(-1, 2, 8.5, K.sd) + c(-3.5, -0.5, 2.4, K.st) + r(2.5, -9, 4.5, 4.5, 1, K.sd) + s('M6 -8 C8 -11 10 -10 11 -12', K.br, 1.8) + g(11, -12, 0.28, estrella(6, 10, 4.5, K.ye)),
+    nube: () => c(-5, 1, 5.5, K.cr) + c(1, -2.5, 6.5, K.cr) + c(6.5, 1.5, 4.5, K.cr) + r(-10, 1, 20, 5.5, 2.8, K.cr),
+    bolsa: (col = K.br) => d('M-4 -6 L4 -6 C9 -1 10.5 4 9.5 7.5 C8.5 10.5 -8.5 10.5 -9.5 7.5 C-10.5 4 -9 -1 -4 -6Z', col) + p('-4,-6 -6,-11 -1.5,-8.5 0,-11.5 1.5,-8.5 6,-11 4,-6', col) + r(-4.6, -7.4, 9.2, 2.6, 1, K.bd),
+    revolver: (col = K.st) => d('M-11 -3.5 L5 -3.5 L5 -6 L11 -6 L11 -1.5 L3 -1.5 L3 1 C3 2.5 1.5 3 0.5 2 L-1 0.5 L-2 0.5 L-4 9 C-4.3 10 -5.6 10.3 -6.6 10 L-8.8 9.4 C-9.6 9.2 -10 8.4 -9.7 7.6 L-7.4 0 L-11 0Z', col) + c(-1.5, -1.5, 2.3, K.sd),
+    espada: (col = K.st) => p('0,-11.5 2.2,-8.5 2.2,4.5 -2.2,4.5 -2.2,-8.5', col) + r(-6.5, 4, 13, 2.6, 1.2, K.go) + r(-1.4, 6.4, 2.8, 4.2, 0.8, K.br) + c(0, 11.4, 1.8, K.go),
+    estrellita: (col = K.wh) => estrella(4, 10, 3, col),
+    bala: (punta = K.st) => r(-3.6, -2, 7.2, 12, 1, K.go) + d('M-3.6 -2 C-3.6 -8 -1.5 -11 0 -11.5 C1.5 -11 3.6 -8 3.6 -2Z', punta) + r(-4.4, 8.4, 8.8, 2.2, 0.8, K.gd),
+    infinito: (col = K.go) => s('M0 0 C-3 -5 -10 -5 -10 0 C-10 5 -3 5 0 0 C3 -5 10 -5 10 0 C10 5 3 5 0 0Z', col, 3),
+    viento: (col = K.ic) => s('M-10 -4 H4 C8 -4 8 -9 4.5 -9 M-10 1 H8 C12 1 12 7 8 6.5 M-8 6 H0', col, 2.4),
+    flecha: (col = K.cr) => s('M-9 9 L8 -8', col, 2.4) + p('9,-9 2,-7.5 7.5,-2', col) + p('-9,9 -9.5,4 -5,8.5', col)
+  };
+  const B = (x, y, k, inner) => g(x, y, k, inner);   // figura chica en una esquina
+  // ---- las 85 balas
+  const I = {
+    oro: () => F.moneda(),
+    cinturon: () => r(-11.5, -3, 23, 7.5, 2, K.br) + [-9.5, -6.5, 5, 8].map(x => r(x - 1, -8, 2.4, 6, 1, K.go)).join('') + r(-4.5, -5.5, 9, 12.5, 2, K.go) + r(-2.4, -3.4, 4.8, 8.3, 1, K.bd) + r(-0.6, -3, 1.2, 4.5, 0.5, K.go),
+    polvora: () => r(-7.5, -6, 15, 17, 5, K.br) + r(-7.5, -2.4, 15, 2.2, 0, K.bd) + r(-7.5, 5, 15, 2.2, 0, K.bd) + e(0, -6, 7.5, 2.4, K.bd) + s('M0 -7 C1 -10 4 -10 5 -12', K.cr, 1.8) + g(6, -12.5, 0.32, estrella(7, 10, 4.5, K.ye)),
+    pluma: () => d('M10 -11 C1 -10 -6 -3 -7 7 L-5 9 C4 8 11 1 10 -11Z', K.cr) + s('M-9 11 L6 -6', K.bd, 1.6) + s('M1 -2 L5 -1 M-1 2 L3 3 M3 -6 L7 -5', K.bd, 1.1),
+    cantimplora: () => r(-1.8, -11.5, 3.6, 4, 1, K.st) + c(0, 1.5, 9.5, K.ol) + c(0, 1.5, 6.6, '#a8b878') + s('M-9 -4 C-9 -10 9 -10 9 -4', K.br, 1.8) + c(-2.5, -1, 1.8, '#c8d898'),
+    apuesta: () => F.ficha(K.re),
+    robot: () => s('M0 -7 V-11', K.st, 1.8) + c(0, -11.5, 2, K.re) + r(-9, -7.5, 18, 16, 3.5, K.st) + c(-4, -1, 2.6, K.ib) + c(4, -1, 2.6, K.ib) + r(-4.5, 4, 9, 2.2, 1, K.dk) + r(-11.5, -2, 2.5, 6, 1, K.sd) + r(9, -2, 2.5, 6, 1, K.sd),
+    caramelo: () => p('-6,0 -12,-6 -11,6', K.pk) + p('6,0 12,-6 11,6', K.pk) + c(0, 0, 7, K.pk) + s('M-4 -5.5 C-1 -2 -1 2 -4 5.5 M2 -6.5 C5 -3 5 3 2 6.5', K.wh, 1.8),
+    tahur: () => r(-6, -10, 12, 13.5, 1.5, K.cr) + r(-11, 3, 22, 3.6, 1.8, K.cr) + r(-6, -1, 12, 3, 0, K.re) + g(7, 8, 0.36, F.carta('pica', K.dk), 14),
+    escarcha: () => F.copo(),
+    relampago: () => F.rayo(),
+    bumeran: () => d('M-10.5 7 L-3 -9 C-1.5 -11.5 2.5 -10.6 1.6 -7.4 L-3.6 4 L9 4 C12 4 12.2 8.6 9 8.6 L-8.6 8.6 C-10.6 8.6 -11.4 8.2 -10.5 7Z', K.or) + s('M-6 5 L-1 -6', K.ye, 1.2),
+    suerte: () => d('M-9 -8 C-12 4 -6 10 0 10 C6 10 12 4 9 -8 L4 -8 C6 0 4 5 0 5 C-4 5 -6 0 -4 -8Z', K.go) + [[-7.5, -4], [-7.2, 2], [7.5, -4], [7.2, 2]].map(([x, y]) => c(x, y, 1, K.dk)).join(''),
+    dadocargado: () => F.dado(5) + d('M5 4 L11 4 L11 11 C11 12 10 12.5 9 12.5 L7 12.5 C6 12.5 5 12 5 11Z', K.sd) + c(8, 3.5, 1.2, K.sd),
+    invocacion: () => `<circle cx="0" cy="0" r="10" fill="none" stroke="${K.pu}" stroke-width="2.4"/>` + estrella(5, 8, 3.2, K.pu) + c(0, 0, 1.8, K.wh),
+    hipnotica: () => F.espiral(K.pk),
+    reloj: () => F.reloj(),
+    ruleta: () => c(0, 0, 10.5, K.st) + [0, 60, 120, 180, 240, 300].map(a => { const x = Math.sin(a * Math.PI / 180) * 6, y = -Math.cos(a * Math.PI / 180) * 6; return c(x, y, 2.6, a ? K.dk : K.re); }).join('') + c(0, 0, 1.8, K.sd),
+    rey: () => F.corona(),
+    fenix: () => F.ala(1) + F.ala(-1) + g(0, 1, 0.75, F.llama(K.re, K.or)),
+    angel: () => g(-1, 4, 0.82, F.ala(1)) + g(1, 4, 0.82, F.ala(-1)) + g(0, -8, 1, F.aureola()) + c(0, 0, 3.6, K.cr),
+    agujero: () => F.agujero(),
+    tragamonedas: () => F.tragaperras(),
+    espejo: () => r(-1.8, 5, 3.6, 7, 1, K.br) + e(0, -2, 8, 9.5, K.go) + e(0, -2, 6, 7.5, K.ic) + s('M-3 -6 L-1 -8 M-3.5 -2 L1 -6.5', K.wh, 1.4),
+    iman: () => d('M-9 -10 L-3 -10 L-3 1 C-3 5 3 5 3 1 L3 -10 L9 -10 L9 1 C9 13 -9 13 -9 1Z', K.re) + r(-9, -10, 6, 4, 0, K.st) + r(3, -10, 6, 4, 0, K.st),
+    alcancia: () => e(0, 2, 10, 7.5, K.pk) + c(-8.5, 1, 3, K.pk) + p('-3,-4 -1,-9 2,-4', K.pk) + r(-6, 7, 3, 4, 1, K.pk) + r(3, 7, 3, 4, 1, K.pk) + r(-2.5, -4.6, 6, 1.6, 0.8, K.dk) + c(-4.5, -0.5, 1.1, K.dk) + c(-9.4, 1, 0.8, K.dk) + B(7, -7, 0.33, F.moneda()),
+    usurero: () => F.bolsa(K.br) + c(0, 3.5, 4.5, K.go) + s('M0 0.5 V6.5', K.bd, 1.4),
+    mercenaria: () => `<g transform="rotate(-38)">${F.espada()}</g><g transform="rotate(38)">${F.espada()}</g>`,
+    dado: () => F.dado(3),
+    racimo: () => [[-4.5, -4], [4.5, -4], [0, 3.5], [-6, 5], [6, 5], [0, -9.5]].map(([x, y]) => c(x, y, 3.8, K.st) + c(x - 1.1, y - 1.1, 1.2, K.wh)).join(''),
+    junior: () => g(0, 1, 0.82, F.bala()) + `<path d="M-9 -2 A9.5 9.5 0 1 1 -6 7" fill="none" stroke="${K.gr}" stroke-width="2.4" stroke-linecap="round"/>` + p('-10.5,4.5 -4,6.5 -8.5,10.5', K.gr),
+    espuelas: () => s('M-11 -3 C-6 3 0 3 2 1', K.br, 3.4) + g(5, 1, 0.62, estrella(8, 9, 3.6, K.st)) + c(5, 1, 2, K.sd),
+    bolsa: () => F.bolsa(K.pu) + g(0, 3, 0.45, estrella(4, 10, 3, K.ye)) + g(8, -9, 0.3, estrella(4, 10, 3, K.wh)),
+    taladro: () => d('M-11 -3.5 L-3 -3.5 L-3 3.5 L-11 3.5Z', K.go) + d('M-3 -5.5 L4 -3 L11 0 L4 3 L-3 5.5Z', K.st) + s('M-1 -5 L1 5 M3 -3.6 L5 3.6 M7 -2 L8 2', K.sd, 1.4),
+    vampira: () => d('M0 -3 C-2 -6 -6 -7 -11 -5 C-9 -3 -9 0 -10 2 C-7 1 -5 2 -4 4 C-3 2 -1 2 0 4 C1 2 3 2 4 4 C5 2 7 1 10 2 C9 0 9 -3 11 -5 C6 -7 2 -6 0 -3Z', K.re) + p('-2.4,4 -1.4,8.5 -0.4,4', K.wh) + p('0.4,4 1.4,8.5 2.4,4', K.wh) + c(-2.4, -1, 1, K.ye) + c(2.4, -1, 1, K.ye),
+    frita: () => estrella(10, 11, 5, K.or) + estrella(8, 6.5, 3, K.ye) + c(0, 0, 2.2, K.wh),
+    segundoaire: () => F.viento(K.ic) + B(6, 7, 0.38, F.corazon()),
+    punteria: () => `<circle cx="0" cy="0" r="8" fill="none" stroke="${K.re}" stroke-width="2.6"/>` + s('M0 -11.5 V-4 M0 4 V11.5 M-11.5 0 H-4 M4 0 H11.5', K.re, 2.6) + c(0, 0, 1.8, K.re),
+    trago: () => r(-2, -12, 4, 4, 1, K.br) + r(-2.8, -9, 5.6, 4, 1, K.gd) + d('M-2.8 -5 L-6.5 -1 L-6.5 10 C-6.5 11 -5.5 11.5 -4.5 11.5 L4.5 11.5 C5.5 11.5 6.5 11 6.5 10 L6.5 -1 L2.8 -5Z', K.or) + r(-6.5, 1.5, 13, 5.5, 0, K.cr) + r(-3.5, 3.4, 7, 1.6, 0.6, K.re),
+    chicles: () => c(0, -3, 8.5, K.ic) + [[-3.5, -5], [2.5, -6.5], [4, -1], [-2, 0], [0.5, -3]].map(([x, y], i) => c(x, y, 2.3, [K.re, K.ye, K.gr, K.pk, K.bl][i])).join('') + r(-6.5, 4.5, 13, 7, 1.6, K.re) + r(-1.6, 7, 3.2, 2.4, 0.6, K.dk),
+    crupier: () => g(-2, -1, 0.8, I.robot()) + B(6.5, 6, 0.42, F.carta('corazon', K.re)),
+    congelador: () => r(-9, -9, 18, 18, 3.5, K.ic) + r(-6, -6, 5, 3, 1.5, K.wh) + g(0, 0, 0.55, F.copo(K.ib)),
+    tesla: () => r(-6, 4, 12, 7.5, 1.5, K.sd) + [-1, 2.4].map(y => e(0, y, 5.5, 1.8, K.go)).join('') + r(-1.6, -6, 3.2, 8, 1, K.go) + c(0, -7, 3.2, K.st) + g(-6.5, -6, 0.42, F.rayo(K.ye), -25) + g(6.5, -6, 0.42, F.rayo(K.ye), 25),
+    dron: () => r(-5, -2, 10, 6, 2.5, K.st) + c(0, 1, 1.6, K.re) + s('M-5 0 L-9 -3 M5 0 L9 -3', K.sd, 1.8) + e(-9, -4.5, 4.6, 1.4, K.cr) + e(9, -4.5, 4.6, 1.4, K.cr) + s('M-2 4 L-3 8 M2 4 L3 8', K.sd, 1.6),
+    golosina: () => r(-1.2, 1, 2.4, 11, 1, K.cr) + c(0, -3, 8.5, K.pk) + g(0, -3, 0.72, F.espiral(K.wh)) + B(8, 8, 0.32, F.trebol()),
+    helado: () => p('-7,-1 7,-1 0,12', K.or) + s('M-4.5 2 L3.5 9 M4.5 2 L-3.5 9', K.br, 1.2) + c(-3.5, -4, 4.6, K.ic) + c(3.5, -4, 4.6, K.pk) + c(0, -8.5, 4.4, K.cr),
+    chicleelec: () => c(-1.5, 1.5, 8.5, K.pk) + c(-4, -1.5, 2.4, '#ffc4ee') + g(6, -5, 0.55, F.rayo()),
+    pinata: () => estrella(5, 11, 5.2, K.pk) + estrella(5, 6.5, 3, K.ye) + c(0, 0.5, 2, K.re),
+    pokerhielo: () => F.carta('copo', K.ib),
+    carta: () => F.carta('pica', K.dk) + d('M7.5 -10.5 L7.5 -4 L2.5 -10.5Z', K.re),
+    truco: () => `<g transform="rotate(-40)">${r(-1.6, -9, 3.2, 18, 1, K.dk)}${r(-1.6, -9, 3.2, 4, 1, K.wh)}${r(-1.6, 5, 3.2, 4, 1, K.wh)}</g>` + g(-6, -6, 0.42, F.estrellita(K.ye)) + g(7, 6, 0.32, F.estrellita(K.ye)) + g(6.5, -7.5, 0.25, F.estrellita(K.wh)),
+    ventisca: () => g(-2, -2, 0.75, F.copo()) + g(1, 5, 0.55, F.viento(K.wh)),
+    carambano: () => p('-10,-9 10,-9 7,-6 4,10 1.5,-6 -1,6 -3.5,-6 -6,3 -8,-6', K.ic) + r(-10.5, -11, 21, 3, 1.2, K.wh),
+    rayobum: () => I.bumeran().replace(new RegExp(K.or, 'g'), K.ye) + g(-4, -7, 0.38, F.rayo(K.wh)),
+    trebol: () => [0, 90, 180, 270].map(a => `<g transform="rotate(${a})">${d('M0 0 C-6 -2 -8 -8 -4 -10 C-2 -11 0 -9 0 -7 C0 -9 2 -11 4 -10 C8 -8 6 -2 0 0Z', K.gr)}</g>`).join('') + s('M0 0 C2 5 3 8 6 11', K.gr, 2),
+    angelguardian: () => F.ala(1) + F.ala(-1) + g(0, 1, 0.78, F.escudo(K.cr)) + s('M0 -4 V6 M-3.5 0 H3.5', K.go, 2),
+    encantador: () => g(0, 1, 0.9, F.corazon(K.pk)) + g(0, 0, 0.9, F.flecha(K.go)),
+    asespadas: () => r(-7.5, -10.5, 15, 21, 2.2, K.cr) + g(0, 1, 0.68, F.pica(K.dk)) + s('M-5.8 -4.6 L-4.3 -9 L-2.8 -4.6 M-5.2 -6.2 L-3.4 -6.2', K.re, 1.2),
+    ruletadorada: () => c(0, 0, 11, K.go) + c(0, 0, 9, K.dk) + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M0 0 L0 -9 A9 9 0 0 1 6.36 -6.36Z" fill="${i % 2 ? K.re : '#2a1a0e'}" transform="rotate(${i * 45})"/>`).join('') + c(0, 0, 4, K.go) + c(0, -7, 1.6, K.wh),
+    legion: () => g(-6, 2, 0.55, F.casco(K.sd)) + g(6, 2, 0.55, F.casco(K.sd)) + g(0, 0, 0.68, F.casco(K.st)),
+    titiritero: () => r(-10, -11, 20, 3, 1.2, K.br) + r(-1.5, -12.5, 3, 6, 1, K.br) + s('M-8 -8 L-4 1 M8 -8 L4 1 M0 -6 L0 -2', K.wh, 0.9) + c(0, 0, 3, K.cr) + r(-2.5, 3, 5, 6, 1.2, K.re) + s('M-2 9 L-3 12 M2 9 L3 12 M-2.5 4 L-5 1 M2.5 4 L5 1', K.cr, 1.4),
+    relojarena: () => F.arena(),
+    seisdeseis: () => F.dado(6, K.go, K.dk) + B(8.5, -8.5, 0.32, estrella(8, 10, 4, K.re)),
+    nigromante: () => F.calavera(K.gr) + c(-3.3, -2, 1, K.wh) + c(3.3, -2, 1, K.wh),
+    caballerotiempo: () => g(-1.5, 0, 0.88, F.casco()) + B(7, 7, 0.4, F.reloj()),
+    duelo: () => g(-1, -5, 0.78, F.revolver()) + `<g transform="translate(1 5) scale(-0.78 0.78)">${F.revolver(K.go)}</g>`,
+    hipnosiseterna: () => F.ojo(K.pu, g(0, 0, 0.42, F.espiral(K.wh))),
+    traicion: () => F.bomba() + B(-6.5, 7.5, 0.36, F.calavera()),
+    tormenta: () => g(0, -3, 1, F.nube()) + g(1, 7.5, 0.55, F.rayo()),
+    emperador: () => g(0, -2, 0.95, F.corona(K.go)) + B(0, 8.5, 0.42, F.llama()),
+    corona: () => g(0, 1, 0.92, F.corona(K.wh)) + g(-9, -9, 0.3, F.estrellita(K.ic)) + g(9, -8, 0.24, F.estrellita(K.ic)) + g(0, -11, 0.2, F.estrellita(K.ic)),
+    reyvacio: () => g(0, 2, 0.85, F.agujero()) + B(0, -9, 0.42, F.corona()),
+    jackpot: () => F.tragaperras(K.go, K.re) + g(-2, -2, 0.3, F.estrellita(K.wh)),
+    cortespejos: () => p('-10,-6 -3,-11 -1,8 -8,10', K.ic) + p('1,-9 9,-11 10,9 3,7', K.wh) + s('M-7 -5 L-5 3 M4 -6 L6 2', K.ib, 1.2),
+    resurreccion: () => F.llama(K.ye, K.wh) + s('M0 -4 V7 M-3.5 0 H3.5', K.go, 2),
+    supernova: () => estrella(12, 11.5, 4.5, K.ye) + estrella(12, 7, 3, K.wh) + c(0, 0, 3, K.wh),
+    avefortuna: () => d('M-11 -2 C-6 -9 -1 -6 0 -2 C2 -8 8 -10 11 -7 C7 -6 5 -2 4 1 C6 1 8 2 9 4 C5 5 2 5 0 4 C-4 6 -8 4 -9 2 C-6 2 -4 1 -3 0 C-6 0 -9 -1 -11 -2Z', K.go) + B(0, 8, 0.38, F.moneda()),
+    reflejo: () => g(0, 1, 1, F.escudo(K.st)) + g(0, 2, 0.62, F.llama(K.re, K.or)),
+    cieloabismo: () => d('M0 -10 A10 10 0 0 0 0 10Z', K.cr) + d('M0 -10 A10 10 0 0 1 0 10Z', '#2a0a4a') + c(5, 0, 3, '#08020e') + g(-4.5, 0, 0.32, F.estrellita(K.go)) + g(0, -12, 0.6, F.aureola()),
+    milagro: () => F.tragaperras(K.cr, K.go) + g(-9, -9, 0.32, F.estrellita(K.ye)) + g(9.5, 8, 0.26, F.estrellita(K.ye)),
+    gemelo: () => [[-4, K.ic], [4, K.cr]].map(([x, col]) => c(x, -5, 3.6, col) + d(`M${x - 5} 11 C${x - 5} 2 ${x - 3} 0 ${x} 0 C${x + 3} 0 ${x + 5} 2 ${x + 5} 11Z`, col)).join('') + g(0, -11, 0.5, F.aureola()),
+    casinoabismo: () => g(0, 0, 0.9, F.agujero()) + B(7.5, 7.5, 0.38, F.ficha(K.re)),
+    horizonte: () => g(-5, -4, 0.55, F.agujero()) + g(5, 4, 0.55, F.agujero()) + s('M-1 -1 C1 -2 2 0 1 1', K.or, 1.4),
+    doblenada: () => g(0, -3, 0.62, F.ficha(K.re)) + g(0, 7, 0.55, F.infinito()),
+    negra: () => r(-7.5, -11, 15, 22, 2, '#2a0606') + r(-5.5, -9, 11, 18, 1, '#120202') + c(3, 0, 1.4, K.re) + s('M-4 -4 L0 0 L-4 4', K.re, 2)
+  };
+  const cache = {};
+  return k => cache[k] || (cache[k] = I[k] ? `<svg class="bi" viewBox="0 0 32 32" aria-hidden="true" stroke="#140a04" stroke-width="1.3" stroke-linejoin="round" paint-order="stroke"><g transform="translate(16 16) scale(1.27)">${I[k]()}</g></svg>` : '');
+})();
 /* ---- Slot, cañón y caja en la pantalla (boceto aprobado el 18-oct-2026) ---- */
 // la ficha de una bala: cuadrada si es pasiva, redonda si es activa, color del rango y número = nivel
 function balFicha(k, lv, cls = '') {
   const B = BULLETS[k]; if (!B || !BALAS[k]) return '';
   const R = BAL.rangos[B.rango], neg = k === 'negra';
-  return `<span class="bf ${B.act ? 'a' : 'p'}${R.brillo ? ' glow' : ''}${neg ? ' neg' : ''} ${cls}" style="--c:${R.col};--f:${neg ? '#141414' : R.fondo};--t:${R.texto}" title="${B.name}">${B.corto}${lv ? `<small>${lv}</small>` : ''}</span>`;
+  return `<span class="bf ${B.act ? 'a' : 'p'}${R.brillo ? ' glow' : ''}${neg ? ' neg' : ''} ${cls}" style="--c:${R.col};--f:${neg ? '#141414' : R.fondo};--t:${R.texto}" title="${B.name}">${(BAL_ICONOS && BAL_ICO(k)) || B.corto}${lv ? `<small>${lv}</small>` : ''}</span>`;
 }
 const balTipo = k => !BULLETS[k] ? '' : BULLETS[k].act ? (BULLETS[k].vuelve ? 'Activa · vuelve a la caja' : 'Activa · se rompe al usarla') : 'Pasiva';
 // el cañón grande (con las recámaras para tocar) es para un solo revólver de hasta 8 balas; con dos armas o cargadores grandes se ve chico y las activas van en fila
@@ -21668,7 +21814,7 @@ function refreshChambers() {
       if (c) {
         const cls = 'ch ' + (ld ? (esAct ? 'ac' : s === 'mala' ? 'ml' : 'nr') : s === 2 ? 'sp' : 'vc') + (i === nx && siguiente ? ' nx' : '');
         if (c.className !== cls) c.className = cls;
-        const txt = esAct && !comp ? BULLETS[k].corto : ''; if (c.textContent !== txt) c.textContent = txt;
+        const txt = esAct && !comp ? k : ''; if (c.dataset.k !== txt) { c.dataset.k = txt; c.innerHTML = txt ? (BAL_ICONOS ? BAL_ICO(txt) : BULLETS[txt].corto) : ''; }
         const col = esAct ? (k === 'negra' ? '#ff2a2a' : BAL.rangos[BALAS[k].r].col) : ''; if (c.style.getPropertyValue('--c') !== col) c.style.setProperty('--c', col);
       }
       if (h.caps[i]) h.caps[i].material = ld ? bulletMat(k) : s === 2 ? GM.spent : GM.empty;
@@ -25783,7 +25929,7 @@ function renderShop() {
   if (!VD) { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Paquetes de balas especiales<small>3 balas al azar por sobre</small>'; bl.appendChild(h); }
   // ---- Sobres de balas especiales: 3 espacios; cada uno puede salir mojado (no sirve) ----
   if (game.sobre && (!VD || performance.now() - game.sobre.t < 5000)) { const R_ = game.sobre, fresh = performance.now() - R_.t < 1500, res = document.createElement('div'); res.className = 'sobre-res' + (fresh ? ' anim' : '');
-    res.innerHTML = `<b>${R_.name}</b><div>${R_.out.map((k, i) => k ? `<span class="sb-c r${BULLETS[k].rar}" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:${BULLETS[k].col};box-shadow:0 0 14px ${BULLETS[k].col}"></i><em>${BULLETS[k].name}</em><small>${RAR[BULLETS[k].rar].name}</small></span>` : `<span class="sb-c moj" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:#4a5a6a"></i><em>Bala mojada</em><small>No sirve</small></span>`).join('')}</div>`;
+    res.innerHTML = `<b>${R_.name}</b><div>${R_.out.map((k, i) => k ? `<span class="sb-c r${BULLETS[k].rar}" style="--d:${i * 0.35}s">${balFicha(k, 1)}<em>${BULLETS[k].name}</em><small>${BAL.rangos[BULLETS[k].rango].name}</small></span>` : `<span class="sb-c moj" style="--d:${i * 0.35}s"><i class="sc-dot" style="background:#4a5a6a"></i><em>Bala mojada</em><small>No sirve</small></span>`).join('')}</div>`;
     bl.appendChild(res); if (VD) setTimeout(() => { if (res.isConnected) res.classList.add('fuera'); }, Math.max(0, 5000 - (performance.now() - R_.t))); }   // en la máquina, el resultado flota sobre la vista y se va solo
   if (!vt || vt === 'sobres') for (const S_ of SOBRES) {
     const c = shopCard('sobre:' + S_.k, { pic: `<span class="sobre-pic" style="--c:${S_.col}">${ico('bullets')}<s>${S_.name.replace('Sobre ', '')}</s></span>`, name: S_.name, line: S_.d, tag: VD ? `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % mojadas` : `3 balas · ${Math.round(SOBRE_MOJADA * 100)} % de que cada una salga mojada` });
@@ -27540,9 +27686,9 @@ function maqSubir(k) {
 // los premios (los usan las tres máquinas); null si ahora no sirve (por ejemplo, ninguna bala puede subir de nivel)
 function maqPremio(key, c) {
   if (key === 'bala') { const ks = Array.from({ length: c.n || 1 }, () => Balas.deRango(c.rango)); const one = ks.length === 1;
-    return { ic: 'bullet', t: one ? `Bala ${BULLETS[ks[0]].name}` : `${ks.length} balas de rango ${c.rango}`, d: one ? `${BAL.rangos[c.rango].name} · ${balDesc(ks[0], 1)}` : ks.map(k => BULLETS[k].name).join(' y '), go: () => { ks.forEach(k => balGanar(k, { quiet: true })); return (one ? 'la bala ' : '') + ks.map(k => BULLETS[k].name).join(' y '); } }; }
+    return { ic: 'bullet', ficha: ks.length === 1 ? [ks[0], 1] : null, fichas: ks, t: one ? `Bala ${BULLETS[ks[0]].name}` : `${ks.length} balas de rango ${c.rango}`, d: one ? `${BAL.rangos[c.rango].name} · ${balDesc(ks[0], 1)}` : ks.map(k => BULLETS[k].name).join(' y '), go: () => { ks.forEach(k => balGanar(k, { quiet: true })); return (one ? 'la bala ' : '') + ks.map(k => BULLETS[k].name).join(' y '); } }; }
   if (key === 'nivel') { const k = maqSubible(c.rango); if (!k) return null; const e = Balas.entrada(game, k);
-    return { ic: 'star', t: `${BULLETS[k].name} sube de nivel`, d: `De nivel ${e.lv} a ${e.lv + 1}${e.lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}: ${balDesc(k, e.lv + 1)}`, go: () => maqSubir(k) }; }
+    return { ic: 'star', ficha: [k, e.lv + 1], t: `${BULLETS[k].name} sube de nivel`, d: `De nivel ${e.lv} a ${e.lv + 1}${e.lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}: ${balDesc(k, e.lv + 1)}`, go: () => maqSubir(k) }; }
   if (key === 'espacio') return { ic: 'backpack', t: `+${c.n} espacio en tu slot`, d: 'Para el resto de la partida: cabe una bala más.', go: () => { game.slotExtra = (game.slotExtra | 0) + c.n; balCambio(); return `+${c.n} espacio en tu slot`; } };
   if (key === 'oro') { const n = c.base + c.zona * maqZona(); return { ic: 'coins', t: `+${n} $`, d: 'Oro para gastar en las máquinas.', go: () => { addGold(n, true); Sfx.cash(); return `+${n} $`; } }; }
   if (key === 'curar') return { ic: 'heart', t: 'Curación completa', d: `Te curas por completo y +${c.max} de vida máxima.`, go: () => { player.maxHp += c.max; player.hp = player.maxHp; return 'vida llena'; } };
@@ -27620,7 +27766,7 @@ function maqPanel(o) {
     of.cartas.forEach((c, i) => {
       const puede = !c.vida || player.maxHp - c.vida >= C.vidaMin, b = document.createElement('button');
       b.type = 'button'; b.className = 'perk item maq-c' + (c.gratis ? ' gratis' : ''); b.disabled = !puede; b.setAttribute('aria-pressed', of.sel === i);
-      b.innerHTML = `<span class="relic-ic" style="color:${V.css}">${ico(c.ic)}</span><b>${c.t}</b><span>${c.d}</span><strong>${puede ? c.mal : `No te alcanza la vida (${c.mal.toLowerCase()})`}</strong>`;
+      b.innerHTML = `<span class="relic-ic" style="color:${V.css}">${c.ficha ? balFicha(c.ficha[0], c.ficha[1]) : c.fichas && c.fichas.length > 1 ? c.fichas.map(k => balFicha(k, 1, 'mini')).join('') : ico(c.ic)}</span><b>${c.t}</b><span>${c.d}</span><strong>${puede ? c.mal : `No te alcanza la vida (${c.mal.toLowerCase()})`}</strong>`;
       b.addEventListener('click', () => { if (state !== 'items') return; of.sel = i; Sfx.ui(); draw(); });
       box.appendChild(b);
     });
