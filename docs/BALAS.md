@@ -270,7 +270,7 @@ Para que la Trastienda tenga más que hacer mientras se prueba el sistema de bal
 - Subir de nivel con estas máquinas pone 1 copia más en la caja si la bala es activa. Si la bala nueva no cabe en el slot, el juego pregunta como siempre.
 
 ## Retos de la máquina de cápsulas y de La Garra (pedido del dueño, 18-oct-2026)
-- Estas dos máquinas **ya no dan balas**: cada una ofrece 3 **retos** por visita para la **próxima oleada**. Aceptar uno cuesta 25 $. Puedes tener **2 activos** como máximo, y no dos del mismo tipo.
+- Estas dos máquinas **ya no dan balas**: cada una ofrece 3 **retos** por visita para la **próxima oleada**. Aceptar uno cuesta **1 ficha de miembro** (decidido por el dueño el 19-oct-2026; `BAL.retos.fichas`). Puedes tener **2 activos** como máximo, y no dos del mismo tipo.
 - Retos: matar N zombis con tiro a la cabeza · sobrevivir la oleada sin recibir daño · matar 3 zombis con una sola bala activa (los que caen en los 2,5 s después del tiro) · matar N zombis · disparar 5 balas activas. N crece un poco con cada zona.
 - Premio **solo si lo cumples** (nunca balas nuevas): oro, 2 fichas de miembro, curación completa, +10 de vida máxima, +1 nivel a una bala de tu slot o +25 balas normales. Se cobra en el momento en que lo cumples; «sin daño» se cumple al terminar la oleada. Si no llegas, se pierde.
 - En la pantalla: una línea chica por reto debajo de la misión («Tiros a la cabeza · 6/12»), sin tapar la mira.
@@ -288,12 +288,11 @@ Para que la Trastienda tenga más que hacer mientras se prueba el sistema de bal
 - Se ve en el HUD, el cañón, el inventario, Fusionar, el slot lleno, las máquinas, las cartas de Madame/diablo/ángel y los sobres. Para volver a las letras: `BAL_ICONOS = false` en `index.html`.
 
 ## Preguntas para el dueño (18-oct-2026)
-1. ¿Te gusta dónde quedaron la máquina de cápsulas (esquina izquierda del fondo) y La Garra (entre el diablo y la expendedora) ahora que Madame y el diablo/ángel ocupan los lugares de sus puertas?
-2. Retos: ¿25 $ por reto está bien, o prefieres que cuesten 1 ficha de miembro? ¿Y los números (12 tiros a la cabeza, 30 zombis, 5 activas, 3 con una sola activa)?
-3. Máquina del ángel: hoy abrirla cuesta 1 ficha como las otras; ¿la quieres gratis?
-4. Reserva: ¿se puede vender desde la reserva (hoy sí, en la Trastienda, a mitad de precio por nivel)?
-5. Al juntar una bala del slot con una de la reserva, el resultado queda en el slot. ¿Está bien así?
-6. (Sigue pendiente) Las cifras de los bonos de familia, las del caballero, los costos del árbol y las probabilidades de cofres y sueltas.
+**Decidido por el dueño (19-oct-2026):** los lugares nuevos de la máquina de cápsulas y de La Garra están bien · un reto cuesta 1 ficha de miembro (no 25 $) · la máquina del ángel sigue costando 1 ficha · las balas de la reserva se pueden vender a la mitad de su precio por nivel.
+
+1. Retos: los números (12 tiros a la cabeza, 30 zombis, 5 activas, 3 con una sola activa) quedan así por ahora; ¿los ajustamos después de probar?
+2. Al juntar una bala del slot con una de la reserva, el resultado queda en el slot. ¿Está bien así?
+3. (Sigue pendiente) Las cifras de los bonos de familia, las del caballero, los costos del árbol y las probabilidades de cofres y sueltas.
 
 ## Despertares del nivel 4 (por definir con el dueño)
 Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.despierta`). Falta inventar el efecto extra de cada una:

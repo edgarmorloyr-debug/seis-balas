@@ -20290,7 +20290,7 @@ const BAL = {
   reserva: 6,               // espacios de la reserva del inventario (ahí las balas no hacen efecto)
   // Retos de la máquina de cápsulas y de La Garra (pedido del dueño, 18-oct-2026): para la próxima oleada; el premio nunca es una bala nueva
   retos: {
-    max: 2, precio: 25, porMaquina: 3,   // máximo de retos activos a la vez, precio de cada reto ($) y cuántos ofrece cada máquina por visita
+    max: 2, fichas: 1, porMaquina: 3,   // máximo de retos activos a la vez, precio de cada reto (fichas de miembro, decisión del dueño 19-oct-2026) y cuántos ofrece cada máquina por visita
     tipos: {
       cabeza: { t: 'Mata {n} zombis con tiro a la cabeza en la próxima oleada', c: 'Tiros a la cabeza', n: 12, zona: 3, ic: 'target' },
       sinDano: { t: 'Sobrevive la próxima oleada sin recibir daño', c: 'Sin recibir daño', ic: 'shield' },
@@ -26067,11 +26067,11 @@ function renderShop() {
   }
   if (vt === 'retos') {
     game.retoOf = game.retoOf || {}; const ofs = game.retoOf[game.shopVend] || (game.retoOf[game.shopVend] = retoOfertas());
-    const act = retoActivos(), precio = shopP(BAL.retos.precio), lleno = act.length >= BAL.retos.max;
+    const act = retoActivos(), precio = BAL.retos.fichas, fichas = game.poker | 0, lleno = act.length >= BAL.retos.max;
     ofs.forEach((of, i) => {
       const T = BAL.retos.tipos[of.tipo], igual = act.some(R => R.tipo === of.tipo);
       const c = shopCard('reto:' + i, { pic: `<span class="sc-emo">${ico(T.ic)}</span>`, name: `${retoTxt(T.t, of.n)}<small class="rt-pr">Premio: ${retoTxt(BAL.retos.premios[of.premio].t, of.pv)}</small>`, line: '', cls: 'reto' });
-      shopBtn(c.act, 'reto-' + i, 'buy', of.comprado ? 'Aceptado' : igual ? 'Ya tienes uno igual' : lleno ? `Ya tienes ${BAL.retos.max} retos` : cost(precio, 'Aceptar'), of.comprado || igual || lleno || game.gold < precio, () => { if (retoAceptar(of)) { Sfx.cash(); vende(RETO_FIG[i % RETO_FIG.length]); renderShop(); } });
+      shopBtn(c.act, 'reto-' + i, 'buy', of.comprado ? 'Aceptado' : igual ? 'Ya tienes uno igual' : lleno ? `Ya tienes ${BAL.retos.max} retos` : fichas >= precio ? `Aceptar · ${precio} ${precio === 1 ? 'ficha' : 'fichas'}` : 'Sin fichas de miembro', of.comprado || igual || lleno || fichas < precio, () => { if (retoAceptar(of)) { Sfx.coin(); vende(RETO_FIG[i % RETO_FIG.length]); renderShop(); } });
       bl.appendChild(c.d);
     });
   }
@@ -27827,9 +27827,9 @@ function retoOfertas() {
 function retoActivos() { return (game.retos || []).filter(R => R.estado === 'activo'); }
 // aceptar un reto de una máquina
 function retoAceptar(of) {
-  const precio = shopP(BAL.retos.precio);
-  if (of.comprado || game.gold < precio || retoActivos().length >= BAL.retos.max || retoActivos().some(R => R.tipo === of.tipo)) return false;
-  game.gold -= precio; of.comprado = true;
+  const precio = BAL.retos.fichas;
+  if (of.comprado || (game.poker | 0) < precio || retoActivos().length >= BAL.retos.max || retoActivos().some(R => R.tipo === of.tipo)) return false;
+  game.poker -= precio; of.comprado = true; renderChips();
   game.retos = retoActivos(); game.retos.push({ tipo: of.tipo, n: of.n, premio: of.premio, pv: of.pv, w: game.wave + 1, p: 0, estado: 'activo' });
   feed(`Reto aceptado: ${retoTxt(BAL.retos.tipos[of.tipo].t, of.n)}`, 'gold'); retoHud(); return true;
 }
@@ -28572,7 +28572,7 @@ function useLabel(o) {
     return { key: 'rv' + o.opt.k + v, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' ' + v, b: null }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
-  if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: o.v === 'espiral' ? 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.' : `Retos para la próxima oleada: si lo cumples, ganas un premio (oro, fichas, vida o un nivel). Máximo ${BAL.retos.max} a la vez.`, b: o.v === 'espiral' ? 'Comprar' : 'Ver retos', ok: true }; }
+  if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: o.v === 'espiral' ? 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.' : `Retos para la próxima oleada: si lo cumples, ganas un premio (oro, fichas, vida o un nivel). Cada reto cuesta ${BAL.retos.fichas} ficha de miembro (tienes ${game.poker | 0}). Máximo ${BAL.retos.max} a la vez.`, b: o.v === 'espiral' ? 'Comprar' : 'Ver retos', ok: true }; }
   if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
