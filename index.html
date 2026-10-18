@@ -1852,6 +1852,20 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 #lleno-say{margin:0;font-size:15px}
 #lleno-list{min-height:0}
 #lleno-list .bal-it:disabled{opacity:.5}
+/* ===== Etapa 3: dificultades cerradas, visita que toca y lo que se abrió al ganar ===== */
+#modo-diff .diff-row button.cerrada{opacity:.62;border-style:dashed}
+#modo-diff .diff-row button .ico{width:16px;height:16px;vertical-align:-2px}
+#modo-diff .visita{margin:0;text-align:center;font:700 14px/1.3 var(--hud);color:#ffd27a}
+.win-nuevo{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;width:100%}
+.win-nuevo li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.35);border:2px solid rgba(242,193,78,.6);text-align:left}
+.win-nuevo li i{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#ffd27a}.win-nuevo li i .ico{width:28px;height:28px}
+.win-nuevo li img{flex:none;width:40px;height:40px;border-radius:8px;object-fit:cover;object-position:50% 15%}
+.win-nuevo li span{display:flex;flex-direction:column;min-width:0}.win-nuevo li b{font-size:15px;color:#ffd27a}.win-nuevo li small{font-size:14px;color:var(--bone);line-height:1.3}
+.win-nuevo li.wn-pj{border-color:#7fd6cb}.win-nuevo li.wn-dif{border-color:#ef8a73}
+@media (max-height:500px){.win-nuevo{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}.win-nuevo li{padding:4px 8px}#win .note{display:none}}
+/* de pie: con la lista de novedades, las cifras van más juntas y sin la nota, para que todo quepa sin scroll */
+@media (orientation:portrait){#win:has(#win-nuevo:not([hidden])) .note{display:none}#win:has(#win-nuevo:not([hidden])) .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 6px}#win:has(#win-nuevo:not([hidden])) .stats b{font-size:20px}#win:has(#win-nuevo:not([hidden])) .stats span{letter-spacing:.02em}#win:has(#win-nuevo:not([hidden])) .card{gap:8px}.win-nuevo{gap:6px}.win-nuevo li{padding:5px 8px}#win .tag{margin:0}}
+
 /* ===== Dado 2D de la Ludopatía de Johnny (PENDIENTES 37): rueda por la pantalla y cae en el número que salió ===== */
 #dado2d{position:fixed;left:50%;top:36%;z-index:40;pointer-events:none;width:clamp(76px,17vmin,128px);height:clamp(76px,17vmin,128px);margin:calc(clamp(76px,17vmin,128px) / -2) 0 0 calc(clamp(76px,17vmin,128px) / -2);opacity:0}
 #dado2d.on{opacity:1}
@@ -2055,7 +2069,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         <span class="cta"><i data-ic="revolver"></i><span>Continuar</span></span>
       </button>
     </div>
-    <div id="modo-diff" hidden><p class="tag">Elige la dificultad</p><div class="diff-row" role="radiogroup" aria-label="Dificultad"><button class="btn2" role="radio" data-d="normal">Normal</button><button class="btn2" role="radio" data-d="dificil">Difícil</button><button class="btn2 apoc" role="radio" data-d="apoc">Apocalipsis</button></div><div id="diff-desc"></div><button class="btn" id="btn-elegir">Elegir personaje</button></div>
+    <div id="modo-diff" hidden><p class="tag">Elige la dificultad</p><div class="diff-row" role="radiogroup" aria-label="Dificultad"><button class="btn2" role="radio" data-d="normal">Normal</button><button class="btn2" role="radio" data-d="dificil">Difícil</button><button class="btn2 apoc" role="radio" data-d="apoc">Apocalipsis</button></div><p class="visita" id="visita-txt"></p><div id="diff-desc"></div><button class="btn" id="btn-elegir">Elegir personaje</button></div>
   </div>
 
   <div class="overlay" id="config" hidden>
@@ -2315,10 +2329,11 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 
   <div class="overlay" id="win" hidden>
     <div class="card">
-      <h2 class="title sm">¡Sobreviviste!</h2>
-      <p class="tag">Llegaste a la cima y venciste al Paciente Cero</p>
+      <h2 class="title sm" id="win-t">¡Sobreviviste!</h2>
+      <p class="tag" id="win-tag">Llegaste a la cima y venciste al Paciente Cero</p>
+      <ul class="win-nuevo" id="win-nuevo" hidden></ul>
       <div class="stats" id="win-stats"></div>
-      <p class="note">Puedes seguir sin fin: los lugares vuelven a empezar y los zombis siguen haciéndose más duros.</p>
+      <p class="note" id="win-note">Puedes seguir sin fin: los lugares vuelven a empezar y los zombis siguen haciéndose más duros.</p>
       <div class="row"><button class="btn" id="btn-endless">Seguir sin fin</button><button class="btn2" id="btn-win-menu">Menú</button></div>
     </div>
   </div>
@@ -11972,7 +11987,7 @@ function llvIni() {
 // el anfitrión (o el jugador solo) al empezar cada oleada
 function llvOleada(n) {
   if (!world.llaves || !game) return;
-  if (!game.llv || n % WAVES_PER_MAP === 1 || zoneOf(n) !== zoneOf(game.llv.w || n)) llvIni();
+  if (!game.llv || mapIni(n) || zoneOf(n) !== zoneOf(game.llv.w || n)) llvIni();
   game.llv.w = n;
   if (!game.llv.on) llvSoltar();
   llvBotin(); llvFichas();
@@ -22519,7 +22534,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
+const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -22543,6 +22558,11 @@ function newGame(sv, run) {
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
   if (!CHARS[game.char]) game.char = 'sheriff';
   game.slot = game.slot || []; game.balTemp = game.balTemp || {}; game.nextRescue = 1e9; calcStats();
+  game.prog0 = progresoFoto();
+  if (!sv && !tuto) {   // Etapa 3: cuántos mapas tiene esta partida y con qué mapa empieza (al azar entre los abiertos)
+    game.visita = run && run.visita != null ? run.visita : visitaDe(game.diff); game.nMap = VISITA_MAPAS[game.visita];
+    game.route = [run && run.mapa0 != null ? run.mapa0 : pick(mapasAbiertos())];
+  }
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
   game.owned[CHARS[game.char].gun] = Math.max(1, game.owned[CHARS[game.char].gun] | 0);
@@ -22561,6 +22581,21 @@ function newGame(sv, run) {
   startWave(w0);
 }
 const WAVES_PER_MAP = 3, MAP_COUNT = 10, LAST_WAVE = WAVES_PER_MAP * MAP_COUNT;
+// ---- Etapa 3 (decisiones del dueño, 19-oct-2026): la partida son N mapas de 3 oleadas y al final el BIG NEON CASINO (5 oleadas).
+// game.nMap = mapas normales de esta partida (5, 7, 9, 10 o 10 según la visita). Las partidas viejas guardadas sin nMap siguen como antes.
+// Tras ganar se puede seguir sin fin: los lugares que siguen cuentan como si el casino hubiera sido un mapa de 3 oleadas.
+const VISITA_MAPAS = [5, 7, 9, 10, 10], CAS_OLEADAS = 5;
+const runN = () => game && game.nMap && !tuto ? game.nMap : 0;
+const casIni = () => WAVES_PER_MAP * runN() + 1;   // primera oleada del casino
+const casN = w => { const N = runN(); if (!N) return 0; const c = w - WAVES_PER_MAP * N; return c >= 1 && c <= CAS_OLEADAS ? c : 0; };   // 1..5 dentro del casino
+const vOla = w => { const N = runN(); return N && w > WAVES_PER_MAP * N + CAS_OLEADAS ? w - CAS_OLEADAS + WAVES_PER_MAP : w; };   // oleada «como si» todos los lugares fueran de 3
+const lastWave = () => runN() ? WAVES_PER_MAP * runN() + CAS_OLEADAS : LAST_WAVE;
+const nLugares = () => runN() ? runN() + 1 : MAP_COUNT;   // lugares de la partida (el casino es el último)
+const mapIni = n => casN(n) ? casN(n) === 1 : vOla(n) % WAVES_PER_MAP === 1;   // primera oleada de un lugar
+const iniDeMapa = w => casN(w) ? casIni() : w - (vOla(w) - 1) % WAVES_PER_MAP;
+const finDeMapa = w => casN(w) ? lastWave() : w + (WAVES_PER_MAP - 1 - (vOla(w) - 1) % WAVES_PER_MAP);
+// qué jefe del casino sale en la oleada w (o −1): en las visitas 1 a 4, el de la visita en la 5.ª oleada; en la última, uno en cada oleada
+const casJefe = w => { const c = casN(w); if (!c || game.endless) return -1; const v = game.visita | 0; return v < 4 ? (c === CAS_OLEADAS ? v : -1) : c - 1; };
 // El camino: game.route[zona] es el mapa elegido en las puertas (−1 = zona saltada por un atajo).
 function mapForWave(w, route) {
   const r = route || (game && game.route), z = zoneOf(w);
@@ -22569,17 +22604,17 @@ function mapForWave(w, route) {
   if (!MAP_WIP.has(m)) return m;
   const ok = MAPS.map((_, i) => i).filter(i => i !== ROOM_IDX && !MAP_WIP.has(i)); return ok[z % ok.length];   // si cae en un mapa quitado, toma otro
 }
-const isMapEnd = w => w % WAVES_PER_MAP === 0;
+const isMapEnd = w => casN(w) ? casN(w) === CAS_OLEADAS : vOla(w) % WAVES_PER_MAP === 0;
 // Dificultad al estilo Balatro: cada lugar es una apuesta con oleada chica, oleada grande y jefe.
 // La vida de los zombis crece multiplicando de lugar en lugar; tus objetos tienen que seguirle el ritmo.
 const ZONE_HP = [1, 1.25, 1.55, 1.95, 2.45, 3.1, 3.95, 5, 6.4, 8.2];
 const zoneHp = z => z < ZONE_HP.length ? ZONE_HP[z] : ZONE_HP[ZONE_HP.length - 1] * Math.pow(1.3, z - ZONE_HP.length + 1);
-const wavePos = n => (Math.max(1, n) - 1) % WAVES_PER_MAP;   // 0 = chica, 1 = grande, 2 = jefe
+const wavePos = n => casN(n) ? (casN(n) === CAS_OLEADAS ? 2 : (casN(n) - 1) % 2) : (Math.max(1, vOla(n)) - 1) % WAVES_PER_MAP;   // 0 = chica, 1 = grande, 2 = jefe
 const waveHp = n => 1.3 * zoneHp(zoneOf(n)) * (wavePos(n) === 1 ? 1.1 : 1);
 const effSc = () => game ? 0.6 + 0.4 * zoneHp(zoneOf(game.wave)) : 1;   // fuerza de los efectos (fuego, explosiones…)
 // Nivel de la oleada: decide qué tipos de zombi salen, su velocidad y su golpe
 const diffW = n => 1 + 2 * zoneOf(n) + wavePos(n);
-const zoneOf = w => Math.floor((Math.max(1, w) - 1) / WAVES_PER_MAP);
+const zoneOf = w => casN(w) ? runN() : Math.floor((Math.max(1, vOla(w)) - 1) / WAVES_PER_MAP);
 const rescueFee = w => Math.round((100 + 100 * zoneOf(w)) * (game && (game.skull | 0) >= 2 ? 1.25 : 1));
 const needsRescue = w => false;
 // al principio del juego salen más zombis (el primer lugar con un 60 % más, el segundo con un 30 % más) para que la pelea arranque con acción
@@ -22587,14 +22622,14 @@ const INICIO_EXTRA = [1.6, 1.3];
 function waveCount(n) { const z = zoneOf(n), p = wavePos(n), base = p === 0 ? 10 + 2 * z : p === 1 ? 14 + 3 * z : 6 + 2 * z; return Math.round(base * (INICIO_EXTRA[z] || 1)); }
 // Lo que cada jugador hace por su cuenta al empezar una oleada (también los invitados)
 function waveStartLocal(n) {
-  if (n % WAVES_PER_MAP === 1) { newContract(); game.mapStart = n; game.mapHurt = false; }
+  if (mapIni(n)) { newContract(); game.mapStart = n; game.mapHurt = false; }
 }
 function startWave(n) {
   if (tuto) { game.wave = n; game.phase = 'tuto'; game.toSpawn = 0; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0; return; }
   game.wave = n; game.toSpawn = Math.round(waveCount(n) * DF().n * (sk(7) ? 1.2 : 1) * (1 + (Net.host ? 0.35 * Net.peers.size : 0))); if (player.down) revive(); game.spawnT = 1.2; game.phase = 'fight'; game.bossQ = []; game.w = { hurt: false, shots: 0, kills: 0 }; game.waveT = 0;
   if (world.llaves && !Net.client) llvOleada(n);
   let sub;
-  if (n % WAVES_PER_MAP === 1) { game.pot = 0; game.rescuePaid = false; }
+  if (mapIni(n)) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
   waveSupplies(n);
   game.waveMod = game.nextMod || null; game.nextMod = null;
@@ -22602,19 +22637,30 @@ function startWave(n) {
   if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
-    if (n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
+    if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
+    else if (!runN() && n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
     else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
-  else if (n % WAVES_PER_MAP === WAVES_PER_MAP - 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
+  else if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
+  else if (wavePos(n) === 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
   game.toSpawn += game.bossQ.length;
-  game.miniAt = null; if (n % WAVES_PER_MAP === 2 && !Net.client && MINIS[world.idx]) { game.miniAt = Math.max(1, Math.floor(game.toSpawn * 0.55)); game.toSpawn++; }
+  game.miniAt = null; if (wavePos(n) === 1 && !casN(n) && !Net.client && MINIS[world.idx]) { game.miniAt = Math.max(1, Math.floor(game.toSpawn * 0.55)); game.toSpawn++; }
   if (!isMapEnd(n)) sub = `${wavePos(n) === 0 ? 'Oleada chica' : 'Oleada grande'} · ${sub}`;
   if (game.waveMod) sub = game.waveMod.name ? `¡${game.waveMod.name}! ${game.waveMod.sub}` : game.waveMod.gold ? `¡Oleada maldita! Oro x${game.waveMod.gold}` : '¡Algo despertó en las tumbas!';
   if (needsRescue(n + 1)) setTimeout(() => { if (game && game.wave === n && state === 'play') { banner('Aviso del rescate', `Tras el jefe de la próxima oleada, el helicóptero cobra ${rescueFee(n + 1)} $. Tú tienes ${game.gold} $.`, 4200, 'heli'); Sfx.bell(); } }, 3400);
   banner(`Oleada ${n}`, sub, game.bossQ.length ? 3000 : 2400, game.waveMod && game.waveMod.ic ? game.waveMod.ic : isMapEnd(n) ? 'skull' : null);
   Sfx.bell();
   if (n >= 2) saveGame();   // «Continuar» solo tiene sentido si ya pasaste la primera oleada
+}
+// Jefe del casino en la oleada n. Mientras no estén los 5 jefes nuevos, sale un jefe de los de siempre en su lugar.
+function casJefeOla(n) { game.casJ = casJefe(n); game.bossPick = pickBoss(); game.bossQ.push('boss'); }
+// al limpiar una oleada con jefe del casino, queda vencido con tu personaje en esta dificultad (cada jugador del grupo lo guarda para sí)
+function casOlaFin(w) {
+  if (!game || tuto || !runN()) return; const j = casJefe(w); if (j < 0) return;
+  game.casV = game.casV || []; if (game.casV.includes(j)) return; game.casV.push(j);
+  jefeVencido(game.char, j, game.diff); renderEstrellasIni();
+  feed(`¡Venciste ${aJefe(j)}!`, 'gold');
 }
 function chooseType(n) {
   if (game.bossQ.length) return game.bossQ.shift();
@@ -22722,8 +22768,9 @@ function modoPartida(sv) {
   const ch = CHARS[sv.char] ? sv.char : 'sheriff', df = DIFF[sv.diff] ? sv.diff : 'normal', w = sv.wave | 0;
   const img = $('#mc-img'); if (img.getAttribute('src') !== CHAR_IMG[ch]) img.src = CHAR_IMG[ch];
   $('#mc-nm').textContent = CHARS[ch].name; const d = $('#mc-df'); d.textContent = DIFF[df].name; d.className = 'df ' + df;
-  const mapa = (MAPS[mapForWave(w, sv.route || [])] || MAPS[0]).name;
-  $('#mc-where').textContent = w <= LAST_WAVE ? `Oleada ${w} de ${LAST_WAVE} · ${mapa}` : `Oleada ${w} · ${mapa}`;
+  const N = sv.nMap | 0, tot = N ? WAVES_PER_MAP * N + CAS_OLEADAS : LAST_WAVE, cas = N && w > WAVES_PER_MAP * N && w <= tot;
+  const mapa = cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
+  $('#mc-where').textContent = w <= tot ? `Oleada ${w} de ${tot} · ${mapa}` : `Oleada ${w} · ${mapa}`;
   $('#mc-g').textContent = '$ ' + fmt(sv.gold | 0); $('#mc-k').textContent = sv.keys | 0; $('#mc-p').textContent = sv.poker | 0; $('#mc-z').textContent = fmt(sv.kills | 0);
   const sl = (sv.slot || []).filter(e => BALAS[e.k]), ids = sl.map(e => e.k), its = Object.fromEntries(sl.map(e => [e.k, e.lv]));
   $('#mc-n').textContent = ' · ' + ids.length;
@@ -23453,9 +23500,10 @@ function balAplicar(kind, p, v, by) {
 // la Negra: abre una puerta directa al siguiente mapa (termina el lugar sin pelear sus oleadas que faltan)
 function balNegra() {
   if (!game || game.phase !== 'fight' || Net.client) return;
+  if (casN(game.wave)) { feed('La Negra no abre puertas en el casino: aquí se pelea hasta el final', 'blue'); return; }
   game.toSpawn = 0; game.bossQ = []; game.miniAt = null;
   for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
-  game.alive = 0; game.wave = Math.ceil(game.wave / WAVES_PER_MAP) * WAVES_PER_MAP;
+  game.alive = 0; game.wave = finDeMapa(game.wave);
   banner('La Negra', 'Se abre una puerta al siguiente mapa', 3000, 'skull'); Sfx.thunder(); fx.flash = 0.8;
 }
 // el caballero que pelea por ti (Invocación, Legión, Ángel guardián, Caballero del tiempo y Duelo)
@@ -25688,7 +25736,7 @@ const ICONS = {
 const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ICONS.question}</svg>`;
 const fichaCal = () => `<span class="fcal" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="#f6ead7" d="M12 4.2c-3.7 0-6.3 2.5-6.3 5.9 0 2 1 3.6 2.4 4.4v3.3h7.8v-3.3c1.4-.8 2.4-2.4 2.4-4.4 0-3.4-2.6-5.9-6.3-5.9z"/><circle fill="#1d0f1a" cx="9.5" cy="10.6" r="1.75"/><circle fill="#1d0f1a" cx="14.5" cy="10.6" r="1.75"/><path fill="#1d0f1a" d="M12 12.6l-1 2h2z"/><path stroke="#1d0f1a" stroke-width="1.1" d="M10.4 17.8v-1.7M12 17.8v-1.7M13.6 17.8v-1.7"/></svg></span>`;   // ficha de calavera: ficha morada oscura con una calavera clara, que brilla (pedido del dueño, 16-oct-2026)
 /* ===================== RELIQUIAS, OLEADAS ESPECIALES Y ENCARGOS ===================== */
-function relicTime() { return game && isMapEnd(game.wave) && !(game.wave === LAST_WAVE && !game.endless) && game.relicWave !== game.wave; }
+function relicTime() { return game && isMapEnd(game.wave) && !(game.wave === lastWave() && !game.endless) && game.relicWave !== game.wave; }
 function afterClear() { if (relicTime()) { game.relicWave = game.wave; openExitDoors(); } else enterRoom(); }
 
 // Oleadas especiales: a veces una oleada trae una regla propia (la decide el anfitrión)
@@ -25808,7 +25856,7 @@ function updateWave(dt) {
       // si quedó algún zombi vivo por un error de conteo, se desploma sin dar oro (no te espera al salir de la armería)
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
-      waveSummary(); Net.ev(['clear', game.wave]);
+      waveSummary(); Net.ev(['clear', game.wave]); casOlaFin(game.wave);
       if (Net.host && relicTime()) rvPrep();
       if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
@@ -25816,7 +25864,7 @@ function updateWave(dt) {
     }
   } else if (game.phase === 'cleared') {
     game.countT -= dt; lootPull();
-    if (game.countT <= 0) { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); }
+    if (game.countT <= 0) { if (game.wave === lastWave() && !game.endless) victory(); else afterClear(); }
   } else if (game.phase === 'count') {
     game.countT -= dt; if (game.countT <= 0) startWave(game.wave + 1);
   } else if (game.phase === 'horde') hordeStep(dt);
@@ -25854,7 +25902,7 @@ function lootWait() {
 function lootPull() { if (game.countT < 1.6) for (const p of pickups) if (isLoot(p)) { p.mag = true; p.life = Math.max(p.life, p.t + 5); } }
 function waveSummary() {
   if (game.w.hurt) game.mapHurt = true;
-  if (isMapEnd(game.wave) && game.mapStart === game.wave - WAVES_PER_MAP + 1 && !game.mapHurt) META.st.clean = 1;
+  if (isMapEnd(game.wave) && game.mapStart === iniDeMapa(game.wave) && !game.mapHurt) META.st.clean = 1;
   checkUnlocks();
   const wv = game.wave, zz = zoneOf(wv), base = [3, 4, 6][wavePos(wv)] + zz, clean = game.w.hurt ? 0 : 3 + zz;
   const eff = game.w.shots ? game.w.kills / game.w.shots : 0;
@@ -25902,7 +25950,27 @@ function downStep(dt) {
   revSend -= dt; if (revSend <= 0) { revSend = 0.4; Net.ev(['revp', tgt.id, Math.round(pc * 100)]); }
   if (pc >= 1) { Net.ev(['rev', tgt.id, S('revCura') | 0]); Net.flush(); if (S('revCura')) player.hp = Math.min(player.maxHp, player.hp + S('revCura')); feed(`Levantaste a ${tgt.name}`, 'gold'); Sfx.heart(); stMas('rev'); tgt.rv = 0; game.revTgt = null; game.revK = 0; }
 }
+// lo que se abrió en esta partida (mapas, personajes, jefe siguiente, dificultad) para la pantalla final
+function novedades() {
+  const a = game.prog0 || progresoFoto(), b = progresoFoto(), out = [];
+  const nm = b.mapas.filter(i => !a.mapas.includes(i));
+  if (b.cuenta > a.cuenta) out.push(['map', b.gano && !a.gano ? '¡Todos los mapas abiertos!' : `${b.cuenta - a.cuenta} mapas nuevos`, nm.length ? nm.map(i => MAPS[i].name).join(' · ') : 'Todavía en obra: saldrán cuando estén listos']);
+  for (const k of b.pjs) if (!a.pjs.includes(k)) out.push(['pj', 'Personaje nuevo', CHARS[k].name, k]);
+  for (const d of b.difs) if (!a.difs.includes(d)) out.push(['dif', 'Dificultad nueva', DIFF[d].name]);
+  const v = visitaDe(game.diff);
+  if (!juegoGanado(game.diff) && v > (game.visita | 0)) out.push(['jefe', 'Nuevo jefe', v < 4 ? `${JEFES_NOMBRES[v]} te espera en el casino` : 'La visita final: los 5 jefes seguidos']);
+  return out;
+}
 function victory() {
+  if (runN()) {
+    const gano = (game.visita | 0) >= 4, j = (game.casV || []).slice(-1)[0];
+    $('#win-t').textContent = gano ? '¡Ganaste el juego!' : '¡Jefe vencido!';
+    $('#win-tag').textContent = gano ? `Venciste a los 5 jefes del BIG NEON CASINO en ${DIFF[game.diff].name}` : `Venciste ${aJefe(j != null ? j : game.visita | 0)} en el casino`;
+    const nv = novedades();
+    $('#win-nuevo').innerHTML = nv.map(([k, t, d, pj]) => `<li class="wn-${k}">${pj ? `<img alt="" src="${charPic(pj)}">` : `<i>${ico(k === 'map' ? 'compass' : k === 'dif' ? 'skull' : k === 'jefe' ? 'medal' : 'star')}</i>`}<span><b>${t}</b><small>${d}</small></span></li>`).join('');
+    $('#win-nuevo').hidden = !nv.length;
+    $('#win-note').textContent = 'Puedes seguir sin fin con los mapas abiertos: los zombis siguen haciéndose más duros.';
+  }
   META.st.wins++; META.st['w_' + game.char] = 1; if ((game.skull | 0) >= 1) META.st.skullWin = 1; checkUnlocks(); checkAch();
   state = 'win'; game.phase = 'win'; if (document.pointerLockElement) document.exitPointerLock();
   awardFichas(true); submitRun(true); saveBest(); $('#win-stats').innerHTML = statsRows(); show('win'); Sfx.win();
@@ -25913,7 +25981,7 @@ function afterPerk() {
   if (!isMapEnd(game.wave) && game.doorWave !== game.wave) { openDoors(); return; }
   afterEvent();
 }
-function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (isMapEnd(game.wave) || game.wave % WAVES_PER_MAP === 1) openShop(); else continueAfter(); }
+function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); return; } if (isMapEnd(game.wave) || mapIni(game.wave)) openShop(); else continueAfter(); }
 
 /* ===================== EL CAMINO: TRES PUERTAS DE COLORES AL TERMINAR CADA LUGAR ===================== */
 // Cada puerta lleva a un lugar al azar y trae una regla para todo ese lugar. A veces una es un atajo que se salta un lugar.
@@ -25935,14 +26003,26 @@ const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitado
 const MAP_EN_OBRA = [7, 11, 12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
-  const z = zoneOf(game.wave), last = !game.endless && z + 1 === MAP_COUNT - 1;
-  const used = new Set(game.route || []), fresh = [];
-  for (let i = 1; i < MAPS.length; i++) if (i !== 9 && i !== ROOM_IDX && !MAP_WIP.has(i) && !used.has(i)) fresh.push(i);
-  const pool = shuffled(fresh.length >= 3 ? fresh : MAPS.map((_, i) => i).filter(i => i !== world.idx && i !== ROOM_IDX && i !== 9 && !MAP_WIP.has(i) && i !== mapForWave(game.wave)));
+  if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
+    const z = zoneOf(game.wave), last = !game.endless && z + 1 === MAP_COUNT - 1;
+    const used = new Set(game.route || []), fresh = [];
+    for (let i = 1; i < MAPS.length; i++) if (i !== 9 && i !== ROOM_IDX && !MAP_WIP.has(i) && !used.has(i) && i !== CASINO_IDX) fresh.push(i);
+    const pool = shuffled(fresh.length >= 3 ? fresh : MAPS.map((_, i) => i).filter(i => i !== world.idx && i !== ROOM_IDX && i !== 9 && !MAP_WIP.has(i) && i !== CASINO_IDX && i !== mapForWave(game.wave)));
+    const cols = shuffled(Object.keys(ROUTE_MODS)).slice(0, 3);
+    const opts = cols.map((k, i) => ({ k, map: last ? 9 : pool[i % pool.length], skip: false }));
+    if (Math.random() < 0.4 && (game.endless || z + 2 <= MAP_COUNT - 1)) { const o = pick(opts); o.skip = true; if (!game.endless && z + 2 === MAP_COUNT - 1) o.map = 9; else if (last) o.map = pool[0]; }
+    return opts;
+  }
+  // Etapa 3: los mapas salen al azar entre los abiertos; tras el último mapa de la partida, las tres puertas llevan al casino
+  const z = zoneOf(game.wave), N = runN(), casino = !game.endless && z + 1 === N;
+  const abiertos = mapasAbiertos(), used = new Set(game.route || []);
+  let pool = shuffled(abiertos.filter(i => !used.has(i)));
+  if (pool.length < 3) pool = pool.concat(shuffled(abiertos.filter(i => used.has(i) && i !== mapForWave(game.wave))));
+  if (!pool.length) pool = abiertos.slice();
   const cols = shuffled(Object.keys(ROUTE_MODS)).slice(0, 3);
-  const opts = cols.map((k, i) => ({ k, map: last ? 9 : pool[i % pool.length], skip: false }));
-  // Atajo al azar: se salta un lugar (nunca el último)
-  if (Math.random() < 0.4 && (game.endless || z + 2 <= MAP_COUNT - 1)) { const o = pick(opts); o.skip = true; if (!game.endless && z + 2 === MAP_COUNT - 1) o.map = 9; else if (last) o.map = pool[0]; }
+  const opts = cols.map((k, i) => ({ k, map: casino ? CASINO_IDX : pool[i % pool.length], skip: false }));
+  // Atajo al azar: se salta un lugar, pero nunca el casino
+  if (!casino && Math.random() < 0.4 && (game.endless || z + 2 <= N - 1)) { const o = pick(opts); o.skip = true; }
   return opts;
 }
 function openRoute() {
@@ -25956,7 +26036,7 @@ function openRoute() {
     const C = ROUTE_MODS[o.k], b = document.createElement('button'); b.className = 'door route'; b.id = 'route-' + o.k;
     const tz = z + 1 + (o.skip ? 1 : 0);
     b.style.setProperty('--dc', C.col);
-    b.innerHTML = `<i>${ico(C.ic)}</i><em${o.skip ? ' class="skip"' : ''}>${o.skip ? `Atajo: saltas al lugar ${tz + 1} de ${MAP_COUNT}` : tz < MAP_COUNT ? `Lugar ${tz + 1} de ${MAP_COUNT}` : 'Sin fin'}</em><b>${MAPS[o.map].name}</b><strong>${C.name}</strong><span>${C.desc}</span>`;
+    b.innerHTML = `<i>${ico(C.ic)}</i><em${o.skip ? ' class="skip"' : ''}>${o.skip ? `Atajo: saltas al lugar ${tz + 1} de ${nLugares()}` : game.endless || tz >= nLugares() ? 'Sin fin' : o.map === CASINO_IDX ? 'El casino' : `Lugar ${tz + 1} de ${nLugares()}`}</em><b>${MAPS[o.map].name}</b><strong>${C.name}</strong><span>${C.desc}</span>`;
     b.addEventListener('click', () => { if (state === 'route') takeRoute(o); });
     box.appendChild(b);
   });
@@ -25969,7 +26049,7 @@ function takeRoute(o) {
   const z = zoneOf(game.wave) + 1; game.route[z] = o.map; game.zmod = { z, k: o.k }; game.routeWave = game.wave;
   routeGift(o.k);
   if (Net.on) Net.ev(['route', o.k, z, game.route]);
-  if (o.skip) banner('¡Atajo!', `Te saltas un lugar: vas directo al lugar ${Math.min(z + 1, MAP_COUNT)}`, 2600, 'compass');
+  if (o.skip) banner('¡Atajo!', `Te saltas un lugar: vas directo al lugar ${Math.min(z + 1, nLugares())}`, 2600, 'compass');
   state = 'play'; requestLock(); canvas.focus(); hostProceed();
 }
 
@@ -25987,7 +26067,7 @@ function openDoors() {
   if (document.pointerLockElement) document.exitPointerLock();
   input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
   const pool = Object.keys(DOORS), picks = [];
-  if (game.wave % WAVES_PER_MAP === 1) { picks.push('shop'); pool.splice(pool.indexOf('shop'), 1); }
+  if (mapIni(game.wave)) { picks.push('shop'); pool.splice(pool.indexOf('shop'), 1); }
   while (picks.length < 3 && pool.length) { let t = 0; pool.forEach(k => t += DOORS[k].w); let r = Math.random() * t; let i = 0; for (; i < pool.length - 1; i++) if ((r -= DOORS[pool[i]].w) < 0) break; picks.push(pool.splice(i, 1)[0]); }
   $('#doors-t').textContent = `Oleada ${game.wave} superada · ¿qué camino tomas?`;
   $('#doors-tag').textContent = needsRescue(game.wave + 1) ? `Aviso: la próxima oleada trae al jefe y después el rescate cuesta ${rescueFee(game.wave + 1)} $ (tienes ${game.gold} $).` : 'Cada puerta lleva a algo distinto. Elige una.';
@@ -26544,7 +26624,7 @@ function leaveTogether() {
 function hostProceed() {
   Net.waiting = false;
   if (game.pendingRoute) { const o = game.pendingRoute; game.pendingRoute = null; takeRoute(o); return; }
-  if (isMapEnd(game.wave) && game.routeWave !== game.wave && !(game.wave >= LAST_WAVE && !game.endless)) { openRoute(); return; }
+  if (isMapEnd(game.wave) && game.routeWave !== game.wave && !(game.wave >= lastWave() && !game.endless)) { openRoute(); return; }
   const ni = mapForWave(game.wave + 1);
   Net.ev(['go', game.wave + 1, ni]);
   if (ni !== world.idx) travel(ni, game.wave + 1);
@@ -26557,7 +26637,7 @@ function travel(ni, w, then) {
   if (['shop', 'items', 'cards', 'inv', 'pause', 'bj'].includes(state)) show(null);
   state = 'trans'; const room = ni === ROOM_IDX;
   const M_ = MAPS[ni], z = zoneOf(w || game.wave + 1), C = game.zmod && game.zmod.z === z ? ROUTE_MODS[game.zmod.k] : null;
-  $('#fade-s').textContent = room ? `Oleada ${game.wave} superada` : z < MAP_COUNT ? `Nivel ${z + 1}` : `Sin fin · nivel ${z + 1}`; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc + (C ? ` · ${C.name}: ${C.desc}` : '');
+  $('#fade-s').textContent = room ? `Oleada ${game.wave} superada` : casN(game.wave + 1) || casN(game.wave) ? 'El casino' : z < nLugares() ? `Lugar ${z + 1} de ${nLugares()}` : `Sin fin · nivel ${z + 1}`; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc + (C ? ` · ${C.name}: ${C.desc}` : '');
   el.fade.classList.add('on');
   setTimeout(() => {
     clearActors(); buildMap(ni); precalentarHab(); try { renderer.compile(scene, camera); } catch (e) {}
@@ -27736,6 +27816,7 @@ function rvFin(opt, azar) {
   Sfx.bell(); hint(azar ? `¡Empate! La suerte eligió: ${MAPS[opt.map].name}` : `El grupo eligió: ${MAPS[opt.map].name}`, 2600);
 }
 const ROOM_IDX = 17;
+let CASINO_IDX = 9;   // el mapa del casino (lo fija el mapa «casino» al definirse)
 // En grupo, lo que sale en la Trastienda es igual para todos: el azar sale de la sala y de la oleada (como la mesa de blackjack)
 function azarSala(txt) { let h = 2166136261; for (const ch of txt) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function prepRoom() {
@@ -29557,7 +29638,7 @@ function renderLobby() {
   const ch = CHAR_KEYS.map(k => { const q = otros.find(p => p.lch === k), mio = Net.myChar === k, ok = charOpen(k); return `<button class="lch${mio ? ' mio' : ''}${q ? ' tomado' : ''}" data-ch="${k}" ${q || !ok ? 'disabled' : ''} aria-pressed="${mio}"><img alt="" src="${charPic(k)}"><span>${q ? escapeHtml(q.name) : mio ? 'Tú' : CHARS[k].name.replace(/^El /, '')}</span></button>`; }).join('');
   if ($('#lobby-chars').innerHTML !== ch) $('#lobby-chars').innerHTML = ch;
   const dsel = Net.host ? (Net.diffSel || META.diff) : (Net.diffSel || 'normal');
-  const dh = DIFF_KEYS.map(k => `<button class="btn2${k === 'apoc' ? ' apoc' : ''}" data-ld="${k}" role="radio" aria-checked="${k === dsel}" ${Net.host ? '' : 'disabled'}>${DIFF[k].name}</button>`).join('');
+  const dh = DIFF_KEYS.map(k => `<button class="btn2${k === 'apoc' ? ' apoc' : ''}" data-ld="${k}" role="radio" aria-checked="${k === dsel}" ${Net.host && diffAbierta(k) ? '' : 'disabled'}>${Net.host && !diffAbierta(k) ? ico('lock') + ' ' : ''}${DIFF[k].name}</button>`).join('');
   if ($('#lobby-diff').innerHTML !== dh) $('#lobby-diff').innerHTML = dh;
 }
 function escapeHtml(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -29642,7 +29723,7 @@ function netEvent(p, e) {
   if (t === 'bal') { balRedIn(p, e); return; }
   if (t === 'sh') { if (p && p.av && p.av.p3d) { p.av.p3d.aimR = 1.6; p.av.p3d.kick = 1; p.av.p3d.tiro = 0; }
     const a = new THREE.Vector3(e[1], e[2], e[3]), b = new THREE.Vector3(e[4], e[5], e[6]); addTracer(a, b, e[7], 1.2); for (let i = 0; i < 4; i++) PA.add(a.x, a.y, a.z, rand(-1, 1), rand(-1, 1), rand(-1, 1), 0.08, 0.06, 1, 0.8, 0.4, 1, 0, 2, 0, 0); Sfx.shotAt(p && (MODEL_ORDER[p.model] || (CHARS[p.char] && CHARS[p.char].gun)), panOf(a), volOf(a, 1.3)); return; }
-  if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; Net.diff = DIFF_KEYS[e[2] | 0] || 'normal'; netStartAsClient(); } return; }
+  if (t === 'start') { if (state === 'menu' && Net.client && !Net.started) { Net.skull = e[1] | 0; Net.diff = DIFF_KEYS[e[2] | 0] || 'normal'; Net.run0 = e[3] != null ? { visita: e[3] | 0, mapa0: e[4] | 0 } : null; netStartAsClient(); } return; }
   if (t === 'vo') { if (e[1] === Net.id) Voice.signal(p, e[2]); return; }
   if (t === 'dc') { if (e[1] === Net.id) Directo.signal(p, e[2]); return; }
   if (t === 'vinv') return;
@@ -29681,7 +29762,7 @@ function netEvent(p, e) {
   if (t === 'hurt' && e[1] === Net.id && typeof e[9] === 'number' && game) { const z = zombies.find(q => q.net && q.id === e[9]); if (!z || z.dead) { zPedir(e[9]); return; } }   // el golpe de un zombi solo cuenta si ese zombi existe (y está vivo) en este teléfono
   if (t === 'hurt') { if (e[1] === Net.id && !(game && game.sombraT > 0) && !(e[7] > 0 && Math.hypot(player.pos.x - e[3], player.pos.z - e[4]) > e[7] + HURT_SLACK)) hurtPlayer(e[2], { x: e[3], z: e[4] }, { knock: e[5], acid: !!e[6], k: typeof e[8] === 'string' && /^(blunt|claw|bite|cut|saw|bullet|burn|acid)$/.test(e[8]) ? e[8] : undefined }); else if (e[1] === Net.id && e[7] > 0 && game) game.dodgeT = performance.now(); }
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
-  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === LAST_WAVE && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
+  else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); casOlaFin(game.wave); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === lastWave() && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
   else if (t === 'evb') { const B = { saq: ['¡Saqueadores armados!', 'No son zombis: vienen a robarte y disparan', 'gun'], refuerzos: ['¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean con el grupo esta oleada', 'badge'], ejercito: ['¡Llegó el ejército!', '6 soldados como Bill pelean con el grupo esta oleada', 'medal'] }[e[1]]; if (B) setTimeout(() => { banner(B[0], B[1], 2800, B[2]); Sfx.bell(); }, 1700); }
   else if (t === 'rvo') { if (e[1] === game.wave && !(game.exitOpts && game.exitOpts.w === e[1])) { game.exitOpts = { w: e[1], opts: e[2] }; if (game.phase === 'exit' && game.exitPend) openExitDoors(); } }
@@ -30640,7 +30721,7 @@ const Music = (() => {
     estado() { return { ctx: ctx && ctx.state, pista, t: el ? +el.currentTime.toFixed(1) : null, pausa: el ? el.paused : null, listo: el ? el.readyState : null }; },
     update() {
       const on = game && ['play', 'pause', 'perks', 'shop', 'trans', 'dying'].includes(state) && settings.music !== 'off';
-      const can = on && world.idx !== ROOM_IDX ? (game.wave > (MAP_COUNT - 1) * WAVES_PER_MAP && game.wave <= LAST_WAVE ? 'final' : MUSICA_MAPA[world.idx]) : null;
+      const can = on && world.idx !== ROOM_IDX ? ((runN() ? casN(game.wave) : game.wave > (MAP_COUNT - 1) * WAVES_PER_MAP && game.wave <= LAST_WAVE) ? 'final' : MUSICA_MAPA[world.idx]) : null;
       const menu = !game && settings.music !== 'off';   // la canción del menú suena solo fuera de la partida (no en las tiendas ni en la Trastienda)   // menús: suena la canción de Tokio hasta entrar a la partida (pedido del dueño, 16-oct-2026)
       play(menu ? 'tokio' : on ? can ? can : (settings.music === 'map' ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 7, 9, 3, 5, 1, 0, 6, 1, 9, 6, 2, 8, 9, 7, 2, 7, 4, 3, 3, 6, 8][Math.max(0, world.idx)] : +settings.music) : null);
     },
@@ -30681,17 +30762,18 @@ const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata: +10 % de daño.' },
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
-  lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'gold', n: 5000, t: 'Junta 5000 $ sumando todas tus partidas' } },
-  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.' },
-  francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'wins', n: 1, t: `Gana la partida completa (las ${LAST_WAVE} oleadas)` } }
+  lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'jefe', n: 0, t: 'Vence en el casino al jefe 1, el Crupier de Hielo y Fuego' } },
+  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.', req: { k: 'jefe', n: 3, t: 'Vence en el casino al jefe 4, la Escolta Zombi' } },
+  francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'jefe', n: 2, t: 'Vence en el casino al jefe 3, el Crupier Mayor' } }
 };
 // Logros entre partidas para desbloquear personajes
 META.st = Object.assign({ gold: 0, kills: 0, bosses: 0, clean: 0, wins: 0 }, META.st || {});
-const charOpen = id => true;   // beta: todos los personajes desbloqueados
-function charProgress(id) { const r = CHARS[id].req; return r ? Math.min(META.st[r.k] | 0, r.n) : 0; }
+// Etapa 3: el Sheriff, Johnny R. y Don Velorio desde el inicio; los demás los abre su jefe del casino (con cualquier personaje y dificultad)
+const charOpen = id => !(id in CHAR_JEFE) || jefeHecho(CHAR_JEFE[id]);
+function charProgress(id) { const r = CHARS[id].req; return !r ? 0 : r.k === 'jefe' ? (jefeHecho(r.n) ? 1 : 0) : Math.min(META.st[r.k] | 0, r.n); }
 function checkUnlocks() {
   let any = false;
-  for (const [id, C] of Object.entries(CHARS)) if (C.req && !META.un['c:' + id] && (META.st[C.req.k] | 0) >= C.req.n) { META.un['c:' + id] = 1; any = true; banner('¡Personaje desbloqueado!', `${C.name} ya se puede elegir`, 3200, 'star'); Sfx.win(); }
+  for (const [id, C] of Object.entries(CHARS)) if (C.req && !META.un['c:' + id] && charOpen(id)) { META.un['c:' + id] = 1; any = true; banner('¡Personaje desbloqueado!', `${C.name} ya se puede elegir`, 3200, 'star'); Sfx.win(); }
   saveMeta(); return any;
 }
 // ---- Logros: metas para completar, con su progreso (se guardan entre partidas)
@@ -31052,8 +31134,9 @@ function renderMeta() {
   $('#fichas').innerHTML = `${fichaCal()} ${META.fichas} ${META.fichas === 1 ? 'ficha' : 'fichas'} de calavera`;
   renderCarousel(0);
   META.skull = 0;   // ya no hay niveles Calavera: las fichas extra vienen de jugar en Difícil o Apocalipsis
-  if (!DIFF[META.diff]) META.diff = 'normal';
-  document.querySelectorAll('.diff-row button').forEach(b => b.setAttribute('aria-checked', b.dataset.d === META.diff ? 'true' : 'false'));
+  if (!DIFF[META.diff] || !diffAbierta(META.diff)) META.diff = 'normal';
+  document.querySelectorAll('#modo-diff .diff-row button').forEach(b => { const ok = diffAbierta(b.dataset.d); b.setAttribute('aria-checked', b.dataset.d === META.diff ? 'true' : 'false'); b.classList.toggle('cerrada', !ok); b.setAttribute('aria-disabled', ok ? 'false' : 'true'); b.innerHTML = ok ? DIFF[b.dataset.d].name : `${ico('lock')} ${DIFF[b.dataset.d].name}`; b.title = ok ? '' : DIFF_REQ[b.dataset.d]; });
+  { const vt = $('#visita-txt'); if (vt) vt.textContent = visitaTxt(META.diff); }
   { const D = DIFF[META.diff], pc = x => `${x >= 1 ? '+' : ''}${Math.round((x - 1) * 100)} %`, fila = (t, v, igual) => `<li${igual ? ' class="eq"' : ''}><span>${t}</span><b>${v}</b></li>`;
     $('#diff-desc').innerHTML = `<p>${D.d}</p><ul>${fila('Vida de los zombis', pc(D.hp), D.hp === 1)}${fila('Daño que te hacen', pc(D.dmg), D.dmg === 1)}${fila('Velocidad de los zombis', pc(D.spd), D.spd === 1)}${fila('Zombis por oleada', pc(D.n), D.n === 1)}${fila('Fichas de calavera', 'x' + String(D.fichas).replace('.', ','), D.fichas === 1)}${fila('Mira en la pantalla', D.noXh ? 'No' : 'Sí', !D.noXh)}</ul>`; }
 }
@@ -31068,6 +31151,29 @@ function jefeVencido(ch, n, diff) {
   const J = jefesMeta(), c = J[ch] || (J[ch] = {}), j = c[n] || (c[n] = {});
   if (j[diff]) return false; j[diff] = 1; saveMeta(); return true;
 }
+
+// ---- Etapa 3 · Avance entre partidas (decisiones del dueño, 19-oct-2026). Todo sale de META.jefes (lo que guardan las estrellas):
+// · visita de cada dificultad: el primer jefe 1..4 que todavía no venciste en ella (la 5.ª visita son los 5 seguidos);
+// · ganar el juego en una dificultad = vencer al jefe 5 en ella; ganar en Normal abre Difícil y en Difícil, Apocalipsis;
+// · mapas: 6 al empezar, +4 por cada jefe 1..4 vencido (en cualquier dificultad) y todos al ganar el juego;
+// · personajes: Lilith (jefe 1), Ludo Cheng (jefe 2), Françoise (jefe 3) y Geronimo (jefe 4), con cualquier personaje y dificultad.
+const JEFES_NOMBRES = ['El Crupier de Hielo y Fuego', 'Ludo Cheng', 'El Crupier Mayor', 'Escolta Zombi', 'Big Big Slot Machine Zombie'];
+const MAPAS_INICIO = 6, MAPAS_POR_JEFE = 4;
+const aJefe = j => JEFES_NOMBRES[j].replace(/^El /, 'al ').replace(/^(?!al )/, 'a ');   // «al Crupier…», «a Ludo Cheng»
+function jefeHecho(n, diff) { const J = jefesMeta(); return Object.keys(J).some(c => { const j = J[c] && J[c][n]; return !!j && (diff ? !!j[diff] : Object.keys(j).some(d => j[d])); }); }
+function visitaDe(diff) { let v = 0; while (v < 4 && jefeHecho(v, diff)) v++; return v; }
+const juegoGanado = diff => jefeHecho(4, diff);
+const ganadoAlguna = () => DIFF_KEYS.some(juegoGanado);
+const diffAbierta = d => d === 'normal' || (d === 'dificil' ? juegoGanado('normal') : d === 'apoc' ? juegoGanado('dificil') : false);
+const DIFF_REQ = { dificil: 'Se abre al ganar el juego en Normal', apoc: 'Se abre al ganar el juego en Difícil' };
+// orden en que se abren los mapas: primero los que ya están terminados, después los que siguen en obra (esos no salen hasta estar listos)
+function mapOrden() { const ok = [], obra = []; MAPS.forEach((m, i) => { if (i === ROOM_IDX || i === CASINO_IDX) return; (MAP_WIP.has(i) ? obra : ok).push(i); }); return ok.concat(obra); }
+const mapasCuenta = () => { const O = mapOrden(); if (ganadoAlguna()) return O.length; let n = 0; for (let j = 0; j < 4; j++) if (jefeHecho(j)) n++; return Math.min(O.length, MAPAS_INICIO + MAPAS_POR_JEFE * n); };
+const mapasAbiertos = () => { const a = mapOrden().slice(0, mapasCuenta()).filter(i => !MAP_WIP.has(i)); return a.length ? a : [0]; };
+const CHAR_JEFE = { lilith: 0, ludo: 1, francois: 2, carlos: 3 };
+// foto del avance para mostrar lo que se abrió al terminar una partida
+function progresoFoto() { return { mapas: mapasAbiertos(), cuenta: mapasCuenta(), pjs: Object.keys(CHARS).filter(charOpen), difs: DIFF_KEYS.filter(diffAbierta), jefes: [0, 1, 2, 3, 4].filter(n => jefeHecho(n)), gano: ganadoAlguna() }; }
+function visitaTxt(diff) { const v = visitaDe(diff); return v < 4 ? `Visita ${v + 1} de 5 · ${VISITA_MAPAS[v]} mapas y el casino · jefe: ${JEFES_NOMBRES[v]}` : `Visita final · ${VISITA_MAPAS[4]} mapas y los 5 jefes seguidos`; }
 // estrella de un jefe: 0 vacía · 1 amarilla (Normal) · 2 naranja (también Difícil) · 3 dorado neón con calavera (Normal, Difícil y Apocalipsis)
 // sin personaje: tu mejor avance con cualquiera de ellos (la fila del menú principal)
 function estrellaNivel(ch, n) {
@@ -31128,7 +31234,7 @@ function renderCarousel(dir) {
       <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}"><span class="gn">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span></span>
       ${estrellasHtml(id)}
     </div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
-  <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t} · ${charProgress(id)}/${C.req.n}</span>`}${fichaPj(id)}</div>
+  <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t}${C.req.k === 'jefe' ? '' : ` · ${charProgress(id)}/${C.req.n}`}</span>`}${fichaPj(id)}</div>
     <div class="car-info">${gunStats(C.gun)}</div>
     <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
@@ -31902,7 +32008,7 @@ function startGame(sv) {
   requestAnimationFrame(() => requestAnimationFrame(() => { arrancando = false; startGameNow(sv); fundidoDespues(); }));   // dos cuadros: el negro ya se pintó
 }
 function startGameNow(sv) {
-  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : { char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff });
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : Object.assign({ char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff }, Net.on && Net.run0 ? Net.run0 : {}));
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
@@ -31931,7 +32037,7 @@ function toMenu(dest) {
 }
 $('#btn-start').addEventListener('click', () => startGame());
 // la dificultad queda marcada en dorado y abajo se ve qué cambia; después se pasa a elegir personaje
-document.querySelectorAll('#modo-diff .diff-row button').forEach(b => b.addEventListener('click', () => { META.diff = b.dataset.d; saveMeta(); renderMeta(); }));
+document.querySelectorAll('#modo-diff .diff-row button').forEach(b => b.addEventListener('click', () => { if (!diffAbierta(b.dataset.d)) { Sfx.err(); $('#visita-txt').textContent = DIFF_REQ[b.dataset.d]; return; } META.diff = b.dataset.d; saveMeta(); renderMeta(); }));
 $('#btn-elegir').addEventListener('click', () => { show('menu'); setTimeout(() => $('#btn-start').focus(), 30); });
 $('#ach-cats').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b || b.dataset.c === achTab.c) return; achTab(b.dataset.c); Sfx.holster(); });
 $('#btn-ach').addEventListener('click', () => { checkAch(); renderAch(); show('ach-s'); META.achVisto = Object.assign({}, META.ach); saveMeta(); logroEstrella(); });
@@ -31959,9 +32065,9 @@ $('#salas-list').addEventListener('click', e => { const b = e.target.closest('.s
 $('#room-code').addEventListener('keydown', e => { if (e.key === 'Enter') lobbyJoin(); });
 $('#btn-rs-pay').addEventListener('click', () => rescuePay(false));
 $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') startHorde(false); });
-$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; Net.ev(['start', 0, DIFF_KEYS.indexOf(Net.diffSel || META.diff)]); Net.flush(); startGame(); });
+$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; { const d = Net.diffSel || META.diff; Net.run0 = { visita: visitaDe(d), mapa0: pick(mapasAbiertos()) }; Net.ev(['start', 0, DIFF_KEYS.indexOf(d), Net.run0.visita, Net.run0.mapa0]); } Net.flush(); startGame(); });
 $('#lobby-chars').addEventListener('click', e => { const b = e.target.closest('[data-ch]'); if (!b || b.disabled) return; Net.myChar = b.dataset.ch; Sfx.reel(); Net.flush(); renderLobby(); });
-$('#lobby-diff').addEventListener('click', e => { const b = e.target.closest('[data-ld]'); if (!b || !Net.host) return; Net.diffSel = b.dataset.ld; Net.flush(); renderLobby(); });
+$('#lobby-diff').addEventListener('click', e => { const b = e.target.closest('[data-ld]'); if (!b || !Net.host || !diffAbierta(b.dataset.ld)) return; Net.diffSel = b.dataset.ld; Net.flush(); renderLobby(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause' && !tuto) saveBest(); toMenu(); });
 $('#btn-inv-close').addEventListener('click', closeInv);
 $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
