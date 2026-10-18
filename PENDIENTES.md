@@ -36,7 +36,10 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 - **Niveles:** 2 balas iguales suben de nivel, del 1 al 4. Los efectos empiezan suaves y cambian mucho al subir.
 - **Rangos:** C, B, A, S y uno secreto.
 - **Familias** (comida, ángel, robot…) para combinaciones entre balas.
-- **Cuándo se activan:** se prueban los dos métodos (al disparar desde su espacio y siempre, como pasivas) y el dueño elige.
+- **Pasivas y activas (18-oct-2026):** 12 pasivas y 12 activas entre las 24 base. **Pasivas:** se quedan en el slot y dan beneficios a la batalla, al jugador, al arma, a otras balas o a todo. **Activas:** también ocupan el slot, pero se mezclan en tu caja de 50 balas normales; cuando te toca una, aplica su efecto y luego vuelve a la caja o se destruye (cada bala lo dice en su ficha). Van **1 copia por nivel** en la caja.
+- **Cañón del revólver (experimental, idea de Balatro):** en la pantalla, la «mano» con las balas que te tocan al recargar, donde se ven y se usan las activas; da espacios extra de interacción.
+- **Fusiones fijas:** cada pareja da siempre la misma bala ya preparada (ejemplo hipotético: Dorada + Mula = Agujero negro, pasiva), sin importar el tipo. La primera vez sale un símbolo de misterio; desde la segunda, un mensaje corto dice qué saldrá.
+- Las balas se hacen **todas desde cero** con estos términos.
 - **Cómo se decide:** con una encuesta larga, junto con el dueño, bala por bala (cuáles se cambian, cuáles se quedan y cuáles son nuevas) hasta completar la lista. No se programa nada hasta terminarla.
 - Ideas del dueño: Ángel (S), Robot (B), Caramelo, Negra, Combate, Agujero negro, Oro, Suerte, Invocación, Rey; críticos 1 de 10, congelar en 4 m, +7 de oro por oleada, cinturón más grande.
 
