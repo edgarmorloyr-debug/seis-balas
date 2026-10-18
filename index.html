@@ -24042,6 +24042,7 @@ function killZombie(z, info) {
   const inGame = !!game && state !== 'menu';
   if (inGame && !z.noCuenta) { game.alive--; game.kills++; }
   if (inGame && !z.net) balAlMorirZombi(z, info);   // sombras, Nigromante y Piñata
+  if (inGame && !z.net && z.slotZ && !Net.client) slotTransforma(z);   // zombi tragamonedas: se transforma en otro
   if (inGame && game.phase === 'fight' && !Net.client) {
     if (game.toSpawn <= 0 && game.alive <= 0 && !(game.bossQ && game.bossQ.length)) killcam(1.0, -7);
     else if (info && info.part === 'head' && !info.ally && !Net.on && game.time - (game.kcLast || -99) > 8 && Math.random() < 0.18) killcam(0.32, -3);
@@ -24688,6 +24689,17 @@ function cartasPon(z) {
 function cfxSpawn(kind, a) {
   if (kind === 'cban') { const B = CBAN[a[0]]; if (B) { banner(B[0], B[1], 3000, 'skull'); Sfx.bell(); } if (a[0] === 6 && !tuto) META.st.casBj = (META.st.casBj | 0) + 1; return true; }
   if (kind === 'cbj') { const z = zombies.find(q => q.id === a[0]); if (!z) return true; if (a[1] < 0) z.bjS = null; else { z.bjS = { d: a[1], t: a[2], m: a[3], v: a.slice(4) }; } return true; }
+  if (kind === 'czs') {   // zombi tragamonedas: una máquina grande gira en el aire y estalla en fichas
+    const [x, zz, ti] = a, g = new THREE.Group(); g.position.set(x, 1.4, zz); scene.add(g);
+    const body = new THREE.Mesh(LG.box(0.9, 1.1, 0.5), LM(0xa01a2a, { emissive: 0x401018 })); g.add(body);
+    const t = slotScreenT.clone(); t.needsUpdate = true;
+    for (const sz of [1, -1]) { const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.3), new THREE.MeshBasicMaterial({ map: t })); scr.position.set(0, 0.15, sz * 0.26); if (sz < 0) scr.rotation.y = Math.PI; g.add(scr); }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffd040, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); gl.scale.setScalar(3.2); g.add(gl);
+    CFX.push({ k: 'czs', g, t: 1.1, T: 1.1, tex: t, x, z: zz }); Sfx.reel();
+    const nm = ZDEF[ZTYPES[ti]] ? ZDEF[ZTYPES[ti]].name : 'otro zombi';
+    if (game && state === 'play') feed(`¡Tragamonedas! Se transforma en ${nm}`, 'gold');
+    return true;
+  }
   if (kind === 'cslot') { const z = zombies.find(q => q.id === a[0]); if (z) { z.palanca = 0.5; Sfx.reel(); } return true; }
   if (kind === 'crul') {   // ruleta: tiempo, daño, color que sale (0 rojo, 1 negro, 2 cero verde) y los centros de los círculos
     const [t, dmg, win, ...xy] = a, discs = [];
@@ -24702,9 +24714,16 @@ function cfxSpawn(kind, a) {
   return false;
 }
 function cfxStep(dt) {
+  slotFxStep(dt);
   for (const z of CF.conCartas) if (z.dead || !zombies.includes(z)) { z.bjS = null; cartasPon(z); CF.conCartas.delete(z); }
   for (let i = CFX.length - 1; i >= 0; i--) {
     const f = CFX[i]; f.t -= dt;
+    if (f.k === 'czs') {
+      const u = 1 - f.t / f.T; f.tex.offset.y = (f.tex.offset.y + dt * (14 - 12 * u)) % 1; f.g.rotation.y += dt * 6 * (1 - u); f.g.position.y = 1.4 + Math.sin(u * Math.PI) * 0.6; f.g.scale.setScalar(1 + 0.15 * Math.sin(u * 30) * (1 - u));
+      if (f.t > 0) continue;
+      for (let k = 0; k < 30; k++) { const c = new THREE.Color(pick([0xff3fd0, 0x3ff0ff, 0xffd040, 0x7a5aff])); PA.add(f.x, 1.4, f.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(0.6, 1.2), 0.14, c.r, c.g, c.b, 1, 6, 0.5, 0, 0); }
+      Sfx.coin && Sfx.coin(); Sfx.boom(); scene.remove(f.g); f.g.traverse(o => { if (o.material) { if (o.material.map && o.material.map !== glowTex && o.material.map !== slotScreenT) o.material.map.dispose(); } }); CFX.splice(i, 1); continue;
+    }
     if (f.k === 'rul') {
       const u = 1 - f.t / f.T; f.discs.forEach((d, k) => { d.g.children[1].material.opacity = (Math.floor(u * 14) % f.discs.length) === k ? 1 : 0.35; });
       if (f.t > 0) continue;
@@ -24721,7 +24740,7 @@ function cfxStep(dt) {
     }
   }
 }
-function cfxClear() { for (const f of CFX) if (f.discs) for (const d of f.discs) scene.remove(d.g); CFX.length = 0; for (const z of zombies) if (z.cartas) { z.bjS = null; cartasPon(z); } CF.tag = ''; }
+function cfxClear() { for (const f of CFX) { if (f.discs) for (const d of f.discs) scene.remove(d.g); if (f.k === 'czs') scene.remove(f.g); } CFX.length = 0; for (const z of zombies) if (z.cartas) { z.bjS = null; cartasPon(z); } CF.tag = ''; }
 
 // ===================== EL PACIENTE CERO (jefe final, cuatro fases) =====================
 // Decide el anfitrión (zeroTick); todo lo que se ve o duele va por bossEv, así lo ven todos los teléfonos.
@@ -25451,6 +25470,30 @@ function applyBoss(z, idx, opt = {}) {
   } else { z.maxHp = z.hp = 100; }
   B.look(z);
 }
+
+
+// ===================== ZOMBI TRAGAMONEDAS (PENDIENTES 40) =====================
+// 1 de cada 100 zombis de las oleadas lleva una tragamonedas a la espalda. Al matarlo, los rodillos giran y se transforma
+// en otro zombi al azar (nunca un jefe). Lo decide el anfitrión; los demás ven la máquina (bit 2048) y el giro (bossEv 'czs').
+const SLOTZ_P = 0.01, SLOTZ_TIPOS = ['walker', 'crawler', 'runner', 'dog', 'spitter', 'screamer', 'armored', 'copz', 'axer', 'caballero', 'enfermera', 'bloater', 'saw', 'brute', 'fortachon'];
+function slotPon(z) {
+  if (z.slotM || !z.torso) return; z.slotZ = true;
+  const g = new THREE.Group(); g.position.set(0, 0.2, -0.21); g.scale.setScalar(1.2); z.torso.add(g); z.slotM = g;   // asoma por encima de los hombros: se ve también de frente
+  addL(g, LG.box(0.36, 0.44, 0.2), LM(0xa01a2a, { emissive: 0x200408 }), 0, 0, 0);
+  addL(g, LG.box(0.38, 0.05, 0.22), LM(0xd8a838, { emissive: 0x403008 }), 0, 0.23, 0);
+  const t = slotScreenT.clone(); t.needsUpdate = true; z.slotT = t;
+  addL(g, new THREE.PlaneGeometry(0.28, 0.12), new THREE.MeshBasicMaterial({ map: t }), 0, 0.06, -0.105, 0, Math.PI, 0);
+  addL(g, LG.box(0.3, 0.06, 0.02), LM(0xffd040, { emissive: 0xffa020 }), 0, 0.17, -0.105);
+  const lv = addL(g, LG.cyl(0.015, 0.015, 0.22, 6), GMAT.steel, 0.2, 0.08, 0); addL(lv, LG.sph(0.04), GMAT.red, 0, 0.12, 0);
+}
+function slotTipo(z) { const ok = SLOTZ_TIPOS.filter(t => ZDEF[t] && t !== z.type); return pick(ok); }
+// al morir: gira y sale otro zombi del mismo lugar (el de la oleada no termina antes: el nuevo cuenta enseguida)
+function slotTransforma(z) {
+  const p = z.root.position, tipo = slotTipo(z); if (!tipo) return;
+  const nz = spawnZombie(tipo, p.x, p.z, diffW(game.wave), true); game.alive++; nz.slotDe = true;
+  bossEv('czs', p.x, p.z, ZTYPES.indexOf(tipo));
+}
+function slotFxStep(dt) { for (const z of zombies) if (z.slotT && !z.dead) z.slotT.offset.y = (z.slotT.offset.y + dt * 2.5) % 1; }
 
 // ===================== ENTRADA DE LOS JEFES (PENDIENTES 38) =====================
 // Al aparecer un jefe (de mapa o del casino) o un minijefe: unos 2,6 s de presentación con franjas de cine, su cartel y un golpe de sonido.
@@ -26286,6 +26329,7 @@ function updateWave(dt) {
         const mini = game.miniAt != null && game.toSpawn <= game.miniAt + 1 && MINIS[world.idx]; if (mini) game.miniAt = null;
         const t = mini ? mini.base : chooseType(diffW(game.wave)), sp = spawnPoint(mini || t === 'abom' || t === 'boss' ? 16 : 12);
         const nz = spawnZombie(t, sp.x, sp.z, diffW(game.wave), t === 'boss' || t === 'bandit' ? false : sp.rise); game.alive++; game.toSpawn--;
+        if (!mini && t !== 'boss' && t !== 'oro' && t !== 'knight' && !nz.def.big && Math.random() < SLOTZ_P) slotPon(nz);   // zombi tragamonedas (1 %)
         if (mini) applyMini(nz, world.idx);
         else if (t === 'boss') spawnBoss(nz, game.bossPick);
         else maybeElite(nz);
@@ -30291,7 +30335,7 @@ let snapKey = 0;
 function zPedir(id) { (zPedir.q || (zPedir.q = new Set())).add(id); }
 zPedir.flush = () => { const q = zPedir.q; if (!q || !q.size || !Net.client) return; const now = performance.now(); if (now - (zPedir.t || 0) < 250) return; zPedir.t = now; Net.ev(['zq', [...q].slice(0, 40)]); q.clear(); };
 function zSnap(z) {
-  const f = (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | (z.mSh > 0 ? 1024 : 0) | lostBits(z);
+  const f = (z.dead ? 1 : 0) | (z.frozen > 0 ? 2 : 0) | (z.burn > 0 ? 4 : 0) | (z.charm > 0 ? 8 : 0) | (z.windup > 0 ? 16 : 0) | (z.rage > 0 ? 32 : 0) | (z.mSh > 0 ? 1024 : 0) | (z.slotZ ? 2048 : 0) | lostBits(z);
   const a = [z.id, Math.round(z.root.position.x * 10), Math.round(z.root.position.z * 10), ((Math.round(z.yaw / TAU * 64) % 64) + 64) % 64, Math.round(z.root.position.y * 10), f, Math.max(0, Math.round(z.hp / z.maxHp * 100))];
   if ((z.sentInfo = (z.sentInfo | 0) + 1) <= 3 || snapKey || z.boss != null) a.push(ZTYPES.indexOf(z.type), z.boss != null ? z.boss : -1, z.bst | 0, z.elite ? ELITE_KEYS.indexOf(z.elite) : -1, z.mini ? z.miniIdx : -1);
   else { let k = a.length; while (k > 4 && a[k - 1] === (k === 7 ? 100 : 0)) k--; a.length = k; }
@@ -30349,7 +30393,7 @@ function applySnapshot(s) {
     { const tn = performance.now(), ht = s.t || tn, dts = z.nht ? Math.max(0.05, (ht - z.nht) / 1000) : 0; if (dts && dts < 0.6) { z.vx = (a[2] - z.nx) / dts; z.vz = (a[3] - z.nz) / dts; if (z.vx * z.vx + z.vz * z.vz > 196) z.vx = z.vz = 0; } else { z.vx = z.vz = 0; } z.nt = tn; z.nht = ht; }
     z.nx = a[2]; z.nz = a[3]; z.nyaw = a[4]; z.ny = a[5];
     if (a[6] & 960) syncLost(z, a[6]);
-    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0; z.mSh = a[6] & 1024 ? 1 : 0;
+    z.frozen = a[6] & 2 ? 1 : 0; z.burn = a[6] & 4 ? 1 : 0; z.charm = a[6] & 8 ? 1 : 0; z.windup = a[6] & 16 ? 0.3 : 0; z.rage = a[6] & 32 ? 1 : 0; z.mSh = a[6] & 1024 ? 1 : 0; if ((a[6] & 2048) && !z.slotM && !z.dead) slotPon(z);
     if (!z.dead) { const hp = a[7] / 100 * z.maxHp; if (hp < z.hp || z.hp <= 0 || (z.B && z.B.final) || z.boss != null || z.mini || z.elite || performance.now() - (z.cHitT || 0) > 700) z.hp = hp; }
     if ((a[6] & 1) && !z.dead) proxyDie(z, null);
   }
