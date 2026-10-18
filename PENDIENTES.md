@@ -19,7 +19,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 
 ## Etapa 1 · Fichas y Trastienda (reglas nuevas)
 13. **Todo lo que se paga con dinero se muestra con el símbolo de ficha.** Analizar la economía del pago con fichas.
-14. **Fichas de miembro (rojas):** blackjack = 1 ficha por jugador; Herrero = 1 ficha (hoy cobra la ficha y además dinero: debe ser solo la ficha); mesa de fusión = 1 ficha por fusión, sin límite; tragamonedas y ruleta = con tus fichas, sin límite.
+14. **Fichas de miembro (rojas):** blackjack = 1 ficha por jugador; Herrero = 1 ficha (hoy cobra la ficha y además dinero: debe ser solo la ficha); fusionar o juntar balas (pestaña «Fusionar» del inventario; ya no hay mesa de fusión, decisión del dueño 18-oct-2026) = 1 ficha por vez, sin límite; tragamonedas y ruleta = con tus fichas, sin límite.
 15. **Ruleta:** 2 casillas más y con imágenes (un tipo de ficha por casilla).
 16. **Máquina expendedora en lugar de Apocalipsis Delivery:** con su modelo 3D y animación para los sobres. Vende sobres de balas y 3 tipos de bala sueltas. Se quita la puerta verde y la expendedora va en ese lugar.
 17. **Se quitan las puertas del tarot y del diablo.** En su lugar pueden salir (o no) otras máquinas expendedoras con lo mismo, cada una con su animación 3D.

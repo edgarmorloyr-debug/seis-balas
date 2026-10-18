@@ -1554,7 +1554,7 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
 .inv-ft{flex:none;flex-wrap:nowrap;align-items:center;gap:12px}
 #inv-sum{font-size:15px;letter-spacing:.06em}
 #inv-ping{z-index:2}
-@media (max-width:520px){.inv-tabs{display:grid;grid-template-columns:1fr 1fr}.inv-tabs .btn2{padding:0 6px;letter-spacing:.04em}#inv-s .inv-sec>.sec{display:none}}
+@media (max-width:520px){.inv-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}.inv-tabs .btn2{padding:0 4px;letter-spacing:.02em;line-height:1.1}.inv-tabs .btn2[hidden]{display:none}#inv-s .inv-sec>.sec{display:none}}
 @media (max-height:520px){
   #inv-s .card{position:relative}
   #inv-s .card>.title{font-size:26px;text-align:left;line-height:48px;margin:0}
@@ -1780,7 +1780,7 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
   .touch #hud-br{right:calc(12px + env(safe-area-inset-right,0px));top:calc(160px + env(safe-area-inset-top,0px));bottom:auto}
 }
 body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
-/* Inventario: slot, caja y familias, mesa de fusión (sin scroll: si no cabe, páginas) */
+/* Inventario: slot, caja y familias, Fusionar (sin scroll: si no cabe, páginas) */
 .bal-inv{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;min-height:0;text-align:left}
 @media (max-width:640px){.bal-inv{grid-template-columns:1fr}}
 .bal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start}
@@ -2149,11 +2149,11 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <span id="inv-ping" hidden></span>
       <h2 class="title sm">Inventario</h2>
       <p class="tag" id="inv-sum"></p>
-      <div class="inv-tabs" role="tablist"><button class="btn2" role="tab" type="button" data-t="slot" aria-selected="true">Tu slot</button><button class="btn2" role="tab" type="button" data-t="caja" aria-selected="false">Caja y familias</button><button class="btn2" role="tab" type="button" data-t="jug" aria-selected="false" hidden>Jugadores</button><button class="btn2" role="tab" type="button" data-t="fuse" aria-selected="false" hidden>Mesa de fusión</button></div>
+      <div class="inv-tabs" role="tablist"><button class="btn2" role="tab" type="button" data-t="slot" aria-selected="true">Tu slot</button><button class="btn2" role="tab" type="button" data-t="caja" aria-selected="false">Caja y familias</button><button class="btn2" role="tab" type="button" data-t="jug" aria-selected="false" hidden>Jugadores</button><button class="btn2" role="tab" type="button" data-t="fuse" aria-selected="false">Fusionar</button></div>
       <div id="inv-jug" class="inv-sec" data-t="jug" hidden></div>
       <div class="inv-sec" data-t="slot"><div class="bal-inv"><div id="inv-slot" class="bal-grid"></div><div id="inv-det" class="bal-det"></div></div></div>
       <div class="inv-sec" data-t="caja"><div id="inv-caja"></div><div id="inv-fams" class="fam-grid"></div></div>
-      <div id="inv-fuse" class="inv-sec" data-t="fuse" hidden>
+      <div id="inv-fuse" class="inv-sec" data-t="fuse">
       <div class="fz"><div id="fz-a" class="fz-pick"></div><span class="fz-op">+</span><div id="fz-b" class="fz-pick"></div><span class="fz-op">=</span><div id="fz-r" class="fz-pick res"></div></div>
       <p class="note left" id="fuse-out"></p>
       <div id="fz-slot" class="bal-grid"></div>
@@ -20417,7 +20417,7 @@ function balValor(k, key, lv) {
 }
 /* ---- Motor de reglas (solo cuentas: no dibuja nada; lo prueban las pruebas automáticas) ----
    Decisión del dueño (18-oct-2026): una bala repetida NO sube de nivel sola: ocupa su propio espacio y las dos copias
-   se juntan en la mesa de fusión (bala + la misma bala = sube de nivel, 1 copia por nivel). Si el slot está lleno, el juego pregunta. */
+   se juntan en la pestaña Fusionar del inventario (bala + la misma bala = sube de nivel, 1 copia por nivel). Si el slot está lleno, el juego pregunta. */
 const Balas = {
   esActiva: k => !!(BALAS[k] && BALAS[k].t === 'a'),
   esPasiva: k => !!(BALAS[k] && BALAS[k].t === 'p'),
@@ -21683,30 +21683,30 @@ function cajaHud() {
   const sv = (game.slotV | 0) + 1; if (cache.slotV !== sv) { cache.slotV = sv; balHud(); }
 }
 
-/* ---- Inventario: tu slot, la caja y las familias, y la mesa de fusión ---- */
+/* ---- Inventario: tu slot, la caja y las familias, y Fusionar (decisión del dueño, 18-oct-2026: ya no hay mesa en la Trastienda; se fusiona solo desde aquí) ---- */
 function openInv() {
   if (!game || state !== 'play') return;
   state = 'inv'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
   if (tuto) tuto.inv = true;
-  if (!game.fuseOpen) game.fz = null;
-  renderInv(); pingHud(); invTab(game.fuseOpen ? 'fuse' : 'slot'); show('inv-s'); setTimeout(() => $('#btn-inv-close').focus(), 30);
+  game.fz = { a: -1, b: -1 };
+  renderInv(); pingHud(); invTab('slot'); show('inv-s'); setTimeout(() => $('#btn-inv-close').focus(), 30);
 }
-// pestañas (sin scroll): Tu slot, Caja y familias y, cuando toca, Jugadores (en grupo) y Mesa de fusión
+// pestañas (sin scroll): Tu slot, Caja y familias, Fusionar y, en grupo, Jugadores
 function invTab(t) {
   if (t) invTab.t = t;
-  const jug = !$('#inv-jug').hidden, fuse = !$('#inv-fuse').hidden;
-  if ((invTab.t === 'jug' && !jug) || (invTab.t === 'fuse' && !fuse) || !invTab.t || invTab.t === 'items' || invTab.t === 'bullets') invTab.t = 'slot';
-  document.querySelectorAll('.inv-tabs [data-t]').forEach(b => { b.setAttribute('aria-selected', b.dataset.t === invTab.t); if (b.dataset.t === 'jug') b.hidden = !jug; if (b.dataset.t === 'fuse') b.hidden = !fuse; });
+  const jug = !$('#inv-jug').hidden;
+  if ((invTab.t === 'jug' && !jug) || !invTab.t || invTab.t === 'items' || invTab.t === 'bullets') invTab.t = 'slot';
+  document.querySelectorAll('.inv-tabs [data-t]').forEach(b => { b.setAttribute('aria-selected', b.dataset.t === invTab.t); if (b.dataset.t === 'jug') b.hidden = !jug; });
   document.querySelectorAll('#inv-s .inv-sec').forEach(x => x.classList.toggle('inv-off', x.dataset.t !== invTab.t));
-  // un solo botón naranja: en la mesa de fusión es «Fusionar»; en lo demás, «Volver al juego»
+  // un solo botón naranja: en «Fusionar» es «Fusionar» o «Juntar»; en lo demás, «Volver al juego»
   const fz = invTab.t === 'fuse'; $('#btn-fuse').hidden = !fz; $('#btn-fuse').className = fz ? 'btn' : 'btn2'; $('#btn-inv-close').className = fz ? 'btn2' : 'btn';
   pagTodas();
 }
-function closeInv() { if (state !== 'inv') return; if (game) { game.fuseOpen = false; game.fz = null; } show(null); state = 'play'; requestLock(); canvas.focus(); }
+function closeInv() { if (state !== 'inv') return; if (game) game.fz = null; show(null); state = 'play'; requestLock(); canvas.focus(); }
 function renderInv() {
   const n = Balas.slotN(game, arbEsp()), sl = game.slot || [];
   $('#inv-sum').textContent = `Slot ${sl.length} / ${n} · Caja ${Balas.normales(game)} / ${Balas.cajaCap(game)} · activas dentro: ${Balas.activasDentro(game)} · $ ${game.gold} · ${fichasTxt(game.poker | 0)}`;
-  // ---- Tu slot (cada copia en su espacio: las repetidas se juntan en la mesa de fusión)
+  // ---- Tu slot (cada copia en su espacio: las repetidas se juntan en la pestaña Fusionar)
   if (!(game.invSel >= 0 && game.invSel < sl.length)) game.invSel = sl.length ? 0 : -1;
   const rep = k => sl.filter(e => e.k === k).length > 1;
   const g = $('#inv-slot');
@@ -21719,7 +21719,7 @@ function renderInv() {
     const k = e.k, B = BULLETS[k], lv = e.lv, fam = BALAS[k].f, venta = Balas.venta(game, i), enSala = game.phase === 'room';
     D.innerHTML = `<h3>${balFicha(k, lv)}<span>${B.name}</span></h3><div class="pills"><span style="border-color:${BAL.rangos[B.rango].col}">${BAL.rangos[B.rango].name}</span><span>${balTipo(k)}</span>${fam ? `<span>Familia ${BAL.familia[fam].name}</span>` : ''}</div>`
       + `<p><b>Nivel ${lv} de ${BAL.nivelMax}</b> · efecto ×${String(BAL.nivelMul[lv - 1]).replace('.', ',')}</p><p>${balDesc(k, lv)}</p>`
-      + `<p class="dim">${rep(k) ? 'Tienes otra copia: júntalas en la mesa de fusión para subir de nivel (mientras, cuenta la mejor).' : lv < BAL.nivelMax ? `Junta otra copia en la mesa de fusión para subirla a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: despierta (su efecto extra se define pronto).'}${B.act ? ` En la caja: ${lv} ${lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
+      + `<p class="dim">${rep(k) ? 'Tienes otra copia: júntalas en la pestaña Fusionar para subir de nivel (mientras, cuenta la mejor).' : lv < BAL.nivelMax ? `Junta otra copia en la pestaña Fusionar para subirla a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: despierta (su efecto extra se define pronto).'}${B.act ? ` En la caja: ${lv} ${lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
       + (enSala && venta ? `<button class="btn2" type="button" id="inv-vender">Vender · +${venta} $</button>` : '');
     const vb = $('#inv-vender'); if (vb) vb.addEventListener('click', () => { balVender(i); renderInv(); });
   }
@@ -21727,13 +21727,12 @@ function renderInv() {
   const dentro = {}; for (const b of game.box) if (b !== 'normal' && b !== 'mala') dentro[b] = (dentro[b] | 0) + 1;
   $('#inv-caja').innerHTML = `<div class="cj">Caja: <b>${Balas.normales(game)} / ${Balas.cajaCap(game)}</b> balas normales</div><div class="cj">Activas dentro: <b>${Balas.activasDentro(game)}</b>${Object.keys(dentro).length ? ' · ' + Object.keys(dentro).map(x => `${(BULLETS[Balas.base(x)] || BULLETS.normal).name}${dentro[x] > 1 ? ' ×' + dentro[x] : ''}`).join(', ') : ''}</div><div class="cj">En el cañón: <b>${totalAmmo()}</b></div>`;
   $('#inv-fams').innerHTML = Object.keys(BAL.familia).map(f => { const c = Balas.famCuenta(game, f), on = c >= BAL.familiaMin; return `<div class="fam-it${on ? ' on' : ''}"><b>${BAL.familia[f].name} · ${Math.min(c, BAL.familiaMin)}/${BAL.familiaMin}${on ? ' · activo' : ''}</b>Con ${BAL.familiaMin}: ${BAL.familia[f].bono}</div>`; }).join('');
-  // ---- Mesa de fusión
-  $('#inv-fuse').hidden = !game.fuseOpen;
-  if (game.fuseOpen) fusePreview();
+  // ---- Fusionar
+  fusePreview();
   if (state === 'inv') invTab();
   for (const id of ['#inv-slot', '#inv-fams', '#fz-slot']) paginar($(id), { navIn: $('#inv-ft'), navFirst: true });
 }
-// mesa de fusión: tocas una bala (A) y otra (B). Dos iguales suben de nivel; dos distintas del mismo rango siguen su receta fija
+// Fusionar: tocas una bala (A) y otra (B). Dos iguales suben de nivel; dos distintas del mismo rango siguen su receta fija
 function fusePreview() {
   const F = game.fz = game.fz || { a: -1, b: -1 }, sl = game.slot || [];
   if (!(F.a >= 0 && F.a < sl.length)) F.a = -1; if (!(F.b >= 0 && F.b < sl.length) || F.b === F.a) F.b = -1;
@@ -21753,7 +21752,7 @@ function fusePreview() {
   }));
 }
 function balFusionar() {
-  const F = game.fz, sl = game.slot || []; if (!F || !game.fuseOpen) return;
+  const F = game.fz, sl = game.slot || []; if (!F || state !== 'inv') return;
   const A = sl[F.a], B = sl[F.b]; if (!A || !B || Balas.porQueNo(game, F.a, F.b, arbEsp())) return;
   if (!pagaFicha()) return;
   const subir = A.k === B.k, key = fuseKey(A.k, B.k), nueva = !subir && !(META.recetas || {})[key];
@@ -27083,7 +27082,7 @@ function prepRoom() {
   game.lastDoor = null; game.roomSlot = rr() < 0.15 * cas + arbP('slot'); game.roomWheel = rr() < 0.10 * cas + arbP('ruleta');
   game.roomRamen = rr() < RAMEN.p + arbP('ramen'); game.ramenOfertas = null;
   game.roomTiro = rr() < 0.05;
-  game.roomFuse = rr() < 0.30; game.fuseN = 0;   // la mesa de fusión de balas sale 3 de cada 10 visitas
+  game.fuseN = 0;
   game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo: 1 de cada 20 visitas, igual para todos
   game.roomRoute = null;
 }
@@ -27204,7 +27203,6 @@ function buildBlackjack(x, z) {
   sign.position.set(1.15, 2.4, 0); sign.rotation.y = -Math.PI / 2; P.add(sign);
   return { kind: 'bj', x: x - 1.7, z, r: 1.4 };
 }
-// Mesa de fusión (evento de la Trastienda, 30 %): junta 2 balas del mismo rango de tu slot en una del rango siguiente (receta fija)
 // La gata de la caja: solo se deja rascar (ronronea, cierra los ojos y mueve la cola). Secreto: a las 100 rascadas te deja la bala negra
 function buildGata(x, z) {
   const P = Grp(x, z, 0.35); P.position.y = 1.12;
@@ -27244,17 +27242,6 @@ function rascarGata(o) {
     game.negraDada = 1; balGanar('negra', { quiet: true }); Sfx.meow(); setTimeout(() => Sfx.win(), 400);
     banner('La gata te dejó algo', 'Bala Negra: abre una puerta directa al siguiente mapa. Va a tu slot.', 4200, 'skull'); feed('Recibiste la bala Negra', 'gold');
   }
-}
-function buildFusion(x, z, used) {
-  const P = Grp(x, z, 0), q = { p: P }, wood = lam(0x5a3a22), dk = lam(0x2a1a10), brass = lam(0xd8a838, { emissive: 0x2a1c04 });
-  M(bx(1.3, 0.1, 0.8), wood, 0, 0.9, 0, q); for (const [a, b] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) M(bx(0.09, 0.88, 0.09), dk, a, 0.44, b, q);
-  M(cyl(0.2, 0.26, 0.22, 14), brass, 0, 1.06, 0, q);   // crisol
-  const glowM = new THREE.MeshBasicMaterial({ color: used ? 0x302040 : 0xc070ff }); M(cyl(0.17, 0.17, 0.04, 14), glowM, 0, 1.18, 0, { p: P, cast: false });
-  const bA = M(cyl(0.035, 0.035, 0.16, 8), lam(0xff5a3a, { emissive: 0x401008 }), -0.42, 1.03, 0.1, q), bB = M(cyl(0.035, 0.035, 0.16, 8), lam(0x5ab0ff, { emissive: 0x08203a }), 0.42, 1.03, 0.1, q);
-  addBox(x, z, 0.7, 0.45);
-  const l = lampLight(0, 1.6, 0, 0xc070ff, used ? 0.15 : 0.8, 4, P);
-  world.anims.push((dt, t) => { if (!used) { glowM.color.setHSL(0.78, 0.9, 0.55 + Math.sin(t * 4) * 0.12); bA.rotation.y = bB.rotation.y = t * 2; } });
-  return { kind: 'fusion', x, z: z + 0.9, r: 1.1, used };
 }
 // Detalles con cariño de la Trastienda: guirnaldas, carteles, cajas, la gata del dueño y el neón
 function shopRoomDecor(HX, HZ, H) {
@@ -27979,7 +27966,7 @@ function buildShopRoom() {
      pared del fondo: máquina de cápsulas (x −5) · máquina de la garra (x 0) · expendedora principal (x 5, siempre)
      esquina del fondo izquierda: el Herrero · pared izquierda: ramen (atrás), taller (en medio) y radio (adelante)
      esquina del fondo derecha: tragamonedas · la caja con la gata (delante de la expendedora) · pared derecha: tiro al blanco (en medio) y ruleta (adelante)
-     centro: los 3 objetos sobre la alfombra y la campanita a su izquierda · frente: mesa de fusión (izquierda) y blackjack (derecha)
+     centro: los 3 objetos sobre la alfombra y la campanita a su izquierda · frente: blackjack (derecha)
      pared de la salida: la puerta (o las 3 puertas del camino en x −3,4 · 0 · 3,4) y los estantes en los costados, entre las puertas y las cajas de las esquinas */
   M(new THREE.PlaneGeometry(9, 5.4), lam(0x7a1a1a), 0, 0.01, -0.6, { rx: -Math.PI / 2, cast: false });
   M(new THREE.PlaneGeometry(8.4, 4.8), lam(0xb08a3a), 0, 0.012, -0.6, { rx: -Math.PI / 2, cast: false }); M(new THREE.PlaneGeometry(8, 4.4), lam(0x6a1414), 0, 0.014, -0.6, { rx: -Math.PI / 2, cast: false });
@@ -28006,7 +27993,6 @@ function buildShopRoom() {
   if (game && game.roomSlot) R.objs.push(buildSlot(HX - 0.55, -5.8));
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
   if (game && game.roomWheel) R.objs.push(buildWheel(HX - 0.55, 6.2));
-  if (game && game.roomFuse) R.objs.push(buildFusion(-5.2, 4.6, false));
   if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
   // Máquinas expendedoras en la pared del fondo: la principal siempre (donde estaba la puerta verde); las otras dos, a veces (donde estaban el tarot y el diablo)
   if (game) for (const [k, vx, on] of [['capsulas', -5, game.roomVendCap], ['garra', 0, game.roomVendGarra], ['espiral', 5, true]]) {
@@ -28038,7 +28024,6 @@ function useLabel(o) {
   if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.', b: 'Comprar', ok: true }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
   if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
-  if (o.kind === 'fusion') { const n = (game.slot || []).length, f = game.poker | 0; return { key: 'fu' + n + '_' + f, t: 'Mesa de fusión', r: '', d: `Junta 2 balas de tu slot del mismo rango: sale 1 bala del rango siguiente (S + S = secreta), siempre la misma para cada pareja. Cada fusión cuesta ${BAL.fusionFichas} ficha de miembro, sin límite (tienes ${f}).`, b: n < 2 ? 'Necesitas 2 balas en tu slot' : f > 0 ? 'Fusionar balas · 1 ficha' : 'Sin fichas de miembro', ok: n >= 2 && f > 0 }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
@@ -28074,9 +28059,6 @@ function useObj(o) {
     rascarGata(o);
   } else if (o.kind === 'bj') {
     useCur = null; showUse(null); abrirBj();
-  } else if (o.kind === 'fusion') {
-    if (!((game.poker | 0) > 0)) { hint('Cada fusión cuesta 1 ficha de miembro y no tienes', 1800); Sfx.err(); return; }
-    useCur = null; showUse(null); game.fuseOpen = true; game.fz = { a: -1, b: -1 }; openInv(); setTimeout(() => invTab('fuse'), 60);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
   } else if (o.kind === 'caja') {
@@ -29839,7 +29821,7 @@ const ACH = [
   { id: 'partidas', ic: 'cards', name: 'Cliente habitual', d: 'Juega 10 partidas', n: 10, v: () => META.st.runs | 0 },
   // Objetos solo por logros (pedido del dueño, 16-oct-2026): cada objeto que antes se vendía en la Tienda calavera tiene su propio logro
   { id: 'bj25', ic: 'cards', name: 'Contador de cartas', d: 'Gana 25 manos de blackjack', n: 25, v: () => META.st.bj | 0 },
-  { id: 'fusion10', ic: 'lantern', name: 'Alquimista de pólvora', d: 'Fusiona 10 balas en la mesa de fusión', n: 10, v: () => META.st.fusion | 0 },
+  { id: 'fusion10', ic: 'lantern', name: 'Alquimista de pólvora', d: 'Fusiona o junta balas 10 veces', n: 10, v: () => META.st.fusion | 0 },
   { id: 'colat50', ic: 'burst', name: 'Dos pájaros de un tiro', d: 'Haz 50 colaterales: 2 o más zombis de un solo disparo', n: 50, v: () => META.st.colls | 0 },
   { id: 'k_viejo', ic: 'hammer', name: 'Pólvora negra', d: 'Mata 200 zombis con el Revólver viejo', n: 200, v: () => META.st.k_viejo | 0 },
   { id: 'lejos100', ic: 'target', name: 'Tirador lejano', d: 'Mata 100 zombis a más de 20 metros', n: 100, v: () => META.st.kLejos | 0 },
@@ -29990,7 +29972,12 @@ function pagApagar(P) {   // sin páginas: todo como estaba
 }
 function pagCalc(P) {
   const box = P.box;
-  if (!box.isConnected || !box.offsetParent) { P.dirty = true; const i = P.i, st = P.starts; pagApagar(P); P.i = i; P.starts = st; return; }   // escondida: se calcula al mostrarse
+  if (!box.isConnected || !box.offsetParent) {   // escondida: se calcula al mostrarse (y no le quita el alto completo al cartel si otra lista visible lo usa)
+    P.dirty = true; [...box.children].forEach(e => e.classList.remove('pg-x')); box.classList.remove('pg-on', 'pg-fix'); P.nav.hidden = true;
+    const card = box.closest('.card');
+    if (card && !card.querySelector('.pg-on')) { card.classList.remove('pg-full'); for (let a = box.parentElement; a && a !== card; a = a.parentElement) a.classList.remove('pg-grow'); }
+    return;
+  }
   if (P.o.skip && P.o.skip()) { pagApagar(P); return; }
   P.dirty = false; P.busy = true;
   try { pagCalc2(P); } finally { P.busy = false; }
@@ -30871,11 +30858,11 @@ const TU_STEPS = [
     txt: () => (TU_ABIL[game.char] || CHARS[game.char].desc) + (HAB[game.char] ? `<br><br>${tuB('Ultimate · ' + HAB[game.char].name)}: ${HAB[game.char].desc} La barra de abajo se llena matando zombis (más rápido con tiros a la cabeza). Cuando esté llena, ${IS_TOUCH ? 'toca ' + tuB('ULTIMATE') : 'pulsa ' + tuK(tecla('KeyC'))}.` : ''),
     keys: () => `Tus tres trucos: la mira (precisión), ${IS_TOUCH ? 'ABANICAR' : 'la F'} (rapidez) y ${IS_TOUCH ? 'OJO MUERTO' : 'la Q'} (tiempo lento). Y tu ultimate: ${IS_TOUCH ? 'botón ULTIMATE' : 'tecla C'}.` },
   { n: 7, t: 'Tu inventario', imp: true, hl: ['#caja-hud', '#slot-hud'],
-    txt: () => (IS_TOUCH ? `Toca ${tuB('CAJA')} (junto al cañón)` : `Pulsa ${tuB('Tab')} (o la ${tuB('I')})`) + ': se abre tu inventario. Ahí ves tu slot de balas y qué hace cada una, la caja (balas normales y activas dentro) y las familias. En el cañón eliges qué bala sale en el próximo tiro: ' + (IS_TOUCH ? 'tócala' : 'teclas 1 a 9') + '. En grupo también ves a tus compañeros. Ábrelo y vuelve al juego.',
+    txt: () => (IS_TOUCH ? `Toca ${tuB('CAJA')} (junto al cañón)` : `Pulsa ${tuB('Tab')} (o la ${tuB('I')})`) + ': se abre tu inventario. Ahí ves tu slot de balas y qué hace cada una, la caja (balas normales y activas dentro) y las familias. En la pestaña Fusionar juntas dos balas iguales (suben de nivel) o fusionas dos del mismo rango (1 ficha de miembro). En el cañón eliges qué bala sale en el próximo tiro: ' + (IS_TOUCH ? 'tócala' : 'teclas 1 a 9') + '. En grupo también ves a tus compañeros. Ábrelo y vuelve al juego.',
     keys: () => IS_TOUCH ? 'Inventario: toca CAJA' : 'Inventario: Tab o I',
     step() { const ok = tuto.inv && state === 'play'; return { p: ok ? 'Inventario visto' : tuto.inv ? 'Vuelve al juego' : (IS_TOUCH ? 'Toca CAJA' : 'Pulsa Tab'), done: ok }; } },
   { n: 8, t: 'La Trastienda', info: 6,
-    txt: () => 'Al terminar cada oleada pasas a la Trastienda: gasta tu oro en las máquinas expendedoras (sobres y balas sueltas), en la mesa de fusión y en los juegos, y vuelve a la pelea.',
+    txt: () => 'Al terminar cada oleada pasas a la Trastienda: gasta tu oro en las máquinas expendedoras (sobres y balas sueltas) y en los juegos, y vuelve a la pelea.',
     keys: () => '' }
 ];
 { let k = 0; for (const st of TU_STEPS) if (!(st.pc && IS_TOUCH)) st.n = ++k; TU_N = k; }
@@ -31035,7 +31022,7 @@ $('#btn-inv-close').addEventListener('click', closeInv);
 $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
 // sin el botón de la bolsa: tocar la fila de objetos o el contador de balas abre el inventario
 for (const id of ['#iicons', '#caja-hud']) $(id).addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openInv(); });
-$('#btn-fuse').addEventListener('click', () => { if (game && game.fuseOpen) balFusionar(); });
+$('#btn-fuse').addEventListener('click', () => { if (game && invTab.t === 'fuse') balFusionar(); });
 $('#btn-lleno-no').addEventListener('click', () => { if (game && game.llenoQ && game.llenoQ.length) balLlenoRechazar(); });
 $('#btn-cards-go').addEventListener('click', () => { if (state === 'cards') continueAfter(); });
 $('#btn-cards-skip').addEventListener('click', () => { if (state === 'cards' && !game.cardDone) continueAfter(); });

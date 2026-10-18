@@ -107,7 +107,7 @@ La Negra es especial secreta, fuera de las 84.
 | 15 | Cantimplora + Apuesta | Trago de valor | Activa, vuelve | Cura 20 y el próximo tiro hace doble daño |
 
 ## Niveles (decisión del dueño, 18-oct-2026)
-- 2 balas iguales suben de nivel (ejemplo: Oro + Oro = Oro nivel 2), hasta el nivel 4. Se juntan en la mesa de fusión (1 ficha); la repetida no sube sola.
+- 2 balas iguales suben de nivel (ejemplo: Oro + Oro = Oro nivel 2), hasta el nivel 4. Se juntan en la pestaña «Fusionar» del inventario (1 ficha); la repetida no sube sola.
 - **Se suma 1 copia por nivel:** nivel 2 + nivel 1 = nivel 3. El nivel 4 cuesta 4 copias en total.
 - **Crecimiento:** nivel 2 = ×1,5; nivel 3 = ×2; nivel 4 = ×3 y además un **«despertar»**, un efecto extra propio de cada bala (por inventar con el dueño).
 - **Al fusionar dos balas con nivel, la nueva sale en nivel 1.**
@@ -229,7 +229,7 @@ Ludo Cheng: por decidir cuando se haga.
 
 ### Confirmado (18-oct-2026)
 - **Se borran:** el herrero, el taller de armas, las mesas de objetos (y la campanita) y la radio.
-- **Se queda la mesa de fusión:** fusiona y sube de nivel las balas.
+- ~~Se queda la mesa de fusión~~ → **Cambio del dueño (18-oct-2026): se quita la mesa de fusión de la Trastienda.** Fusionar y juntar se hace solo desde el inventario (Tab o el botón del inventario en el teléfono), en la pestaña **«Fusionar»**, cuando se pueda abrir el inventario (también en plena oleada, con las mismas reglas de pausa del inventario). Cuesta lo mismo: 1 ficha de miembro por fusión o por juntar.
 - **Se queda el árbol de la Tienda calavera**, ajustado al sistema nuevo: mejoras permanentes como más espacios de slot (caras), más velocidad y más vida inicial. Igual que hoy, pero sin nada de lo que se quitó.
 - **Se hace todo de una vez** (decisión del dueño), en una rama aparte; no se publica hasta que el dueño lo pruebe y lo apruebe.
 
@@ -240,7 +240,7 @@ Ludo Cheng: por decidir cuando se haga.
 - **Fusiones descubiertas:** se guardan en el progreso del jugador (`META.recetas`). La primera vez sale «?»; después, el nombre.
 
 ### Reglas decididas por el dueño (18-oct-2026)
-1. **Bala repetida:** NO sube de nivel sola. Ocupa su propio espacio en el slot. Las dos copias se juntan en la **mesa de fusión** (bala + la misma bala = sube de nivel; se suman los niveles, hasta el 4). Juntar cuesta lo mismo que una fusión: **1 ficha de miembro** (no choca con nada). En la mesa, el botón dice «Juntar · 1 ficha» y el resultado «Sube a nivel N»; dos copias que pasarían del nivel 4 no se juntan. Dos copias iguales sin juntar cuentan una sola vez para la familia y para su efecto (vale la de nivel más alto).
+1. **Bala repetida:** NO sube de nivel sola. Ocupa su propio espacio en el slot. Las dos copias se juntan en la pestaña **«Fusionar»** del inventario (bala + la misma bala = sube de nivel; se suman los niveles, hasta el 4). Juntar cuesta lo mismo que una fusión: **1 ficha de miembro** (no choca con nada). En esa pestaña, el botón dice «Juntar · 1 ficha» y el resultado «Sube a nivel N»; dos copias que pasarían del nivel 4 no se juntan. Dos copias iguales sin juntar cuentan una sola vez para la familia y para su efecto (vale la de nivel más alto).
 2. **Slot lleno:** el juego **pregunta**. Sale el cartel «Tu slot está lleno» con la bala nueva arriba y las balas del slot en botones («Vender · +X»): eliges una para venderla (la mitad de su precio por nivel) y la nueva entra. El botón naranja vende la nueva por la mitad («Vender la nueva · +X»; si es secreta, «Dejar la nueva»). Si llegan varias a la vez (un sobre, la ruleta), se preguntan una tras otra. En plena oleada el juego se detiene mientras eliges. En la máquina, las sueltas ya no se bloquean con el slot lleno: al comprar, se pregunta.
 3. **«Se rompe»** = la bala pierde 1 nivel (en nivel 1 desaparece). Si tienes dos copias iguales sin juntar, se rompe la de nivel más bajo.
 4. **Las normales se gastan** (tope 50; 60 con el Cinturón). **Trampa arreglada:** si en la caja no quedan balas normales, **no puedes recargar**: las activas se quedan en la caja pero no salen solas («Sin balas normales en la caja: las activas no salen solas. Consigue más normales»). Las que ya estaban en el tambor sí se disparan. El Bumerán y el Carámbano, al volver, regresan a la caja (no al tambor) cuando ya no hay normales. Así hay que comprar o recoger normales para seguir disparando.
