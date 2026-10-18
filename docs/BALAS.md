@@ -219,3 +219,10 @@ Ludo Cheng: por decidir cuando se haga.
 - Abajo a la derecha, el **cañón** (la «mano»): las 6 balas que te tocaron al recargar; normales doradas, activas de color con su nombre; borde blanco = el próximo tiro. En el teléfono se acomoda para no tapar los botones.
 - Junto al cañón, la **caja**: «Caja 38 / 50 · activas dentro: 4».
 - Boceto: scratchpad/boceto/canon_tel.png y canon_pc.png.
+
+## Control del cañón y simplificación (decisión del dueño, 18-oct-2026)
+- **PC:** teclas 1 a 9 para elegir qué bala del cañón sale en el próximo tiro. **Teléfono:** tocar la bala en el cañón, que va al alcance del joystick derecho. Si las teclas no funcionan bien, se usa «tocar para disparar ya» también en PC.
+- **Se quitan el herrero y la mesa de mejoras** para simplificar (por confirmar qué es exactamente la «mesa de mejoras»).
+- **Se quedan:** Madame, el diablo y las máquinas expendedoras (con los cambios ya hechos).
+- **Todo lo demás de la Trastienda son minijuegos** para ganar más dinero después de la oleada y farmear entre amigos.
+- **El ramen se queda:** compensa un poco la pérdida de vida.
