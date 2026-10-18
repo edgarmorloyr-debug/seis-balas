@@ -105,3 +105,10 @@ La Negra es especial secreta, fuera de las 84.
 | 13 | Gatillo de pluma + Cantimplora | Segundo aire | Pasiva | Con menos de 25 % de vida disparas 30 % más rápido |
 | 14 | Gatillo de pluma + Apuesta | Puntería | Pasiva | 1 de 10 de crítico |
 | 15 | Cantimplora + Apuesta | Trago de valor | Activa, vuelve | Cura 20 y el próximo tiro hace doble daño |
+
+## Niveles (decisión del dueño, 18-oct-2026)
+- 2 balas iguales suben de nivel (ejemplo: Oro + Oro = Oro nivel 2), hasta el nivel 4.
+- **Se suma 1 copia por nivel:** nivel 2 + nivel 1 = nivel 3. El nivel 4 cuesta 4 copias en total.
+- **Crecimiento:** nivel 2 = ×1,5; nivel 3 = ×2; nivel 4 = ×3 y además un **«despertar»**, un efecto extra propio de cada bala (por inventar con el dueño).
+- **Al fusionar dos balas con nivel, la nueva sale en nivel 1.**
+- En la caja de 50 va 1 copia de cada activa por nivel.
