@@ -258,6 +258,17 @@ Ludo Cheng: por decidir cuando se haga.
 - Teclas 1 a 9: el número de la recámara. Con dos armas o cargadores de más de 8 balas, el cañón se ve chico y las activas salen en fila con su número. Las armas se cambian con la rueda del ratón.
 - En teléfono acostado, el recuadro «Caja 46/60 · activas: 2» va abajo, a la izquierda del cañón (texto corto), para no tapar la mira ni los botones.
 
+## Máquinas de cartas en la Trastienda (pedido del dueño, 18-oct-2026; versión de prueba)
+Para que la Trastienda tenga más que hacer mientras se prueba el sistema de balas. **En esta versión salen las dos en todas las visitas** (`BAL.maquinas.madame.p` y `BAL.maquinas.diabloAngel.p` = 1; después se ajusta). Van en la pared izquierda, donde estaban el taller y la radio: Madame en medio y la del diablo o del ángel adelante. Todas las cifras están en `BAL.maquinas`.
+- **Cómo se usan:** pagas **1 ficha de miembro** (lo mismo que costaban las puertas de Madame y del diablo), salen 3 cartas a la bandeja y **eliges 1** (la tocas y pulsas el botón naranja «Elegir»). Una vez por visita. Si cierras sin elegir, tus 3 cartas te esperan hasta que salgas de la Trastienda, sin volver a pagar. En grupo, cada jugador usa su máquina y lo que elige es solo para él; la máquina que sale (diablo o ángel) es la misma para todos.
+- **Máquina de Madame:** cada carta es un premio con un castigo, como sus cartas de siempre.
+  - Premios: una bala de rango A · 2 balas de rango B · sube 1 nivel una bala de tu slot · +1 espacio de slot para la partida · 80 $ (+30 por zona).
+  - Castigos: −15 de vida máxima (nunca menos de 50) · pierdes la mitad de tu oro · 4 balas malas en la caja · la próxima oleada recargas más lento · −20 % de daño la próxima oleada.
+- **Máquina del diablo o del ángel** (50 % cada una):
+  - **Diablo:** ofertas fuertes que se pagan con vida máxima (no puedes bajar de 30): bala A (−10), bala S (−25), sube 1 nivel una bala (−15), +1 espacio de slot (−20).
+  - **Ángel:** regalos más pequeños y gratis: bala C, bala B, curación completa y +5 de vida máxima, sube 1 nivel una bala de rango C, +20 balas normales, 30 $ (+10 por zona).
+- Subir de nivel con estas máquinas pone 1 copia más en la caja si la bala es activa. Si la bala nueva no cabe en el slot, el juego pregunta como siempre.
+
 ## Despertares del nivel 4 (por definir con el dueño)
 Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.despierta`). Falta inventar el efecto extra de cada una:
 - [ ] Base C: Oro, Cinturón, Pólvora fina, Gatillo de pluma, Cantimplora, Apuesta

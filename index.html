@@ -458,6 +458,18 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 #items-opts.radio-opts .perk b{font-size:19px}
 #items-opts.radio-opts .perk span{font-size:14px}
 #items-opts.radio-opts .perk .radio-por{display:block;width:96px;height:96px;margin:0 auto;background-size:cover;background-position:center;border-radius:10px;background-color:rgba(0,0,0,.25)}
+#items-ft .btn,#items-ft .btn2{min-height:48px}
+#items-opts.maq-opts{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;min-height:0}
+#items-opts.maq-opts .perk{align-items:center;text-align:center;gap:4px;padding:10px 12px}
+#items-opts.maq-opts .perk b{font-size:18px}
+#items-opts.maq-opts .relic-ic .ico{width:36px;height:36px}
+#items-opts.maq-opts .perk span{font-size:14px}
+#items-opts.maq-opts .perk strong{font-size:15px;margin-top:2px}
+#items-opts.maq-opts .perk.gratis strong{color:#9ae07a}
+#items-opts.maq-opts .perk[aria-pressed="true"]{border:2px solid #ffd060;background:rgba(214,165,75,.18);box-shadow:0 0 0 2px rgba(255,208,96,.35) inset}
+#items-opts.maq-opts .perk:disabled{opacity:.55}
+@media (max-width:620px){#items-opts.maq-opts{grid-template-columns:1fr}#items-opts.maq-opts .perk{display:grid;grid-template-columns:44px 1fr;column-gap:10px;text-align:left;align-items:center}#items-opts.maq-opts .perk>*{grid-column:2}#items-opts.maq-opts .perk .relic-ic{grid-column:1;grid-row:1/span 3;font-size:30px}}
+@media (max-height:520px){#items-opts.maq-opts .relic-ic{font-size:26px}#items-opts.maq-opts .relic-ic .ico{width:28px;height:28px}#items-opts.maq-opts .perk{padding:6px 10px;gap:2px}#items-opts.maq-opts .perk b{font-size:16px}}
 #items-opts .tl-p{margin-top:4px;font-weight:700;color:#ffd47a;letter-spacing:.04em}
 #items-opts .perk:disabled{opacity:.55}
 #items-opts .tl-sec{grid-column:1/-1;display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:8px 10px;border-top:2px solid #7a2a1a;color:#e8d8c0}
@@ -2134,7 +2146,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <h2 class="title sm" id="items-t">Botín del jefe</h2>
       <p class="npc" id="items-say"></p>
       <div id="items-opts"></div>
-      <div class="row items-ft" id="items-ft"><button class="btn2" id="btn-items-skip" hidden>Irme sin nada</button></div>
+      <div class="row items-ft" id="items-ft"><button class="btn2" id="btn-items-skip" hidden>Irme sin nada</button><button class="btn" id="btn-items-go" type="button" hidden>Elegir</button></div>
     </div>
   </div>
   <div class="overlay" id="bj-s" hidden>
@@ -20257,6 +20269,17 @@ const BAL = {
   jefeMapa: 'A',            // jefe de mapa: 1 bala A segura
   jefeCasino: 'S',          // jefe del casino: 1 bala S segura (los jefes del casino todavía no existen en el juego)
   fusionFichas: 1,          // cada fusión cuesta 1 ficha de miembro
+  // Máquinas de cartas de la Trastienda (pedido del dueño, 18-oct-2026). p = probabilidad de salir en cada visita (en la versión de prueba, 1 = siempre)
+  maquinas: {
+    madame: { p: 1, fichas: 1, cartas: 3,   // cada carta: un premio y un castigo
+      premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 80, zona: 30 } },
+      castigos: { vida: { n: 15, min: 50 }, oro: { p: 0.5 }, malas: { n: 4 }, torpe: {}, debil: { x: 0.8 } } },
+    diabloAngel: { p: 1, diablo: 0.5 },     // sale una de las dos: 50 % el diablo, 50 % el ángel
+    diablo: { fichas: 1, cartas: 3, vidaMin: 30,   // ofertas fuertes, se pagan con vida máxima
+      ofertas: { balaA: { tipo: 'bala', rango: 'A', vida: 10 }, balaS: { tipo: 'bala', rango: 'S', vida: 25 }, nivel: { vida: 15 }, espacio: { n: 1, vida: 20 } } },
+    angel: { fichas: 1, cartas: 3,           // regalos más pequeños, gratis
+      ofertas: { balaC: { tipo: 'bala', rango: 'C' }, balaB: { tipo: 'bala', rango: 'B' }, curar: { max: 5 }, nivelC: { tipo: 'nivel', rango: 'C' }, normales: { n: 20 }, oro: { base: 30, zona: 10 } } }
+  },
   familiaMin: 3,
   familia: {
     comida: { name: 'Comida', bono: 'te curas 5 por cada zombi que matas', cura: 5 },
@@ -20438,7 +20461,7 @@ const Balas = {
     let n = BAL.slotPersonaje[g.char] || BAL.slotBase;
     for (const k of ['robot', 'mercenaria', 'crupier']) n += Balas.v(g, k, 'esp');
     if (Balas.famOn(g, 'maquina')) n += BAL.familia.maquina.esp;
-    return n + (arbolEsp | 0);
+    return n + (arbolEsp | 0) + (g.slotExtra | 0);   // + los espacios ganados en la partida (máquinas de Madame y del diablo)
   },
   cajaCap(g) { return BAL.caja + Balas.v(g, 'cinturon', 'extra'); },
   normales: g => (g.box || []).filter(b => b === 'normal' || b === 'mala').length,
@@ -20469,6 +20492,8 @@ const Balas = {
     if (!Balas.tiene(g, e.k)) { g.box = g.box.filter(b => Balas.base(b) !== e.k); for (const L of manos || []) for (let j = 0; j < L.length; j++) if (typeof L[j] === 'string' && Balas.base(L[j]) === e.k) L[j] = 0; }   // y las copias gratis
     return true;
   },
+  // sube 1 nivel la copia de la posición i (máquinas de cartas): si es activa, pone 1 copia más en la caja
+  subir(g, i) { const e = (g.slot || [])[i]; if (!e || e.lv >= BAL.nivelMax) return false; e.lv++; if (Balas.esActiva(e.k)) g.box.push(e.k); return true; },
   // una copia se rompió: esa bala pierde 1 nivel (la copia de nivel más bajo); con 0 sale del slot
   romper(g, k) { const L = (g.slot || []).filter(x => x.k === k).sort((a, b) => a.lv - b.lv), e = L[0]; if (!e) return 0; e.lv--; if (e.lv <= 0) g.slot.splice(g.slot.indexOf(e), 1); return e.lv; },
   // tras disparar una activa: vuelve a la caja o se rompe. rnd: azar (para las pruebas)
@@ -22001,7 +22026,7 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['slot', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
+const SAVE_FIELDS = ['slot', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
 function saveGame() {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -22507,7 +22532,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = gunName(id) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.debilWave === game.wave ? BAL.maquinas.madame.castigos.debil.x : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -27075,6 +27100,8 @@ function azarSala(txt) { let h = 2166136261; for (const ch of txt) h = Math.imul
 function prepRoom() {
   const rr = Net.on ? azarSala(String(Net.room || '') + ':sala:' + game.wave) : Math.random;
   game.roomUsed = {};
+  // máquinas de cartas: la de Madame y la del diablo o del ángel (igual para todo el grupo; lo que eliges es solo para ti)
+  { const MQ = BAL.maquinas; game.roomMadame = rr() < MQ.madame.p; game.roomDva = rr() < MQ.diabloAngel.p ? (rr() < MQ.diabloAngel.diablo ? 'diablo' : 'angel') : null; game.maqOf = {}; }
   // ya no hay puertas del tarot, del diablo ni de Apocalipsis Delivery: la expendedora principal está siempre y las otras dos salen a veces (la Llave del dueño las trae siempre)
   game.roomVendCap = rr() < VEND.capsulas.p; game.roomVendGarra = rr() < VEND.garra.p;
   rollOffers(); game.reroll = 5; game.sobre = null;   // las 3 balas sueltas de las máquinas: las mismas toda la visita (se ven dentro de las máquinas)
@@ -27092,7 +27119,7 @@ function enterRoom() {
   if (document.pointerLockElement && state !== 'play') document.exitPointerLock();
   show(null); travel(ROOM_IDX, game.wave, () => {
     state = 'play'; game.phase = 'room'; renderChips(); requestLock(); canvas.focus();
-    hint(game.roomRoute ? 'La Trastienda · compra lo que quieras y, a tus espaldas, elige la puerta de color de tu camino' : 'La Trastienda · compra objetos y balas en las máquinas expendedoras del fondo y sal por la puerta de atrás', 4200);
+    hint(game.roomRoute ? 'La Trastienda · compra lo que quieras y, a tus espaldas, elige la puerta de color de tu camino' : 'La Trastienda · compra balas en las máquinas expendedoras del fondo y sal por la puerta de atrás', 4200);
   });
 }
 // ---- Tragamonedas y ruleta de la Trastienda: se juegan con 1 ficha de miembro y dan poco (es para divertirse) ----
@@ -27256,7 +27283,7 @@ function shopRoomDecor(HX, HZ, H) {
   world.anims.push((dt, t) => { for (let i = 0; i < glows.length; i++) glows[i].material.opacity = 0.28 + Math.sin(t * 2.3 + i * 1.7) * 0.06 + (Math.sin(t * 13 + i) > 0.985 ? -0.2 : 0); });
   // carteles en las paredes laterales
   const poster = (txt, sub, col, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.7), lam(0xffffff, { map: canvasTex(256, 336, (g, w, h) => { g.fillStyle = '#e8d8b0'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(120,80,30,.25)'; for (let i = 0; i < 40; i++) g.fillRect(rand(0, w), rand(0, h), rand(4, 30), rand(2, 6)); g.fillStyle = col; g.font = 'bold 44px serif'; g.textAlign = 'center'; g.fillText(txt, w / 2, 62); g.fillStyle = '#2a1a0e'; g.fillRect(48, 86, w - 96, 150); g.fillStyle = '#7a8a5a'; g.beginPath(); g.arc(w / 2, 140, 36, 0, TAU); g.fill(); g.fillRect(w / 2 - 44, 176, 88, 60); g.fillStyle = '#c02020'; g.fillRect(w / 2 - 22, 132, 12, 8); g.fillRect(w / 2 + 10, 132, 12, 8); g.fillStyle = '#2a1a0e'; g.font = 'bold 26px serif'; g.fillText(sub, w / 2, 280); g.font = '20px serif'; g.fillText('Pregunte en el mostrador', w / 2, 314); }) })); m.position.set(x, 2.9, z); m.rotation.y = ry; world.group.add(m); };
-  poster('SE BUSCA', '500 $ · VIVO O MUERTO', '#8a1a10', -HX + 0.02, 5.4, Math.PI / 2);
+  poster('SE BUSCA', '500 $ · VIVO O MUERTO', '#8a1a10', -HX + 0.02, -0.8, Math.PI / 2);
   poster('NO FIAMOS', 'NI A VIVOS NI A MUERTOS', '#1a3a6a', -HX + 0.02, -6.4, Math.PI / 2);
   // cajas en las esquinas de la entrada
   const crateM = lam(0x7a5530);
@@ -27466,7 +27493,7 @@ function openCaja() {
     });
   };
   draw();
-  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
+  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda'; $('#btn-items-go').hidden = true;
   $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
   show('items-s'); Sfx.open(); setTimeout(() => { const b = box.querySelector('button:not([disabled])'); if (b) b.focus(); }, 50);
 }
@@ -27494,9 +27521,122 @@ function openRamen(o) {
     });
   };
   draw();
-  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda';
+  $('#btn-items-skip').hidden = false; $('#btn-items-skip').textContent = 'Volver a la trastienda'; $('#btn-items-go').hidden = true;
   $('#btn-items-skip').onclick = () => { if (state === 'items') close(); };
   show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button:not([disabled])'); if (f) f.focus(); }, 50);
+}
+/* ---- Máquinas de cartas: Madame (premio + castigo), el diablo (fuerte, se paga con vida máxima) y el ángel (más flojo, gratis).
+   Pagas la ficha, salen 3 cartas y eliges 1. Una vez por visita y por jugador; en grupo, lo que eliges es solo para ti.
+   Si cierras sin elegir, tus 3 cartas te esperan hasta que te vayas de la Trastienda. Todas las cifras están en BAL.maquinas. */
+const maqCfg = m => BAL.maquinas[m];
+const maqZona = () => zoneOf(game.wave);
+// una bala de tu slot que todavía puede subir de nivel (si r: solo de ese rango)
+function maqSubible(r) { const L = (game.slot || []).map((e, i) => ({ e, i })).filter(x => x.e.lv < BAL.nivelMax && (!r || BALAS[x.e.k].r === r)); return L.length ? pick(L).e.k : null; }
+function maqSubir(k) {
+  const L = (game.slot || []).map((e, i) => ({ e, i })).filter(x => x.e.k === k && x.e.lv < BAL.nivelMax).sort((a, b) => b.e.lv - a.e.lv)[0];
+  if (!L) return `${BULLETS[k].name} ya no está en tu slot`;
+  Balas.subir(game, L.i); balCambio(); return `${BULLETS[k].name} sube a nivel ${game.slot[L.i].lv}`;
+}
+// los premios (los usan las tres máquinas); null si ahora no sirve (por ejemplo, ninguna bala puede subir de nivel)
+function maqPremio(key, c) {
+  if (key === 'bala') { const ks = Array.from({ length: c.n || 1 }, () => Balas.deRango(c.rango)); const one = ks.length === 1;
+    return { ic: 'bullet', t: one ? `Bala ${BULLETS[ks[0]].name}` : `${ks.length} balas de rango ${c.rango}`, d: one ? `${BAL.rangos[c.rango].name} · ${balDesc(ks[0], 1)}` : ks.map(k => BULLETS[k].name).join(' y '), go: () => { ks.forEach(k => balGanar(k, { quiet: true })); return (one ? 'la bala ' : '') + ks.map(k => BULLETS[k].name).join(' y '); } }; }
+  if (key === 'nivel') { const k = maqSubible(c.rango); if (!k) return null; const e = Balas.entrada(game, k);
+    return { ic: 'star', t: `${BULLETS[k].name} sube de nivel`, d: `De nivel ${e.lv} a ${e.lv + 1}${e.lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}: ${balDesc(k, e.lv + 1)}`, go: () => maqSubir(k) }; }
+  if (key === 'espacio') return { ic: 'backpack', t: `+${c.n} espacio en tu slot`, d: 'Para el resto de la partida: cabe una bala más.', go: () => { game.slotExtra = (game.slotExtra | 0) + c.n; balCambio(); return `+${c.n} espacio en tu slot`; } };
+  if (key === 'oro') { const n = c.base + c.zona * maqZona(); return { ic: 'coins', t: `+${n} $`, d: 'Oro para gastar en las máquinas.', go: () => { addGold(n, true); Sfx.cash(); return `+${n} $`; } }; }
+  if (key === 'curar') return { ic: 'heart', t: 'Curación completa', d: `Te curas por completo y +${c.max} de vida máxima.`, go: () => { player.maxHp += c.max; player.hp = player.maxHp; return 'vida llena'; } };
+  if (key === 'normales') { const libre = Math.max(0, Balas.cajaCap(game) - Balas.normales(game)); if (!libre) return null; const n = Math.min(c.n, libre);
+    return { ic: 'bullets', t: `+${n} balas normales`, d: 'Directo a tu caja.', go: () => `+${Balas.addNormales(game, n)} balas normales` }; }
+  return null;
+}
+// los castigos de Madame (como los de sus cartas de siempre)
+function maqCastigo(key, c) {
+  if (key === 'vida') return { t: `−${c.n} de vida máxima`, go: () => { player.maxHp = Math.max(c.min, player.maxHp - c.n); player.hp = Math.min(player.hp, player.maxHp); } };
+  if (key === 'oro') return { t: `Pierdes el ${Math.round(c.p * 100)} % de tu oro`, go: () => { game.gold -= Math.floor(game.gold * c.p); }, oro: true };
+  if (key === 'malas') return { t: `${c.n} balas malas en tu caja`, go: () => { for (let k = 0; k < c.n; k++) { const i = game.box.indexOf('normal'); if (i >= 0) game.box[i] = 'mala'; } } };
+  if (key === 'torpe') return { t: 'La próxima oleada recargas más lento', go: () => { game.clumsyWave = game.wave + 1; } };
+  if (key === 'debil') return { t: `−${Math.round((1 - c.x) * 100)} % de daño la próxima oleada`, go: () => { game.debilWave = game.wave + 1; } };
+  return null;
+}
+// las 3 cartas de cada máquina
+function maqCartas(m) {
+  const C = maqCfg(m), out = [];
+  if (m === 'madame') {
+    const castigos = shuffled(Object.keys(C.castigos));
+    for (const pk of shuffled(Object.keys(C.premios))) {
+      if (out.length >= C.cartas) break;
+      const P_ = maqPremio(C.premios[pk].tipo || pk, C.premios[pk]); if (!P_) continue;
+      const ck = castigos.find(k => !(pk === 'oro' && k === 'oro')) || castigos[0]; castigos.splice(castigos.indexOf(ck), 1); if (!castigos.length) castigos.push(...shuffled(Object.keys(C.castigos)));
+      const X = maqCastigo(ck, C.castigos[ck]);
+      out.push({ ...P_, mal: X.t, ok: true, go: () => { X.go(); return P_.go() + ' · ' + X.t.charAt(0).toLowerCase() + X.t.slice(1); } });
+    }
+  } else if (m === 'diablo') {
+    for (const pk of shuffled(Object.keys(C.ofertas))) {
+      if (out.length >= C.cartas) break;
+      const O = C.ofertas[pk], P_ = maqPremio(O.tipo || pk, O); if (!P_) continue;
+      out.push({ ...P_, mal: `Cuesta ${O.vida} de vida máxima`, vida: O.vida, go: () => { player.maxHp -= O.vida; player.hp = Math.min(player.hp, player.maxHp); Sfx.ouch(0, 1); return P_.go() + ` · −${O.vida} de vida máxima`; } });
+    }
+  } else {
+    for (const pk of shuffled(Object.keys(C.ofertas))) {
+      if (out.length >= C.cartas) break;
+      const O = C.ofertas[pk], P_ = maqPremio(O.tipo || pk, O); if (!P_) continue;
+      out.push({ ...P_, mal: 'Gratis', gratis: true, go: P_.go });
+    }
+  }
+  return out;
+}
+const MAQ_DICE = {
+  madame: '«Tres cartas, tres destinos. Cada regalo trae su precio… elige uno.» — Madame Zafira',
+  diablo: '«Todo tiene un precio, forastero. Aquí se paga con vida.» Elige una oferta.',
+  angel: '«Toma lo que necesites, hijo. No te cobro nada.» Elige un regalo.'
+};
+const MAQ_DESC = {
+  madame: 'Sacas 3 cartas y eliges 1: cada una trae un premio y un castigo.',
+  diablo: 'Sacas 3 ofertas fuertes y eliges 1: se pagan con vida máxima.',
+  angel: 'Sacas 3 regalos más pequeños y eliges 1: no cuestan nada.'
+};
+// tocar la máquina: pagas la ficha y salen las cartas (o vuelves a ver las que ya sacaste en esta visita)
+function abrirMaq(o) {
+  const C = maqCfg(o.m); game.maqOf = game.maqOf || {}; const of = game.maqOf[o.m];
+  if (of && of.hecha) { hint('Ya elegiste en esta máquina. Vuelve en la próxima visita', 1800); return; }
+  if (of) { maqPanel(o); return; }
+  if ((game.poker | 0) < C.fichas) { hint('Necesitas 1 ficha de miembro', 1800); Sfx.err(); return; }
+  if (o.busy) return;
+  game.poker -= C.fichas; game.maqOf[o.m] = { cartas: maqCartas(o.m), sel: -1 }; Sfx.coin(); renderChips();
+  o.busy = true; o.vender(); const run = game;
+  setTimeout(() => { o.busy = false; if (game === run && state === 'play' && game.phase === 'room') maqPanel(o); }, 1500);
+}
+function maqPanel(o) {
+  const m = o.m, V = MAQ[m], of = game.maqOf[m];
+  state = 'items'; if (document.pointerLockElement) document.exitPointerLock(); input.fireHeld = false; gs.aiming = false; if (game.deOn) deadEye(false);
+  const box = $('#items-opts'), go = $('#btn-items-go'), skip = $('#btn-items-skip'); box.classList.add('maq-opts');
+  $('#items-hd').innerHTML = ico(V.ic); $('#items-hd').style.color = V.css; $('#items-t').textContent = V.name;
+  const close = () => { box.classList.remove('maq-opts'); $('#items-hd').style.color = ''; go.hidden = true; show(null); state = 'play'; releaseInput(); renderChips(); requestLock(); canvas.focus(); };
+  const C = maqCfg(m);
+  const draw = () => {
+    $('#items-say').textContent = MAQ_DICE[m] + (m === 'diablo' ? ` Tienes ${player.maxHp} de vida máxima (no puedes bajar de ${C.vidaMin}).` : '');
+    box.innerHTML = '';
+    of.cartas.forEach((c, i) => {
+      const puede = !c.vida || player.maxHp - c.vida >= C.vidaMin, b = document.createElement('button');
+      b.type = 'button'; b.className = 'perk item maq-c' + (c.gratis ? ' gratis' : ''); b.disabled = !puede; b.setAttribute('aria-pressed', of.sel === i);
+      b.innerHTML = `<span class="relic-ic" style="color:${V.css}">${ico(c.ic)}</span><b>${c.t}</b><span>${c.d}</span><strong>${puede ? c.mal : `No te alcanza la vida (${c.mal.toLowerCase()})`}</strong>`;
+      b.addEventListener('click', () => { if (state !== 'items') return; of.sel = i; Sfx.ui(); draw(); });
+      box.appendChild(b);
+    });
+    const c = of.cartas[of.sel], ok = c && (!c.vida || player.maxHp - c.vida >= C.vidaMin);
+    go.hidden = false; go.disabled = !ok; go.textContent = ok ? (m === 'madame' ? 'Elegir esta carta' : 'Elegir esta oferta') : (m === 'madame' ? 'Toca una carta' : 'Toca una oferta');
+    paginar(box, { navIn: $('#items-ft'), navFirst: true });
+  };
+  go.onclick = () => {
+    const c = of.cartas[of.sel]; if (state !== 'items' || !c || of.hecha || (c.vida && player.maxHp - c.vida < C.vidaMin)) return;
+    of.hecha = true; close(); stMas('maquinas');
+    const res = c.go(); renderChips(); balCambio();
+    banner(V.name, res.charAt(0).toUpperCase() + res.slice(1), 3000, V.ic); feed(`${V.name}: ${res}`, m === 'diablo' ? 'red' : 'gold');
+    if (m !== 'diablo') Sfx.win();
+  };
+  skip.hidden = false; skip.textContent = 'Volver a la trastienda'; skip.onclick = () => { if (state === 'items') close(); };
+  draw(); show('items-s'); Sfx.open(); setTimeout(() => { const f = box.querySelector('button:not([disabled])'); if (f) f.focus(); }, 50);
 }
 // Eventos raros al empezar una oleada (los decide el anfitrión; la gallina, cada jugador)
 const WAVE_EVENTS = [
@@ -27950,6 +28090,67 @@ function buildVendGarra(x, z) {
   };
   return o;
 }
+/* --- Máquinas de cartas (pedido del dueño, 18-oct-2026): la de Madame (premio + castigo) y la del diablo o del ángel (sale una de las dos).
+   Mismo estilo que las expendedoras: vitrina, letrero luminoso, ranura de fichas; al pagar, salen 3 cartas a la bandeja. Van en la pared izquierda. */
+const MAQ = {
+  madame: { name: 'Máquina de Madame', sub: 'Cartas del destino', cuerpo: 0x3a1050, borde: 0xb07aff, luz: 0xc070ff, css: '#c9a0ff', letrero: 'MADAME', ic: 'orb' },
+  diablo: { name: 'Máquina del diablo', sub: 'Poder a cambio de vida', cuerpo: 0x4a0808, borde: 0xff3a1a, luz: 0xff4020, css: '#ff8a6a', letrero: 'EL DIABLO', ic: 'devil' },
+  angel: { name: 'Máquina del ángel', sub: 'Regalos sin precio', cuerpo: 0xd8d0b8, borde: 0xffd870, luz: 0xfff0b0, css: '#ffe08a', letrero: 'EL ÁNGEL', ic: 'star' }
+};
+function buildMaqCartas(x, z, m) {
+  const V = MAQ[m], W = 1.1, H = 1.9, D = 0.76, fz = D / 2, P = Grp(x, z, Math.PI / 2), q = { p: P };   // girada: el frente mira al centro del cuarto
+  const cuerpo = lam(V.cuerpo), borde = lam(V.borde, { emissive: V.borde, emissiveIntensity: 0.35 }), negro = lam(0x0c080c), oro = lam(0xd8a838, { emissive: 0x2a1c04 });
+  M(bx(W, 1.0, D), cuerpo, 0, 0.5, 0, q); M(bx(W + 0.04, 0.06, D + 0.04), borde, 0, 1.02, 0, q); M(bx(W + 0.04, 0.08, D + 0.04), negro, 0, 0.04, 0, q);
+  for (const s of [-1, 1]) M(bx(0.04, 0.86, 0.04), borde, s * (W / 2), 0.55, fz, q);
+  // vitrina con la figura de la máquina
+  M(bx(W + 0.04, 0.08, D + 0.04), cuerpo, 0, H, 0, q); M(bx(W + 0.06, 0.03, D + 0.06), borde, 0, H - 0.05, 0, q);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) M(bx(0.05, H - 1.05, 0.05), oro, sx * (W / 2 - 0.025), (1.05 + H) / 2, sz * (fz - 0.025), q);
+  M(bx(W - 0.06, H - 1.05, 0.02), lam(V.cuerpo, { emissive: V.cuerpo, emissiveIntensity: 0.25 }), 0, (1.05 + H) / 2, -fz + 0.03, q);
+  M(new THREE.PlaneGeometry(W - 0.06, H - 1.05), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, depthWrite: false }), 0, (1.05 + H) / 2, fz - 0.01, { p: P, cast: false });
+  M(cyl(0.16, 0.2, 0.06, 16), oro, 0, 1.08, -0.05, q);
+  const fig = new THREE.Group(); fig.position.set(0, 1.4, -0.05); P.add(fig); let brillo = null;
+  if (m === 'madame') {   // la bola de cristal sobre su pie, con humo violeta dentro
+    M(cyl(0.07, 0.12, 0.12, 12), oro, 0, -0.22, 0, { p: fig });
+    brillo = new THREE.MeshBasicMaterial({ color: 0xd0a0ff, transparent: true, opacity: 0.55 }); M(new THREE.SphereGeometry(0.2, 20, 14), brillo, 0, 0, 0, { p: fig, cast: false });
+    M(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }), 0, 0, 0, { p: fig, cast: false });
+  } else if (m === 'diablo') {   // cabeza roja con cuernos y ojos encendidos
+    M(new THREE.SphereGeometry(0.19, 16, 12), lam(0xb01810, { emissive: 0x300404 }), 0, 0, 0, { p: fig });
+    for (const s of [-1, 1]) { M(new THREE.ConeGeometry(0.05, 0.2, 8), lam(0x1a0a0a), s * 0.12, 0.2, 0, { p: fig, rz: -s * 0.5 }); M(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd040 }), s * 0.07, 0.03, 0.17, { p: fig, cast: false }); }
+    brillo = new THREE.MeshBasicMaterial({ color: 0xff5020, transparent: true, opacity: 0.3 }); M(new THREE.SphereGeometry(0.26, 14, 10), brillo, 0, 0, 0, { p: fig, cast: false });
+  } else {   // cabecita blanca con aureola dorada y alas
+    M(new THREE.SphereGeometry(0.16, 16, 12), lam(0xfff6e8, { emissive: 0x2a2620 }), 0, 0, 0, { p: fig });
+    brillo = new THREE.MeshBasicMaterial({ color: 0xffe070 }); M(new THREE.TorusGeometry(0.13, 0.018, 8, 24), brillo, 0, 0.24, 0, { p: fig, rx: Math.PI / 2, cast: false });
+    for (const s of [-1, 1]) M(new THREE.PlaneGeometry(0.3, 0.2), new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide, emissive: 0x302c24 }), s * 0.26, 0.02, -0.04, { p: fig, ry: s * 0.5, rz: s * 0.3, cast: false });
+  }
+  // letrero, ranura de fichas, boca de las cartas y bandeja
+  M(bx(W - 0.02, 0.28, 0.1), negro, 0, H + 0.2, 0.1, q); M(new THREE.PlaneGeometry(W - 0.06, 0.24), vendLetrero(V, W - 0.06, 0.24), 0, H + 0.2, 0.152, { p: P, cast: false });
+  vendRanura(P, 0.3, 0.74, fz + 0.005);
+  M(bx(0.36, 0.05, 0.03), negro, -0.15, 0.66, fz + 0.002, q);
+  M(bx(0.44, 0.03, 0.24), oro, -0.15, 0.4, fz + 0.12, q); for (const s of [-1, 1]) M(bx(0.03, 0.07, 0.24), oro, -0.15 + s * 0.22, 0.44, fz + 0.12, q);
+  lampLight(0, 1.5, fz + 0.5, V.luz, 0.6, 3.2, P);
+  addBox(x, z, fz + 0.04, W / 2 + 0.04);   // girada: lo ancho va a lo largo de la pared
+  const o = { kind: 'maq', m, x: x + fz + 0.8, z, r: 1.0, P };
+  let pulso = 0;
+  world.anims.push((dt, t) => { fig.position.y = 1.4 + Math.sin(t * 1.6) * 0.03; fig.rotation.y = m === 'madame' ? t * 0.5 : Math.sin(t * 0.8) * 0.4; pulso = Math.max(0, pulso - dt); if (brillo.transparent) brillo.opacity = (m === 'madame' ? 0.45 : 0.25) + Math.sin(t * 3) * 0.08 + pulso * 0.4; });
+  vendCola(o);
+  // al pagar: la figura brilla y salen 3 cartas, una tras otra, a la bandeja
+  o.vender = () => {
+    let t = 0, fase = 0; const cartas = [];
+    o.cola.push(dt => {
+      t += dt;
+      if (fase === 0) { fase = 1; pulso = 1.2; Sfx.cards(); }
+      if (fase === 1 && t > 0.5) {
+        fase = 2; t = 0;
+        for (let i = 0; i < 3; i++) { const c = new THREE.Group(); M(bx(0.12, 0.17, 0.006), lam(V.borde, { emissive: V.borde, emissiveIntensity: 0.4 }), 0, 0, 0, { p: c, cast: false }); M(bx(0.09, 0.13, 0.008), lam(0xf4ead8), 0, 0, 0, { p: c, cast: false }); c.position.set(-0.15, 0.66, fz - 0.02); c.visible = false; P.add(c); cartas.push(c); }
+      } else if (fase === 2) {   // cada carta sale por la boca y cae acostada a la bandeja
+        cartas.forEach((c, i) => { const k = Math.min(1, Math.max(0, (t - i * 0.25) / 0.45)); c.visible = k > 0; c.position.set(-0.27 + i * 0.12, 0.66 - k * 0.22, fz - 0.02 + k * 0.14); c.rotation.x = -k * Math.PI / 2 * 0.9; c.rotation.z = (i - 1) * 0.25 * k; if (k >= 1 && !c.cayo) { c.cayo = 1; Sfx.vendThunk(); } });
+        if (t > 1.05) { fase = 3; t = 0; }
+      } else if (fase === 3) { let fin = true; for (const c of cartas) if (!vendEnBandeja(c, t, 1.8)) fin = false; else c.visible = false; if (fin) { cartas.forEach(c => P.remove(c)); return true; } }
+      return false;
+    });
+  };
+  return o;
+}
 const VEND_BUILD = { espiral: buildVendEspiral, capsulas: buildVendCapsulas, garra: buildVendGarra };
 function buildShopRoom() {
   const HX = 9, HZ = 8;
@@ -27964,7 +28165,7 @@ function buildShopRoom() {
   /* Distribución fija de la Trastienda (pedido del dueño, 17-oct-2026): cada cosa tiene SU lugar reservado, salga sola o con todas las demás,
      así nunca se tapan entre sí ni tapan las puertas o los pasillos. Mirando al fondo desde la entrada:
      pared del fondo: máquina de cápsulas (x −5) · máquina de la garra (x 0) · expendedora principal (x 5, siempre)
-     esquina del fondo izquierda: el Herrero · pared izquierda: ramen (atrás), taller (en medio) y radio (adelante)
+     pared izquierda: ramen (atrás), máquina de Madame (en medio) y máquina del diablo o del ángel (adelante)
      esquina del fondo derecha: tragamonedas · la caja con la gata (delante de la expendedora) · pared derecha: tiro al blanco (en medio) y ruleta (adelante)
      centro: los 3 objetos sobre la alfombra y la campanita a su izquierda · frente: blackjack (derecha)
      pared de la salida: la puerta (o las 3 puertas del camino en x −3,4 · 0 · 3,4) y los estantes en los costados, entre las puertas y las cajas de las esquinas */
@@ -27994,6 +28195,8 @@ function buildShopRoom() {
   if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, 1.5));
   if (game && game.roomWheel) R.objs.push(buildWheel(HX - 0.55, 6.2));
   if (game && game.roomBj) R.objs.push(buildBlackjack(5.2, 5.0));
+  if (game && game.roomMadame) R.objs.push(buildMaqCartas(-HX + 0.45, 1.6, 'madame'));
+  if (game && game.roomDva) R.objs.push(buildMaqCartas(-HX + 0.45, 5.4, game.roomDva));
   // Máquinas expendedoras en la pared del fondo: la principal siempre (donde estaba la puerta verde); las otras dos, a veces (donde estaban el tarot y el diablo)
   if (game) for (const [k, vx, on] of [['capsulas', -5, game.roomVendCap], ['garra', 0, game.roomVendGarra], ['espiral', 5, true]]) {
     if (!on) continue;
@@ -28022,6 +28225,8 @@ function useLabel(o) {
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
   if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.', b: 'Comprar', ok: true }; }
+  if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
+    return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
   if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
@@ -28059,6 +28264,8 @@ function useObj(o) {
     rascarGata(o);
   } else if (o.kind === 'bj') {
     useCur = null; showUse(null); abrirBj();
+  } else if (o.kind === 'maq') {
+    useCur = null; showUse(null); abrirMaq(o);
   } else if (o.kind === 'tiro') {
     tiroStart(o);
   } else if (o.kind === 'caja') {
