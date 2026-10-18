@@ -85,3 +85,23 @@ Nuevas de esta ronda:
 
 Resultados de fusión ya decididos (sin pareja asignada todavía): Puntería, Espuelas, Imán, Mercenaria, Alcancía, Usurero, Racimo, Taladro, Vampira, Junior, Frita, Dado (de rango C + C = B); As de espadas y Tormenta (de rango A + A = S).
 La Negra es especial secreta, fuera de las 84.
+
+## Ronda 3 · Fusiones C + C = B (aprobadas el 18-oct-2026)
+
+| # | Pareja | Resultado (B) | Tipo | Efecto |
+|---|---|---|---|---|
+| 1 | Oro + Cinturón | Imán | Pasiva | Recoges oro y objetos desde más lejos |
+| 2 | Oro + Cantimplora | Alcancía | Pasiva | +7 de oro por oleada |
+| 3 | Oro + Apuesta | Usurero | Pasiva | 1 % de interés sobre tu oro (máx. 10) |
+| 4 | Oro + Pólvora fina | Mercenaria | Pasiva | +2 espacios en el slot, -10 de oro por oleada |
+| 5 | Oro + Gatillo de pluma | Dado | Activa, vuelve | De 1 a 6 balas a la vez |
+| 6 | Cinturón + Pólvora fina | Racimo | Activa, vuelve | 6 perdigones |
+| 7 | Cinturón + Gatillo de pluma | Junior | Activa, vuelve | Recarga todo el tambor |
+| 8 | Cinturón + Cantimplora | Espuelas | Pasiva | Caminas 15 % más rápido |
+| 9 | Cinturón + Apuesta | Bolsa sin fondo | Pasiva | Al recargar, 1 de 4 de que una normal salga especial al azar |
+| 10 | Pólvora fina + Gatillo de pluma | Taladro | Activa, vuelve | Atraviesa en línea |
+| 11 | Pólvora fina + Cantimplora | Vampira | Activa, vuelve | Cura 8 por impacto |
+| 12 | Pólvora fina + Apuesta | Frita | Activa, vuelve | Explota |
+| 13 | Gatillo de pluma + Cantimplora | Segundo aire | Pasiva | Con menos de 25 % de vida disparas 30 % más rápido |
+| 14 | Gatillo de pluma + Apuesta | Puntería | Pasiva | 1 de 10 de crítico |
+| 15 | Cantimplora + Apuesta | Trago de valor | Activa, vuelve | Cura 20 y el próximo tiro hace doble daño |
