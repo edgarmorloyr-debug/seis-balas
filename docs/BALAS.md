@@ -333,7 +333,7 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Bala | Despertar |
 |---|---|
 | Suerte | Racha: también potencia a la bala de su derecha |
-| Dado cargado | Dados dobles: suben 2 balas por oleada |
+| Dado cargado | Tirada perfecta: la bala que sube por el dado también gana su despertar durante esa oleada *(cambio del dueño, 19-oct-2026)* |
 | Invocación | Orden de caballería: 2 caballeros que explotan al morir |
 | Hipnótica | Hipnosis en cadena: lo que mata el hipnotizado también se pasa a tu lado |
 | Reloj | Tiempo detenido: el tiempo se detiene 2 s antes de frenarse |
@@ -354,7 +354,7 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 |---|---|
 | Imán | Imán gigante: también atrae las balas que sueltan los zombis |
 | Alcancía | Cerdito lleno: cada 5 oleadas rompes la alcancía y ganas el triple |
-| Usurero | Banquero: el tope de interés sube de 10 a 30 |
+| Usurero | Prestamista: al final de cada oleada te presta 50 de oro si tienes menos de 20 (sin devolverlo) *(cambio del dueño, 19-oct-2026)* |
 | Mercenaria | Sin sueldo: ya no cobra 10 de oro por oleada |
 | Dado | Dado de oro: si salen 6 balas, todas cuentan como tiro a la cabeza |
 | Racimo | Racimo de racimos: cada perdigón se parte otra vez en 3 |
@@ -393,15 +393,15 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Trébol de cuatro hojas | Trébol dorado: los cofres dan el doble |
 | Ángel guardián | Arcángel: el caballero revive 1 vez por oleada |
 | Encantador | Flautista: encantados 15 s y atacan el doble |
-| As de espadas | Escalera real: 20 tiros críticos |
+| As de espadas | Mano ganadora: cada crítico de su racha cura 3 de vida *(cambio del dueño, 19-oct-2026)* |
 | Ruleta dorada | Casa gana: +5 de oro cada vez que mata |
 | Legión | Ejército: el dado se tira 2 veces y se suman los caballeros |
-| Titiritero | Gran titiritero: 10 m y 10 s |
+| Titiritero | Marionetas explosivas: los zombis hipnotizados explotan al terminar el efecto *(cambio del dueño, 19-oct-2026)* |
 | Reloj de arena | Arena eterna: tiempo lento toda la primera mitad de la oleada |
 | Seis de seis | Dados cargados: el 6 sale con el doble de probabilidad |
 | Nigromante | Rey de los muertos: los levantados duran hasta el final de la oleada |
 | Caballero del tiempo | Guardián del tiempo: el caballero se queda toda la oleada |
-| Duelo | Duelo al amanecer: a los jefes les quita 40 % |
+| Duelo | Pistolero veloz: el caballero se queda 10 s más peleando después del duelo *(cambio del dueño, 19-oct-2026)* |
 | Hipnosis eterna | Trance: los detenidos dan triple oro |
 | Traición | Motín: contagia la traición a 2 más antes de explotar |
 | Tormenta | Diluvio: caen 3 relámpagos |
@@ -410,7 +410,7 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Bala | Despertar |
 |---|---|
 | Emperador inmortal | Dinastía: al revivir, todo el equipo recibe +1 nivel en sus balas esa oleada |
-| Corona celestial | Trono: bala S cada 30 muertes |
+| Corona celestial | Coronación: la bala S que recibe llega en nivel 2 *(cambio del dueño, 19-oct-2026)* |
 | Rey del vacío | Señor del abismo: el agujero negro también se traga los disparos enemigos |
 | Jackpot real | Jackpot eterno: ya no se rompe; se recarga cada 2 oleadas |
 | Corte de espejos | Laberinto: 2 balas fantasma |
@@ -421,7 +421,7 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Cielo y abismo | Equilibrio: hace las dos cosas a la vez |
 | Milagro | Milagro mayor: 5 tiradas |
 | Gemelo celestial | Trillizos: 2 dobles |
-| Casino del abismo | Casa de empeño: 15 de oro por zombi tragado |
+| Casino del abismo | La casa nunca pierde: el agujero negro deja caer 1 ficha de miembro por cada 10 zombis tragados *(cambio del dueño, 19-oct-2026)* |
 | Horizonte de sucesos | Colapso: al juntarse explotan y arrasan la pantalla (jefes -30 %) |
 | Doble o nada infinito | Infinito: el premio se puede repetir hasta 3 veces seguidas |
 | Negra | No sube de nivel: es única |
@@ -436,7 +436,7 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 - Si una cifra del despertar es peor que la que ya da el nivel 4 (×3), se queda la mejor (nunca empeora).
 
 ### Preguntas para el dueño (despertares)
-1. Estos despertares no suman nada porque el nivel 4 ya da más: **Dados dobles** (nivel 4 ya sube 3 balas), **Banquero** (el tope ya es 30), **Casa de empeño** (ya da 15 de oro), **Trono** (en nivel 4 ya da una S cada 17 muertes), **Escalera real** (ya son 36 críticos), **Duelo al amanecer** (ya quita 75 % a los jefes) y el tiempo de **Gran titiritero** (ya son 18 s; los 10 m sí cuentan). ¿Les damos otro efecto o subimos sus cifras?
+1. ~~Siete despertares no sumaban nada~~ → **Resuelto (19-oct-2026):** el dueño los cambió por Tirada perfecta, Prestamista, La casa nunca pierde, Coronación, Mano ganadora, Pistolero veloz y Marionetas explosivas (ya programados).
 2. **Rey de reyes**: quedó como un contador aparte: cada 50 muertes, una bala A (las B siguen saliendo cada 17). ¿Así?
 3. **Bolsa mágica**: la Bolsa ya podía dar activas A; quedó que 35 de cada 100 sorpresas son A seguro. ¿Así?
 4. **Recarga perfecta (Junior)**: quedó que, al recargar con Junior, primero entran al tambor las activas que vuelven desde la caja. ¿Era eso?

@@ -300,6 +300,19 @@ P.append([r'^(\d+) fichas?$', '$1 chip(s)'])
 P.append([r'^Cañón: recámara (\d)$', 'Cylinder: chamber $1'])
 P.append([r'^Comer · (\d+) fichas?$', 'Eat · $1 chip(s)'])
 
+DESP.update({
+ 'Tirada perfecta: la bala que sube por el dado también gana su despertar durante esa oleada': 'Perfect Roll: the bullet the die levels up also gains its awakening for that wave',
+ 'Prestamista: al final de cada oleada te presta 50 de oro si tienes menos de 20 (sin devolverlo)': 'Moneylender: at the end of each wave it lends you 50 gold if you have less than 20 (no need to pay it back)',
+ 'La casa nunca pierde: el agujero negro deja caer 1 ficha de miembro por cada 10 zombis tragados': 'The House Never Loses: the black hole drops 1 member chip for every 10 zombies swallowed',
+ 'Coronación: la bala S que recibe llega en nivel 2': 'Coronation: the S bullet it gives arrives at level 2',
+ 'Mano ganadora: cada crítico de su racha cura 3 de vida': 'Winning Hand: each crit in its streak heals 3 health',
+ 'Pistolero veloz: el caballero se queda 10 s más peleando después del duelo': 'Quick Draw: the knight stays and fights 10 s longer after the duel',
+ 'Marionetas explosivas: los zombis hipnotizados explotan al terminar el efecto': 'Exploding Puppets: hypnotized zombies explode when the effect ends',
+})
+UI.update({ 'La casa nunca pierde: +1 ficha de miembro': 'The house never loses: +1 member chip', 'Pistolero veloz: el caballero se queda a pelear': 'Quick draw: the knight stays to fight', 'Prestamista': 'Moneylender', 'Usurero': 'Usurer', 'Alcancía': 'Piggy Bank' })
+P.append([r'^Dado cargado: (.+) sube 1 nivel esta oleada y despierta$', 'Loaded die: $1 goes up 1 level this wave and awakens'])
+P.append([r'^Dado cargado: (.+) sube 1 nivel esta oleada$', 'Loaded die: $1 goes up 1 level this wave'])
+
 t = {}
 for k, n, d in B:
     if k in EN: t[n] = EN[k][0]
