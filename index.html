@@ -2514,6 +2514,7 @@ const Sfx = (() => {
     armando: { s: 'grito_velorio', f: 100, F: [560, 980, 2300], vib: 1, corto: [0.32, 0.3, 1.02], fuerte: [0.95, 0.7, 0.88], lp: 3200 },
     carlos: { s: 'grito_geronimo', f: 94, F: [600, 1020, 2350], corto: [0.28, 0.3, 1.0], fuerte: [0.16, 0.68, 0.9], lp: 3600 },
     francois: { s: 'grito_francois', f: 232, F: [830, 1430, 2900], corto: [0.2, 0.26, 1.05], fuerte: [0.16, 0.62, 0.96], lp: 6500, g: 1.6 },
+    ludo: { s: 'grito_johnny', f: 128, F: [660, 1180, 2550], corto: [0.03, 0.24, 0.98], fuerte: [0, 0.5, 0.84], lp: 4800 },
     lilith: { s: 'grito_francois', f: 204, F: [760, 1290, 2750], corto: [0.42, 0.26, 0.9], fuerte: [0.3, 0.56, 0.84], lp: 4200, hp: 380, g: 1.7 }
   };
   const dolT = {}, dolU = {};
@@ -2853,7 +2854,7 @@ const Sfx = (() => {
       tone({ f0: on ? 300 : 80, f1: on ? 60 : 260, dur: 0.6, vol: 0.4, wet: 0.6 });
     },
     // grito al morir: uno distinto por personaje (elegidos por el dueño)
-    grito(ch, pan = 0, vol = 1) { const n = { sheriff: 'grito_sheriff', johnny: 'grito_johnny', armando: 'grito_velorio', carlos: 'grito_geronimo', francois: 'grito_francois', lilith: 'grito_francois' }[ch]; return !!n && smp(n, { vol: 0.95 * vol, pan, wet: 0.3 }); },
+    grito(ch, pan = 0, vol = 1) { const n = { sheriff: 'grito_sheriff', johnny: 'grito_johnny', armando: 'grito_velorio', carlos: 'grito_geronimo', francois: 'grito_francois', lilith: 'grito_francois', ludo: 'grito_johnny' }[ch]; return !!n && smp(n, { vol: 0.95 * vol, pan, wet: 0.3 }); },
     // quejido al recibir un golpe: 4 por personaje (mmf, ¡uh!, un trozo de su grito y, si el golpe es fuerte, el trozo largo con un «¡ah!» encima).
     // pw: fuerza del golpe (0 = daño continuo como fuego o gas; 1 = golpe grande) · quien: 'yo' o el id del compañero (cada uno con su espera)
     dolor(ch, pw = 0.5, pan = 0, vol = 1, quien = 'yo') {
@@ -20503,8 +20504,8 @@ const BAL = {
   },
   subeRango: { C: 'B', B: 'A', A: 'S', S: 'X' },
   slotBase: 6,
-  slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6 },   // carlos = Geronimo
-  balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro' },
+  slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
+  balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro', ludo: 'apuesta' },
   caja: 50,                 // balas normales que caben en la caja (el Cinturón suma)
   nivelMax: 4,
   nivelMul: [1, 1.5, 2, 3], // nivel 1, 2, 3 y 4 (el 4 además «despierta»: ver DESPERTAR)
@@ -22670,7 +22671,8 @@ function newGame(sv, run) {
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
   game.owned[CHARS[game.char].gun] = Math.max(1, game.owned[CHARS[game.char].gun] | 0);
-  if (game.char === 'carlos' && !sv) game.owned.cowboy = 2;   // Maestría: dos revólveres de vaquero desde el principio
+  if (game.char === 'carlos' && !sv) game.owned.cowboy = 2;
+  if (game.char === 'ludo' && !sv) game.owned.corto = 2;   // Ludo Cheng: dos revólveres cortos desde el principio   // Maestría: dos revólveres de vaquero desde el principio
   shuffleBox(true);
   Object.assign(player, { vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, lastHurt: -99, shake: 0, roll: 0, down: false, webT: 0, frostT: 0 });
   player.hp = player.maxHp = CHAR_VIDA[game.char] || 100;
@@ -22979,7 +22981,8 @@ const HAB = {
   johnny: { k: 'dado', name: 'Ludopatía', desc: 'Lanza un dado y usa hasta 6 armas aleatorias.', dur: 60, cargadores: 2 },
   armando: { k: 'furia', name: 'Furia del viejo', desc: 'Durante 5 s hace el triple de daño (300 %) y nada le hace daño.', dur: 5, dano: 3 },
   lilith: { k: 'rafaga', name: 'Plomo ardiente', desc: 'Con sus dos MP5 descarga 40 balas gratis hacia donde apunta; cada bala incendia al zombi 4 s.', balas: 40, ritmo: 0.07, fuego: 4 },
-  carlos: { k: 'minigun', name: 'Revólver minigun', desc: 'Durante 10 s empuñas el revólver minigun, con balas sin fin. Después vuelves a tus revólveres.', dur: 10 }
+  carlos: { k: 'minigun', name: 'Revólver minigun', desc: 'Durante 10 s empuñas el revólver minigun, con balas sin fin. Después vuelves a tus revólveres.', dur: 10 },
+  ludo: { k: 'turno', name: 'Mi turno', desc: 'Durante 8 s empuña dos revólveres minigun, uno en cada mano, con balas sin fin.', dur: 8 }
 };
 const _ejeY = new THREE.Vector3(0, 1, 0);
 const habEl = $('#hab'), habB = $('#hab b'), habN = $('#hab-n'), bHab = $('#b-hab'), bHabN = $('#b-hab-n'), fxSombra = $('#fx-sombra'), fxFuria = $('#fx-furia');
@@ -23008,6 +23011,7 @@ function usarHab() {
   else if (H.k === 'campana') { const d = camera.getWorldDirection(new THREE.Vector3()); const x = player.pos.x + d.x * 5, z = player.pos.z + d.z * 5; ponerCampana(x, z, H.dur); if (Net.on) Net.ev(['ab', 'campana', r2(x), r2(z), H.dur]); }
   else if (H.k === 'sombra') { game.sombraT = H.dur; game.sombraPos = player.pos.clone(); fxSombra.style.opacity = '1'; banner(H.name, 'Los zombis te pierden de vista', 1600, 'skull'); Sfx.whoosh(0); for (const z of zombies) if (z.tk === 'p' && (!z.pid || z.pid === Net.id)) z.tgtT = 0; if (Net.on) Net.ev(['ab', 'sombra', r2(player.pos.x), r2(player.pos.z), H.dur]); }
   else if (H.k === 'minigun') habMinigun(H);
+  else if (H.k === 'turno') { prestarArma('minigun', H.dur, true); banner(H.name, `¡${H.dur} segundos con dos revólveres minigun!`, 1800, 'gun'); Sfx.win(); }
   else if (H.k === 'ayudante') habAyudante(H);
   else if (H.k === 'dash') habDash(H);
   else if (H.k === 'dado') habDado(H);
@@ -23060,7 +23064,7 @@ function prestarArma(id, dur, dos) {
 }
 // Las armas que presta la habilidad (el dado de Johnny, el revólver minigun de Carlos, las MP5 de Lilith) se preparan al cargar el lugar,
 // detrás de la pantalla negra: así la primera vez que se usa la habilidad no hay que preparar sus materiales y no se traba.
-const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'] };
+const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'], ludo: ['minigun'] };
 function precalentarHab() {
   const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
   const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
@@ -26721,6 +26725,7 @@ const NEON_IC = {
   calavera: c => `<svg class="nf-ic" viewBox="0 0 24 24" style="filter:drop-shadow(0 0 5px ${c})"><path d="M12 2.5a7.5 7.5 0 0 0-7.5 7.5c0 2.8 1.5 4.7 2.8 5.6V19h9.4v-3.4c1.3-.9 2.8-2.8 2.8-5.6A7.5 7.5 0 0 0 12 2.5z" fill="none" stroke="${c}" stroke-width="1.8"/><circle cx="9" cy="11" r="1.6" fill="${c}"/><circle cx="15" cy="11" r="1.6" fill="${c}"/></svg>`
 };
 function fichaPj(id) {
+  if (id === 'ludo' && !charOpen('ludo')) return `<div class="nH ch-ficha azar"><div class="win c"><span class="lb gc">PASIVA</span>${NEON_IC.estrella('#45b8aa')}<span class="big gc">?</span></div><div class="win r"><span class="lb gr">VIDA</span>${NEON_IC.corazon('#ff3b5c')}<span class="big gr">?</span></div><div class="win y"><span class="lb gy">ULTIMATE</span>${NEON_IC.calavera('#ffe03a')}<span class="big gy">?</span></div></div>`;
   const C = CHARS[id], H = HAB[id], v = CHAR_VIDA[id] || 100;
   if (FICHA_ESTILO === 'I') return `<div class="nI ch-ficha"><div class="row"><span class="k gc">Pasiva</span><div><div class="nm gc">${C.ab || ''}</div><div class="t">${C.desc}</div></div></div><div class="row"><span class="k gr">Vida ${v}</span><div class="segs">${Array.from({ length: 10 }, (_, k) => `<i class="${k < Math.round(v / 10) ? 'on' : ''}"></i>`).join('')}</div></div>${H ? `<div class="row"><span class="k gp">Ultimate</span><div><div class="nm gp">${H.name}</div><div class="t">${H.desc}</div></div></div>` : ''}</div>`;
   return `<div class="nH ch-ficha"><div class="win c"><span class="lb gc">PASIVA</span>${NEON_IC.estrella('#45b8aa')}<span class="nm gc">${C.ab || ''}</span><span class="t">${C.desc}</span></div><div class="win r"><span class="lb gr">VIDA</span>${NEON_IC.corazon('#ff3b5c')}<span class="big gr">${v}</span></div>${H ? `<div class="win y"><span class="lb gy">ULTIMATE</span>${NEON_IC.calavera('#ffe03a')}<span class="nm gy">${H.name}</span><span class="t">${H.desc}</span></div>` : ''}</div>`;
@@ -27088,7 +27093,7 @@ function updatePlayer(dt) {
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
   if (sprint && state === 'play') stMas('corre', 8 * len * dt);   // metros corridos (para «Piernas de acero»)
-  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
+  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (game && game.char === 'ludo' ? 1.15 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
   player.vx = damp(player.vx, tvx, acc, dt); player.vz = damp(player.vz, tvz, acc, dt);
@@ -30400,7 +30405,7 @@ function updateCopProxies(dt) {
 const PONCHO = [0x8a3a2a, 0x2a5a7a, 0x6a7a2a, 0x7a4a8a];
 const hatMat = new THREE.MeshLambertMaterial({ color: 0x5a3a20 });
 // Cómo se ve cada personaje en el juego en grupo (igual que su foto de la pantalla de elección)
-const CHAR_KEYS = ['sheriff', 'johnny', 'armando', 'lilith', 'francois', 'carlos'];
+const CHAR_KEYS = ['sheriff', 'johnny', 'armando', 'lilith', 'francois', 'carlos', 'ludo'];
 const CHAR_LOOK = {
   carlos: { skin: 0xb07a52, shirt: 0x55603a, pants: 0x3e4630, dress(a) {
     addL(a.torso, LG.box(0.48, 0.34, 0.32), LM(0x3a4228), 0, 0.02, 0);
@@ -30428,6 +30433,9 @@ const CHAR_LOOK = {
     addL(a.torso, LG.box(0.2, 0.04, 0.2), LM(0x6a2a8a, { emissive: 0x1a0824 }), 0, 0.33, 0);
     addL(a.head, LG.box(0.32, 0.12, 0.33), LM(0x1e1428), 0, 0.17, -0.01); addL(a.head, LG.box(0.32, 0.42, 0.07), LM(0x1e1428), 0, -0.04, -0.15);
     for (const x of [-0.16, 0.16]) addL(a.head, LG.box(0.03, 0.34, 0.2), LM(0x3a1a50), x, 0, -0.02); } },
+  ludo: { skin: 0xd8b090, shirt: 0xa8141c, pants: 0x141418, dress(a) {
+    addL(a.torso, LG.box(0.2, 0.06, 0.2), LM(0xc8a038), 0, 0.33, 0); for (const y of [0.2, 0.05, -0.1]) addL(a.torso, LG.box(0.05, 0.03, 0.02), LM(0xffd040, { emissive: 0x403000 }), 0, y, 0.158);
+    addL(a.head, LG.box(0.32, 0.1, 0.33), LM(0x0c0c10), 0, 0.16, -0.01); addL(a.head, LG.box(0.28, 0.05, 0.03), LM(0x0a0a0c, { emissive: 0x050505 }), 0, 0.04, 0.152); } },
   francois: { skin: 0xf0caae, shirt: 0x22252c, pants: 0x22252c, dress(a) {
     addL(a.torso, LG.box(0.14, 0.3, 0.015), LM(0xf4f4f4), 0, 0.08, 0.155); addL(a.torso, LG.box(0.045, 0.28, 0.02), LM(0x0a0a0c), 0, 0.07, 0.158);
     addL(a.head, LG.box(0.32, 0.12, 0.33), LM(0xe8cc7a), 0, 0.17, -0.01); addL(a.head, LG.box(0.32, 0.36, 0.07), LM(0xe8cc7a), 0, -0.02, -0.15);
@@ -30533,7 +30541,10 @@ function p3dSanear(m) {
   });
   return n;
 }
+// Ludo Cheng no tiene modelo 3D propio (el arte 3D está congelado): usa el del pistolero
+const P3D_ALIAS = { ludo: 'pistolero' };
 function p3dCargar(ch, cb) {
+  ch = P3D_ALIAS[ch] || ch;
   const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !dir) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
@@ -31133,13 +31144,14 @@ const META_KEY = 'sbB_meta';
 const META = Object.assign({ fichas: 0, un: {}, char: 'sheriff', skull: 0, skullMax: 0 }, store.get(META_KEY, {}) || {});
 const saveMeta = () => { store.set(META_KEY, META); try { Cuenta.dirty(); } catch (e) {} };
 // vida inicial de cada personaje (decisión del dueño, 15-oct-2026)
-const CHAR_VIDA = { sheriff: 100, carlos: 100, johnny: 90, francois: 90, armando: 80, lilith: 70 };
+const CHAR_VIDA = { sheriff: 100, carlos: 100, johnny: 90, francois: 90, armando: 80, lilith: 70, ludo: 90 };
 const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata: +10 % de daño.' },
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
   lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'jefe', n: 0, t: 'Vence en el casino al jefe 1, el Crupier de Hielo y Fuego' } },
   carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.', req: { k: 'jefe', n: 3, t: 'Vence en el casino al jefe 4, la Escolta Zombi' } },
+  ludo: { name: 'Ludo Cheng', gun: 'corto', ab: 'Pies ligeros', desc: 'Empieza con dos revólveres cortos, uno en cada mano, y se mueve un 15 % más rápido.', req: { k: 'jefe', n: 1, t: 'Vence en el casino al jefe 2, Ludo Cheng' } },
   francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'jefe', n: 2, t: 'Vence en el casino al jefe 3, el Crupier Mayor' } }
 };
 // Logros entre partidas para desbloquear personajes
@@ -31571,12 +31583,12 @@ const CHAR_IDS = Object.keys(CHARS);
 // el carrusel lleva al final una silueta con «?»: al empezar la partida sale un personaje al azar
 const CAR_IDS = CHAR_IDS.concat('azar');
 // valor y palo de la carta de cada personaje (boceto aprobado por el dueño, 19-oct-2026); «al azar» es el comodín
-const PK_CARTA = { sheriff: ['K', 'pica'], johnny: ['A', 'corazon'], armando: ['K', 'trebol'], lilith: ['Q', 'pica'], carlos: ['J', 'diamante'], francois: ['Q', 'corazon'], azar: ['?', null] };
+const PK_CARTA = { ludo: ['A', 'diamante'], sheriff: ['K', 'pica'], johnny: ['A', 'corazon'], armando: ['K', 'trebol'], lilith: ['Q', 'pica'], carlos: ['J', 'diamante'], francois: ['Q', 'corazon'], azar: ['?', null] };
 const PK_PALO = { pica: 'M0 -10 C3 -6 10 -2.5 10 2.5 C10 6.5 5.5 8 1.6 5.6 L3.2 10 L-3.2 10 L-1.6 5.6 C-5.5 8 -10 6.5 -10 2.5 C-10 -2.5 -3 -6 0 -10Z', corazon: 'M0 9 C-8 3.5 -10.5 -0.5 -10 -4.5 C-9.4 -9 -3 -10 0 -5 C3 -10 9.4 -9 10 -4.5 C10.5 -0.5 8 3.5 0 9Z', diamante: 'M0 -10 L7.5 0 L0 10 L-7.5 0Z', trebol: 'M-1.4 1 L1.4 1 L3 10 L-3 10Z' };
 const pkPalo = p => !p ? '' : `<svg viewBox="-11 -11 22 22" aria-hidden="true"><path d="${PK_PALO[p]}" fill="currentColor"/>${p === 'trebol' ? '<circle cx="0" cy="-5" r="4.6" fill="currentColor"/><circle cx="-5" cy="1" r="4.6" fill="currentColor"/><circle cx="5" cy="1" r="4.6" fill="currentColor"/>' : ''}</svg>`;
 const pkRojo = id => { const c = PK_CARTA[id]; return !!c && (c[1] === 'corazon' || c[1] === 'diamante'); };
 const pkEsq = id => { const c = PK_CARTA[id] || ['?', null], v = `${c[0]}${pkPalo(c[1])}`; return `<i class="pk-ix tl" aria-hidden="true">${v}</i><i class="pk-ix br" aria-hidden="true">${v}</i>`; };
-const carName = id => id === 'azar' ? 'Al azar' : CHARS[id].name, carOpen = id => id === 'azar' || charOpen(id);
+const carName = id => id === 'azar' ? 'Al azar' : id === 'ludo' && !charOpen('ludo') ? '???' : CHARS[id].name, carOpen = id => id === 'azar' || charOpen(id);
 function charElegido() { if (Net.on && Net.myChar) return Net.myChar; if (!META.azar) return META.char; const ok = CHAR_IDS.filter(charOpen); return ok[Math.floor(Math.random() * ok.length)] || META.char; }
 let carI = -1;
 // achica la letra de cada recuadro de la ficha hasta que el texto quepa sin estirar el recuadro
@@ -31606,12 +31618,12 @@ function renderCarousel(dir) {
   cl.innerHTML = `<div class="car-stage ${dir > 0 ? 'in-r' : dir < 0 ? 'in-l' : ''}"><button class="car-nav" data-d="-1" aria-label="Personaje anterior">‹</button>${sideCard(-1)}
     <div class="car-main pk ${pkRojo(id) ? 'r' : ''} ${open ? '' : 'lock'}">${pkEsq(id)}
       <div class="ch-pw"><img class="ch-pic" alt="" src="${charPic(id)}">${open ? '' : `<i class="ch-lock">${ico('lock')}</i>`}</div>
-      <b>${C.name}</b>
-      <span class="ch-gun"><img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}"><span class="gn">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span></span>
+      <b>${carName(id)}</b>
+      <span class="ch-gun">${id === 'ludo' && !open ? '<span class="gn">Arma secreta</span>' : `<img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}"><span class="gn">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>`}</span>
       ${estrellasHtml(id)}
     </div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
   <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t}${C.req.k === 'jefe' ? '' : ` · ${charProgress(id)}/${C.req.n}`}</span>`}${fichaPj(id)}</div>
-    <div class="car-info">${gunStats(C.gun)}</div>
+    <div class="car-info">${id === 'ludo' && !open ? '' : gunStats(C.gun)}</div>
     <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Empezar' : `${ico('lock')} Bloqueado`;
@@ -31897,8 +31909,33 @@ function azarPortrait() {
   g.fillStyle = '#ffd060'; g.shadowColor = '#ff9a20'; g.shadowBlur = 24; g.font = 'bold 120px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 160, 160);
   return cv.toDataURL();
 }
+// Ludo Cheng (Etapa 3): retrato hecho por código (fondo de neón del casino, chaqueta roja de cuello mao, lentes oscuros y sus dos revólveres)
+function ludoPortrait(tapado) {
+  const S = 320, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.scale(S / 256, S / 256);
+  const T2 = Math.PI * 2, ell = (x, y, rx, ry, f) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, T2); g.fillStyle = f; g.fill(); };
+  const bg = g.createRadialGradient(128, 90, 10, 128, 128, 190); bg.addColorStop(0, '#5a1a6a'); bg.addColorStop(1, '#12061a'); g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
+  g.lineWidth = 4; for (const [c, y] of [['#ff3fd0', 40], ['#3ff0ff', 62], ['#ffd040', 84]]) { g.strokeStyle = c; g.shadowColor = c; g.shadowBlur = 12; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y - 20); g.stroke(); } g.shadowBlur = 0;
+  if (tapado) {   // bloqueado: silueta negra con «???» de neón
+    g.fillStyle = '#050307';
+    ell(128, 110, 44, 52, '#050307'); g.beginPath(); g.moveTo(14, 260); g.bezierCurveTo(18, 196, 60, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(196, 178, 238, 196, 242, 260); g.closePath(); g.fill();
+    g.fillStyle = '#ffe2f6'; g.shadowColor = '#ff3fd0'; g.shadowBlur = 20; g.font = 'bold 76px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('???', 128, 118); g.shadowBlur = 0;
+    return cv.toDataURL();
+  }
+  for (const s2 of [-1, 1]) { g.save(); g.translate(128 + s2 * 74, 214); g.rotate(s2 * -0.65); g.fillStyle = '#2a2a30'; g.fillRect(-7, -78, 14, 78); g.fillStyle = '#c8c8d0'; g.fillRect(-3, -78, 4, 72); g.fillStyle = '#1a1a1a'; g.fillRect(-10, 0, 20, 34); g.restore(); }   // dos revólveres cruzados
+  g.beginPath(); g.moveTo(10, 260); g.bezierCurveTo(14, 196, 58, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(198, 178, 242, 196, 246, 260); g.closePath(); g.fillStyle = '#a8141c'; g.fill();   // chaqueta roja
+  g.fillStyle = '#7a0c12'; g.fillRect(110, 168, 36, 92); g.fillStyle = '#ffd040'; for (let i = 0; i < 4; i++) ell(128, 190 + i * 18, 4, 4, '#ffd040');   // botones dorados
+  g.fillStyle = '#c8a038'; g.fillRect(104, 160, 48, 12);   // cuello mao
+  ell(128, 150, 20, 14, '#c89a72');   // cuello
+  ell(128, 108, 42, 50, '#d8b08a'); ell(110, 128, 10, 7, 'rgba(200,110,90,.18)'); ell(146, 128, 10, 7, 'rgba(200,110,90,.18)');   // cara
+  g.beginPath(); g.moveTo(84, 104); g.bezierCurveTo(80, 52, 120, 44, 140, 48); g.bezierCurveTo(176, 54, 178, 86, 172, 104); g.bezierCurveTo(160, 74, 120, 70, 84, 104); g.closePath(); g.fillStyle = '#0c0c10'; g.fill();   // pelo peinado hacia atrás
+  g.fillStyle = '#0a0a0c'; g.beginPath(); g.roundRect ? g.roundRect(92, 98, 32, 18, 6) : g.rect(92, 98, 32, 18); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(132, 98, 32, 18, 6) : g.rect(132, 98, 32, 18); g.fill(); g.fillRect(122, 102, 12, 4);   // lentes oscuros
+  g.fillStyle = 'rgba(120,200,255,.35)'; g.fillRect(96, 101, 10, 4); g.fillRect(136, 101, 10, 4);
+  g.strokeStyle = '#6a3a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(112, 138); g.quadraticCurveTo(130, 146, 146, 134); g.stroke();   // media sonrisa
+  return cv.toDataURL('image/webp', 0.9);
+}
 function charPic(id) {
   if (id === 'azar') return charPicCache.azar || (charPicCache.azar = azarPortrait());
+  if (id === 'ludo') { const k = charOpen('ludo') ? 'ludo' : 'ludo?'; return charPicCache[k] || (charPicCache[k] = ludoPortrait(k === 'ludo?')); }
   if (CHAR_IMG[id]) return CHAR_IMG[id];
   if (id === 'carlos') return charPicCache.carlos || (charPicCache.carlos = carlosPortrait());
   if (charPicCache[id]) return charPicCache[id];
@@ -32195,7 +32232,8 @@ const TU_ABIL = {
   armando: 'Una vez por partida, si te matan, te levantas con 30 % de vida. Solo una vez: no te confíes.',
   lilith: 'Tu Ojo Muerto se carga un 50 % más rápido y dura el doble. Úsalo seguido: es tu mejor arma.',
   francois: 'Al empezar cada oleada recibes 12 balas extra en la caja. Siempre está activa.',
-  carlos: 'Disparas con dos revólveres de acero .44 a la vez y no pierdes puntería por llevar dos. Disparan sin amartillar: cada mano es un revólver.'
+  carlos: 'Disparas con dos revólveres de acero .44 a la vez y no pierdes puntería por llevar dos. Disparan sin amartillar: cada mano es un revólver.',
+  ludo: 'Empiezas con dos revólveres cortos, uno en cada mano, y te mueves un 15 % más rápido. Muévete mucho: es tu mejor defensa.'
 };
 function tuAhead(d, side) { const f = tuto.f, o = tuto.o; return { x: o.x - Math.sin(f) * d + Math.cos(f) * side, z: o.z - Math.cos(f) * d - Math.sin(f) * side }; }
 // Busca hacia dónde poner los blancos: lo más cerca posible de donde mira el jugador, sin lápidas ni muros en medio
