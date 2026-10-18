@@ -226,3 +226,9 @@ Ludo Cheng: por decidir cuando se haga.
 - **Se quedan:** Madame, el diablo y las máquinas expendedoras (con los cambios ya hechos).
 - **Todo lo demás de la Trastienda son minijuegos** para ganar más dinero después de la oleada y farmear entre amigos.
 - **El ramen se queda:** compensa un poco la pérdida de vida.
+
+### Confirmado (18-oct-2026)
+- **Se borran:** el herrero, el taller de armas, las mesas de objetos (y la campanita) y la radio.
+- **Se queda la mesa de fusión:** fusiona y sube de nivel las balas.
+- **Se queda el árbol de la Tienda calavera**, ajustado al sistema nuevo: mejoras permanentes como más espacios de slot (caras), más velocidad y más vida inicial. Igual que hoy, pero sin nada de lo que se quitó.
+- **Se hace todo de una vez** (decisión del dueño), en una rama aparte; no se publica hasta que el dueño lo pruebe y lo apruebe.
