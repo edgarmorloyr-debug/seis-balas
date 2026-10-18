@@ -10068,6 +10068,123 @@ function pipesSignGeo(w, h, row) {
   for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (row + 1) / 8 + uv.getY(i) / 8);
   return g;
 }
+/* ===== Backrooms Nivel 2 grande (PENDIENTES 44, 19-oct-2026): los túneles de tuberías de siempre quedan en el centro y por un
+   hueco en tres de sus paredes de fuera se llega a 3 salas con zona de llave: la sala de turbinas (norte), el pozo de
+   mantenimiento (este) y los vestuarios (oeste). */
+const TBG = { A: 42, W: 17, D: 24, hueco: 1.6, z: [] };
+function tbLocal(Z, x, z) { const ry = Math.PI / 2 - Z.a, c = Math.cos(ry), s = Math.sin(ry), dx = x - Z.ox, dz = z - Z.oz; return { lx: dx * c - dz * s, lz: dx * s + dz * c }; }
+for (const [k, a, ox, oz, nombre] of [['tur', 1.5 * Math.PI, 3, 0, 'en la sala de turbinas'], ['poz', 0, 0, 3, 'en el pozo de mantenimiento'], ['ves', Math.PI, 0, 3, 'en los vestuarios']]) {
+  const Z = { k, a, ox, oz, nombre }; Z.en = (x, z) => { const q = tbLocal(Z, x, z), l0 = TBG.A + 0.6; return Math.abs(q.lx) < TBG.W - 0.5 && q.lz > l0 + 0.5 && q.lz < l0 + TBG.D - 0.5; }; TBG.z.push(Z);
+}
+const enTurbinas = TBG.z[0].en, enPozo = TBG.z[1].en, enVestuarios = TBG.z[2].en;
+function zonaTubos(x, z) { return enTurbinas(x, z) ? 'en la sala de turbinas' : enPozo(x, z) ? 'en el pozo de mantenimiento' : enVestuarios(x, z) ? 'en los vestuarios' : 'en los túneles'; }
+function tubosGrande(g0, H, wallT, ceilT) {
+  _amTB = null;
+  const { A, W, D, hueco } = TBG, l0 = A + 0.6, l1 = l0 + D, lc = (l0 + l1) / 2, fast = FAST(), L = A + 0.6;
+  world.arena = { t: 'r', hx: l1 + 1.5, hz: l1 + 1.5 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = TBG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // ---- las cuatro paredes de fuera, con un hueco hacia cada zona (en coordenadas del mundo)
+  const wt = wallT.clone(); wt.needsUpdate = true; wt.repeat.set(14, 1); const om = lam(0xb0a898, { map: wt }), marco = lam(0x6a5a40);
+  const pared = (eje, s, gap) => {   // eje 'z': pared norte/sur en z = s*(A+0.3); eje 'x': este/oeste
+    const tramos = gap == null ? [[-L, L]] : [[-L, gap - hueco], [gap + hueco, L]];
+    for (const [u0, u1] of tramos) { const m = (u0 + u1) / 2, h = (u1 - u0) / 2; if (eje === 'z') { M(bx(2 * h, H, 0.6), om, m, H / 2, s * (A + 0.3), { solid: true }); addBox(m, s * (A + 0.3), h, 0.3); } else { M(bx(0.6, H, 2 * h), om, s * (A + 0.3), H / 2, m, { solid: true }); addBox(s * (A + 0.3), m, 0.3, h); } }
+    if (gap != null) { if (eje === 'z') { M(bx(2 * hueco, H - 2.8, 0.6), om, gap, 2.8 + (H - 2.8) / 2, s * (A + 0.3), { solid: true }); for (const k of [-1, 1]) M(bx(0.16, 2.8, 0.7), marco, gap + k * (hueco - 0.08), 1.4, s * (A + 0.3), {}); }
+      else { M(bx(0.6, H - 2.8, 2 * hueco), om, s * (A + 0.3), 2.8 + (H - 2.8) / 2, gap, { solid: true }); for (const k of [-1, 1]) M(bx(0.7, 2.8, 0.16), marco, s * (A + 0.3), 1.4, gap + k * (hueco - 0.08), {}); } }
+  };
+  pared('z', -1, TBG.z[0].ox); pared('z', 1, null); pared('x', 1, TBG.z[1].oz); pared('x', -1, TBG.z[2].oz);
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 1); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaTubos(p.x, p.z) }); };
+  const sale = (g, lx, lz) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise: false }); };
+  const acero = lam(0x5a5c5e), oxido = lam(0x6a3a22), cobre = lam(0x8a5a3a), oscuro = lam(0x2a2a2c);
+  const ct = ceilT.clone(); ct.needsUpdate = true; ct.repeat.set(6, 5); const techoM = lam(0x6a625a, { map: ct, side: THREE.DoubleSide });
+  const G = {};
+  const cascaron = (Z, wallM, floorM) => {
+    const g = Grp(Z.ox, Z.oz, Math.PI / 2 - Z.a); G[Z.k] = g;
+    for (const s of [-1, 1]) { box(g, 0.6, H, D + 0.6, wallM, s * (W + 0.3), H / 2, lc, { cast: false }); col(g, s * (W + 0.3), lc, 0.3, D / 2 + 0.3); }
+    box(g, 2 * W + 1.2, H, 0.6, wallM, 0, H / 2, l1 + 0.3, { cast: false }); col(g, 0, l1 + 0.3, W + 0.6, 0.3);
+    M(new THREE.PlaneGeometry(2 * W, D), techoM, 0, H - 0.01, lc, { p: g, rx: Math.PI / 2, cast: false });
+    M(new THREE.PlaneGeometry(2 * W, D), floorM, 0, 0.012, lc, { p: g, rx: -Math.PI / 2, cast: false });
+    // tuberías por el techo de la sala
+    for (const [x, c] of [[-W + 1, oxido], [-W + 1.7, acero], [W - 1, cobre]]) M(cyl(0.22, 0.22, D, 8), c, x, H - 0.5, lc, { p: g, rx: Math.PI / 2, cast: false });
+    return g;
+  };
+  const pisoT = (base, fn) => { const t = canvasTex(256, 256, (q, w) => { q.fillStyle = base; q.fillRect(0, 0, w, w); for (let i = 0; i < 1500; i++) { q.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.04)'; q.fillRect(Math.random() * w, Math.random() * w, 3, 3); } if (fn) fn(q, w); }); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 3); return new THREE.MeshLambertMaterial({ map: t, polygonOffset: true, polygonOffsetFactor: -1 }); };
+  const wallZ = c => { const t = wallT.clone(); t.needsUpdate = true; t.repeat.set(6, 1); return lam(c, { map: t }); };
+
+  // ================= NORTE: LA SALA DE TURBINAS (dos turbinas enormes que giran, manómetros y una pasarela) =================
+  { const Z = TBG.z[0], g = cascaron(Z, wallZ(0x9a9488), pisoT('#3a3a36', (q, w) => { q.fillStyle = 'rgba(200,160,30,.5)'; for (let i = 0; i < 8; i++) q.fillRect(i * 32, 0, 16, 8); }));
+    const rotores = [];
+    for (const x of [-8, 8]) { const z = lc + 1;
+      M(cyl(2.4, 2.4, 6, 20), lam(0x4a5a4a), x, 2.4, z, { p: g, rx: Math.PI / 2 }); box(g, 5.6, 0.6, 7, oscuro, x, 0.3, z, {});
+      for (const s of [-1, 1]) M(cyl(2.5, 2.5, 0.3, 20), cobre, x, 2.4, z + s * 3, { p: g, rx: Math.PI / 2 });
+      const rot = new THREE.Group(); rot.position.set(x, 2.4, z - 3.2); rot.userData.vivo = 1; g.add(rot);
+      for (let i = 0; i < 6; i++) M(bx(0.3, 2, 0.12), acero, Math.cos(i / 6 * TAU) * 1, Math.sin(i / 6 * TAU) * 1, 0, { p: rot, rz: i / 6 * TAU, cast: false });
+      rotores.push(rot); col(g, x, z, 2.8, 3.6); }
+    // manómetros que tiemblan
+    const agujas = [];
+    for (let i = 0; i < 5; i++) { const x = -10 + i * 5, z = l1 - 0.05; M(new THREE.CircleGeometry(0.4, 16), lam(0xe8e4d8), x, 2, z, { p: g, ry: Math.PI, cast: false }); const ag = M(bx(0.04, 0.32, 0.02), bsc(0xc01818), x, 2, z - 0.02, { p: g, cast: false }); ag.geometry.translate(0, 0.14, 0); agujas.push(ag); }
+    world.anims.push((dt, t) => { for (const r of rotores) r.rotation.z += dt * 6; agujas.forEach((a, i) => a.rotation.z = -0.6 + Math.sin(t * 2 + i) * 0.3 + Math.random() * 0.05); if (!fast && Math.random() < 0.1) { const p = lw(g, pick([-8, 8]), lc - 2); P.add(p.x, 4, p.z, rand(-0.3, 0.3), -0.2, rand(-0.3, 0.3), 2, 0.4, 0.8, 0.8, 0.78, 0.25, -0.05, 0.6, 0.6, 0); } });
+    luz(g, 0, H - 0.6, lc, 0xd8f0d0, 1.2, 22);
+    for (const [x, z] of [[-14, l0 + 2], [14, l0 + 2], [-14, lc + 6], [14, lc + 6], [0, l1 - 2], [-3, lc], [3, l0 + 3]]) spotK(g, x, z);
+    for (const x of [-12, 0, 12]) sale(g, x, l1 - 1.6);
+  }
+
+  // ================= ESTE: EL POZO DE MANTENIMIENTO (un hueco redondo enorme con barandilla, cadenas y luz roja del fondo) =================
+  { const Z = TBG.z[1], g = cascaron(Z, wallZ(0x8a8478), pisoT('#4a4440'));
+    const pz = lc + 1, PR = 5.5;
+    M(new THREE.CircleGeometry(PR, 32), bsc(0x050202), 0, 0.02, pz, { p: g, rx: -Math.PI / 2, cast: false });
+    M(new THREE.TorusGeometry(PR + 0.1, 0.18, 6, 40), amarilloTB(), 0, 0.1, pz, { p: g, rx: Math.PI / 2 });
+    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; box(g, 0.1, 1.1, 0.1, amarilloTB(), Math.cos(a) * (PR + 0.3), 0.55, pz + Math.sin(a) * (PR + 0.3), { cast: false }); }
+    M(new THREE.TorusGeometry(PR + 0.3, 0.05, 4, 40), amarilloTB(), 0, 1.1, pz, { p: g, rx: Math.PI / 2, cast: false });
+    colC(g, 0, pz, PR + 0.5);
+    const fondo = glow(g, 0, -0.2, pz, 0xff3010, 12, 0.35);
+    // cadenas que bajan al pozo desde una grúa del techo
+    box(g, 12, 0.4, 0.4, acero, 0, H - 0.4, pz, {}); const cad = []; for (const x of [-2, 2]) { const c = box(g, 0.08, 6, 0.08, lam(0x6a6a6a), x, H - 3.5, pz, { cast: false }); c.userData.vivo = 1; cad.push(c); }
+    world.anims.push((dt, t) => { fondo.material.opacity = 0.25 + Math.sin(t * 0.9) * 0.1; cad.forEach((c, i) => c.position.y = H - 3.5 + Math.sin(t * 0.5 + i * 2) * 0.6); if (Math.random() < (fast ? 0.1 : 0.3)) { const p = lw(g, rand(-3, 3), pz + rand(-3, 3)); P.add(p.x, -0.3, p.z, 0, rand(0.4, 0.9), 0, rand(2, 3.5), 0.4, 0.5, 0.3, 0.25, 0.3, -0.05, 0.6, 0.8, 0); } });
+    // cajas de herramientas y bidones
+    for (const [x, z] of [[-13, l0 + 3], [-12, l0 + 4.4], [13, l1 - 3], [12, l1 - 3.4]]) { M(cyl(0.45, 0.45, 1.1, 10), lam(pick([0x2a5a7a, 0x8a2a1a, 0x5a5a20])), x, 0.55, z, { p: g }); colC(g, x, z, 0.5); }
+    { box(g, 3, 1, 1, lam(0xa02020), -12, 0.5, l1 - 1.2, {}); col(g, -12, l1 - 1.2, 1.5, 0.5); }
+    luz(g, 0, H - 0.6, l0 + 5, 0xffb080, 1.1, 22);
+    for (const [x, z] of [[-14, l0 + 7], [14, l0 + 2], [-14, l1 - 4], [14, lc + 3], [0, l1 - 2], [-8, lc], [8, lc]]) spotK(g, x, z);
+    for (const x of [-12, 0, 12]) sale(g, x, l1 - 1.6);
+  }
+
+  // ================= OESTE: LOS VESTUARIOS (taquillas, bancos, duchas que gotean y un espejo roto) =================
+  { const Z = TBG.z[2], azT = canvasTex(128, 128, (q, w) => { q.fillStyle = '#c8d0cc'; q.fillRect(0, 0, w, w); q.strokeStyle = '#8a9890'; q.lineWidth = 2; for (let i = 0; i <= 8; i++) { q.beginPath(); q.moveTo(i * 16, 0); q.lineTo(i * 16, w); q.stroke(); q.beginPath(); q.moveTo(0, i * 16); q.lineTo(w, i * 16); q.stroke(); } for (let i = 0; i < 40; i++) { q.fillStyle = 'rgba(90,70,40,.2)'; q.fillRect(Math.random() * w, Math.random() * w, 6, 6); } });
+    azT.wrapS = azT.wrapT = THREE.RepeatWrapping; azT.repeat.set(8, 1.5);
+    const azS = azT.clone(); azS.needsUpdate = true; azS.repeat.set(10, 8);
+    const g = cascaron(Z, lam(0xffffff, { map: azT }), new THREE.MeshLambertMaterial({ map: azS, polygonOffset: true, polygonOffsetFactor: -1 }));
+    const taq = lam(0x3a5a7a), banco = lam(0x8a6a3a);
+    for (const z of [l0 + 4, l0 + 10]) { for (let i = 0; i < 8; i++) { const x = -9 + i * 1.1; box(g, 1, 2.2, 0.6, taq, x, 1.1, z, {}); box(g, 0.1, 0.4, 0.02, lam(0xd8d8d8), x + 0.35, 1.4, z - 0.31, { cast: false }); } col(g, -5.15, z, 4.4, 0.3);
+      box(g, 8, 0.12, 0.5, banco, -5.15, 0.5, z - 1.4, {}); col(g, -5.15, z - 1.4, 4, 0.25); }
+    // una taquilla abierta con algo que brilla dentro
+    box(g, 0.05, 2.1, 0.6, taq, -9.6, 1.1, l0 + 3.4, { ry: -1.2 }); glow(g, -9, 1.3, l0 + 4, 0xffd060, 1, 0.5);
+    // duchas al fondo con gotas
+    const duchas = []; for (let i = 0; i < 6; i++) { const x = -10 + i * 4; box(g, 0.08, 2.4, 0.08, acero, x, H - 1.2, l1 - 0.6, { cast: false }); M(cyl(0.18, 0.12, 0.1, 10), acero, x, H - 2.4, l1 - 0.9, { p: g, cast: false }); duchas.push(lw(g, x, l1 - 0.9)); }
+    M(new THREE.PlaneGeometry(26, 4), new THREE.MeshLambertMaterial({ color: 0x5a7a7a, transparent: true, opacity: 0.4, depthWrite: false }), 0, 0.03, l1 - 2, { p: g, rx: -Math.PI / 2, cast: false });
+    world.anims.push(() => { if (Math.random() < (fast ? 0.2 : 0.5)) { const p = pick(duchas); P.add(p.x + rand(-0.1, 0.1), H - 2.5, p.z, 0, -2, 0, 0.8, 0.04, 0.7, 0.8, 0.85, 0.7, 9.8, 0, 0, 0); } });
+    // espejos sobre lavabos (uno roto)
+    for (let i = 0; i < 3; i++) { const z = l0 + 5 + i * 5; box(g, 0.5, 0.3, 1.2, lam(0xe8e8e8), W - 0.3, 0.9, z, {}); M(new THREE.PlaneGeometry(1.1, 1.3), i === 1 ? lam(0x3a4448) : bsc(0x9ab0b8), W - 0.02, 2, z, { p: g, ry: -Math.PI / 2, cast: false }); col(g, W - 0.3, z, 0.3, 0.6); }
+    luz(g, 0, H - 0.6, lc, 0xe0f0ff, 1.1, 22);
+    for (const [x, z] of [[-14, l0 + 2], [14, l0 + 2], [-14, lc + 4], [10, lc], [0, l1 - 3], [4, l0 + 7], [-4, lc + 4]]) spotK(g, x, z);
+    for (const x of [-12, 0, 12]) sale(g, x, l1 - 1.6);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
+let _amTB = null; function amarilloTB() { return _amTB || (_amTB = lam(0xc8a020)); }
 function buildPipes() {
   const N = 14, C = 6, X0 = -42, H = 4.2, A = 42;
   world.arena = { t: 'r', hx: A, hz: A }; world.start = { x: 0, z: 4 }; world.indoor = true; world.noMoon = true;
@@ -10211,10 +10328,7 @@ function buildPipes() {
       if (v) addBox(x, m, 0.62, len / 2); else addBox(m, z, len / 2, 0.62);
     }
   }
-  // muros exteriores y techo
-  { const t = wallT.clone(); t.needsUpdate = true; t.repeat.set(28, 1); const om = lam(0xb0a898, { map: t });
-    M(gb(2 * A + 1.2, H, 0.6), om, 0, H / 2, -A - 0.3, { solid: true }); M(gb(2 * A + 1.2, H, 0.6), om, 0, H / 2, A + 0.3, { solid: true });
-    M(gb(0.6, H, 2 * A + 1.2), om, -A - 0.3, H / 2, 0, { solid: true }); M(gb(0.6, H, 2 * A + 1.2), om, A + 0.3, H / 2, 0, { solid: true }); }
+  // techo (los muros de fuera los pone tubosGrande al final, con los huecos hacia las tres salas)
   M(new THREE.PlaneGeometry(2 * A + 2, 2 * A + 2), lam(0x6a625a, { map: ceilT }), 0, H, 0, { rx: Math.PI / 2, cast: false });
 
   // ================= TUBERÍAS: por las paredes (altas y bajas), por el techo y codos
@@ -10484,6 +10598,7 @@ function buildPipes() {
 
   // ================= PUNTOS DE APARICIÓN: celdas del borde (llegan caminando por los túneles)
   [[0, 5], [0, 11], [13, 1], [13, 6], [13, 12], [5, 0], [9, 0], [6, 13], [11, 13], [0, 0], [13, 13], [0, 13]].forEach(([i, j]) => world.spawns.push({ x: cx(i), z: cx(j), rise: false }));
+  tubosGrande(world.group.children.length, H, wallT, ceilT);   // las tres salas con zona de llave detrás de las paredes de fuera (PENDIENTES 44)
 }
 
 // DESC: El barco encalló hace semanas. Los que no se salvaron vuelven caminando desde el mar.
@@ -27690,7 +27805,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 7, 10, 13, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026)
-const MAP_EN_OBRA = [27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [27, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
