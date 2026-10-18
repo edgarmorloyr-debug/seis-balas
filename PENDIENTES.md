@@ -93,3 +93,14 @@ Por ahora no se toca nada más en 3D. Al terminar las etapas anteriores se mejor
 
 ## Del dueño (fuera del código)
 - Borrar el proyecto viejo de Supabase cuando todo lleve unos días bien.
+
+## Etapa 3 · Decisiones del diagrama (dueño, 19-oct-2026)
+- El casino va como mapa extra después del último mapa de la partida (visita 1 = 5 mapas + casino; luego 7, 9, 10 y 10).
+- En las visitas 1 a 4 el casino tiene 5 oleadas con el jefe al final; en la última visita, los 5 jefes seguidos.
+- Si pierdes contra el jefe, repites la misma visita desde el mapa 1.
+- Personajes: abiertos desde el inicio Sheriff, Johnny y Don Velorio. Lilith = jefe 1; Ludo Cheng = jefe 2 (solo Ludo); Françoise = jefe 3; Geronimo = jefe 4 (Escolta Zombi). Se desbloquean venciendo al jefe con cualquier personaje y dificultad.
+- Mapas: 6 abiertos al inicio, +4 por cada jefe vencido; ganar el juego abre todos los que faltan. Los mapas de cada partida salen al azar entre los abiertos.
+- Dificultades: ganar el juego en Normal abre Difícil; ganarlo en Difícil abre Apocalipsis. Cada dificultad empieza otra vez desde el jefe 1.
+- Vencer a los 5 seguidos cuenta para la estrella de cada uno.
+- En grupo, todos reciben el progreso (mapas, jefe, personaje y estrella).
+- Los logros de esta etapa dan 1 ficha calavera.
