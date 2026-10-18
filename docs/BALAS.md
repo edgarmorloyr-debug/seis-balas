@@ -386,3 +386,22 @@ En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
 | Ventisca | Tormenta polar: dura el doble y te sigue |
 | Carámbano | Lanza de hielo: al regresar deja una pared de hielo 3 s |
 | Rayo bumerán | Rayo eterno: va y vuelve 2 veces |
+
+### Tanda 7 · Fusiones S (aprobada)
+| Bala | Despertar |
+|---|---|
+| Trébol de cuatro hojas | Trébol dorado: los cofres dan el doble |
+| Ángel guardián | Arcángel: el caballero revive 1 vez por oleada |
+| Encantador | Flautista: encantados 15 s y atacan el doble |
+| As de espadas | Escalera real: 20 tiros críticos |
+| Ruleta dorada | Casa gana: +5 de oro cada vez que mata |
+| Legión | Ejército: el dado se tira 2 veces y se suman los caballeros |
+| Titiritero | Gran titiritero: 10 m y 10 s |
+| Reloj de arena | Arena eterna: tiempo lento toda la primera mitad de la oleada |
+| Seis de seis | Dados cargados: el 6 sale con el doble de probabilidad |
+| Nigromante | Rey de los muertos: los levantados duran hasta el final de la oleada |
+| Caballero del tiempo | Guardián del tiempo: el caballero se queda toda la oleada |
+| Duelo | Duelo al amanecer: a los jefes les quita 40 % |
+| Hipnosis eterna | Trance: los detenidos dan triple oro |
+| Traición | Motín: contagia la traición a 2 más antes de explotar |
+| Tormenta | Diluvio: caen 3 relámpagos |
