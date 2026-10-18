@@ -32,3 +32,25 @@ El dueño eligió las 16 candidatas (hacen falta 12; por decidir qué pasa con l
 |---|---|---|
 | Dado cargado | A | Al empezar cada oleada, una bala al azar de tu slot sube 1 nivel solo por esa oleada |
 | Tahúr | B | Cuando te sale una activa en el cañón, 1 de 4 de que se repita gratis |
+
+## Ronda 2 · Activas elegidas (18-oct-2026)
+El dueño eligió las 16 candidatas (hacen falta 12; 4 pasan a fusiones).
+
+| Bala | Rango | Después de usarla | Efecto |
+|---|---|---|---|
+| Ángel | S | Se rompe | Si mata: +10 % de vida máxima toda la partida |
+| Negra | Secreta | Se rompe | Abre una puerta directa al siguiente mapa |
+| Agujero negro | S | Vuelve | En la cabeza: atrae a todos en 8 m y los elimina en 3 s |
+| Invocación | A | Se rompe | Un caballero pelea por ti hasta morir |
+| Escarcha | B | Vuelve | Congela al zombi y todo en 4 m por 2 s |
+| Relámpago | B | Vuelve | Rayo que salta a 4 zombis y los aturde |
+| Hipnótica | A | Vuelve | El zombi pelea de tu lado 10 s |
+| Reloj | A | Se rompe | El tiempo se frena 4 s |
+| Frita | C | Vuelve | Explota al impactar |
+| Racimo | C | Vuelve | Se parte en 6 perdigones |
+| Taladro | C | Vuelve | Atraviesa a todos en línea |
+| Ruleta rusa | A | Se rompe | 1 de 3 mata todo lo que atraviesa; si no, se encasquilla |
+| Bumerán | B | Vuelve | Si impacta, vuelve al cañón al instante |
+| Dado | B | Vuelve | Dispara de 1 a 6 balas a la vez |
+| Junior | C | Vuelve | Si impacta, recarga todo el tambor |
+| Vampira | C | Vuelve | Cada impacto te cura 8 de vida |
