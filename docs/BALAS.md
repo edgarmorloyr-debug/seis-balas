@@ -54,3 +54,8 @@ El dueño eligió las 16 candidatas (hacen falta 12; 4 pasan a fusiones).
 | Dado | B | Vuelve | Dispara de 1 a 6 balas a la vez |
 | Junior | C | Vuelve | Si impacta, recarga todo el tambor |
 | Vampira | C | Vuelve | Cada impacto te cura 8 de vida |
+
+### Decisión (18-oct-2026)
+- Pasan a ser **fusiones:** Racimo, Taladro, Vampira, Junior, Frita y Dado.
+- **La Negra queda fuera de las 24:** es una bala especial secreta aparte.
+- **Activas base confirmadas (9 de 12):** Ángel, Agujero negro, Invocación, Escarcha, Relámpago, Hipnótica, Reloj, Ruleta rusa y Bumerán. Faltan 3.
