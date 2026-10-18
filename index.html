@@ -1824,6 +1824,8 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 .bal-det .btn2{align-self:flex-start;min-height:48px}
 .bal-det p{margin:0}
 .bal-det .dim{color:var(--bone-dim);font-size:14px}
+.bal-det .desp{font-size:14px;color:#ffe9a8;border-left:3px solid #ffc43a;padding-left:8px}.bal-det .desp b{color:#ffc43a}.bal-det .desp:not(.on){opacity:.85}.bal-det .desp.on{text-shadow:0 0 8px rgba(255,196,58,.45)}
+#slot-hud.desp-on{animation:despOn 1.8s ease-out}@keyframes despOn{0%{box-shadow:0 0 0 0 rgba(255,196,58,.9)}30%{box-shadow:0 0 26px 8px rgba(255,196,58,.8)}100%{box-shadow:0 0 0 0 rgba(255,196,58,0)}}
 @media (max-width:520px) and (max-height:780px){#inv-sum{display:none}.bal-det{padding:6px 10px;gap:4px}.bal-det .pills,.bal-det .dim,.bal-det .lvx{display:none}.bal-det h3{font-size:17px}#inv-fuse>.note{font-size:14px;line-height:1.25;margin:0}#fz-r .bf{width:44px;height:44px}}
 @media (max-height:520px){.bal-det{padding:6px 10px;gap:4px;font-size:14px;line-height:1.3}.bal-det .pills,.bal-det .dim,.bal-det .lvx{display:none}.bal-det h3{font-size:17px}.bal-det h3 .bf{width:40px;height:40px}.inv-acc{gap:6px}}
 #inv-caja{display:flex;gap:12px;flex-wrap:wrap;align-items:center;text-align:left;font-size:15px}
@@ -2317,7 +2319,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=1').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=2').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -20272,7 +20274,7 @@ const BAL = {
   balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro' },
   caja: 50,                 // balas normales que caben en la caja (el Cinturón suma)
   nivelMax: 4,
-  nivelMul: [1, 1.5, 2, 3], // nivel 1, 2, 3 y 4 (el 4 además «despierta»: por definir con el dueño)
+  nivelMul: [1, 1.5, 2, 3], // nivel 1, 2, 3 y 4 (el 4 además «despierta»: ver DESPERTAR)
   probMax: 0.95,            // ninguna probabilidad pasa de aquí
   precio: { C: 20, B: 40, A: 80, S: 300 },   // balas sueltas (la S solo se vende si alguna vez sale en una máquina)
   venta: 0.5,               // vender devuelve la mitad (por cada nivel)
@@ -20437,9 +20439,104 @@ const FUSIONES = [
   ['fenix', 'angel', 'resurreccion'], ['fenix', 'agujero', 'supernova'], ['fenix', 'tragamonedas', 'avefortuna'], ['fenix', 'espejo', 'reflejo'], ['angel', 'agujero', 'cieloabismo'],
   ['angel', 'tragamonedas', 'milagro'], ['angel', 'espejo', 'gemelo'], ['agujero', 'tragamonedas', 'casinoabismo'], ['agujero', 'espejo', 'horizonte'], ['tragamonedas', 'espejo', 'doblenada']
 ];
-// Despertares del nivel 4: por inventar con el dueño. Hoy el nivel 4 solo multiplica ×3 y queda marcado como «despierta».
-// TODO (dueño): definir el despertar de cada bala (lista en docs/BALAS.md).
-const DESPERTAR = {};
+// Despertares del nivel 4 (aprobados por el dueño, 19-oct-2026). En nivel 4 el efecto va ×3 y además se suma esto.
+// t = el texto que ve el jugador; las demás son las cifras de cada despertar.
+const DESPERTAR = BAL.despertar = {
+  // Tanda 1 · Base C
+  oro: { t: 'Lluvia de monedas: cada 25 muertes caen 30 monedas del cielo a tu alrededor', cada: 25, n: 30 },
+  cinturon: { t: 'Cinturón infinito: al recargar, 1 de 4 de no gastar balas normales', p: 0.25 },
+  polvora: { t: 'Pólvora negra: cada 6.º tiro explota en un área pequeña', cada: 6, r: 2.5, dano: 60 },
+  pluma: { t: 'Ráfaga: al vaciar el tambor sin fallar, la siguiente recarga es instantánea' },
+  cantimplora: { t: 'Manantial: a mitad de cada oleada te curas otra vez y curas al equipo', mitad: 0.5 },
+  apuesta: { t: 'Doble o nada: cuando gana, el siguiente tiro también hace triple daño', x: 3 },
+  // Tanda 2 · Base B
+  robot: { t: 'Robot obrero: la bala a su derecha sube 1 nivel durante la oleada (máx. 4)' },
+  caramelo: { t: 'Fiebre de azúcar: al matar, 1 de 10 de soltar un caramelo que da 5 s de velocidad doble', p: 0.1, t_: 5, x: 2 },
+  tahur: { t: 'As bajo la manga: la primera activa de cada oleada siempre se repite' },
+  escarcha: { t: 'Glaciar: los congelados se rompen en pedazos con un tiro a la cabeza' },
+  relampago: { t: 'Cadena infinita: el rayo salta mientras haya zombis a menos de 6 m', r: 6, max: 30 },
+  bumeran: { t: 'Bumerán doble: al volver golpea otra vez a todos los que cruza' },
+  // Tanda 3 · Base A
+  suerte: { t: 'Racha: también potencia a la bala de su derecha' },
+  dadocargado: { t: 'Dados dobles: suben 2 balas por oleada', n: 2 },
+  invocacion: { t: 'Orden de caballería: 2 caballeros que explotan al morir', n: 2, r: 4, dano: 150 },
+  hipnotica: { t: 'Hipnosis en cadena: lo que mata el hipnotizado también se pasa a tu lado' },
+  reloj: { t: 'Tiempo detenido: el tiempo se detiene 2 s antes de frenarse', t_: 2 },
+  ruleta: { t: 'Bala de plata: nunca se encasquilla; si falla, la siguiente sale con 1 de 2', p: 0.5 },
+  // Tanda 4 · Base S
+  rey: { t: 'Rey de reyes: cada 50 muertes da una bala A en vez de B', cada: 50, rango: 'A' },
+  fenix: { t: 'Renacer eterno: se recarga cada 5 oleadas y al revivir quema todo a 8 m', cada: 5, r: 8, dps: 80 },
+  angel: { t: 'Alas: al matar también cura 25 a todo el equipo', cura: 25 },
+  agujero: { t: 'Singularidad: no necesita tiro a la cabeza y dura el doble', x: 2 },
+  tragamonedas: { t: 'Máquina trucada: premio menor +50 de oro y explosiones el doble de grandes', oro: 50, x: 2 },
+  espejo: { t: 'Sala de espejos: copia las 2 últimas activas a la vez' },
+  // Tanda 5 · Fusiones B
+  iman: { t: 'Imán gigante: también atrae las balas que sueltan los zombis' },
+  alcancia: { t: 'Cerdito lleno: cada 5 oleadas rompes la alcancía y ganas el triple', cada: 5, x: 3 },
+  usurero: { t: 'Banquero: el tope de interés sube de 10 a 30', max: 30 },
+  mercenaria: { t: 'Sin sueldo: ya no cobra 10 de oro por oleada' },
+  dado: { t: 'Dado de oro: si salen 6 balas, todas cuentan como tiro a la cabeza', n: 6 },
+  racimo: { t: 'Racimo de racimos: cada perdigón se parte otra vez en 3', n: 3 },
+  junior: { t: 'Recarga perfecta: al recargar también se recargan los usos de las activas que vuelven' },
+  espuelas: { t: 'Galope: tras correr 3 s, el siguiente tiro hace doble daño', t_: 3, x: 2 },
+  bolsa: { t: 'Bolsa mágica: la sorpresa puede ser también una activa A', p: 0.35, rango: 'A' },
+  taladro: { t: 'Perforadora: atraviesa también paredes' },
+  vampira: { t: 'Sed de sangre: con la vida llena, la curación se guarda como escudo (hasta 30)', max: 30 },
+  frita: { t: 'Barbacoa: la explosión deja fuego en el suelo 3 s', t_: 3, dps: 40 },
+  segundoaire: { t: 'Último aliento: con menos de 10 % de vida, 3 s sin recibir daño (1 vez por oleada)', hp: 0.1, t_: 3 },
+  punteria: { t: 'Ojo de halcón: los críticos hacen triple daño', x: 3 },
+  trago: { t: 'Trago doble: el tiro potenciado también atraviesa' },
+  // Tanda 6 · Fusiones A
+  chicles: { t: 'Chicle gigante: las bolas hacen daño al reventar', dano: 60, r: 2.5 },
+  crupier: { t: 'Crupier de oro: la activa repetida sale con 1 nivel más' },
+  congelador: { t: 'Cámara frigorífica: los congelados contagian el frío a los de al lado', r: 2.5, t_: 1.5 },
+  tesla: { t: 'Torre Tesla: el rayo sale cada 5 s', cada: 5 },
+  dron: { t: 'Escuadrilla: salen 2 drones', n: 2 },
+  golosina: { t: 'Dulcería: los dulces caen el doble de seguido', x: 2 },
+  helado: { t: 'Era de hielo: área de 10 m', r: 10 },
+  chicleelec: { t: 'Chicle pegajoso: se pega también a los zombis cercanos', n: 3, r: 3 },
+  pinata: { t: 'Gran piñata: suelta 2 balas al azar', n: 2 },
+  pokerhielo: { t: 'Full de hielo: también congela la 6.ª bala del tambor', cada: 6 },
+  carta: { t: 'Baraja marcada: el rayo de los críticos salta a 4 zombis', n: 4 },
+  truco: { t: 'Mago: las activas que se rompen vuelven 1 de cada 2 veces', p: 0.5 },
+  ventisca: { t: 'Tormenta polar: dura el doble y te sigue', x: 2 },
+  carambano: { t: 'Lanza de hielo: al regresar deja una pared de hielo 3 s', t_: 3, r: 2.5 },
+  rayobum: { t: 'Rayo eterno: va y vuelve 2 veces', vueltas: 4 },
+  // Tanda 7 · Fusiones S
+  trebol: { t: 'Trébol dorado: los cofres dan el doble', x: 2 },
+  angelguardian: { t: 'Arcángel: el caballero revive 1 vez por oleada' },
+  encantador: { t: 'Flautista: encantados 15 s y atacan el doble', t_: 15, x: 2 },
+  asespadas: { t: 'Escalera real: 20 tiros críticos', n: 20 },
+  ruletadorada: { t: 'Casa gana: +5 de oro cada vez que mata', oro: 5 },
+  legion: { t: 'Ejército: el dado se tira 2 veces y se suman los caballeros', n: 2 },
+  titiritero: { t: 'Gran titiritero: 10 m y 10 s', r: 10, t_: 10 },
+  relojarena: { t: 'Arena eterna: tiempo lento toda la primera mitad de la oleada', mitad: 0.5 },
+  seisdeseis: { t: 'Dados cargados: el 6 sale con el doble de probabilidad' },
+  nigromante: { t: 'Rey de los muertos: los levantados duran hasta el final de la oleada', t_: 600 },
+  caballerotiempo: { t: 'Guardián del tiempo: el caballero se queda toda la oleada', t_: 600 },
+  duelo: { t: 'Duelo al amanecer: a los jefes les quita 40 %', jefe: 0.4 },
+  hipnosiseterna: { t: 'Trance: los detenidos dan triple oro', oro: 3 },
+  traicion: { t: 'Motín: contagia la traición a 2 más antes de explotar', n: 2, r: 5 },
+  tormenta: { t: 'Diluvio: caen 3 relámpagos', n: 3, r: 4 },
+  // Tanda 8 · Secretas
+  emperador: { t: 'Dinastía: al revivir, todo el equipo recibe +1 nivel en sus balas esa oleada' },
+  corona: { t: 'Trono: bala S cada 30 muertes', cada: 30 },
+  reyvacio: { t: 'Señor del abismo: el agujero negro también se traga los disparos enemigos' },
+  jackpot: { t: 'Jackpot eterno: ya no se rompe; se recarga cada 2 oleadas', recarga: 2 },
+  cortespejos: { t: 'Laberinto: 2 balas fantasma', n: 2 },
+  resurreccion: { t: 'Santo: se recarga cada 2 oleadas', cada: 2 },
+  supernova: { t: 'Big bang: tras la explosión, 10 s de daño doble', t_: 10, x: 2 },
+  avefortuna: { t: 'Ave dorada: 2 veces por oleada', n: 2 },
+  reflejo: { t: 'Infierno: el doble de fuego y llamas en el suelo', x: 2, t_: 3 },
+  cieloabismo: { t: 'Equilibrio: hace las dos cosas a la vez' },
+  milagro: { t: 'Milagro mayor: 5 tiradas', n: 5 },
+  gemelo: { t: 'Trillizos: 2 dobles', n: 2 },
+  casinoabismo: { t: 'Casa de empeño: 15 de oro por zombi tragado', oro: 15 },
+  horizonte: { t: 'Colapso: al juntarse explotan y arrasan la pantalla (jefes −30 %)', jefe: 0.3 },
+  doblenada: { t: 'Infinito: el premio se puede repetir hasta 3 veces seguidas', n: 3 },
+  negra: { t: 'No sube de nivel: es única' }
+};
+const balDespTxt = k => DESPERTAR[k] ? DESPERTAR[k].t : '';
 const fuseKey = (a, b) => [a, b].sort().join('+');
 const RECETA = {}; for (const [a, b, r] of FUSIONES) RECETA[fuseKey(a, b)] = r;
 const BASE_IDS = Object.keys(BALAS).filter(k => !BALAS[k].especial && !FUSIONES.some(f => f[2] === k));
@@ -20486,7 +20583,8 @@ const Balas = {
   nivel(g, k) { const e = Balas.entrada(g, k); if (!e) return 0; return Math.min(BAL.nivelMax, e.lv + ((g.balTemp || {})[k] | 0)); },
   v(g, k, key) { const l = Balas.nivel(g, k); return l ? balValor(k, key, l) : 0; },
   mul(g, k) { const l = Balas.nivel(g, k); return l ? BAL.nivelMul[l - 1] : 1; },
-  despierta: (g, k) => Balas.nivel(g, k) >= BAL.nivelMax,   // nivel 4: el despertar se define después (DESPERTAR)
+  despierta: (g, k) => k !== 'negra' && Balas.nivel(g, k) >= BAL.nivelMax,   // nivel 4: su despertar (DESPERTAR)
+  subeNivel: k => k !== 'negra',   // la Negra es única: no sube de nivel
   // familias: cuentan balas distintas (dos copias iguales cuentan una vez)
   famCuenta(g, f) { return new Set((g.slot || []).filter(e => BALAS[e.k] && BALAS[e.k].f === f).map(e => e.k)).size; },
   famOn: (g, f) => Balas.famCuenta(g, f) >= BAL.familiaMin,
@@ -20527,7 +20625,7 @@ const Balas = {
     return true;
   },
   // sube 1 nivel la copia de la posición i (máquinas de cartas): si es activa, pone 1 copia más en la caja
-  subir(g, i) { const e = (g.slot || [])[i]; if (!e || e.lv >= BAL.nivelMax) return false; e.lv++; if (Balas.esActiva(e.k)) g.box.push(e.k); return true; },
+  subir(g, i) { const e = (g.slot || [])[i]; if (!e || e.lv >= BAL.nivelMax || !Balas.subeNivel(e.k)) return false; e.lv++; if (Balas.esActiva(e.k)) g.box.push(e.k); return true; },
   // una copia se rompió: esa bala pierde 1 nivel (la copia de nivel más bajo); con 0 sale del slot
   romper(g, k) { const L = (g.slot || []).filter(x => x.k === k).sort((a, b) => a.lv - b.lv), e = L[0]; if (!e) return 0; e.lv--; if (e.lv <= 0) g.slot.splice(g.slot.indexOf(e), 1); return e.lv; },
   // tras disparar una activa: vuelve a la caja o se rompe. rnd: azar (para las pruebas)
@@ -20536,13 +20634,15 @@ const Balas = {
     if (s !== k) return 'fantasma';   // las copias gratis (Tahúr, Crupier, Bolsa sin fondo) no vuelven
     if (!Balas.tiene(g, k)) return 'fuera';
     if (BALAS[k].vuelve) { g.box.push(k); return 'vuelve'; }
-    if (Balas.tiene(g, 'truco') && rnd() < Balas.prob(g, 'truco', Balas.v(g, 'truco', 'p'))) { g.box.push(k); return 'truco'; }
+    if (Balas.despierta(g, k) && DESPERTAR[k] && DESPERTAR[k].recarga) { (g.enfria = g.enfria || []).push({ k, w: (g.wave | 0) + DESPERTAR[k].recarga }); return 'enfria'; }   // Jackpot eterno: no se rompe, vuelve en 2 oleadas
+    const pt = Balas.despierta(g, 'truco') ? Math.max(DESPERTAR.truco.p, Balas.v(g, 'truco', 'p')) : Balas.v(g, 'truco', 'p');   // Mago: 1 de cada 2
+    if (Balas.tiene(g, 'truco') && rnd() < Balas.prob(g, 'truco', pt)) { g.box.push(k); return 'truco'; }
     Balas.romper(g, k); return 'rota';
   },
   // probabilidad de una bala con Suerte (la de su izquierda), Trébol y el bono de Casino
   prob(g, k, p) {
     let x = p; const sl = g.slot || [];
-    const si = sl.findIndex(e => e.k === 'suerte'); if (si > 0 && sl[si - 1].k === k) x *= Balas.v(g, 'suerte', 'x');
+    const si = sl.findIndex(e => e.k === 'suerte'); if (si >= 0 && ((si > 0 && sl[si - 1].k === k) || (Balas.despierta(g, 'suerte') && sl[si + 1] && sl[si + 1].k === k))) x *= Balas.v(g, 'suerte', 'x');   // Racha: también la de su derecha
     if (Balas.tiene(g, 'trebol')) x *= Balas.v(g, 'trebol', 'x');
     if (Balas.famOn(g, 'casino')) x *= BAL.familia.casino.prob;
     return Math.min(BAL.probMax, x);
@@ -20553,7 +20653,7 @@ const Balas = {
   ent(g, x) { x = Balas.ref(x); if (!x) return null; return ((x.d === 'r' ? g.reserva : g.slot) || [])[x.i] || null; },
   // ¿hay otra copia igual (en el slot o en la reserva) con la que se pueda juntar sin pasar del nivel 4?
   juntable(g, x) {
-    x = Balas.ref(x); const e = Balas.ent(g, x); if (!e || e.lv >= BAL.nivelMax) return false;
+    x = Balas.ref(x); const e = Balas.ent(g, x); if (!e || e.lv >= BAL.nivelMax || !Balas.subeNivel(e.k)) return false;
     for (const d of ['s', 'r']) for (const [i, o] of ((d === 'r' ? g.reserva : g.slot) || []).entries()) if (!(d === x.d && i === x.i) && o.k === e.k && o.lv + e.lv <= BAL.nivelMax) return true;
     return false;
   },
@@ -20568,7 +20668,7 @@ const Balas = {
     a = Balas.ref(a); b = Balas.ref(b); const A = Balas.ent(g, a), B = Balas.ent(g, b);
     if (!A || !B) return 'Elige dos balas.';
     if (a.d === b.d && a.i === b.i) return 'Elige dos balas distintas.';
-    if (A.k === B.k) { if (A.lv + B.lv > BAL.nivelMax) return `Juntas pasarían del nivel ${BAL.nivelMax}.`; }
+    if (A.k === B.k) { if (!Balas.subeNivel(A.k)) return 'La Negra no sube de nivel: es única.'; if (A.lv + B.lv > BAL.nivelMax) return `Juntas pasarían del nivel ${BAL.nivelMax}.`; }
     else { if (BALAS[A.k].r !== BALAS[B.k].r) return 'Solo se fusionan balas del mismo rango.'; if (!Balas.receta(A.k, B.k)) return 'Estas dos no tienen fusión.'; }
     // el slot no puede quedar con más balas que espacios (por ejemplo, al fusionar el Robot)
     const R = Balas.resultado(g, a, b), enSlot = a.d === 's' || b.d === 's';
@@ -21542,7 +21642,7 @@ function addWell(p, hole, o = {}) {
   const m = new THREE.Mesh(wellGeo, hole ? holeMat : wellMat), q = { x: p.x, z: p.z }; clampArena(q, 0.5);
   m.position.set(q.x, clamp(p.y, 0.9, 2.2), q.z); const halo = new THREE.Sprite(hole ? holeHalo : wellHalo); halo.scale.set(hole ? 6 : 3, hole ? 6 : 3, 1); m.add(halo);
   if (hole) { m.scale.setScalar(1.8); if (holeHalo.map !== wellHalo.map) { holeHalo.map = wellHalo.map; holeHalo.needsUpdate = true; } }
-  const w = { m, t: o.t || 5, hole: !!hole, r: o.r || (hole ? 16 : 11), by: o.by || Net.id, oro: o.oro || 0, mata: !!o.mata }; scene.add(m); wells.push(w); Sfx.whoosh(panOf(m.position)); if (hole) { Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.4); }
+  const w = { m, t: o.t || 5, hole: !!hole, r: o.r || (hole ? 16 : 11), by: o.by || Net.id, oro: o.oro || 0, mata: !!o.mata, traga: !!o.traga }; scene.add(m); wells.push(w); Sfx.whoosh(panOf(m.position)); if (hole) { Sfx.thunder(); player.shake = Math.min(1, player.shake + 0.4); }
   return w;
 }
 // un zombi tragado por un agujero negro: muere y, con el Casino del abismo, da oro a quien disparó
@@ -21561,9 +21661,10 @@ function updateWells(dt) {
         if (z.boss != null) { if (d < 4) damageZombie(z, z.maxHp * 0.05 * dt, { part: 'body', dir: null, ally: true }); continue; }
         if (d < 1.6) { z.body.scale.multiplyScalar(0.5); balTragado(w, z); }
       }
+      if (w.traga) for (let j = acids.length - 1; j >= 0; j--) { const a = acids[j], ap = a.m.position; if (Math.hypot(ap.x - q.x, ap.z - q.z) < w.r) { for (let k = 0; k < 6; k++) PA.add(ap.x, ap.y, ap.z, (q.x - ap.x) * 2, 0, (q.z - ap.z) * 2, 0.4, 0.08, 0.6, 0.2, 1, 0.9, 0, 0, 0, 0); scene.remove(a.m); acids.splice(j, 1); } }   // Señor del abismo
     }
     for (let k = 0; k < 3; k++) { const a = rand(0, TAU), r = rand(1.5, 4); PA.add(q.x + Math.cos(a) * r, q.y + rand(-0.6, 0.6), q.z + Math.sin(a) * r, -Math.cos(a) * r * 1.6, 0, -Math.sin(a) * r * 1.6, 0.6, 0.08, 0.6, 0.3, 1, 0.9, 0, 0, 0, 0); }
-    if (w.par && wells.includes(w.par)) { const o = w.par.m.position, dx = o.x - q.x, dz = o.z - q.z, dd = Math.hypot(dx, dz); if (dd > 0.6) { q.x += dx / dd * 2.2 * dt; q.z += dz / dd * 2.2 * dt; } else w.t = Math.min(w.t, 0.3); }   // Horizonte de sucesos: los dos se atraen
+    if (w.par && wells.includes(w.par)) { const o = w.par.m.position, dx = o.x - q.x, dz = o.z - q.z, dd = Math.hypot(dx, dz); if (dd > 0.6) { q.x += dx / dd * 2.2 * dt; q.z += dz / dd * 2.2 * dt; } else { w.t = Math.min(w.t, 0.3); if (w.colapso && !w.par.colapsado && !Net.client) { w.colapsado = w.par.colapsado = 1; balRed('nova', q, { r: 999, jefe: w.colapso }); banner('Colapso', 'Los dos agujeros explotan', 2200, 'burst'); } } }   // Horizonte de sucesos: los dos se atraen
     if (w.t <= 0) { if (w.mata && !Net.client) for (const z of zombies) if (!z.dead && z.boss == null && Math.hypot(z.root.position.x - q.x, z.root.position.z - q.z) < w.r) balTragado(w, z);   // los que siguen dentro mueren al cerrarse
       for (let k = 0; k < 20; k++) PA.add(q.x, q.y, q.z, rand(-4, 4), rand(-2, 4), rand(-4, 4), 0.5, 0.1, 0.6, 0.3, 1, 1, 0, 2, 0, 0); scene.remove(w.m); wells.splice(i, 1); }
   }
@@ -21603,7 +21704,7 @@ function updateStrikes(dt) {
   }
 }
 const pickups = []; let pickUid = 0;
-const PK = { key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c }, moneda: { color: 0xffffff } };
+const PK = { caramelo: { color: 0xff6ad8 }, key: { color: 0xffd040 }, bala: { color: 0xc080ff }, health: { color: 0xff3b3b }, deadeye: { color: 0xffb030 }, gold: { color: 0xffd760 }, bag: { color: 0xffc830 }, powder: { color: 0xb0b0b8 }, ammo: { color: 0xe8b860 }, ficha: { color: 0xd8242c }, moneda: { color: 0xffffff } };
 // Fichas de dinero (pedido del dueño, 16-oct-2026): las bolsas de oro se cambian por fichas de miembro de 5 colores; cada una vale su número en $
 const MONEDAS = [[100, 0x8a3fd0, '#8a3fd0'], [50, 0x26262a, '#26262a'], [25, 0x2fae4a, '#2fae4a'], [10, 0x2f6fe0, '#2f6fe0'], [5, 0xf2c230, '#f2c230'], [1, 0xf0ece4, '#f0ece4']];
 const monedaTex = {};
@@ -21635,6 +21736,7 @@ function makePickup(type, x, z, amount) {
   else if (type === 'powder') { const b = new THREE.Mesh(cyl(0.2, 0.2, 0.36, 12), new THREE.MeshLambertMaterial({ color: 0x5a3a20, emissive: 0x1a0e04 })); g.add(b); for (const y of [-0.12, 0.12]) { const r = new THREE.Mesh(cyl(0.21, 0.21, 0.04, 12), mat); r.position.y = y; g.add(r); } }
   else if (type === 'bala') { const b = new THREE.Mesh(cyl(0.07, 0.07, 0.3, 12), mat); g.add(b); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 12), mat); tip.position.y = 0.23; g.add(tip); const cs = new THREE.Mesh(cyl(0.075, 0.075, 0.08, 12), new THREE.MeshLambertMaterial({ color: 0xd09a3e, emissive: 0x2a1c04 })); cs.position.y = -0.17; g.add(cs); g.scale.setScalar(1.3); }
   else if (type === 'key') { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16), mat); r.position.y = 0.16; g.add(r); const sh = new THREE.Mesh(bx(0.04, 0.32, 0.04), mat); sh.position.y = -0.06; g.add(sh); for (const y of [-0.16, -0.08]) { const t = new THREE.Mesh(bx(0.09, 0.04, 0.04), mat); t.position.set(0.05, y, 0); g.add(t); } }
+  else if (type === 'caramelo') { const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), mat); g.add(b); for (const s_ of [-1, 1]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 8), mat); t.rotation.z = s_ * Math.PI / 2; t.position.x = s_ * 0.22; g.add(t); } }
   else if (type === 'moneda') {   // fichas de dinero: el mismo modelo que la ficha roja, todas de su color y sin tanto brillo (pedido del dueño, 16-oct-2026)
     const M = MONEDAS.find(m => m[0] === amount) || MONEDAS[MONEDAS.length - 1], claro = M[0] === 1 || M[0] === 5, base = new THREE.MeshLambertMaterial({ color: M[1], emissive: M[1], emissiveIntensity: 0.12 }), w = new THREE.MeshLambertMaterial({ color: claro ? 0xb8452e : 0xfff4e0, emissive: 0x201810 });
     const d = new THREE.Group(); d.add(new THREE.Mesh(cyl(0.22, 0.22, 0.06, 20), base)); for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(bx(0.07, 0.065, 0.05), w), a = i / 6 * TAU; m.position.set(Math.cos(a) * 0.19, 0, Math.sin(a) * 0.19); m.rotation.y = -a; d.add(m); } const c = new THREE.Mesh(cyl(0.11, 0.11, 0.07, 16), base); d.add(c); d.rotation.x = Math.PI / 2; g.add(d); g.scale.setScalar(1.15); }
@@ -21989,8 +22091,8 @@ function renderInv() {
     if (enRes) mover = sl.length < n ? '<button class="btn2" type="button" id="inv-mover">Pasar al slot</button>' : '<p class="dim">Tu slot está lleno: guarda o vende una bala del slot para pasar esta.</p>';
     else mover = rs.length >= RN ? '<p class="dim">La reserva está llena.</p>' : !Balas.puedeVender(game, S.i, arbEsp()) ? '<p class="dim">No se puede guardar: tu slot quedaría con más balas que espacios.</p>' : '<button class="btn2" type="button" id="inv-mover">Guardar en la reserva</button>';
     D.innerHTML = `<h3>${balFicha(k, lv, junta ? 'dup' : '')}<span>${B.name}</span></h3><div class="pills"><span style="border-color:${BAL.rangos[B.rango].col}">${BAL.rangos[B.rango].name}</span><span>${balTipo(k)}</span>${fam ? `<span>Familia ${BAL.familia[fam].name}</span>` : ''}</div>`
-      + `<p><b>Nivel ${lv} de ${BAL.nivelMax}</b><span class="lvx"> · efecto ×${String(BAL.nivelMul[lv - 1]).replace('.', ',')}</span>${enRes ? ' · <b>en la reserva: no hace efecto</b>' : ''}</p><p>${balDesc(k, lv)}</p>`
-      + `<p class="dim">${junta ? 'Tienes otra copia: júntalas en la pestaña Fusionar para subir de nivel.' : lv < BAL.nivelMax ? `Junta otra copia en la pestaña Fusionar para subirla a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: despierta (su efecto extra se define pronto).'}${B.act && !enRes ? ` En la caja: ${lv} ${lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
+      + `<p><b>Nivel ${lv} de ${BAL.nivelMax}</b><span class="lvx"> · efecto ×${String(BAL.nivelMul[lv - 1]).replace('.', ',')}</span>${enRes ? ' · <b>en la reserva: no hace efecto</b>' : ''}</p><p>${balDesc(k, lv)}</p>${balDespHtml(k, lv)}`
+      + `<p class="dim">${junta ? 'Tienes otra copia: júntalas en la pestaña Fusionar para subir de nivel.' : lv < BAL.nivelMax ? `Junta otra copia en la pestaña Fusionar para subirla a nivel ${lv + 1}${lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}.` : 'Nivel 4: ¡despierta!'}${B.act && !enRes ? ` En la caja: ${lv} ${lv === 1 ? 'copia' : 'copias'}.` : ''}</p>`
       + `<div class="inv-acc">${mover}${enSala && venta ? `<button class="btn2" type="button" id="inv-vender">Vender · +${venta} $</button>` : ''}</div>`;
     const mb = $('#inv-mover'); if (mb) mb.addEventListener('click', () => {
       const ok = enRes ? Balas.sacar(game, S.i, arbEsp()) : Balas.guardar(game, S.i, balManos(), arbEsp());
@@ -22028,6 +22130,7 @@ function fusePreview() {
   out.textContent = !A ? 'Toca una bala de abajo. Dos iguales se juntan y suben de nivel (se suman sus niveles, hasta el 4). Dos distintas del mismo rango dan una del rango siguiente (S + S = secreta), en nivel 1.'
     : !B ? `Ahora toca otra: una ${BULLETS[A.k].name} (sube de nivel) o una de rango ${BAL.rangos[BALAS[A.k].r].name.replace('Rango ', '')} con receta. Para quitarla, tócala otra vez.`
     : por ? 'No se puede: ' + por.charAt(0).toLowerCase() + por.slice(1)
+    : R.nivel && R.lv === BAL.nivelMax && !sinFicha ? `${BULLETS[R.k].name} sube a nivel 4 y despierta: ${balDespTxt(R.k)}. Cuesta ${BAL.fusionFichas} ficha de miembro (tienes ${f}).`
     : sinFicha ? `No se puede: cuesta ${BAL.fusionFichas} ficha de miembro y no tienes. Gánalas en la ruleta, la tragamonedas o cambiando en la caja registradora.`
     : (R.nivel ? `${BULLETS[R.k].name} sube a nivel ${R.lv}: ${balDesc(R.k, R.lv)}` : vista ? `Sale ${BULLETS[R.k].name}: ${balDesc(R.k, 1)}` : 'Es la primera vez: el resultado es un misterio.') + ` Cuesta ${BAL.fusionFichas} ficha de miembro (tienes ${f}).`;
   const btn = $('#btn-fuse'); btn.disabled = !R || !!por || sinFicha; btn.textContent = !R ? 'Elige dos balas' : R.nivel ? `Juntar · ${BAL.fusionFichas} ficha` : `Fusionar · ${BAL.fusionFichas} ficha`;
@@ -22051,7 +22154,7 @@ function balFusionar() {
   { const L = enSlot ? game.slot : game.reserva, j = L.map(e => e.k).lastIndexOf(r); game.invSel = { d: enSlot ? 's' : 'r', i: j }; }
   balCambio(); renderChips(); Sfx.win(); Sfx.insert();
   const lvR = (Balas.ent(game, game.invSel) || {}).lv || 1;
-  if (subir) { banner('¡Sube de nivel!', `${BULLETS[r].name} · nivel ${lvR}`, 2600, 'lantern'); feed(`${BULLETS[r].name} sube a nivel ${lvR}`, 'gold'); }
+  if (subir) { if (lvR < BAL.nivelMax) banner('¡Sube de nivel!', `${BULLETS[r].name} · nivel ${lvR}`, 2600, 'lantern'); feed(`${BULLETS[r].name} sube a nivel ${lvR}`, 'gold'); }
   else { banner(nueva ? '¡Fusión nueva!' : 'Fusión', `${BULLETS[r].name} · ${BAL.rangos[BULLETS[r].rango].name}`, 2600, 'lantern'); feed(`Fusión: ${BULLETS[r].name}`, 'gold'); }
   renderInv();
 }
@@ -22271,6 +22374,7 @@ function refreshQueueAfterShop() {}
 function drawBullet() {
   if (!Balas.normales(game)) return null;   // sin normales en la caja no se carga nada (las activas no salen solas)
   const i = Math.floor(Math.random() * game.box.length);
+  if (game.box[i] === 'normal' && gs.reloading && balD('cinturon') && Math.random() < BD.cinturon.p) return 'normal';   // Cinturón infinito: esta no se gasta
   return game.box.splice(i, 1)[0];
 }
 function loadChamber(h, i) {
@@ -22420,9 +22524,13 @@ function hurtPlayer(amount, src, opt = {}) {
   if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv' || state === 'lleno'))) || player.down) return;
   if (game && (game.phase === 'cleared' || game.phase === 'perk' || game.phase === 'wait')) return;
   if (game && ((game.habK === 'furia' && game.habT > 0) || game.dashT > 0)) return;   // Furia del viejo y el impulso de Françoise
-  amount *= (1 - 0.15 * game.vest) * (dareOn() ? 1.25 : 1) * ST.armorX; game.w.hurt = true;
+  if (game.invulT > 0) return;   // Último aliento
+  amount *= (1 - 0.15 * game.vest) * (dareOn() ? 1.25 : 1) * ST.armorX;
+  if (game.escudo > 0 && amount > 0) { const a = Math.min(game.escudo, amount); game.escudo -= a; amount -= a; if (amount <= 0) return; }   // Sed de sangre: el escudo para primero
+  game.w.hurt = true;
   player.hp -= amount; player.lastHurt = game.time; if (amount > 0) { stMas('dano', amount); retoDano(); }
   balAlRecibir(amount, !!opt.tick);   // Reflejo de fuego y Ave de la fortuna
+  if (balD('segundoaire') && player.hp > 0 && player.hp < player.maxHp * BD.segundoaire.hp && game.ultAlW !== game.wave) { game.ultAlW = game.wave; game.invulT = BD.segundoaire.t_; banner('Último aliento', `${BD.segundoaire.t_} s sin recibir daño`, 1800, 'shield'); Sfx.heart(); }
   fx.dmg = Math.min(1, fx.dmg + amount / (opt.tick ? 60 : 22));
   if (opt.acid) fx.acid = Math.min(1, fx.acid + (opt.tick ? 0.05 : 0.9));
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
@@ -22804,7 +22912,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = gunName(id) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.debilWave === game.wave ? BAL.maquinas.madame.castigos.debil.x : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game && game.novaT > 0 ? BD.supernova.x : 1) * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.debilWave === game.wave ? BAL.maquinas.madame.castigos.debil.x : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -22823,9 +22931,10 @@ function shoot(h, fanned, yawOff = 0) {
   while (!isLoaded(h.loaded[h.idx]) && guard++ < h.cap) { h.idx = (h.idx + 1) % h.cap; h.cylTarget += TAU / h.cap; h.hudRot -= 360 / h.cap; }
   const fired = h.idx;
   const sBala = isLoaded(h.loaded[fired]) ? h.loaded[fired] : 'normal';   // lo que había en la recámara («k*» = copia gratis)
-  let type = Balas.base(sBala), kLv = Balas.esActiva(type) ? balNv(type) : 0;
-  if (type === 'espejo') { const u = game.ultActiva; type = u && u !== 'espejo' ? u : 'normal'; if (type === 'normal') feed('Espejo: todavía no disparaste ninguna activa', 'red'); }   // Espejo copia la última activa (con su propio nivel)
-  else if (Balas.esActiva(type)) game.ultActiva = type;
+  let type = Balas.base(sBala), kLv = Balas.esActiva(type) ? balNv(type) : 0, espejo2 = null;
+  if (h.mas && h.mas[fired]) { kLv = Math.min(BAL.nivelMax, kLv + 1); delete h.mas[fired]; }   // Crupier de oro: la copia sale con 1 nivel más
+  if (type === 'espejo') { const u = game.ultActiva; if (dLv(kLv) && game.ultActiva2 && game.ultActiva2 !== 'espejo') espejo2 = game.ultActiva2; type = u && u !== 'espejo' ? u : 'normal'; if (type === 'normal') feed('Espejo: todavía no disparaste ninguna activa', 'red'); }   // Espejo copia la última activa (con su propio nivel); Sala de espejos: las 2 últimas
+  else if (Balas.esActiva(type)) { if (game.ultActiva !== type) game.ultActiva2 = game.ultActiva; game.ultActiva = type; }
   h.loaded[fired] = 2; h.idx = (h.idx + 1) % h.cap; h.ammo--; h.cylTarget += TAU / h.cap;
   const vuelve = () => { if (h.loaded[fired] !== 2 || sBala !== 'normal') return false; h.loaded[fired] = 'normal'; h.ammo++; return true; };   // la bala normal vuelve al tambor (una sola vez por disparo)
   if ((game.habK === 'lluvia' || game.habK === 'minigun' || game.habK === 'rafaga') && game.habT > 0) vuelve();   // Lluvia de plomo y minigun de Geronimo
@@ -22858,7 +22967,8 @@ function shoot(h, fanned, yawOff = 0) {
   const ctx = { type, k: type, lv: kLv, s: sBala, h, m, kills: 0, hitZ: false, dmgMul: 1, first: firstOfDrum, last: h.ammo === 0, col: type === 'normal' ? (game.goldT > 0 ? 0xffc040 : W_ ? W_.tr : 0xffe2a0) : hexCol(BULLETS[type] ? BULLETS[type].col : '#ffe2a0') };
   if (Balas.esActiva(type) && !(BALAS[type].up || []).length) ctx.dmgMul *= BAL.nivelMul[Math.max(1, kLv) - 1];   // las activas sin cifras propias hacen más daño con el nivel
   if (game.tragoX) { ctx.dmgMul *= game.tragoX; game.tragoX = 0; }   // Trago de valor: este tiro hace doble daño
-  ctx.poker = balT('pokerhielo') && h.tamborN === balV('pokerhielo', 'cada');
+  ctx.poker = balT('pokerhielo') && (h.tamborN === balV('pokerhielo', 'cada') || (balD('pokerhielo') && h.tamborN === BD.pokerhielo.cada));
+  balAntesTiro(h, ctx);
   if (W_) { flashMat.color.setHex(W_.flash); for (const hh of hands) hh.flashLight.color && hh.flashLight.color.setHex(W_.light); player.shake = Math.min(1, player.shake + 0.04 * W_.shake); }
   if (gs.quickShot) { ctx.dmgMul = 1.5; gs.quickShot = false; }
   if (game.habK === 'rafaga' && game.habT > 0 && h.model === 'mp5') { ctx.fuego = true; ctx.col = 0xff7a20; }
@@ -22870,19 +22980,25 @@ function shoot(h, fanned, yawOff = 0) {
     else if (r < luck(1 / 1000, 1.5) + luck(wlv('jackpot') >= 3 ? 1 / 35 : 1 / 50, 1.5)) { addGold(20); feed('¡Premio! +20 $', 'gold'); Sfx.coin(); }
   }
   ctx.bnc = m.bounce || 0;
-  if (Balas.esActiva(type)) { retoActiva(); ctx.pellets = pellets; pellets = balAlDisparar(h, ctx, cam); if (type === 'dron') balDron(kLv); if (type === 'chicles') pellets = Math.max(pellets, Math.round(balX('chicles', 'n', kLv))); }
+  if (Balas.esActiva(type)) { retoActiva(); ctx.pellets = pellets; pellets = balAlDisparar(h, ctx, cam); if (type === 'dron') for (let i = 0; i < (dLv(kLv) ? BD.dron.n : 1); i++) balDron(kLv); if (type === 'chicles') pellets = Math.max(pellets, Math.round(balX('chicles', 'n', kLv))); }
   const sp = spread() + (fanned ? 0.055 : 0) + (m.pellets ? m.pSpread : pellets > 1 ? 0.025 : 0);
   for (let i = 0; i < pellets; i++) {
     const a = Math.random() * TAU, rr = Math.sqrt(Math.random()) * sp, d = cam.clone();
     d.addScaledVector(_r, Math.cos(a) * Math.tan(rr)).addScaledVector(_u, Math.sin(a) * Math.tan(rr)).normalize();
-    const end = castBullet(_cp, d, ctx);
+    const end = castBullet(_cp, d, ctx); ctx.end = end;
     addTracer(_mp, end, type === 'normal' && m.tr ? m.tr : ctx.col, m.boom ? 3.5 : m.tr ? 2.2 : W_ && type === 'normal' && !(game.goldT > 0) ? W_.tw : (game.goldT > 0 || h.model === 'magnum' || type !== 'normal') ? 1.8 : 1);
     if (i === 0 && Net.on) Net.ev(['sh', r2(_mp.x), r2(_mp.y), r2(_mp.z), r2(end.x), r2(end.y), r2(end.z), ctx.col]);
   }
-  if (balT('gemelo') && pellets > 0) {   // Gemelo celestial: un doble a tu derecha copia el disparo
-    const o2 = _cp.clone().addScaledVector(_r, 1.1), gem = Object.assign({}, ctx, { k: 'normal', type: 'normal', lv: 0, sub: true, kills: 0, hitZ: false, dmgMul: ctx.dmgMul * balV('gemelo', 'dano') }), end = castBullet(o2, cam, gem);
+  if (balT('gemelo') && pellets > 0) for (const lado of balD('gemelo') ? [1, -1] : [1]) {   // Gemelo celestial: un doble a tu derecha copia el disparo (Trillizos: otro a tu izquierda)
+    const o2 = _cp.clone().addScaledVector(_r, 1.1 * lado), gem = Object.assign({}, ctx, { k: 'normal', type: 'normal', lv: 0, sub: true, kills: 0, hitZ: false, dmgMul: ctx.dmgMul * balV('gemelo', 'dano') }), end = castBullet(o2, cam, gem);
     addTracer(o2.clone().addScaledVector(_u, -0.25), end, 0xfff6c0, 1.6); ctx.kills += gem.kills; if (gem.hitZ) ctx.hitZ = true;
     if (Net.on) Net.ev(['sh', r2(o2.x), r2(o2.y - 0.25), r2(o2.z), r2(end.x), r2(end.y), r2(end.z), 0xfff6c0]);
+  }
+  if (espejo2) {   // Sala de espejos: también sale la penúltima activa
+    const ctx2 = Object.assign({}, ctx, { type: espejo2, k: espejo2, lv: kLv, kills: 0, hitZ: false, dmgMul: 1, col: hexCol(BULLETS[espejo2].col), roulette: false, cabeza: false });
+    let p2 = 1; if (Balas.esActiva(espejo2)) { ctx2.pellets = 1; p2 = balAlDisparar(h, ctx2, cam); if (espejo2 === 'dron') balDron(kLv); }
+    for (let i = 0; i < Math.max(0, p2 | 0); i++) { const d2 = cam.clone().addScaledVector(_r, rand(-0.03, 0.03)).addScaledVector(_u, rand(-0.03, 0.03)).normalize(), e2 = castBullet(_cp, d2, ctx2); addTracer(_mp, e2, ctx2.col, 1.8); }
+    ctx.kills += ctx2.kills; if (ctx2.hitZ) ctx.hitZ = true; feed(`Sala de espejos: ${BULLETS[espejo2].name} también`, 'gold');
   }
   balEspejos(h, ctx, cam);   // Corte de espejos
   if (game.asN > 0) game.asN--;   // As de espadas
@@ -22900,12 +23016,13 @@ function shoot(h, fanned, yawOff = 0) {
   if (!rec && (!m.auto || h.streak % 3 === 0)) Sfx.cylTick(!!m.auto);   // la grabación ya trae su martillo
   // después del tiro, la activa vuelve a la caja o se rompe; la Bumerán y el Carámbano vuelven al cañón si pegan
   if ((ctx.k === 'bumeran' || ctx.k === 'carambano') && ctx.hitZ && sBala !== 'normal' && Balas.normales(game)) { h.loaded[fired] = sBala; h.ammo++; feed(`${BULLETS[ctx.k].name} volvió al cañón`, 'gold'); }
-  else if (sBala !== 'normal' && sBala !== 'mala') { const r = Balas.trasDisparo(game, sBala); if (r === 'rota') { feed(`${BULLETS[Balas.base(sBala)].name} se rompió${Balas.tiene(game, Balas.base(sBala)) ? ' (pierde 1 nivel)' : ''}`, 'red'); balCambio(); } else if (r === 'truco') feed('Truco de manos: la bala volvió a la caja', 'gold'); }
+  else if (sBala !== 'normal' && sBala !== 'mala') { const r = Balas.trasDisparo(game, sBala); if (r === 'rota') { feed(`${BULLETS[Balas.base(sBala)].name} se rompió${Balas.tiene(game, Balas.base(sBala)) ? ' (pierde 1 nivel)' : ''}`, 'red'); balCambio(); } else if (r === 'truco') feed('Truco de manos: la bala volvió a la caja', 'gold'); else if (r === 'enfria') feed(`${BULLETS[Balas.base(sBala)].name} no se rompe: vuelve en ${BD[Balas.base(sBala)].recarga} oleadas`, 'gold'); }
   if (ctx.hitZ && ctx.k === 'junior') {
-    let n = 0;
-    for (let j = 0; j < h.cap && n < 6; j++) { const i = (h.idx + j) % h.cap; if (h.loaded[i] === 0 || h.loaded[i] === 2) { h.loaded[i] = 0; loadChamber(h, i); n++; } }
+    let n = 0; const perf = dLv(ctx.lv);
+    for (let j = 0; j < h.cap && n < 6; j++) { const i = (h.idx + j) % h.cap; if (h.loaded[i] === 0 || h.loaded[i] === 2) { h.loaded[i] = 0; const v_ = perf ? game.box.findIndex(b => typeof b === 'string' && !b.endsWith('*') && BALAS[b] && BALAS[b].vuelve) : -1; if (v_ >= 0) { h.loaded[i] = game.box.splice(v_, 1)[0]; h.ammo++; } else loadChamber(h, i); n++; } }   // Recarga perfecta: primero las activas que vuelven
     if (n) { Sfx.insert(); Sfx.close(); feed('¡Recarga junior!', 'gold'); }
   }
+  balTrasTiro(h, ctx);
   refreshChambers();
   const kills = ctx.kills;
   if (kills >= 2) { game.colls = (game.colls || 0) + 1; stMas('colls'); }
@@ -22928,7 +23045,7 @@ function castBullet(o, d, ctx) {
   const t = ctx.type, h = ctx.h, m = ctx.m;
   ray.set(o, d); ray.far = 200;
   const hits = ray.intersectObjects(targets, false);
-  const atraviesa = ctx.k === 'taladro' || ctx.k === 'carambano' || ctx.roulette;   // Taladro y Carámbano atraviesan a todos en línea
+  const atraviesa = ctx.atraviesa || ctx.k === 'taladro' || ctx.k === 'carambano' || ctx.roulette;   // Taladro y Carámbano atraviesan a todos en línea
   let pen = atraviesa ? 999 : 1 + m.pierce;
   let dmg = bulletDmg(h) * ctx.dmgMul;
   if (ctx.roulette) dmg = 1e6;
@@ -22942,7 +23059,7 @@ function castBullet(o, d, ctx) {
       if (z.dead || done.has(z)) continue;
       if (hh.object.userData.part === 'hacha') { if (hh.object.visible && z.handAxe && z.handAxe.visible !== false) { sparks(hh.point, 10, null); Sfx.hacha(panOf(hh.point)); end = hh.point; break; } continue; }   // la bala pega en el hacha
       done.add(z); ctx.hitZ = true;
-      let part = hh.object.userData.part;
+      let part = hh.object.userData.part; if (ctx.cabeza) part = 'head';   // Dado de oro: todas cuentan como tiro a la cabeza
       let dd = dmg * (part === 'head' ? 2.4 : part === 'limb' ? 0.7 : 1);
       if (part === 'body' || part === 'limb' || part === 'vest') dd /= 1.75;   // cuerpo y extremidades aguantan un 75 % más: siguen caminando tras varios tiros
       if (m.near) dd *= hh.distance < 8 ? 1.2 : hh.distance < 16 ? 1 : 0.6;
@@ -22950,7 +23067,8 @@ function castBullet(o, d, ctx) {
       if (ST.piernaX && part === 'limb') { let o = hh.object; for (let k = 0; k < 3 && o; k++, o = o.parent) if (o === z.legL || o === z.legR) { dd *= ST.piernaX; break; } }
       if (ST.lejosX && hh.distance > 20) dd *= ST.lejosX; if (ST.cercaX && hh.distance < 5) dd *= ST.cercaX;
       dd *= (t === 'normal' || t === 'mala' ? 1 : ST.specialX) * (part === 'head' ? ST.headX : 1) * (z.boss != null || z.elite ? ST.bossX : 1) * (ctx.first ? ST.firstX : 1) * (ctx.last ? ST.lastX : 1);
-      let crit = false; if (!ctx.sub && game.asN > 0) { dd *= balX('asespadas', 'x', 1); crit = true; } else if (balT('punteria') && Math.random() < balP('punteria', balV('punteria', 'p'))) { dd *= balV('punteria', 'x'); crit = true; }   // As de espadas y Puntería
+      let crit = false; if (!ctx.sub && game.asN > 0) { dd *= balX('asespadas', 'x', 1); crit = true; } else if (balT('punteria') && Math.random() < balP('punteria', balV('punteria', 'p'))) { dd *= balD('punteria') ? Math.max(balV('punteria', 'x'), BD.punteria.x) : balV('punteria', 'x'); crit = true; }
+      if (part === 'head' && z.frozen > 0 && z.boss == null && balD('escarcha')) { dd = Math.max(dd, z.hp + 1e5); balHielo(z); }   // Glaciar: el congelado se rompe   // As de espadas y Puntería
       ctx.part = part; const ops = ctx.sub ? [] : balOps(z, ctx, part);
       const hpBefore = z.hp; z.cLast = 0;
       const killed = damageZombie(z, dd, { part, dir: d.clone(), point: hh.point.clone(), obj: hh.object, bullet: true, weapon: h.model, fx: ops.length ? 'b' + JSON.stringify(ops) : ctx.fuego ? 'burn' : (h.model === 'viejo' && wlv('viejo') >= 3) ? 'stun' : (h.model === 'minigun' && wlv('minigun') >= 3 && (h.streak || 0) >= 15) ? 'burn' : '' });
@@ -22967,6 +23085,7 @@ function castBullet(o, d, ctx) {
       pen--; if (!(atraviesa || m.noFall)) dmg *= 0.75;
       if (pen <= 0) { end = hh.point; break; }
     } else {
+      if (ctx.pared) continue;   // Perforadora: atraviesa paredes
       end = hh.point;
       { let ob = hh.object; while (ob && !ob.userData.onShot && ob !== world.group) ob = ob.parent; if (ob && ob.userData.onShot) ob.userData.onShot(hh.point.clone(), hh.instanceId, ctx); }
       _n.copy(hh.face ? hh.face.normal : _up);
@@ -23010,25 +23129,33 @@ const balV = (k, key) => game ? Balas.v(game, k, key) : 0;
 const balT = k => !!game && Balas.tiene(game, k);
 const balP = (k, p) => Balas.prob(game, k, p);
 const balDur = t => t * (game && Balas.famOn(game, 'elementos') ? BAL.familia.elementos.dura : 1);   // familia Elementos: los efectos duran el doble
-const balRepite = () => balT('doblenada') && Math.random() < balP('doblenada', balV('doblenada', 'p'));   // Doble o nada infinito
+// Doble o nada infinito: cuántas veces se repite el premio (0 o 1; despierto, hasta 3 seguidas)
+const balRepite = () => { if (!balT('doblenada')) return 0; const max = balD('doblenada') ? DESPERTAR.doblenada.n : 1; let n = 0; while (n < max && Math.random() < balP('doblenada', balV('doblenada', 'p'))) n++; return n; };
+const balD = k => !!game && !!game.slot && Balas.despierta(game, k);   // ¿esta pasiva está despierta (nivel 4)?
+const dLv = lv => (lv | 0) >= BAL.nivelMax;                           // ¿esta activa sale en nivel 4?
+const BD = DESPERTAR;
+// cuánto va de la oleada (0 a 1)
+const balAvance = () => { const tot = game.balTot || 0; if (!tot) return 0; return clamp(1 - ((game.toSpawn | 0) + Math.max(0, game.alive | 0)) / tot, 0, 1); };
+// curar al equipo (los compañeros reciben el aviso por la red)
+function balCurarEquipo(n) { if (!player.down) player.hp = Math.min(player.maxHp, player.hp + n); if (Net.on) for (const pr of Net.peers.values()) if (!pr.down) Net.ev(['bal', 'cura', pr.id, n]); }
 // una activa al azar de todo el juego (Bolsa sin fondo): sin secretas
-const balActivaAzar = () => pick(Object.keys(BALAS).filter(k => BALAS[k].t === 'a' && BALAS[k].r !== 'X'));
+const balActivaAzar = r => pick(Object.keys(BALAS).filter(k => BALAS[k].t === 'a' && BALAS[k].r !== 'X' && (!r || BALAS[k].r === r)));
 // el nivel con el que sale una bala (la copia gratis sale con el nivel de la bala; si ya no está en el slot, nivel 1)
 const balNv = k => Math.max(1, Balas.nivel(game, k));
 const balX = (k, key, lv) => balValor(k, key, lv);
 // ---- al cargar una recámara: Tahúr y Crupier mecánico pueden repetir la activa gratis; Bolsa sin fondo vuelve activa una normal
 function balAlCargar(h, i) {
   const s = h.loaded[i];
-  if (s === 'normal' && balT('bolsa') && Math.random() < balP('bolsa', balV('bolsa', 'p'))) { h.loaded[i] = balActivaAzar() + '*'; return; }
+  if (s === 'normal' && balT('bolsa') && Math.random() < balP('bolsa', balV('bolsa', 'p'))) { h.loaded[i] = balActivaAzar(balD('bolsa') && Math.random() < BD.bolsa.p ? BD.bolsa.rango : null) + '*'; return; }   // Bolsa mágica: a veces una activa A
   if (typeof s !== 'string' || s.endsWith('*') || !Balas.esActiva(s)) return;
   let n = 0;
-  if (balT('tahur') && Math.random() < balP('tahur', balV('tahur', 'p'))) n += balRepite() ? 2 : 1;
-  if (balT('crupier') && Math.random() < balP('crupier', balV('crupier', 'p'))) n++;
-  for (let j = 1; j < h.cap && n > 0; j++) { const q = (i + j) % h.cap; if (h.loaded[q] === 0) { h.loaded[q] = s + '*'; h.ammo++; n--; if (game.time - (game.tahurT || -9) > 1) { game.tahurT = game.time; feed(`¡${BULLETS[s].name} se repite gratis!`, 'gold'); } } }
+  if (balT('tahur') && ((balD('tahur') && game.tahurW !== game.wave) || Math.random() < balP('tahur', balV('tahur', 'p')))) { n += 1 + balRepite(); game.tahurW = game.wave; }   // As bajo la manga: la primera de la oleada siempre
+  let oroC = 0; if (balT('crupier') && Math.random() < balP('crupier', balV('crupier', 'p'))) { n++; oroC = balD('crupier') ? 1 : 0; }
+  for (let j = 1; j < h.cap && n > 0; j++) { const q = (i + j) % h.cap; if (h.loaded[q] === 0) { h.loaded[q] = s + '*'; if (oroC) { (h.mas = h.mas || {})[q] = 1; oroC = 0; } h.ammo++; n--; if (game.time - (game.tahurT || -9) > 1) { game.tahurT = game.time; feed(`¡${BULLETS[s].name} se repite gratis!`, 'gold'); } } }
 }
 // ---- al disparar: lo que pasa antes de que salga la bala (cuántas balas salen, si se encasquilla…)
 const TRAGA_SIM = ['Siete', 'BAR', 'Cereza', 'Diamante', 'Campana', 'Herradura', 'Trébol', 'Corona'];
-function balTragamonedas(lv, siempre, ctx, x3) {
+function balTragamonedas(lv, siempre, ctx, desp) {
   const n = Math.min(TRAGA_SIM.length, balX('tragamonedas', 'sim', 1) | 0), r = [0, 1, 2].map(() => Math.floor(Math.random() * n));
   if (siempre) r[1] = r[2] = r[0];
   const tres = r[0] === r[1] && r[1] === r[2], dos = !tres && (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]);
@@ -23036,27 +23163,29 @@ function balTragamonedas(lv, siempre, ctx, x3) {
   const premio = () => {
     if (tres) { balRed('todos', player.pos, {}); feed('¡Tres iguales! Caen todos menos los jefes', 'gold'); stMas('slot3'); }
     else if (dos) ctx.boom = (ctx.boom || 0) + 1;
-    else { const g = Math.round(balX('tragamonedas', 'oro', lv)); addGold(g, true); feed(`Tragamonedas: +${g} $`, 'gold'); }
+    else { const g = Math.round(balX('tragamonedas', 'oro', lv)) + (desp ? BD.tragamonedas.oro : 0); addGold(g, true); feed(`Tragamonedas: +${g} $`, 'gold'); }
   };
-  premio(); if (balRepite()) { feed('Doble o nada: ¡otra vez!', 'gold'); premio(); }
+  if (desp) ctx.boomX = BD.tragamonedas.x;   // Máquina trucada: explosiones el doble de grandes
+  premio(); for (let i = balRepite(); i > 0; i--) { feed('Doble o nada: ¡otra vez!', 'gold'); premio(); }
 }
 function balAlDisparar(h, ctx, cam) {
   const k = ctx.k, lv = ctx.lv; let pel = ctx.pellets;
-  if (k === 'apuesta') { ctx.apuesta = Math.random() < balP('apuesta', balX('apuesta', 'p', lv)); if (ctx.apuesta) { ctx.dmgMul *= balX('apuesta', 'x', lv) * (balRepite() ? balX('apuesta', 'x', lv) : 1); feed('¡Apuesta ganada!', 'gold'); Sfx.coin(); } else { ctx.dmgMul = 0; feed('Apuesta perdida: nada', 'red'); } }
-  else if (k === 'reloj') { game.slowT = balDur(balX('reloj', 't', lv)); applySlowFx(); Sfx.deadeye(true); }
-  else if (k === 'dado') { pel = 1 + Math.floor(Math.random() * 6); if (balRepite()) pel += 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Dado: ${pel} ${pel === 1 ? 'bala' : 'balas'}`, 'gold'); }
-  else if (k === 'ruleta' || k === 'ruletadorada') { ctx.roulette = Math.random() < balP(k, balX(k, 'p', lv)); if (ctx.roulette) { feed('¡BANG!', 'red'); ctx.col = 0xff2020; } else if (k === 'ruleta') { Sfx.dry(); feed('Clic… se encasquilló', 'red'); pel = 0; } }
-  else if (k === 'trago') { player.hp = Math.min(player.maxHp, player.hp + balX('trago', 'cura', lv)); game.tragoX = balX('trago', 'x', lv); feed('Trago de valor: el próximo tiro hace doble daño', 'gold'); Sfx.heart(); }
-  else if (k === 'asespadas') { game.asN = Math.round(balX('asespadas', 'n', lv)); feed(`As de espadas: ${game.asN} tiros críticos`, 'gold'); }
-  else if (k === 'tragamonedas' || k === 'jackpot') balTragamonedas(lv, k === 'jackpot', ctx);
-  else if (k === 'milagro') { const n = balX('milagro', 'n', lv) | 0; for (let i = 0; i < n; i++) setTimeout(() => { if (game && state === 'play') { const c2 = {}; balTragamonedas(lv, false, c2); if (c2.boom) balRed('boom', player.pos, { r: balX('tragamonedas', 'r', 1), dano: balX('tragamonedas', 'dano', lv) }); } }, i * 700); }
-  else if (k === 'seisdeseis') { const d6 = 1 + Math.floor(Math.random() * 6); Sfx.dice(); banner('Seis de seis', d6 === 6 ? '¡Seis! Caen todos menos los jefes' : `${d6} ${d6 === 1 ? 'explosión' : 'explosiones'}`, 2000, 'dice'); if (d6 === 6) balRed('todos', player.pos, {}); else ctx.seis = d6 * (balRepite() ? 2 : 1); }
-  else if (k === 'invocacion') balRed('caballero', player.pos, { lv, n: 1 });
-  else if (k === 'legion') { const n = 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Legión: ${n} ${n === 1 ? 'caballero' : 'caballeros'}`, 'gold'); balRed('caballero', player.pos, { lv, n }); }
-  else if (k === 'caballerotiempo') balRed('caballero', player.pos, { lv, n: 1, t: balDur(balX(k, 't', lv)), r: balX(k, 'r', lv) });
-  else if (k === 'hipnosiseterna') { const t = balDur(balX(k, 't', lv)); game.hipnoHasta = game.time + t; game.hipnoX = balX(k, 'oro', lv); balRed('detener', player.pos, { t }); banner('Hipnosis eterna', `Todos quietos ${Math.round(t)} s · oro ×${game.hipnoX}`, 2200, 'eye'); }
+  if (k === 'apuesta') { ctx.apuesta = Math.random() < balP('apuesta', balX('apuesta', 'p', lv)); if (ctx.apuesta) { ctx.dmgMul *= Math.pow(balX('apuesta', 'x', lv), 1 + balRepite()); feed('¡Apuesta ganada!', 'gold'); Sfx.coin(); if (dLv(lv)) game.apuestaSig = BD.apuesta.x; } else { ctx.dmgMul = 0; feed('Apuesta perdida: nada', 'red'); } }
+  else if (k === 'reloj') { if (dLv(lv)) { balRed('detener', player.pos, { t: BD.reloj.t_ }); game.slowT = balDur(balX('reloj', 't', lv)) + BD.reloj.t_; } else game.slowT = balDur(balX('reloj', 't', lv)); applySlowFx(); Sfx.deadeye(true); }
+  else if (k === 'dado') { pel = 1 + Math.floor(Math.random() * 6); for (let i = balRepite(); i > 0; i--) pel += 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Dado: ${pel} ${pel === 1 ? 'bala' : 'balas'}`, 'gold'); if (dLv(lv) && pel === BD.dado.n) { ctx.cabeza = true; feed('¡Dado de oro! Todas a la cabeza', 'gold'); } }
+  else if (k === 'ruleta' || k === 'ruletadorada') { let pr = balX(k, 'p', lv); if (k === 'ruleta' && game.ruletaSig) { pr = Math.max(pr, game.ruletaSig); game.ruletaSig = 0; } ctx.roulette = Math.random() < balP(k, pr); if (ctx.roulette) { feed('¡BANG!', 'red'); ctx.col = 0xff2020; } else if (k === 'ruleta') { if (dLv(lv)) { game.ruletaSig = BD.ruleta.p; feed('Bala de plata: no se encasquilla; la próxima, 1 de 2', 'gold'); } else { Sfx.dry(); feed('Clic… se encasquilló', 'red'); pel = 0; } } }
+  else if (k === 'trago') { player.hp = Math.min(player.maxHp, player.hp + balX('trago', 'cura', lv)); game.tragoX = balX('trago', 'x', lv); if (dLv(lv)) game.tragoAtr = true; feed('Trago de valor: el próximo tiro hace doble daño', 'gold'); Sfx.heart(); }
+  else if (k === 'asespadas') { game.asN = Math.round(Math.max(balX('asespadas', 'n', lv), dLv(lv) ? BD.asespadas.n : 0)); feed(`As de espadas: ${game.asN} tiros críticos`, 'gold'); }
+  else if (k === 'tragamonedas' || k === 'jackpot') balTragamonedas(lv, k === 'jackpot', ctx, k === 'tragamonedas' && dLv(lv));
+  else if (k === 'milagro') { const n = Math.max(balX('milagro', 'n', lv) | 0, dLv(lv) ? BD.milagro.n : 0); for (let i = 0; i < n; i++) setTimeout(() => { if (game && state === 'play') { const c2 = {}; balTragamonedas(lv, false, c2); if (c2.boom) balRed('boom', player.pos, { r: balX('tragamonedas', 'r', 1), dano: balX('tragamonedas', 'dano', lv) }); } }, i * 700); }
+  else if (k === 'seisdeseis') { const d6 = Math.min(6, 1 + Math.floor(Math.random() * (dLv(lv) ? 7 : 6))); Sfx.dice();   // Dados cargados: el 6 sale el doble
+    banner('Seis de seis', d6 === 6 ? '¡Seis! Caen todos menos los jefes' : `${d6} ${d6 === 1 ? 'explosión' : 'explosiones'}`, 2000, 'dice'); if (d6 === 6) balRed('todos', player.pos, {}); else ctx.seis = d6 * (1 + balRepite()); }
+  else if (k === 'invocacion') balRed('caballero', player.pos, dLv(lv) ? { lv, n: BD.invocacion.n, boom: [BD.invocacion.r, BD.invocacion.dano * effSc()] } : { lv, n: 1 });
+  else if (k === 'legion') { let n = 0; for (let i = 0; i < (dLv(lv) ? BD.legion.n : 1); i++) n += 1 + Math.floor(Math.random() * 6); Sfx.dice(); feed(`Legión: ${n} ${n === 1 ? 'caballero' : 'caballeros'}`, 'gold'); balRed('caballero', player.pos, { lv, n }); }
+  else if (k === 'caballerotiempo') balRed('caballero', player.pos, { lv, n: 1, t: dLv(lv) ? BD.caballerotiempo.t_ : balDur(balX(k, 't', lv)), r: balX(k, 'r', lv) });
+  else if (k === 'hipnosiseterna') { const t = balDur(balX(k, 't', lv)); game.hipnoHasta = game.time + t; game.hipnoX = Math.max(balX(k, 'oro', lv), dLv(lv) ? BD.hipnosiseterna.oro : 0); balRed('detener', player.pos, { t }); banner('Hipnosis eterna', `Todos quietos ${Math.round(t)} s · oro ×${game.hipnoX}`, 2200, 'eye'); }
   else if (k === 'negra') { balRed('negra', player.pos, {}); }
-  else if (k === 'cieloabismo') { ctx.cielo = Math.random() < 0.5; if (ctx.cielo) { player.hp = player.maxHp; if (Net.on) Net.ev(['bal', 'curamax']); banner('Cielo', 'Todo el equipo se cura por completo', 2000, 'cross'); Sfx.heart(); } }
+  else if (k === 'cieloabismo') { ctx.cielo = dLv(lv) || Math.random() < 0.5; ctx.ambos = dLv(lv); if (ctx.cielo) { player.hp = player.maxHp; if (Net.on) Net.ev(['bal', 'curamax']); banner('Cielo', 'Todo el equipo se cura por completo', 2000, 'cross'); Sfx.heart(); } }
   return pel;
 }
 // ---- antes de pegarle a un zombi: qué le pasa (lo decide quien dispara). Lista de órdenes para el anfitrión:
@@ -23066,16 +23195,16 @@ function balAlDisparar(h, ctx, cam) {
 function balOps(z, ctx, part) {
   const o = [], k = ctx.k, lv = ctx.lv, D = balDur;
   if (k === 'escarcha') { o.push(['f', D(balX(k, 't', lv))], ['a', balX(k, 'r', lv), D(balX(k, 't', lv))]); }
-  else if (k === 'hipnotica') o.push(['c', D(balX(k, 't', lv))]);
-  else if (k === 'chicles') o.push(['r', D(balX(k, 't', lv))]);
-  else if (k === 'chicleelec') o.push(['e', balX(k, 'dano', lv) * effSc(), D(balX(k, 't', lv)), balX(k, 'r', lv)]);
-  else if (k === 'pinata') o.push(['p', Math.round(balX(k, 'oro', lv))]);
+  else if (k === 'hipnotica') { o.push(['c', D(balX(k, 't', lv))]); if (dLv(lv)) o.push(['cc']); }
+  else if (k === 'chicles') { o.push(['r', D(balX(k, 't', lv))]); if (dLv(lv)) o.push(['g', BD.chicles.dano * effSc(), D(balX(k, 't', lv)), BD.chicles.r]); }
+  else if (k === 'chicleelec') o.push(['e', balX(k, 'dano', lv) * effSc(), D(balX(k, 't', lv)), balX(k, 'r', lv), dLv(lv) ? 1 : 0]);
+  else if (k === 'pinata') o.push(['p', Math.round(balX(k, 'oro', lv)), dLv(lv) ? BD.pinata.n : 1]);
   else if (k === 'carambano') o.push(['f', D(balX(k, 't', lv))]);
-  else if (k === 'traicion') o.push(['c', D(balX(k, 't', lv))], ['b', balX(k, 'dano', lv) * effSc(), balX(k, 'r', lv), balX(k, 't', lv)]);
-  else if (k === 'duelo') o.push(z.boss != null ? ['j', balX(k, 'jefe', lv)] : ['k']);
+  else if (k === 'traicion') { o.push(['c', D(balX(k, 't', lv))], ['b', balX(k, 'dano', lv) * effSc(), balX(k, 'r', lv), balX(k, 't', lv)]); if (dLv(lv)) o.push(['bb', BD.traicion.n, BD.traicion.r, D(balX(k, 't', lv))]); }
+  else if (k === 'duelo') o.push(z.boss != null ? ['j', Math.max(balX(k, 'jefe', lv), dLv(lv) ? BD.duelo.jefe : 0)] : ['k']);
   // pasivas que cuentan en cada impacto
-  if (balT('congelador') && Math.random() < balP('congelador', balV('congelador', 'p'))) o.push(['f', D(balV('congelador', 't'))]);
-  if (balT('encantador') && Math.random() < balP('encantador', balV('encantador', 'p'))) o.push(['c', D(balV('encantador', 't'))]);
+  if (balT('congelador') && Math.random() < balP('congelador', balV('congelador', 'p'))) { o.push(['f', D(balV('congelador', 't'))]); if (balD('congelador')) o.push(['h', BD.congelador.r, BD.congelador.t_]); }
+  if (balT('encantador') && Math.random() < balP('encantador', balV('encantador', 'p'))) { if (balD('encantador')) o.push(['c', D(Math.max(balV('encantador', 't'), BD.encantador.t_))], ['cx', BD.encantador.x]); else o.push(['c', D(balV('encantador', 't'))]); }
   if (ctx.poker) o.push(['f', D(balV('pokerhielo', 't'))]);
   return o;
 }
@@ -23083,7 +23212,7 @@ function balOps(z, ctx, part) {
 function balAplicarOps(z, ops, killed, by) {
   for (const op of ops || []) {
     const t = op[1];
-    if (op[0] === 'p') { z.pinata = { oro: t, by }; if (killed) balPinata(z); continue; }
+    if (op[0] === 'p') { z.pinata = { oro: t, by, n: op[2] || 1 }; if (killed) balPinata(z); continue; }
     if (op[0] === 'a') { balAplicar('congela', z.root.position, { r: t, t: op[2] }, by); continue; }
     if (killed || z.dead) continue;
     const grande = z.boss != null || z.def.big;
@@ -23094,51 +23223,59 @@ function balAplicarOps(z, ops, killed, by) {
     else if (op[0] === 'r') z.trapped = Math.max(z.trapped || 0, t);
     else if (op[0] === 'k') { bfxSpawn && bfxSpawn('puff', z.root.position.x, z.root.position.z); damageZombie(z, 1e9, { part: 'body', dir: null, remote: by !== Net.id, ally: by !== Net.id, by }); feed('¡Duelo! El caballero lo venció', 'gold'); }
     else if (op[0] === 'j') { damageZombie(z, z.maxHp * t, { part: 'body', dir: null, remote: by !== Net.id, ally: by !== Net.id, by }); }
-    else if (op[0] === 'e') { z.chicle = { dps: t, t: op[2], r: op[3], cd: 0, by }; }
+    else if (op[0] === 'e') { z.chicle = { dps: t, t: op[2], r: op[3], cd: 0, by }; if (op[4]) for (const o of nearestZombies(z.root.position, BD.chicleelec.n, BD.chicleelec.r, new Set([z]))) o.chicle = { dps: t, t: op[2], r: op[3], cd: 0.25, by }; }   // Chicle pegajoso
     else if (op[0] === 'b') { if (!grande) z.bomba = { dano: t, r: op[2], t: op[3], by }; }
+    else if (op[0] === 'bb') { if (!grande) for (const o of nearestZombies(z.root.position, t, op[2], new Set([z]))) if (o.boss == null && !o.def.big && !o.bomba) { o.charm = Math.max(o.charm || 0, op[3]); o.tgtT = 0; o.bomba = Object.assign({}, z.bomba || { dano: 0, r: 4, t: 3 }, { by }); } }   // Motín
+    else if (op[0] === 'cc') { if (!grande) z.charmCadena = 1; }   // Hipnosis en cadena
+    else if (op[0] === 'cx') { if (!grande) z.charmX = t; }        // Flautista: atacan el doble
+    else if (op[0] === 'g') { z.chicleBoom = { dano: t, t: op[2], r: op[3], by }; }   // Chicle gigante: revienta
+    else if (op[0] === 'h') { z.contagio = op[2] + 0.5; z.contR = t; z.contT = op[2]; }   // Cámara frigorífica
   }
 }
 function balPinata(z) {
   if (!z.pinata) return; const p = z.root.position; const P = z.pinata; z.pinata = null;
-  makePickup('bag', p.x + 0.6, p.z, P.oro); makePickup('bala', p.x - 0.6, p.z, BKEYS.indexOf(randomBullet()));
+  makePickup('bag', p.x + 0.6, p.z, P.oro); for (let i = 0; i < (P.n || 1); i++) makePickup('bala', p.x - 0.6 - i * 0.7, p.z + i * 0.5, BKEYS.indexOf(randomBullet()));
   for (let i = 0; i < 40; i++) PA.add(p.x, 1, p.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.8, 1.6), rand(0.05, 0.1), Math.random(), Math.random(), Math.random(), 1, 6, 0.4, 0, 0);
   Sfx.boom();
 }
 // ---- al pegar (efectos de quien dispara: curar, rayos…)
 function balAlPegar(z, pt, d, ctx, killed, crit) {
   const k = ctx.k, lv = ctx.lv;
-  if (k === 'vampira') player.hp = Math.min(player.maxHp, player.hp + balX(k, 'cura', lv));
-  else if (k === 'relampago') balRayos(z, pt, d, balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(balX(k, 'aturde', lv)), ctx, 1);
-  else if (k === 'rayobum') balRayos(z, pt, d, balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(0.8), ctx, 2);
-  else if (k === 'angel' && killed) { const n = Math.max(1, Math.round(player.maxHp * balX(k, 'vida', lv))); player.maxHp += n; player.hp += n; banner('Ángel', `+${n} de vida máxima para toda la partida`, 2200, 'cross'); Sfx.heart(); }
-  else if (k === 'agujero' && ctx.part === 'head' && !ctx.hoyo) { ctx.hoyo = 1; balRed('agujero', pt, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) }); }
-  if (crit && balT('carta')) balRayos(z, pt, d, balV('carta', 'n'), balV('carta', 'dano') * effSc(), balDur(0.4), ctx, 1);
+  if (k === 'vampira') { const c = balX(k, 'cura', lv), sobra = player.hp + c - player.maxHp; player.hp = Math.min(player.maxHp, player.hp + c); if (dLv(lv) && sobra > 0) game.escudo = Math.min(BD.vampira.max, (game.escudo || 0) + sobra); }   // Sed de sangre: escudo
+  else if (k === 'relampago') balRayos(z, pt, d, dLv(lv) ? BD.relampago.max : balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(balX(k, 'aturde', lv)), ctx, 1, dLv(lv) ? BD.relampago.r : 7);
+  else if (k === 'rayobum') balRayos(z, pt, d, balX(k, 'n', lv), balX(k, 'dano', lv) * effSc(), balDur(0.8), ctx, dLv(lv) ? BD.rayobum.vueltas : 2);
+  else if (k === 'angel' && killed) { const n = Math.max(1, Math.round(player.maxHp * balX(k, 'vida', lv))); player.maxHp += n; player.hp += n; banner('Ángel', `+${n} de vida máxima para toda la partida`, 2200, 'cross'); Sfx.heart(); if (dLv(lv)) balCurarEquipo(BD.angel.cura); }
+  else if (k === 'agujero' && (ctx.part === 'head' || dLv(lv)) && !ctx.hoyo) { ctx.hoyo = 1; balRed('agujero', pt, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) * (dLv(lv) ? BD.agujero.x : 1) }); }
+  if (crit && balT('carta')) balRayos(z, pt, d, balD('carta') ? Math.max(balV('carta', 'n'), BD.carta.n) : balV('carta', 'n'), balV('carta', 'dano') * effSc(), balDur(0.4), ctx, 1);
 }
 // rayo que salta de zombi en zombi (vueltas = 2: va y vuelve)
-function balRayos(z, pt, d, n, dano, aturde, ctx, vueltas) {
+function balRayos(z, pt, d, n, dano, aturde, ctx, vueltas, rango = 7) {
   const ex = new Set([z]), lista = []; let from = pt.clone();
-  for (let i = 0; i < n; i++) { const o = nearestZombies(from, 1, 7, ex)[0]; if (!o) break; ex.add(o); const tp = torsoPos(o); lista.push([o, tp]); addTracer(from, tp, 0x9ac8ff, 2.2); from = tp; }
+  for (let i = 0; i < n; i++) { const o = nearestZombies(from, 1, rango, ex)[0]; if (!o) break; ex.add(o); const tp = torsoPos(o); lista.push([o, tp]); addTracer(from, tp, 0x9ac8ff, 2.2); from = tp; }
   for (let v = 0; v < vueltas; v++) for (const [o, tp] of lista) { if (o.dead) continue; for (let q = 0; q < 6; q++) PA.add(tp.x, tp.y, tp.z, rand(-2, 2), rand(-1, 2), rand(-2, 2), 0.25, 0.06, 0.6, 0.8, 1, 1, 0, 2, 0, 0); damageZombie(o, dano, { part: 'body', dir: d, point: tp, bullet: true, weapon: ctx.h.model, fx: aturde > 0 ? 'b' + JSON.stringify([['s', aturde]]) : '' }); if (!Net.client && aturde > 0 && !o.dead) o.stagger = Math.max(o.stagger, aturde); }
   if (lista.length > 1 && vueltas > 1) addTracer(lista[lista.length - 1][1], pt, 0x9ac8ff, 2.2);
+  if (vueltas > 2) for (const [, tp] of lista) addTracer(pt, tp, 0xc8e0ff, 1.4);
   Sfx.zap(panOf(pt));
 }
 // ---- donde pega la bala (explosiones, perdigones, agujeros, hielo…)
 function balImpacto(p, d, ctx) {
   const k = ctx.k, lv = ctx.lv, sc = effSc();
-  if (k === 'frita') { Sfx.boom(); explode(p, balX(k, 'r', lv), balX(k, 'dano', lv) * sc, 0, false); }
+  if (k === 'frita') { Sfx.boom(); explode(p, balX(k, 'r', lv), balX(k, 'dano', lv) * sc, 0, false); if (dLv(lv)) balRed('fuego', p, { r: balX(k, 'r', lv), t: BD.frita.t_, dps: BD.frita.dps * sc }); }
   else if (k === 'racimo') {
     const sub = Object.assign({}, ctx, { k: 'normal', type: 'normal', dmgMul: balX(k, 'dano', lv), kills: 0, hitZ: false, sub: true }), back = p.clone().addScaledVector(d, -0.3);
-    for (let i = 0; i < balX(k, 'n', lv); i++) { const nd = d.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(-0.3, 0.5), rand(-0.8, 0.8))).normalize(); addTracer(back, castBullet(back, nd, sub), 0xe0a060, 1); }
+    for (let i = 0; i < balX(k, 'n', lv); i++) { const nd = d.clone().add(new THREE.Vector3(rand(-0.8, 0.8), rand(-0.3, 0.5), rand(-0.8, 0.8))).normalize(), e1 = castBullet(back, nd, sub); addTracer(back, e1, 0xe0a060, 1);
+      if (dLv(lv)) { const b2 = e1.clone().addScaledVector(nd, -0.3); for (let j = 0; j < BD.racimo.n; j++) { const n2 = nd.clone().add(new THREE.Vector3(rand(-0.9, 0.9), rand(-0.3, 0.5), rand(-0.9, 0.9))).normalize(); addTracer(b2, castBullet(b2, n2, sub), 0xffc080, 0.8); } } }   // Racimo de racimos
     ctx.kills += sub.kills;
   }
-  else if (k === 'tormenta') netFx('s', p);
-  else if (k === 'reyvacio' || k === 'casinoabismo' || (k === 'cieloabismo' && !ctx.cielo)) balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), oro: k === 'casinoabismo' ? Math.round(balX(k, 'oro', lv)) : 0 });
-  else if (k === 'horizonte') balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), par: 1 });
-  else if (k === 'helado') balRed('congela', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), x: balX(k, 'x', lv) });
-  else if (k === 'ventisca') balRed('congela', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), aturde: 1, tormenta: 1 });
-  else if (k === 'titiritero') balRed('hipno', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) });
-  else if (k === 'supernova') balRed('nova', p, { r: balX(k, 'r', lv), jefe: balX(k, 'jefe', lv) });
-  if (ctx.boom) { balRed('boom', p, { r: balX('tragamonedas', 'r', 1), dano: balX('tragamonedas', 'dano', lv) * sc }); ctx.boom = 0; }
+  else if (k === 'tormenta') { netFx('s', p); if (dLv(lv)) for (let i = 1; i < BD.tormenta.n; i++) setTimeout(() => { if (game) netFx('s', { x: p.x + rand(-BD.tormenta.r, BD.tormenta.r), y: p.y, z: p.z + rand(-BD.tormenta.r, BD.tormenta.r) }); }, i * 280); }
+  else if (k === 'reyvacio' || k === 'casinoabismo' || (k === 'cieloabismo' && (!ctx.cielo || ctx.ambos))) balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), oro: k === 'casinoabismo' ? Math.round(Math.max(balX(k, 'oro', lv), dLv(lv) ? BD.casinoabismo.oro : 0)) : 0, traga: k === 'reyvacio' && dLv(lv) ? 1 : 0 });
+  else if (k === 'horizonte') balRed('agujero', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)), par: 1, colapso: dLv(lv) ? BD.horizonte.jefe : 0 });
+  else if (k === 'helado') balRed('congela', p, { r: Math.max(balX(k, 'r', lv), dLv(lv) ? BD.helado.r : 0), t: balDur(balX(k, 't', lv)), x: balX(k, 'x', lv) });
+  else if (k === 'ventisca') balRed('congela', p, { r: balX(k, 'r', lv), t: balDur(balX(k, 't', lv)) * (dLv(lv) ? BD.ventisca.x : 1), aturde: 1, tormenta: 1, sigue: dLv(lv) ? Net.id || 'yo' : 0 });
+  else if (k === 'titiritero') balRed('hipno', p, { r: Math.max(balX(k, 'r', lv), dLv(lv) ? BD.titiritero.r : 0), t: balDur(Math.max(balX(k, 't', lv), dLv(lv) ? BD.titiritero.t_ : 0)) });
+  else if (k === 'supernova') { balRed('nova', p, { r: balX(k, 'r', lv), jefe: balX(k, 'jefe', lv) }); if (dLv(lv)) { game.novaT = BD.supernova.t_; banner('Big bang', `${BD.supernova.t_} s de daño doble`, 2200, 'burst'); } }
+  if (ctx.polvora) { ctx.polvora = 0; balRed('boom', p, { r: BD.polvora.r, dano: BD.polvora.dano * sc }); }   // Pólvora negra
+  if (ctx.boom) { balRed('boom', p, { r: balX('tragamonedas', 'r', 1) * (ctx.boomX || 1), dano: balX('tragamonedas', 'dano', lv) * sc }); ctx.boom = 0; }
   if (ctx.seis) { const n = ctx.seis; ctx.seis = 0; for (let i = 0; i < n; i++) setTimeout(() => { if (game) balRed('boom', { x: p.x + rand(-3, 3), y: p.y, z: p.z + rand(-3, 3) }, { r: balX('seisdeseis', 'r', lv), dano: balX('seisdeseis', 'dano', lv) * sc }); }, i * 220); }
 }
 // ---- efectos de zona en grupo: quien dispara los pide y el anfitrión los aplica (y todos ven el efecto)
@@ -23153,6 +23290,7 @@ function balVer(kind, p, v) {
   else if (kind === 'hipno' || kind === 'detener') { for (let i = 0; i < 40; i++) { const a = i / 40 * TAU, r = kind === 'hipno' ? v.r : 9; PA.add(p.x + Math.cos(a) * r, 1, p.z + Math.sin(a) * r, 0, 0.6, 0, 1, 0.12, 1, 0.4, 0.8, 1, 0, 1, 0.3, 0); } }
   else if (kind === 'nova') { fx.flash = 0.8; Sfx.boom(); Sfx.thunder(); for (let i = 0; i < 80; i++) { const a = rand(0, TAU), s = rand(6, 18); PA.add(p.x, 1, p.z, Math.cos(a) * s, rand(0, 4), Math.sin(a) * s, 1.2, 0.2, 1, 0.8, 0.4, 1, 0, 2, 0, 0); } player.shake = Math.min(1, player.shake + 0.6); }
   else if (kind === 'todos') { fx.flash = 0.6; Sfx.thunder(); }
+  else if (kind === 'fuego') { for (let i = 0; i < 30; i++) PA.add(p.x + rand(-v.r, v.r), 0.3, p.z + rand(-v.r, v.r), 0, rand(1, 3), 0, rand(0.5, 1), rand(0.12, 0.3), 1, 0.45, 0.08, 1, -1, 1, 0, 0); Sfx.flame && Sfx.flame(); }
   else if (kind === 'llamas') { for (let i = 0; i < 20; i++) PA.add(p.x + rand(-v.r, v.r), 0.5, p.z + rand(-v.r, v.r), 0, rand(1, 3), 0, rand(0.4, 0.8), rand(0.1, 0.25), 1, 0.5, 0.1, 1, -1, 1, 0, 0); }
 }
 // el efecto real (solo el anfitrión o el jugador solo)
@@ -23160,7 +23298,7 @@ function balAplicar(kind, p, v, by) {
   const zs = () => zombies.filter(z => !z.dead && z.state !== 'rise');
   const lejos = (z, r) => Math.hypot(z.root.position.x - p.x, z.root.position.z - p.z) > r;
   const tuyo = by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by };
-  if (kind === 'congela') { for (const z of zs()) if (!lejos(z, v.r)) { freeze(z, v.t); if (v.x) { z.heladoX = v.x; z.heladoT = v.t; } if (v.aturde) z.stagger = Math.max(z.stagger, v.t); } if (v.tormenta) game.balAreas.push({ tipo: 'congela', x: p.x, z: p.z, r: v.r, t: v.t, cd: 0, by }); }
+  if (kind === 'congela') { for (const z of zs()) if (!lejos(z, v.r)) { freeze(z, v.t); if (v.x) { z.heladoX = v.x; z.heladoT = v.t; } if (v.aturde) z.stagger = Math.max(z.stagger, v.t); } if (v.tormenta) game.balAreas.push({ tipo: 'congela', x: p.x, z: p.z, r: v.r, t: v.t, cd: 0, by, sigue: v.sigue ? (by || 'yo') : 0 }); }
   else if (kind === 'hipno') { for (const z of zs()) if (!lejos(z, v.r) && z.boss == null && !z.def.big) { z.charm = Math.max(z.charm || 0, v.t); z.tgtT = 0; } }
   else if (kind === 'detener') { for (const z of zs()) { z.trapped = Math.max(z.trapped || 0, v.t); z.stagger = Math.max(z.stagger, v.t); } }
   else if (kind === 'todos') { for (const z of zs()) if (z.boss == null && !z.mini) damageZombie(z, 1e9, tuyo); }
@@ -23168,9 +23306,11 @@ function balAplicar(kind, p, v, by) {
   else if (kind === 'boom') { Sfx.boom(); explode(p, v.r, v.dano, 0, false); }
   else if (kind === 'agujero') {
     if (v.par) { const a = addWell({ x: p.x - 3, y: p.y, z: p.z }, true, { r: v.r, t: v.t, by, mata: 1 }), b = addWell({ x: p.x + 3, y: p.y, z: p.z }, true, { r: v.r, t: v.t, by, mata: 1 }); if (a && b) { a.par = b; b.par = a; } }
-    else addWell(p, true, { r: v.r, t: v.t, by, oro: v.oro, mata: 1 });
+    else addWell(p, true, { r: v.r, t: v.t, by, oro: v.oro, mata: 1, traga: v.traga });
+    if (v.par && v.colapso) for (const w of wells.slice(-2)) w.colapso = v.colapso;
   }
-  else if (kind === 'caballero') { for (let i = 0; i < (v.n || 1); i++) balCaballero(by, v.lv, p, v.t ? { t: v.t, r: v.r } : null, v.duelo); }
+  else if (kind === 'caballero') { for (let i = 0; i < (v.n || 1); i++) { const c = balCaballero(by, v.lv, p, v.t ? { t: v.t, r: v.r } : null, v.duelo); if (c) { if (v.boom) c.balBoom = v.boom; if (v.revive) c.balRevive = 1; c.balLv = v.lv; } } }
+  else if (kind === 'fuego') game.balAreas.push({ tipo: 'fuego', x: p.x, z: p.z, r: v.r, t: v.t, dps: v.dps, cd: 0, by });
   else if (kind === 'llamas') { for (const z of zs()) if (!lejos(z, v.r)) { z.burn = Math.max(z.burn || 0, 3); z.burnDps = Math.max(z.burnDps || 0, v.dps); } }
   else if (kind === 'negra') balNegra();
 }
@@ -23192,6 +23332,12 @@ function balCaballero(owner, lv, p, tiempo, guardian) {
   bfxSpawn && bfxSpawn('puff', c.root.position.x, c.root.position.z); Sfx.clang(0);
   return c;
 }
+// un caballero cae: el de la Orden de caballería explota; el del Arcángel revive 1 vez por oleada
+function balCaballeroCae(c) {
+  if (!game) return; const p = c.root.position.clone().setY(1);
+  if (c.balBoom) { Sfx.boom(); explode(p, c.balBoom[0], c.balBoom[1], 0, false); }
+  if (c.balRevive) { const key = (c.owner || Net.id) + ':' + game.wave; game.guardRev = game.guardRev || {}; if (!game.guardRev[key]) { game.guardRev[key] = 1; const ow = c.owner || Net.id, lv = c.balLv; setTimeout(() => { if (!game || game.phase !== 'fight') return; const n = balCaballero(ow, lv, p, null, 1); if (n) { n.balLv = lv; banner('Arcángel', 'El caballero vuelve a la pelea', 2000, 'cross'); } }, 1500); } }
+}
 // la sombra (familia Oscura) o el muerto que se levanta (Nigromante): pelea por ti un rato y se deshace
 function balSombra(z, t) {
   if (!game || Net.client || z.boss != null || z.def.big) return;
@@ -23204,8 +23350,16 @@ function balPaso(dt) {
   if (!game || !game.slot) return;
   game.balAreas = game.balAreas || [];
   if (game.arenaT > 0) game.arenaT -= dt;
+  if (game.invulT > 0) game.invulT -= dt;
+  if (game.novaT > 0) game.novaT -= dt;
+  if (game.caramT > 0) game.caramT -= dt;
   if (game.phase === 'fight' && !player.down) {
-    if (balT('tesla') && (game.teslaT = (game.teslaT || 0) + dt) >= balV('tesla', 'cada')) { game.teslaT = 0; const yo = player.pos.clone().setY(1.2), L = nearestZombies(player.pos, balV('tesla', 'n'), 12, new Set()); for (const o of L) { const tp = torsoPos(o); addTracer(yo, tp, 0x9ac8ff, 2.2); damageZombie(o, balV('tesla', 'dano') * effSc(), { part: 'body', dir: null, point: tp, bullet: true, weapon: game.equip }); } if (L.length) Sfx.zap(0); }
+    const av = balAvance();
+    if (balD('relojarena') && av < BD.relojarena.mitad) game.arenaT = Math.max(game.arenaT || 0, 0.25);   // Arena eterna: lento hasta la mitad
+    if (balD('cantimplora') && av >= BD.cantimplora.mitad && game.cantW !== game.wave) { game.cantW = game.wave; balCurarEquipo(balV('cantimplora', 'cura')); feed(`Manantial: +${balV('cantimplora', 'cura')} de vida para todo el equipo`, 'gold'); Sfx.heart(); }
+  }
+  if (game.phase === 'fight' && !player.down) {
+    if (balT('tesla') && (game.teslaT = (game.teslaT || 0) + dt) >= (balD('tesla') ? Math.min(balV('tesla', 'cada'), BD.tesla.cada) : balV('tesla', 'cada'))) { game.teslaT = 0; const yo = player.pos.clone().setY(1.2), L = nearestZombies(player.pos, balV('tesla', 'n'), 12, new Set()); for (const o of L) { const tp = torsoPos(o); addTracer(yo, tp, 0x9ac8ff, 2.2); damageZombie(o, balV('tesla', 'dano') * effSc(), { part: 'body', dir: null, point: tp, bullet: true, weapon: game.equip }); } if (L.length) Sfx.zap(0); }
     if (Balas.famOn(game, 'celestial') && (game.auraT = (game.auraT || 0) + dt) >= 1) { const F = BAL.familia.celestial; game.auraT = 0; player.hp = Math.min(player.maxHp, player.hp + F.cura); if (Net.on) for (const pr of Net.peers.values()) if (pr.pos && !pr.down && Math.hypot(pr.pos.x - player.pos.x, pr.pos.z - player.pos.z) < F.r) Net.ev(['bal', 'cura', pr.id, F.cura]); for (const c of cops) if (!c.dead && Math.hypot(c.root.position.x - player.pos.x, c.root.position.z - player.pos.z) < F.r) c.hp = Math.min(c.maxHp, c.hp + F.cura); }
   }
   // los drones de los compañeros (solo se ven: sus disparos llegan como tiros normales)
@@ -23225,10 +23379,14 @@ function balPaso(dt) {
     if (z.chicle) { const C = z.chicle; C.t -= dt; C.cd -= dt; if (C.cd <= 0) { C.cd = 0.5; const L = nearestZombies(z.root.position, 3, C.r, new Set([z])), f = torsoPos(z); for (const o of L) { const tp = torsoPos(o); addTracer(f, tp, 0xffa0ff, 1.6); o.stagger = Math.max(o.stagger, 0.3); damageZombie(o, C.dps * 0.5, C.by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: C.by }); } if (L.length) Sfx.zap(panOf(z.root.position)); } if (C.t <= 0) z.chicle = null; }
     if (z.bomba) { const B = z.bomba; B.t -= dt; const otro = zombies.find(o => o !== z && !o.dead && Math.hypot(o.root.position.x - z.root.position.x, o.root.position.z - z.root.position.z) < 1.4); if (B.t <= 0 || (otro && B.t < 2.5)) { z.bomba = null; const c = z.root.position.clone().setY(1); Sfx.boom(); explode(c, B.r, B.dano, 0, false); if (!z.dead) damageZombie(z, 1e9, B.by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: B.by }); } }
     if (z.sombra && !(z.charm > 0)) { z.dead = true; z.deadT = 0; z.fallDir = 1; }
+    if (z.chicleBoom) { const G = z.chicleBoom; G.t -= dt; if (G.t <= 0 || z.dead) { z.chicleBoom = null; const c = z.root.position.clone().setY(1); for (let k = 0; k < 16; k++) PA.add(c.x, c.y, c.z, rand(-3, 3), rand(0, 3), rand(-3, 3), 0.5, 0.12, 1, 0.5, 0.85, 1, 4, 0.5, 0, 0); Sfx.splat && Sfx.splat(panOf(c), 0.6); for (const o of zombies) if (!o.dead && Math.hypot(o.root.position.x - c.x, o.root.position.z - c.z) < G.r) damageZombie(o, G.dano, G.by === Net.id ? { part: 'body', dir: null } : { part: 'body', dir: null, remote: true, ally: true, by: G.by }); } }   // Chicle gigante
+    if (z.contagio > 0) { z.contagio -= dt; if (z.frozen > 0 && (z.contCd = (z.contCd || 0) - dt) <= 0) { z.contCd = 0.6; for (const o of nearestZombies(z.root.position, 2, z.contR || 2.5, new Set([z]))) if (!(o.frozen > 0) && o.boss == null) freeze(o, z.contT || 1.5); } }   // Cámara frigorífica
   }
   for (let i = game.balAreas.length - 1; i >= 0; i--) {
     const A = game.balAreas[i]; A.t -= dt; A.cd -= dt;
     if (A.cop && A.cop.dead) A.t = 0;
+    if (A.sigue) { const q = A.sigue === Net.id || A.sigue === 'yo' ? player.pos : (Net.peers.get(A.sigue) || {}).pos; if (q) { A.x = q.x; A.z = q.z; } }   // Tormenta polar: te sigue
+    if (A.tipo === 'fuego') { if (A.cd <= 0) { A.cd = 0.5; for (const z of zombies) if (!z.dead && Math.hypot(z.root.position.x - A.x, z.root.position.z - A.z) < A.r) { z.burn = Math.max(z.burn || 0, 1); z.burnDps = Math.max(z.burnDps || 0, A.dps); } for (let k = 0; k < 10; k++) PA.add(A.x + rand(-A.r, A.r), 0.3, A.z + rand(-A.r, A.r), 0, rand(1, 3), 0, rand(0.4, 0.8), rand(0.1, 0.25), 1, 0.45, 0.08, 1, -1, 1, 0, 0); } if (A.t <= 0) game.balAreas.splice(i, 1); continue; }
     if (A.cd <= 0) { A.cd = 0.5; const c = A.cop ? A.cop.root.position : A; for (const z of zombies) if (!z.dead && z.boss == null && Math.hypot(z.root.position.x - c.x, z.root.position.z - c.z) < A.r) { z.frozen = Math.max(z.frozen || 0, 0.6); z.stagger = Math.max(z.stagger, 0.6); } if (!A.cop) for (let k = 0; k < 14; k++) { const a = rand(0, TAU), r = rand(0, A.r); PA.add(c.x + Math.cos(a) * r, 3, c.z + Math.sin(a) * r, rand(-1, 1), -4, rand(-1, 1), 0.7, 0.07, 0.75, 0.9, 1, 1, 2, 1, 0, 0); } }
     if (A.t <= 0) game.balAreas.splice(i, 1);
   }
@@ -23241,6 +23399,7 @@ function balDron(lv) {
   game.drones.push({ m: g, t: balDur(balX('dron', 't', lv)), cd: 0.2, cad: balX('dron', 'cad', lv), dano: balX('dron', 'dano', lv) * effSc() });
   if (Net.on) Net.ev(['bal', 'dron', r2(balDur(balX('dron', 't', lv)))]);
 }
+// un dron recién salido dispara desde otro lado (Escuadrilla)
 // mensajes de balas en grupo: curas, oro, el dron de un compañero y las pasivas que el anfitrión necesita
 function balRedIn(p, e) {
   if (!game) return; const s = e[1];
@@ -23248,23 +23407,27 @@ function balRedIn(p, e) {
   else if (s === 'cura') { if (e[2] === Net.id && !player.down) player.hp = Math.min(player.maxHp, player.hp + (+e[3] || 0)); }
   else if (s === 'oro') { if (e[2] === Net.id) addGold(e[3] | 0, true); }
   else if (s === 'pas') { if (Net.host) p.bal = e[2]; }
+  else if (s === 'nivel') { balNivelEquipo(); feed(`${p.name}: Dinastía · tus balas suben 1 nivel esta oleada`, 'gold'); }
   else if (s === 'dron') { const g = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.34), new THREE.MeshLambertMaterial({ color: 0x3a4a5a, emissive: 0x0a1a2a })); scene.add(g); (game.dronesPeer = game.dronesPeer || []).push({ m: g, t: +e[2] || 10, p }); }
 }
 // ---- al matar (las muertes que cuentan para ti)
 function balMuerte(def, head) {
   if (!game || !game.slot) return;
   game.balCont = game.balCont || {};
-  if (balT('oro') && Math.random() < balP('oro', balV('oro', 'p'))) addGold(Math.round(balV('oro', 'oro')) * (balRepite() ? 2 : 1), true);
+  if (balT('oro') && Math.random() < balP('oro', balV('oro', 'p'))) addGold(Math.round(balV('oro', 'oro')) * (1 + balRepite()), true);
+  if (balD('oro') && (game.balCont.oroD = (game.balCont.oroD | 0) + 1) >= BD.oro.cada) { game.balCont.oroD = 0; for (let i = 0; i < BD.oro.n; i++) { const a = rand(0, TAU), r = rand(1, 4.5); makePickup('moneda', player.pos.x + Math.cos(a) * r, player.pos.z + Math.sin(a) * r, 1); } banner('Lluvia de monedas', `¡Caen ${BD.oro.n} monedas!`, 2000, 'coins'); Sfx.cash(); }
+  if (balD('caramelo') && Math.random() < BD.caramelo.p) { const q = game.ultMuerte || player.pos; makePickup('caramelo', q.x, q.z, 1); }
+  if (balD('rey') && (game.balCont.reyD = (game.balCont.reyD | 0) + 1) >= BD.rey.cada) { game.balCont.reyD = 0; const b = Balas.deRango(BD.rey.rango); balGanar(b, { quiet: true }); banner('Rey de reyes', `Te regala la bala ${BULLETS[b].name}`, 2400, 'star'); }
   if (Balas.famOn(game, 'comida')) player.hp = Math.min(player.maxHp, player.hp + BAL.familia.comida.cura);
   if (game.hipnoHasta > game.time && game.hipnoX > 1) addGold(Math.round(def.gold * (game.hipnoX - 1)), true);
-  for (const [k, r] of [['rey', 'B'], ['corona', 'S']]) if (balT(k)) { game.balCont[k] = (game.balCont[k] | 0) + 1; if (game.balCont[k] >= balV(k, 'cada')) { game.balCont[k] = 0; const b = Balas.deRango(r); balGanar(b, { quiet: true }); banner(BULLETS[k].name, `Te regala la bala ${BULLETS[b].name}`, 2400, 'star'); } }
-  if (balT('golosina') && Math.random() < balP('golosina', balV('golosina', 'p'))) { if (game.golosinaW !== game.wave) { game.golosinaW = game.wave; game.golosinaN = 0; } game.golosinaN++; player.hp = Math.min(player.maxHp, player.hp + balV('golosina', 'cura')); calcStats(); feed(`¡Un dulce! +${balV('golosina', 'cura')} de vida y +${Math.round(balV('golosina', 'dano') * 100)} % de daño en la oleada`, 'gold'); }
+  for (const [k, r] of [['rey', 'B'], ['corona', 'S']]) if (balT(k)) { game.balCont[k] = (game.balCont[k] | 0) + 1; if (game.balCont[k] >= (k === 'corona' && balD('corona') ? Math.min(balV(k, 'cada'), BD.corona.cada) : balV(k, 'cada'))) { game.balCont[k] = 0; const b = Balas.deRango(r); balGanar(b, { quiet: true }); banner(BULLETS[k].name, `Te regala la bala ${BULLETS[b].name}`, 2400, 'star'); } }
+  if (balT('golosina') && Math.random() < balP('golosina', balV('golosina', 'p') * (balD('golosina') ? BD.golosina.x : 1))) { if (game.golosinaW !== game.wave) { game.golosinaW = game.wave; game.golosinaN = 0; } game.golosinaN++; player.hp = Math.min(player.maxHp, player.hp + balV('golosina', 'cura')); calcStats(); feed(`¡Un dulce! +${balV('golosina', 'cura')} de vida y +${Math.round(balV('golosina', 'dano') * 100)} % de daño en la oleada`, 'gold'); }
 }
 // el anfitrión levanta sombras (familia Oscura) y muertos (Nigromante) de quien mató
 function balAlMorirZombi(z, info) {
   if (!game || Net.client || z.noCuenta || !info) return;
   let pas = null;
-  if (!info.remote && !info.ally) pas = { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 };
+  if (!info.remote && !info.ally) pas = { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balD('nigromante') ? BD.nigromante.t_ : balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 };
   else if (info.remote && info.by) { const pr = Net.peers.get(info.by); pas = pr && pr.bal; }
   if (z.pinata) balPinata(z);
   if (!pas) return;
@@ -23272,22 +23435,25 @@ function balAlMorirZombi(z, info) {
   else if (pas.osc && zombies.filter(o => o.sombra && !o.dead).length < BAL.familia.oscura.max) balSombra(z, BAL.familia.oscura.t);
 }
 // en grupo, el anfitrión necesita saber las pasivas de cada uno que levantan muertos
-function balAvisarPasivas() { if (!Net.client || !game) return; Net.ev(['bal', 'pas', { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 }]); }
+function balAvisarPasivas() { if (!Net.client || !game) return; Net.ev(['bal', 'pas', { nig: balT('nigromante') ? balP('nigromante', balV('nigromante', 'p')) : 0, nigT: balD('nigromante') ? BD.nigromante.t_ : balV('nigromante', 't'), osc: Balas.famOn(game, 'oscura') ? 1 : 0 }]); }
 // ---- empieza la oleada
 function balOleadaInicio(n) {
   if (!game || !game.slot) return;
   setTimeout(retoHud, 0);
   // lo que subió solo por la oleada anterior se termina
-  game.balTemp = {}; game.box = game.box.filter(b => !String(b).endsWith('*')); game.arenaT = 0; game.aveW = 0;
+  game.balTemp = {}; game.box = game.box.filter(b => !String(b).endsWith('*')); game.arenaT = 0; game.aveW = 0; game.aveN = 0;
+  game.balTot = (game.toSpawn | 0) + Math.max(0, game.alive | 0);
+  if (game.enfria && game.enfria.length) { game.wave = n; const ya = game.enfria.filter(e => e.w <= n); game.enfria = game.enfria.filter(e => e.w > n); for (const e of ya) if (Balas.tiene(game, e.k)) { game.box.push(e.k); feed(`${BULLETS[e.k].name} se recargó y vuelve a tu caja`, 'gold'); } }   // Jackpot eterno
   if (balT('cantimplora')) { player.hp = Math.min(player.maxHp, player.hp + balV('cantimplora', 'cura')); feed(`Cantimplora: +${balV('cantimplora', 'cura')} de vida`, 'gold'); }
-  if (balT('mercenaria')) { const c = balV('mercenaria', 'coste'); game.gold = Math.max(0, game.gold - c); feed(`Mercenaria: −${c} $`, 'red'); }
+  if (balT('mercenaria') && !balD('mercenaria')) { const c = balV('mercenaria', 'coste'); game.gold = Math.max(0, game.gold - c); feed(`Mercenaria: −${c} $`, 'red'); }
   if (balT('dadocargado')) {
-    const pool = game.slot.filter(e => e.lv < BAL.nivelMax).map(e => e.k), n = Math.round(balV('dadocargado', 'n')), out = [];
+    const pool = game.slot.filter(e => e.lv < BAL.nivelMax && Balas.subeNivel(e.k)).map(e => e.k), n = Math.round(Math.max(balV('dadocargado', 'n'), balD('dadocargado') ? BD.dadocargado.n : 0)), out = [];
     for (let i = 0; i < n && pool.length; i++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     for (const k of out) { game.balTemp[k] = 1; if (Balas.esActiva(k)) game.box.push(k + '*'); }
     if (out.length) feed(`Dado cargado: ${out.map(k => BULLETS[k].name).join(', ')} sube 1 nivel esta oleada`, 'gold');
   }
-  if (balT('angelguardian') && !cops.some(c => c.kind === 'guerrero' && c.guardian && !c.dead && (c.owner || Net.id) === Net.id)) balRed('caballero', player.pos, { lv: balNv('angelguardian'), n: 1, duelo: 1 });
+  if (balD('robot')) { const sl = game.slot, i = sl.indexOf(Balas.entrada(game, 'robot')), e = sl[i + 1]; if (e && e.lv < BAL.nivelMax && Balas.subeNivel(e.k) && !game.balTemp[e.k]) { game.balTemp[e.k] = 1; if (Balas.esActiva(e.k)) game.box.push(e.k + '*'); feed(`Robot obrero: ${BULLETS[e.k].name} sube 1 nivel esta oleada`, 'gold'); } }
+  if (balT('angelguardian') && !cops.some(c => c.kind === 'guerrero' && c.guardian && !c.dead && (c.owner || Net.id) === Net.id)) balRed('caballero', player.pos, { lv: balNv('angelguardian'), n: 1, duelo: 1, revive: balD('angelguardian') ? 1 : 0 });
   if (balT('relojarena')) game.arenaT = balDur(balV('relojarena', 't'));
   balAvisarPasivas(); calcStats(); balCambio();
 }
@@ -23295,35 +23461,40 @@ function balOleadaInicio(n) {
 function balOleadaFin() {
   if (!game || !game.slot) return 0;
   let g = 0;
-  if (balT('alcancia')) { const a = Math.round(balV('alcancia', 'oro')); game.sum.push(['Alcancía', a]); g += a; }
-  if (balT('usurero')) { const u = Math.min(Math.round(balV('usurero', 'max')), Math.floor(game.gold * balV('usurero', 'pct'))); if (u) { game.sum.push(['Usurero', u]); g += u; } }
+  if (balT('alcancia')) { const rompe = balD('alcancia') && game.wave % BD.alcancia.cada === 0, a = Math.round(balV('alcancia', 'oro')) * (rompe ? BD.alcancia.x : 1); game.sum.push([rompe ? 'Cerdito lleno (×3)' : 'Alcancía', a]); g += a; }
+  if (!Net.client) for (const z of zombies) if (z.sombra && !z.dead) z.charm = 0;   // los levantados se van al terminar la oleada
+  if (balT('usurero')) { const u = Math.min(Math.round(Math.max(balV('usurero', 'max'), balD('usurero') ? BD.usurero.max : 0)), Math.floor(game.gold * balV('usurero', 'pct'))); if (u) { game.sum.push(['Usurero', u]); g += u; } }
   return g;
 }
 // ---- te pegan: Reflejo de fuego y Ave de la fortuna
 function balAlRecibir(amount, tick) {
   if (!game || !game.slot || amount <= 0) return;
-  if (!tick && balT('reflejo')) balRed('llamas', player.pos, { r: balV('reflejo', 'r'), dps: amount * balV('reflejo', 'x') / 3 });
-  if (balT('avefortuna') && player.hp > 0 && player.hp < player.maxHp * balV('avefortuna', 'hp') && game.aveW !== game.wave) { game.aveW = game.wave; addGold(Math.round(balV('avefortuna', 'oro')), true); player.hp = Math.min(player.maxHp, player.hp + balV('avefortuna', 'cura')); banner('Ave de la fortuna', `+${Math.round(balV('avefortuna', 'oro'))} $ y +${balV('avefortuna', 'cura')} de vida`, 2200, 'star'); Sfx.coin(); }
+  if (!tick && balT('reflejo')) { const inf = balD('reflejo'); balRed('llamas', player.pos, { r: balV('reflejo', 'r'), dps: amount * balV('reflejo', 'x') / 3 * (inf ? BD.reflejo.x : 1) }); if (inf && game.time - (game.reflT || -9) > 1) { game.reflT = game.time; balRed('fuego', player.pos, { r: balV('reflejo', 'r'), t: BD.reflejo.t_, dps: amount * balV('reflejo', 'x') / 3 }); } }
+  if (balT('avefortuna') && player.hp > 0 && player.hp < player.maxHp * balV('avefortuna', 'hp') && (game.aveW !== game.wave || (balD('avefortuna') && (game.aveN | 0) < BD.avefortuna.n))) { if (game.aveW !== game.wave) game.aveN = 0; game.aveW = game.wave; game.aveN = (game.aveN | 0) + 1; addGold(Math.round(balV('avefortuna', 'oro')), true); player.hp = Math.min(player.maxHp, player.hp + balV('avefortuna', 'cura')); banner('Ave de la fortuna', `+${Math.round(balV('avefortuna', 'oro'))} $ y +${balV('avefortuna', 'cura')} de vida`, 2200, 'star'); Sfx.coin(); }
 }
 // ---- te iban a matar: Resurrección, Emperador inmortal y Fénix (en ese orden)
 function balRevivir() {
   if (!game || !game.slot) return false;
   game.balCont = game.balCont || {};
-  if (balT('resurreccion') && (game.resW == null || game.wave - game.resW >= balV('resurreccion', 'cada'))) {
+  if (balT('resurreccion') && (game.resW == null || game.wave - game.resW >= (balD('resurreccion') ? Math.min(balV('resurreccion', 'cada'), BD.resurreccion.cada) : balV('resurreccion', 'cada')))) {
     game.resW = game.wave; player.hp = player.maxHp; balRed('boom', player.pos, { r: balV('resurreccion', 'r'), dano: balV('resurreccion', 'dano') * effSc() });
     banner('Resurrección', 'Vuelves con toda la vida y fuego sagrado', 2600, 'cross'); Sfx.heart(); return true;
   }
   if (balT('emperador') && (game.balCont.emp | 0) < Math.round(balV('emperador', 'n'))) {
     game.balCont.emp = (game.balCont.emp | 0) + 1; player.hp = Math.round(player.maxHp * Math.min(1, balV('emperador', 'vida')));
-    for (const e of game.slot) if (e.lv < BAL.nivelMax && !game.balTemp[e.k]) { game.balTemp[e.k] = 1; if (Balas.esActiva(e.k)) game.box.push(e.k + '*'); }
+    const din = balD('emperador'); balNivelEquipo(); if (din && Net.on) Net.ev(['bal', 'nivel']);   // Dinastía: también tu equipo
     balCambio(); banner('Emperador inmortal', `Revives (${game.balCont.emp} de ${Math.round(balV('emperador', 'n'))}) · tus balas suben 1 nivel esta oleada`, 2800, 'star'); Sfx.heart(); return true;
   }
-  if (balT('fenix')) {
+  if (balT('fenix') && balD('fenix')) {   // Renacer eterno: se recarga cada 5 oleadas y quema todo a 8 m
+    if (game.fenixW == null || game.wave - game.fenixW >= BD.fenix.cada) { game.fenixW = game.wave; player.hp = Math.round(player.maxHp * Math.min(1, balV('fenix', 'vida'))); balRed('llamas', player.pos, { r: BD.fenix.r, dps: BD.fenix.dps * effSc() }); balRed('fuego', player.pos, { r: BD.fenix.r, t: 3, dps: BD.fenix.dps * effSc() }); banner('Renacer eterno', `Revives entre llamas · vuelve en ${BD.fenix.cada} oleadas`, 2600, 'lantern'); Sfx.heart(); return true; }
+  } else if (balT('fenix')) {
     player.hp = Math.round(player.maxHp * Math.min(1, balV('fenix', 'vida'))); Balas.quitar(game, game.slot.indexOf(Balas.entrada(game, 'fenix')), balManos()); balCambio();
     banner('Fénix', 'Revives… y la bala del Fénix se rompe', 2600, 'lantern'); Sfx.heart(); return true;
   }
   return false;
 }
+// +1 nivel a todas tus balas esta oleada (Emperador inmortal; con Dinastía también le llega a tu equipo)
+function balNivelEquipo() { if (!game || !game.slot) return; for (const e of game.slot) if (e.lv < BAL.nivelMax && Balas.subeNivel(e.k) && !game.balTemp[e.k]) { game.balTemp[e.k] = 1; if (Balas.esActiva(e.k)) game.box.push(e.k + '*'); } balCambio(); }
 // cuando cambia el nivel de la Corona celestial, cambia tu vida máxima
 function balVidaCorona() {
   if (!game) return; const quiero = balT('corona') ? Math.round((player.maxHp - (game.coronaVida | 0)) * balV('corona', 'vida')) : 0, d = quiero - (game.coronaVida | 0);
@@ -23332,10 +23503,10 @@ function balVidaCorona() {
 // Corte de espejos: cada activa que disparas lanza también una bala fantasma que impacta (al zombi más cercano a la mira)
 function balEspejos(h, ctx, cam) {
   if (!balT('cortespejos') || !Balas.esActiva(ctx.k)) return;
-  let best = null, bd = 0.6; const v = new THREE.Vector3();
-  for (const z of zombies) { if (z.dead || z.state === 'rise') continue; z.torso.getWorldPosition(v); const d = v.clone().sub(_cp), dist = d.length(); if (dist > 45) continue; d.normalize(); const ang = Math.acos(clamp(d.dot(cam), -1, 1)); if (ang < bd) { bd = ang; best = z; } }
-  if (!best) return; const tp = torsoPos(best); addTracer(_mp, tp, 0xe8f6ff, 1.6);
-  damageZombie(best, bulletDmg(h) * balV('cortespejos', 'dano'), { part: 'body', dir: cam.clone(), point: tp, bullet: true, weapon: h.model });
+  const v = new THREE.Vector3(), L = [];
+  for (const z of zombies) { if (z.dead || z.state === 'rise') continue; z.torso.getWorldPosition(v); const d = v.clone().sub(_cp), dist = d.length(); if (dist > 45) continue; d.normalize(); const ang = Math.acos(clamp(d.dot(cam), -1, 1)); if (ang < 0.6) L.push([ang, z]); }
+  L.sort((a, b) => a[0] - b[0]);
+  for (const [, best] of L.slice(0, balD('cortespejos') ? BD.cortespejos.n : 1)) { const tp = torsoPos(best); addTracer(_mp, tp, 0xe8f6ff, 1.6); damageZombie(best, bulletDmg(h) * balV('cortespejos', 'dano'), { part: 'body', dir: cam.clone(), point: tp, bullet: true, weapon: h.model }); }   // Laberinto: 2 fantasmas
 }
 function dragonCone(h, cam) {
   const sc = effSc(), fx_ = cam.x, fz = cam.z, fl = Math.hypot(fx_, fz) || 1;
@@ -23545,7 +23716,7 @@ function killZombie(z, info) {
   z.fallDir = info.dir ? ((info.dir.x * Math.sin(z.yaw) + info.dir.z * Math.cos(z.yaw)) > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   if (!z.def.quad && z.fall && z.torsoG) startRagdoll(z, info);
   if (z.saw && z.saw.parent) { detach(z.saw, new THREE.Vector3(rand(-1.5, 1.5), rand(2, 3.5), rand(-1.5, 1.5)), 8); z.saw = null; }
-  const p = z.root.position;
+  const p = z.root.position; if (game) game.ultMuerte = { x: p.x, z: p.z };
   addSplat(p.x, p.z, rand(0.6, 1.05) * z.s); for (let i = 0; i < 2; i++) addSplat(p.x + rand(-0.9, 0.9) * z.s, p.z + rand(-0.9, 0.9) * z.s, rand(0.2, 0.45) * z.s);
   { z.torso.getWorldPosition(_tmp); bloodBurst(_tmp, info.dir || new THREE.Vector3(0, 1, 0), z.def.big ? 30 : 18, true); }
   if (z.def.big) { Sfx.thud(panOf(p)); player.shake = Math.min(1, player.shake + 0.35); } else Sfx.splat(panOf(p), volOf(p, 0.6));
@@ -23611,6 +23782,10 @@ function startReload() {
   for (const h of hands) h.cocked = false;
   if (!activeHands().some(h => h.loaded.some(x => x === 0 || x === 2))) return;
   if (!Balas.normales(game)) { hint(Balas.activasDentro(game) ? 'Sin balas normales en la caja: las activas no salen solas. Consigue más normales' : 'No te quedan balas en la caja', 2200); return; }
+  if (game.plumaYa && balD('pluma')) {   // Ráfaga: recarga instantánea
+    game.plumaYa = false; for (const h of activeHands()) { for (let i = 0; i < h.cap; i++) if (h.loaded[i] === 0 || h.loaded[i] === 2) { h.loaded[i] = 0; loadChamber(h, i); } h.plumaFallo = false; }
+    Sfx.insert(); Sfx.close && Sfx.close(); feed('¡Ráfaga! Recarga instantánea', 'gold'); refreshChambers(); return;
+  }
   gs.tactic = lv('tactic') && totalAmmo() > 0 ? 1.5 : 1;
   gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul() / ST.reloadX / (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
   Sfx.open(); stMas('recargas'); if (Net.on) Net.ev(['anim', 'rec']);   // los compañeros ven a tu personaje recargar
@@ -25508,6 +25683,27 @@ function updateWave(dt) {
   else if (game.phase === 'room' || game.phase === 'exit') roomStep(dt);
 }
 // Tras un jefe hay unos segundos para recoger su botín; al final, lo que quede vuela hacia ti
+// ---- lo que pasa justo antes y después de cada tiro (despertares)
+function balAntesTiro(h, ctx) {
+  if (!game) return;
+  if (game.apuestaSig) { ctx.dmgMul *= game.apuestaSig; game.apuestaSig = 0; feed('Doble o nada: este tiro hace triple daño', 'gold'); }
+  if (game.galope) { ctx.dmgMul *= BD.espuelas.x; game.galope = false; game.galopeT = 0; feed('¡Galope! Daño doble', 'gold'); }
+  if (game.tragoAtr && !game.tragoX) { ctx.atraviesa = true; game.tragoAtr = false; }
+  if (ctx.k === 'taladro' && dLv(ctx.lv)) ctx.pared = true;
+  if (balD('polvora') && (game.polvN = (game.polvN | 0) + 1) % BD.polvora.cada === 0) ctx.polvora = true;
+}
+function balTrasTiro(h, ctx) {
+  if (!game) return;
+  if (balD('pluma')) { if (!ctx.hitZ) h.plumaFallo = true; if (h.ammo === 0) { if (!h.plumaFallo && !game.plumaYa) { game.plumaYa = true; feed('Ráfaga: la próxima recarga es instantánea', 'gold'); } h.plumaFallo = false; } }
+  if (ctx.k === 'bumeran' && dLv(ctx.lv) && ctx.hitZ && ctx.end) {   // Bumerán doble: al volver golpea otra vez
+    const back = _cp.clone().sub(ctx.end); const largo = back.length(); back.normalize();
+    const c2 = Object.assign({}, ctx, { k: 'normal', type: 'normal', sub: true, atraviesa: true, kills: 0, hitZ: false }), o = ctx.end.clone().addScaledVector(back, 0.3);
+    const e2 = castBullet(o, back, c2); addTracer(o, e2.distanceTo(o) > largo ? _cp.clone() : e2, 0xffb060, 2); ctx.kills += c2.kills;
+  }
+  if (ctx.k === 'ruletadorada' && dLv(ctx.lv) && ctx.kills) addGold(BD.ruletadorada.oro * ctx.kills, true);
+  if (ctx.k === 'carambano' && dLv(ctx.lv) && ctx.hitZ && ctx.end) balRed('congela', ctx.end, { r: BD.carambano.r, t: BD.carambano.t_, tormenta: 1 });   // Lanza de hielo
+}
+function balHielo(z) { const p = torsoPos(z); for (let i = 0; i < 30; i++) PA.add(p.x, p.y, p.z, rand(-4, 4), rand(0, 5), rand(-4, 4), 0.8, rand(0.06, 0.14), 0.7, 0.9, 1, 1, 9, 0.4, 0, 0); Sfx.ice(panOf(p)); }
 const LOOT_T = 7;
 const isLoot = p => p.type === 'bag' || p.type === 'moneda' || p.type === 'bala';
 function lootWait() {
@@ -25756,18 +25952,21 @@ function spawnChest(kind) {
 }
 const cofreBala = () => Balas.deRango(Balas.rangoAzar(BAL.cofre));   // 1 bala C o B
 function clearChests() { for (const c of chests) scene.remove(c.g); chests.length = 0; }
+// Trébol dorado: los cofres dan el doble (oro y balas)
+const balTrebol = () => balD('trebol') ? BD.trebol.x : 1;
+function balTrebolExtra() { for (let i = 1; i < balTrebol(); i++) balGanar(cofreBala(), { quiet: true }); }
 function openChest(c) {
   c.open = 0.001; if (useCur === c.use) { useCur = null; showUse(null); } const p = c.g.position, z = zoneOf(game.wave); stMas('cofres');
   if (c.kind === 'gold') {
     game.keys--;
-    const g = Math.round(50 + 25 * z), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true });
+    const g = Math.round(50 + 25 * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra();
     banner('Cofre dorado', `+${g} $ y la bala ${BULLETS[b].name}`, 2600, 'chest'); Sfx.cash();
   } else if (c.kind === 'bone') {
-    player.hp -= 15; const b = cofreBala(); balGanar(b, { quiet: true }); const g = Math.round(15 + 5 * z); addGold(g, true);
+    player.hp -= 15; const b = cofreBala(); balGanar(b, { quiet: true }); balTrebolExtra(); const g = Math.round(15 + 5 * z) * balTrebol(); addGold(g, true);
     banner('Cofre de hueso', `Te costó 15 de vida · la bala ${BULLETS[b].name} y +${g} $`, 2600, 'skull'); Sfx.ouch(0, 1);
   } else {
     if (Math.random() < luck(0.5, 1.2)) {
-      const g = Math.round(100 + 30 * z), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); banner('¡El cofre maldito te sonríe!', `+${g} $ y la bala ${BULLETS[b].name}`, 2600, 'coins');
+      const g = Math.round(100 + 30 * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra(); banner('¡El cofre maldito te sonríe!', `+${g} $ y la bala ${BULLETS[b].name}`, 2600, 'coins');
       Sfx.win();
     } else {
       player.hp = Math.max(1, player.hp - 25); let n = 0; for (let k = 0; k < 3; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = 'mala'; n++; } }
@@ -26290,10 +26489,11 @@ function updatePlayer(dt) {
   const len = Math.hypot(ix, iz); if (len > 1) { ix /= len; iz /= len; }
   const wantSprint = (k.ShiftLeft || k.ShiftRight || input.sprintTouch) && iz > 0.3 && gs.aim < 0.5;
   const sprint = wantSprint && player.st > 0 && player.stLock <= 0;
+  if (game && balD('espuelas')) { if (sprint && len > 0.2) { game.galopeT = (game.galopeT || 0) + dt; if (game.galopeT >= BD.espuelas.t_ && !game.galope) { game.galope = true; feed('Galope: el próximo tiro hace doble daño', 'gold'); } } else if (!game.galope) game.galopeT = 0; }
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
   if (sprint && state === 'play') stMas('corre', 8 * len * dt);   // metros corridos (para «Piernas de acero»)
-  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1);
+  const sp = (player.grab ? 0 : 5) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? 1.6 : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
   player.vx = damp(player.vx, tvx, acc, dt); player.vz = damp(player.vz, tvz, acc, dt);
@@ -26571,7 +26771,7 @@ function updateZombies(dt, canAttack) {
             Sfx.thud(panOf(c)); player.shake = Math.min(1, player.shake + 0.6);
             const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd < 4.2) hurtPlayer(z.dmg * (1 - pd / 8), c, { knock: 12 }); netHurtArea(c, 4.2, z.dmg * 0.75, 12, 0);
             for (const cp of cops) if (!cp.dead && Math.hypot(cp.root.position.x - c.x, cp.root.position.z - c.z) < 4.2) hurtCop(cp, z.dmg);
-          } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) damageZombie(z.tobj, z.dmg * 3, { part: 'body', dir: null, ally: true });
+          } else if (z.tk === 'z' && z.tobj && !z.tobj.dead && dist < reach + 0.5) { const vic = z.tobj, mato = damageZombie(vic, z.dmg * 3 * (z.charmX || 1), { part: 'body', dir: null, ally: true }); if (mato && z.charmCadena && game) balSombra(vic, Math.max(4, z.charm || 0)); }
           else if (z.tk === 'c' && z.tobj && dist < reach + 0.4) hurtCop(z.tobj, z.dmg);
           else if (z.tk === 'p' && dist < reach + 0.4 && !(z.def.turn && z.kOff > 1.1) && !sombraDe(z.pid)) { if (!z.pid || z.pid === Net.id) { hurtPlayer(z.dmg, pos, { knock: z.type === 'brute' ? 9 : 0, k: golpeDe(z) }); tryGrab(z); if (rl('lazo')) z.stagger = Math.max(z.stagger, 1); if (z.elite === 'thief' && game.gold > 0) { const st = Math.min(game.gold, 5); game.gold -= st; z.stolen = (z.stolen || 0) + st; feed(`¡El Ladrón te robó ${st} $!`, 'red'); } } else { Net.ev(['hurt', z.pid, r2(z.dmg), r2(pos.x), r2(pos.z), z.type === 'brute' ? 9 : 0, 0, r2(reach + 0.4 + z.r), golpeDe(z), z.id]); tryGrabPeer(z, z.pid); } }
         }
@@ -26676,6 +26876,7 @@ function hurtCop(c, dmg) {
   if (c.hp <= 0) {
     c.dead = true; c.deadT = 0; c.eatT = 8; c.fallDir = Math.random() < 0.5 ? 1 : -1;
     if (c.npc) { if (c.beam) c.beam.visible = false; if (game) game.npcLost++; banner(`Se comieron ${c.obj}`, 'No hubo recompensa', 2400); Net.ev(['npcLost', c.obj]); Sfx.copDown(panOf(c.root.position)); return; }
+    if (c.balBoom || c.balRevive) balCaballeroCae(c);
     if (game) game.copsLost++;
     feed(`¡Devoraron ${(c.D || ALLY.cop).al}!`, 'red'); Sfx.copDown(panOf(c.root.position)); renderChips();
   }
@@ -26879,7 +27080,7 @@ function updatePickups(dt) {
   for (let i = pickups.length - 1; i >= 0; i--) {
     const p = pickups[i]; p.t += dt;
     p.g.rotation.y += dt * 2; p.g.position.y = 0.65 + Math.sin(p.t * 3) * 0.1;
-    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (balT('iman') && pdd < balV('iman', 'r'))) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
+    { const pdx = player.pos.x - p.g.position.x, pdz = player.pos.z - p.g.position.z, pdd = Math.hypot(pdx, pdz) || 1; if (p.mag || (balT('iman') && (pdd < balV('iman', 'r') || (p.type === 'bala' && balD('iman'))))) { const v = Math.min(pdd, 14 * dt); p.g.position.x += pdx / pdd * v; p.g.position.z += pdz / pdd * v; } }
     p.g.visible = p.life - p.t > 4 || Math.floor(p.t * 8) % 2 === 0;
     if (state === 'play' && !player.down && Math.hypot(p.g.position.x - player.pos.x, p.g.position.z - player.pos.z) < 1.5) {
       if (Net.client && p.net) { Net.ev(['pk', p.id]); Net.gone.set(p.id, performance.now()); }
@@ -26892,6 +27093,7 @@ function updatePickups(dt) {
       else if (p.type === 'ficha') { game.poker = (game.poker | 0) + 1; Sfx.coin(); feed(`Ficha de miembro · tienes ${game.poker}`, 'gold'); if (S('fichaOro')) addGold(S('fichaOro'), true); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
       else if (p.type === 'moneda') { addGold(p.amount, true); if (p.amount >= 25) Sfx.cash(); else Sfx.coin(); feed(`+${p.amount} $`, 'gold'); }
+      else if (p.type === 'caramelo') { game.caramT = BD.caramelo.t_; Sfx.heart(); feed(`¡Fiebre de azúcar! Velocidad doble ${BD.caramelo.t_} s`, 'gold'); }
       else if (p.type === 'powder') { game.powder = Math.min(9, game.powder + 1); feed(`Barril de pólvora · tienes ${game.powder}`, 'gold'); }
       else { game.goldT = Math.min(30, game.goldT + 15); feed('¡Balas doradas! Daño doble', 'gold'); }
       Sfx.pickup(); scene.remove(p.g); pickups.splice(i, 1); continue;
@@ -27267,8 +27469,22 @@ function balVender(i) {
 // los tambores de todas tus armas (la que llevas y las guardadas)
 function balManos() { const L = hands.map(h => h.loaded); for (const id in game.mag || {}) if (id !== game.equip) for (const sl of game.mag[id] || []) if (sl && sl.loaded) L.push(sl.loaded); return L; }
 // algo cambió en tu slot: estadísticas, cuántas balas caben y la pantalla
+// la línea del despertar en la información de una bala
+function balDespHtml(k, lv) {
+  if (!Balas.subeNivel(k)) return '<p class="desp">La Negra no sube de nivel: es única.</p>';
+  return balDespTxt(k) ? `<p class="desp${lv >= BAL.nivelMax ? ' on' : ''}"><b>Despertar (nivel 4):</b> ${balDespTxt(k)}</p>` : '';
+}
+// una bala llega a nivel 4 por primera vez: un momento de lucimiento
+function balDespiertaFx(k) {
+  banner('¡Despertar!', `${BULLETS[k].name} · ${balDespTxt(k).split(':')[0]}`, 4200, 'star'); Sfx.win(); Sfx.deadeye && Sfx.deadeye(true);
+  fx.flash = Math.max(fx.flash || 0, 0.45);
+  if (player && player.pos) for (let i = 0; i < 60; i++) { const a = rand(0, TAU), r = rand(0.4, 1.6); PA.add(player.pos.x + Math.cos(a) * r, rand(0.2, 2.2), player.pos.z + Math.sin(a) * r, Math.cos(a) * 1.5, rand(1, 4), Math.sin(a) * 1.5, rand(0.8, 1.4), rand(0.06, 0.14), 1, 0.85, 0.3, 1, -1, 0.5, 0, 0); }
+  const hud = $('#slot-hud'); if (hud) { hud.classList.remove('desp-on'); void hud.offsetWidth; hud.classList.add('desp-on'); setTimeout(() => hud.classList.remove('desp-on'), 1800); }
+  feed(`¡${BULLETS[k].name} despertó! ${balDespTxt(k)}`, 'gold');
+}
 function balCambio() {
   if (!game) return;
+  { const nuevo = !game.despVisto; game.despVisto = game.despVisto || {}; for (const e of game.slot || []) if (e.lv >= BAL.nivelMax && Balas.subeNivel(e.k) && !game.despVisto[e.k]) { game.despVisto[e.k] = 1; if (!nuevo && !tuto) balDespiertaFx(e.k); } }
   calcStats(); balVidaCorona(); game.slotV = (game.slotV | 0) + 1; if (typeof balAvisarPasivas === 'function') balAvisarPasivas();
   for (const h of hands) h.ammo = h.loaded.filter(isLoaded).length;
   if (typeof refreshChambers === 'function' && hands[0].hud) refreshChambers();
@@ -27878,7 +28094,7 @@ function retoHud() {
 const maqCfg = m => BAL.maquinas[m];
 const maqZona = () => zoneOf(game.wave);
 // una bala de tu slot que todavía puede subir de nivel (si r: solo de ese rango)
-function maqSubible(r) { const L = (game.slot || []).map((e, i) => ({ e, i })).filter(x => x.e.lv < BAL.nivelMax && (!r || BALAS[x.e.k].r === r)); return L.length ? pick(L).e.k : null; }
+function maqSubible(r) { const L = (game.slot || []).map((e, i) => ({ e, i })).filter(x => x.e.lv < BAL.nivelMax && Balas.subeNivel(x.e.k) && (!r || BALAS[x.e.k].r === r)); return L.length ? pick(L).e.k : null; }
 function maqSubir(k) {
   const L = (game.slot || []).map((e, i) => ({ e, i })).filter(x => x.e.k === k && x.e.lv < BAL.nivelMax).sort((a, b) => b.e.lv - a.e.lv)[0];
   if (!L) return `${BULLETS[k].name} ya no está en tu slot`;
@@ -27889,7 +28105,7 @@ function maqPremio(key, c) {
   if (key === 'bala') { const ks = Array.from({ length: c.n || 1 }, () => Balas.deRango(c.rango)); const one = ks.length === 1;
     return { ic: 'bullet', ficha: ks.length === 1 ? [ks[0], 1] : null, fichas: ks, t: one ? `Bala ${BULLETS[ks[0]].name}` : `${ks.length} balas de rango ${c.rango}`, d: one ? `${BAL.rangos[c.rango].name} · ${balDesc(ks[0], 1)}` : ks.map(k => BULLETS[k].name).join(' y '), go: () => { ks.forEach(k => balGanar(k, { quiet: true })); return (one ? 'la bala ' : '') + ks.map(k => BULLETS[k].name).join(' y '); } }; }
   if (key === 'nivel') { const k = maqSubible(c.rango); if (!k) return null; const e = Balas.entrada(game, k);
-    return { ic: 'star', ficha: [k, e.lv + 1], t: `${BULLETS[k].name} sube de nivel`, d: `De nivel ${e.lv} a ${e.lv + 1}${e.lv + 1 === BAL.nivelMax ? ' (despierta)' : ''}: ${balDesc(k, e.lv + 1)}`, go: () => maqSubir(k) }; }
+    return { ic: 'star', ficha: [k, e.lv + 1], t: `${BULLETS[k].name} sube de nivel`, d: e.lv + 1 === BAL.nivelMax ? `Nivel 4 y despierta: ${balDespTxt(k)}` : `De nivel ${e.lv} a ${e.lv + 1}: ${balDesc(k, e.lv + 1)}`, go: () => maqSubir(k) }; }
   if (key === 'espacio') return { ic: 'backpack', t: `+${c.n} espacio en tu slot`, d: 'Para el resto de la partida: cabe una bala más.', go: () => { game.slotExtra = (game.slotExtra | 0) + c.n; balCambio(); return `+${c.n} espacio en tu slot`; } };
   if (key === 'oro') { const n = c.base + c.zona * maqZona(); return { ic: 'coins', t: `+${n} $`, d: 'Oro para gastar en las máquinas.', go: () => { addGold(n, true); Sfx.cash(); return `+${n} $`; } }; }
   if (key === 'curar') return { ic: 'heart', t: 'Curación completa', d: `Te curas por completo y +${c.max} de vida máxima.`, go: () => { player.maxHp += c.max; player.hp = player.maxHp; return 'vida llena'; } };
@@ -31611,7 +31827,7 @@ $('#gfx').addEventListener('change', e => { settings.gfx = e.target.value; store
 
 /* ===================== CONTROLES ===================== */
 // Teclas configurables: el juego sigue escuchando sus teclas de siempre; si cambiaste una, tu tecla nueva se le pasa como si fuera la original.
-const TECLAS = [['KeyW', 'Avanzar'], ['KeyS', 'Retroceder'], ['KeyA', 'Izquierda'], ['KeyD', 'Derecha'], ['ShiftLeft', 'Correr'], ['Space', 'Saltar'], ['KeyR', 'Recargar'], ['KeyE', 'Usar / abrir'], ['KeyF', 'Abanicar el martillo'], ['KeyG', 'Girar el tambor'], ['KeyQ', 'Ojo Muerto'], ['KeyC', 'Ultimate'], ['Tab', 'Inventario'], ['KeyV', 'Micrófono (en grupo)'], ['KeyY', 'Chat (en grupo)'], ['KeyP', 'Pantalla completa'], ['KeyM', 'Silenciar']];
+const TECLAS = [['KeyW', 'Avanzar'], ['KeyS', 'Retroceder'], ['KeyA', 'Izquierda'], ['KeyD', 'Derecha'], ['ShiftLeft', 'Correr'], ['Space', 'Saltar'], ['KeyR', 'Recargar'], ['KeyE', 'Usar / abrir'], ['KeyF', 'Abanicar el martillo'], ['KeyG', 'Girar el tambor'], ['KeyQ', 'Ojo Muerto'], ['KeyC', 'Ultimate'], ['Tab', 'Inventario'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => ['Digit' + n, 'Cañón: recámara ' + n]), ['KeyV', 'Micrófono (en grupo)'], ['KeyY', 'Chat (en grupo)'], ['KeyP', 'Pantalla completa'], ['KeyM', 'Silenciar']];
 const TECLA_NOM = { ShiftLeft: 'Mayús izq.', ShiftRight: 'Mayús der.', Space: 'Espacio', Tab: 'Tab', ControlLeft: 'Ctrl izq.', ControlRight: 'Ctrl der.', AltLeft: 'Alt', CapsLock: 'Bloq Mayús', Backquote: 'º', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: 'Ñ', Quote: "'", Backslash: 'Ç', Comma: ',', Period: '.', Slash: '/', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: 'Intro', Backspace: 'Borrar' };
 const teclaNom = c => TECLA_NOM[c] || (c.startsWith('Key') ? c.slice(3) : c.startsWith('Digit') ? c.slice(5) : c.startsWith('Numpad') ? 'Num ' + c.slice(6) : c);
 let keyMap = {}; try { keyMap = store.get('sb_keys', {}) || {}; } catch (e) {}

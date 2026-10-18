@@ -52,7 +52,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
 27. ~~Nombre nuevo «Zombie's and Gamblers»~~ (hecho, 17-oct-2026: es el nombre definitivo del juego).
 28. **Encuesta de diseños para las fichas de póker.**
-29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección.
+29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección. **Hecho (19-oct-2026):** cambiar teclas en Configuración → Controles (también las del cañón 1 a 9; se guardan en el teléfono o la computadora; botón «Restablecer teclas»); inglés de todo lo nuevo. **Falta:** la tecla O (necesita animar a tu personaje en tercera persona: trabajo de modelos y animaciones) y la Colección.
 
 ## Etapa 3 · Estructura del juego y final (con diagrama antes de construir)
 30. **Partidas que se alargan según el jefe** (decisión del dueño, 17-oct-2026): jefe 1 del casino al final del mapa 5, jefe 2 a los 7 mapas, jefe 3 a los 9, jefe 4 a los 10, y los 5 jefes seguidos también a los 10.
