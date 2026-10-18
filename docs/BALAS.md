@@ -202,3 +202,14 @@ Nota: Caramelo (triple de daño si es la única de comida) va en contra del bono
 - Las S solo salen de jefes del casino y fusiones.
 - Precios sueltos: C 20, B 40, A 80, S 300 de oro (los de hoy). Vender devuelve la mitad.
 - Cada personaje empieza la partida con 1 bala C propia.
+
+## Personajes: bala inicial y slot (aprobado el 18-oct-2026)
+| Personaje | Bala inicial | Espacios de slot |
+|---|---|---|
+| El Sheriff | Pólvora fina | 6 |
+| Johnny R. | Apuesta | 7 |
+| Don Velorio | Cantimplora | 6 |
+| Lilith | Gatillo de pluma | 5 |
+| Geronimo | Cinturón | 6 |
+| Françoise | Oro | 6 |
+Ludo Cheng: por decidir cuando se haga.
