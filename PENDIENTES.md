@@ -3,7 +3,7 @@
 Plan ordenado con el dueño (17-oct-2026). Lo de arriba va primero. Cualquier error que reporte el dueño se arregla antes que todo.
 La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 
-## Etapa 0 · Errores urgentes (lo primero)
+## Etapa 0 · Errores urgentes · HECHA (17-oct-2026)
 1. **Android:** algunos textos durante la partida tapan la pantalla.
 2. **Multijugador:** zombis invisibles (un jugador ve un zombi que el otro no ve) y el invitado recibe daño de zombis que no ve.
 3. **Multijugador:** las manos/armas de los compañeros se ven inestables.
@@ -17,7 +17,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 11. **Al empezar la partida:** transición suave que no deje el juego congelado.
 12. **Botón «Menú» al morir:** decidir si va al menú principal o a elegir personaje.
 
-## Etapa 1 · Fichas y Trastienda (reglas nuevas)
+## Etapa 1 · Fichas y Trastienda · HECHA salvo los puntos 19 y 20 (el herrero, la radio, las mesas de objetos y la mesa de fusión se quitaron con el sistema de balas)
 13. **Todo lo que se paga con dinero se muestra con el símbolo de ficha.** Analizar la economía del pago con fichas.
 14. **Fichas de miembro (rojas):** blackjack = 1 ficha por jugador; Herrero = 1 ficha (hoy cobra la ficha y además dinero: debe ser solo la ficha); fusionar o juntar balas (pestaña «Fusionar» del inventario; ya no hay mesa de fusión, decisión del dueño 18-oct-2026) = 1 ficha por vez, sin límite; tragamonedas y ruleta = con tus fichas, sin límite.
 15. **Ruleta:** 2 casillas más y con imágenes (un tipo de ficha por casilla).
