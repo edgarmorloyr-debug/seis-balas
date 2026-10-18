@@ -112,3 +112,23 @@ La Negra es especial secreta, fuera de las 84.
 - **Crecimiento:** nivel 2 = ×1,5; nivel 3 = ×2; nivel 4 = ×3 y además un **«despertar»**, un efecto extra propio de cada bala (por inventar con el dueño).
 - **Al fusionar dos balas con nivel, la nueva sale en nivel 1.**
 - En la caja de 50 va 1 copia de cada activa por nivel.
+
+## Ronda 4 · Fusiones B + B = A (aprobadas el 18-oct-2026)
+
+| # | Pareja | Resultado (A) | Tipo | Efecto |
+|---|---|---|---|---|
+| 1 | Robot + Caramelo | Máquina de chicles | Activa, vuelve | 5 bolas de chicle que pegan a los zombis al suelo 3 s |
+| 2 | Robot + Tahúr | Crupier mecánico | Pasiva | +1 espacio en el slot y 1 de 3 de que una activa se repita |
+| 3 | Robot + Escarcha | Congelador | Pasiva | Cada tiro: 1 de 8 de congelar 2 s |
+| 4 | Robot + Relámpago | Bobina Tesla | Pasiva | Cada 10 s un rayo sale de ti a los 3 zombis más cercanos |
+| 5 | Robot + Bumerán | Dron | Activa, vuelve | Dron que dispara solo 10 s |
+| 6 | Caramelo + Tahúr | Golosina de la suerte | Pasiva | 1 de 50 zombis suelta un dulce: cura 10 y +5 % de daño en la oleada |
+| 7 | Caramelo + Escarcha | Helado | Activa, vuelve | Congela a todos en 6 m por 3 s; los congelados reciben doble daño |
+| 8 | Caramelo + Relámpago | Chicle eléctrico | Activa, vuelve | Se pega al zombi y da descargas a los cercanos 5 s |
+| 9 | Caramelo + Bumerán | Piñata | Activa, se rompe | El zombi que muere con ella suelta 30 de oro y 1 bala al azar |
+| 10 | Tahúr + Escarcha | Póker de hielo | Pasiva | La 4.ª bala de cada tambor congela al impactar |
+| 11 | Tahúr + Relámpago | Carta marcada | Pasiva | Tus críticos lanzan un rayo a 2 zombis |
+| 12 | Tahúr + Bumerán | Truco de manos | Pasiva | Las activas que se rompen tienen 1 de 3 de volver a la caja |
+| 13 | Escarcha + Relámpago | Ventisca | Activa, vuelve | Tormenta de hielo de 5 s que congela y aturde en 8 m |
+| 14 | Escarcha + Bumerán | Carámbano | Activa, vuelve | Atraviesa, congela a todos en su camino y regresa |
+| 15 | Relámpago + Bumerán | Rayo bumerán | Activa, vuelve | El rayo va y vuelve: golpea a todos dos veces |
