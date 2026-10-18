@@ -305,3 +305,16 @@ Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.de
 - [ ] Fusiones S: Trébol de cuatro hojas, Ángel guardián, Encantador, As de espadas, Ruleta dorada, Legión, Titiritero, Reloj de arena, Seis de seis, Nigromante, Caballero del tiempo, Duelo, Hipnosis eterna, Traición, Tormenta
 - [ ] Secretas: Emperador inmortal, Corona celestial, Rey del vacío, Jackpot real, Corte de espejos, Resurrección, Supernova, Ave de la fortuna, Reflejo de fuego, Cielo y abismo, Milagro, Gemelo celestial, Casino del abismo, Horizonte de sucesos, Doble o nada infinito
 - [ ] Especial: Negra
+
+## Despertares del nivel 4 (encuesta con el dueño, 19-oct-2026)
+En nivel 4 el efecto ya va ×3; el despertar suma un efecto nuevo.
+
+### Tanda 1 · Base C (aprobada)
+| Bala | Despertar |
+|---|---|
+| Oro | Lluvia de monedas: cada 25 muertes caen 30 monedas del cielo a tu alrededor |
+| Cinturón | Cinturón infinito: al recargar, 1 de 4 de no gastar balas normales |
+| Pólvora fina | Pólvora negra: cada 6.º tiro explota en un área pequeña |
+| Gatillo de pluma | Ráfaga: al vaciar el tambor sin fallar, la siguiente recarga es instantánea |
+| Cantimplora | Manantial: a mitad de cada oleada te curas otra vez y curas al equipo |
+| Apuesta | Doble o nada: cuando gana, el siguiente tiro también hace triple daño |
