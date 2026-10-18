@@ -259,7 +259,7 @@ Ludo Cheng: por decidir cuando se haga.
 - En teléfono acostado, el recuadro «Caja 46/60 · activas: 2» va abajo, a la izquierda del cañón (texto corto), para no tapar la mira ni los botones.
 
 ## Máquinas de cartas en la Trastienda (pedido del dueño, 18-oct-2026; versión de prueba)
-Para que la Trastienda tenga más que hacer mientras se prueba el sistema de balas. **En esta versión salen las dos en todas las visitas** (`BAL.maquinas.madame.p` y `BAL.maquinas.diabloAngel.p` = 1; después se ajusta). Van en la pared izquierda, donde estaban el taller y la radio: Madame en medio y la del diablo o del ángel adelante. Todas las cifras están en `BAL.maquinas`.
+Para que la Trastienda tenga más que hacer mientras se prueba el sistema de balas. **Dónde y cuándo (cambio del dueño, 18-oct-2026):** van en la pared del fondo, donde estaban sus puertas: Madame en x −4,4 (puerta de Madame, x −5) y el diablo o el ángel en x 0 (puerta del diablo). Salen como salían esas puertas: **1 de cada 2 visitas cada una** (`BAL.maquinas.madame.p` y `BAL.maquinas.diabloAngel.p` = 0,5); cuando sale la segunda, 50 % diablo y 50 % ángel. Para hacerles lugar, la máquina de cápsulas pasó a x −7,3 (la esquina donde estaba el herrero) y La Garra a x 2,4. Todas las cifras están en `BAL.maquinas`.
 - **Cómo se usan:** pagas **1 ficha de miembro** (lo mismo que costaban las puertas de Madame y del diablo), salen 3 cartas a la bandeja y **eliges 1** (la tocas y pulsas el botón naranja «Elegir»). Una vez por visita. Si cierras sin elegir, tus 3 cartas te esperan hasta que salgas de la Trastienda, sin volver a pagar. En grupo, cada jugador usa su máquina y lo que elige es solo para él; la máquina que sale (diablo o ángel) es la misma para todos.
 - **Máquina de Madame:** cada carta es un premio con un castigo, como sus cartas de siempre.
   - Premios: una bala de rango A · 2 balas de rango B · sube 1 nivel una bala de tu slot · +1 espacio de slot para la partida · 80 $ (+30 por zona).
@@ -268,6 +268,32 @@ Para que la Trastienda tenga más que hacer mientras se prueba el sistema de bal
   - **Diablo:** ofertas fuertes que se pagan con vida máxima (no puedes bajar de 30): bala A (−10), bala S (−25), sube 1 nivel una bala (−15), +1 espacio de slot (−20).
   - **Ángel:** regalos más pequeños y gratis: bala C, bala B, curación completa y +5 de vida máxima, sube 1 nivel una bala de rango C, +20 balas normales, 30 $ (+10 por zona).
 - Subir de nivel con estas máquinas pone 1 copia más en la caja si la bala es activa. Si la bala nueva no cabe en el slot, el juego pregunta como siempre.
+
+## Retos de la máquina de cápsulas y de La Garra (pedido del dueño, 18-oct-2026)
+- Estas dos máquinas **ya no dan balas**: cada una ofrece 3 **retos** por visita para la **próxima oleada**. Aceptar uno cuesta 25 $. Puedes tener **2 activos** como máximo, y no dos del mismo tipo.
+- Retos: matar N zombis con tiro a la cabeza · sobrevivir la oleada sin recibir daño · matar 3 zombis con una sola bala activa (los que caen en los 2,5 s después del tiro) · matar N zombis · disparar 5 balas activas. N crece un poco con cada zona.
+- Premio **solo si lo cumples** (nunca balas nuevas): oro, 2 fichas de miembro, curación completa, +10 de vida máxima, +1 nivel a una bala de tu slot o +25 balas normales. Se cobra en el momento en que lo cumples; «sin daño» se cumple al terminar la oleada. Si no llegas, se pierde.
+- En la pantalla: una línea chica por reto debajo de la misión («Tiros a la cabeza · 6/12»), sin tapar la mira.
+- En grupo, cada jugador tiene sus retos y cuentan solo sus muertes. Todas las cifras están en `BAL.retos`.
+
+## Reserva y Fusionar (pedido del dueño, 18-oct-2026)
+- **Reserva de 6 espacios** (`BAL.reserva`) en el inventario, debajo de tu slot. Ahí las balas **no hacen efecto** y las activas sacan sus copias de la caja; al pasarlas al slot, las copias vuelven. Se mueven cuando quieras (botones «Guardar en la reserva» y «Pasar al slot»). Con el slot lleno, el juego ofrece primero «Guardar en la reserva» si hay lugar.
+- **Fusionar:** tocas una bala y va al primer lugar; otra, al segundo; si la tocas otra vez, sale. Sirven las del slot y las de la reserva. El resultado se ve grande y dice dónde queda (en el slot si alguna venía del slot; si no, en la reserva). Si no se puede, el texto dice por qué (también si falta la ficha).
+- **Doble flecha verde** en las balas que tienen otra igual para juntar (en el HUD, el inventario y Fusionar).
+
+## Dibujo de las balas: «Ficha de póker» (elegido por el dueño, 18-oct-2026)
+- Cada una de las 85 balas es una ficha de casino de su propio color (las de una familia comparten tono) con 8 rayas blancas, centro oscuro con anillo blanco punteado y su símbolo propio en el medio.
+- Borde = rango (C gris, B azul, A violeta, S dorado con brillo, secreta carmesí con brillo; la Negra, negra con borde rojo).
+- Como las fichas son redondas, el tipo se marca así: **pasiva = placa cuadrada arriba**, **activa = anillo blanco fino por fuera**. El número chico es el nivel.
+- Se ve en el HUD, el cañón, el inventario, Fusionar, el slot lleno, las máquinas, las cartas de Madame/diablo/ángel y los sobres. Para volver a las letras: `BAL_ICONOS = false` en `index.html`.
+
+## Preguntas para el dueño (18-oct-2026)
+1. ¿Te gusta dónde quedaron la máquina de cápsulas (esquina izquierda del fondo) y La Garra (entre el diablo y la expendedora) ahora que Madame y el diablo/ángel ocupan los lugares de sus puertas?
+2. Retos: ¿25 $ por reto está bien, o prefieres que cuesten 1 ficha de miembro? ¿Y los números (12 tiros a la cabeza, 30 zombis, 5 activas, 3 con una sola activa)?
+3. Máquina del ángel: hoy abrirla cuesta 1 ficha como las otras; ¿la quieres gratis?
+4. Reserva: ¿se puede vender desde la reserva (hoy sí, en la Trastienda, a mitad de precio por nivel)?
+5. Al juntar una bala del slot con una de la reserva, el resultado queda en el slot. ¿Está bien así?
+6. (Sigue pendiente) Las cifras de los bonos de familia, las del caballero, los costos del árbol y las probabilidades de cofres y sueltas.
 
 ## Despertares del nivel 4 (por definir con el dueño)
 Hoy el nivel 4 solo multiplica ×3 y marca la bala como «despierta» (`Balas.despierta`). Falta inventar el efecto extra de cada una:
