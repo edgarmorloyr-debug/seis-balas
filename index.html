@@ -15578,12 +15578,119 @@ function chaosSign(mat, row, w, h) {
   return new THREE.Mesh(geo, mat);
 }
 
+/* ===== Calles en Caos grande (PENDIENTES 44, 19-oct-2026): el cruce de siempre queda en el centro y por las avenidas
+   norte, este y oeste (sin barricadas) se llega a tres zonas de llave, como en el cementerio:
+   la estación de metro (norte), el hospital de campaña (este) y el parque central (oeste). El sur sigue cortado. */
+const CHAOS = { F: 50.6, A: 92 };
+const enMetro = (x, z) => z < -CHAOS.F && Math.abs(x) < 40.6;
+const enHospital = (x, z) => x > CHAOS.F && Math.abs(z) < 40.6;
+const enParque = (x, z) => x < -CHAOS.F && Math.abs(z) < 40.6;
+function zonaChaos(x, z) { return enMetro(x, z) ? 'en la estación de metro' : enHospital(x, z) ? 'en el hospital de campaña' : enParque(x, z) ? 'en el parque central' : 'en el cruce'; }
+function chaosGrande(g0) {
+  const { F, A } = CHAOS;
+  world.arena = { t: 'r', hx: A, hz: A };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = [{ k: 'met', nombre: 'en la estación de metro', en: enMetro }, { k: 'hos', nombre: 'en el hospital de campaña', en: enHospital }, { k: 'par', nombre: 'en el parque central', en: enParque }];
+  scene.fog.density = 0.017;   // se ve más lejos: el lugar es grande
+  const spotK = (x, z) => world.llvSpots.push({ x, z, zona: zonaChaos(x, z) });
+  const glow = (x, y, z, col, s, op = 0.6) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); world.group.add(sp); return sp; };
+  const piso = (x, z, w, d, tex) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -1 })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.01, z); m.receiveShadow = true; world.group.add(m); return m; };
+  // ---- lo que no se puede pisar: las cuatro manzanas de las esquinas y el sur (edificios macizos con ventanas)
+  const blkT = windowTex(8, 16, 0.22); blkT.wrapS = blkT.wrapT = THREE.RepeatWrapping; blkT.repeat.set(5, 3);
+  const blkM = lam(0x1a1618, { emissive: 0xffffff, emissiveMap: blkT, emissiveIntensity: 0.55 });
+  const bloque = (x0, x1, z0, z1, h) => { M(bx(x1 - x0, h, z1 - z0), blkM, (x0 + x1) / 2, h / 2, (z0 + z1) / 2, { cast: false, solid: true }); addBox((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2); };
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) bloque(sx > 0 ? 40.6 : -A - 6, sx > 0 ? A + 6 : -40.6, sz > 0 ? 40.6 : -A - 6, sz > 0 ? A + 6 : -40.6, sr(18, 28));
+  bloque(-40.6, 40.6, F, A + 6, 16);   // el sur sigue cortado
+  // fachadas del fondo de cada zona (el borde del lugar)
+  bloque(-40.6, 40.6, -A - 6, -A + 0.5, 22); bloque(A - 0.5, A + 6, -40.6, 40.6, 20); bloque(-A - 6, -A + 0.5, -40.6, 40.6, 20);
+  // la calle sigue por las tres avenidas hasta cada zona
+  const asfalto = noiseTex(128, '#1d1d20', ['#26262a', '#18181b', '#2c2a2c'], 400, 1);
+  asfalto.wrapS = asfalto.wrapT = THREE.RepeatWrapping;
+  { const t = asfalto.clone(); t.needsUpdate = true; t.repeat.set(2, 2); piso(0, -45.6, 15, 10.2, t); }
+  { const t = asfalto.clone(); t.needsUpdate = true; t.repeat.set(2, 2); piso(45.6, 0, 10.2, 15, t); }
+  { const t = asfalto.clone(); t.needsUpdate = true; t.repeat.set(2, 2); piso(-45.6, 0, 10.2, 15, t); }
+
+  // ================= NORTE: LA ESTACIÓN DE METRO =================
+  { const losas = canvasTex(256, 256, (g, w) => { g.fillStyle = '#5a5450'; g.fillRect(0, 0, w, w); g.strokeStyle = 'rgba(20,18,16,.6)'; g.lineWidth = 2; for (let i = 0; i <= 8; i++) { g.beginPath(); g.moveTo(i * 32, 0); g.lineTo(i * 32, w); g.stroke(); g.beginPath(); g.moveTo(0, i * 32); g.lineTo(w, i * 32); g.stroke(); } for (let i = 0; i < 900; i++) { g.fillStyle = pick(['#625a54', '#4a4440', '#6a625a']); g.globalAlpha = 0.4; g.fillRect(Math.random() * w, Math.random() * w, 3, 3); } g.globalAlpha = 1; for (let i = 0; i < 10; i++) { g.fillStyle = 'rgba(60,0,0,.5)'; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * w, 6 + Math.random() * 10, 4 + Math.random() * 6, Math.random() * 3, 0, TAU); g.fill(); } }, 8);
+    piso(0, -(F + A) / 2, 81.2, A - F + 1, losas);
+    // la boca del metro: muretes, escaleras que bajan a lo oscuro y el cartel azul
+    const pared = lam(0x8a8478), negro = bsc(0x050506), azul = bsc(0x2a6ad8);
+    M(bx(9, 1.1, 0.4), pared, 0, 0.55, -66, { solid: true }); M(bx(0.4, 1.1, 12), pared, -4.3, 0.55, -72, { solid: true }); M(bx(0.4, 1.1, 12), pared, 4.3, 0.55, -72, { solid: true });
+    addBox(0, -72, 4.5, 6.1);
+    for (let i = 0; i < 8; i++) M(bx(8.2, 0.2, 1.4), lam(0x6a645c), 0, 0.9 - i * 0.12, -67 - i * 1.4, { cast: false });
+    M(new THREE.PlaneGeometry(8.2, 3), negro, 0, 0.05, -77, { rx: -Math.PI / 2, cast: false });
+    M(cyl(0.12, 0.12, 4, 8), lam(0x2a2a2e), -5.2, 2, -65.6, { solid: true }); M(bx(1.6, 1.6, 0.2), azul, -5.2, 4.2, -65.6, { cast: false });
+    { const mT = canvasTex(128, 128, g => { g.fillStyle = '#2a6ad8'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#fff'; g.font = 'bold 96px sans-serif'; g.textAlign = 'center'; g.fillText('M', 64, 100); }); M(new THREE.PlaneGeometry(1.4, 1.4), bsc(0xffffff, { map: mT }), -5.2, 4.2, -65.48, { cast: false }); }
+    glow(-5.2, 4.2, -65, 0x4a8aff, 4, 0.55); addCircle(-5.2, -65.6, 0.3);
+    // el tranvía descarrilado, de lado y atravesado en la plaza
+    { const g = Grp(-20, -80, 0.5); g.rotation.z = 0.32;
+      M(bx(14, 3, 2.6), lam(0xc8a020), 0, 1.6, 0, { p: g, solid: true }); M(bx(14.1, 0.9, 2.65), lam(0x2a2a2e), 0, 2.4, 0, { p: g });
+      for (let i = 0; i < 6; i++) M(bx(1.6, 0.8, 0.05), bsc(0x0a0e14), -5.5 + i * 2.2, 2.4, 1.33, { p: g, cast: false });
+      M(bx(0.2, 2, 0.2), lam(0x2a2a2e), 2, 4, 0, { p: g }); addBox(-20, -80, 7.2, 1.6, 0.5); chaosFire(-14, 1.2, -77, 1.1, true, 1); }
+    // quiosco de periódicos, marquesina del autobús y bancos
+    { const g = Grp(24, -62, -0.3); M(bx(3.2, 2.6, 2.4), lam(0x2a5a3a), 0, 1.3, 0, { p: g, solid: true }); M(bx(3.6, 0.2, 2.8), lam(0x1a3a2a), 0, 2.7, 0, { p: g }); addBox(24, -62, 1.7, 1.3, -0.3); }
+    { const g = Grp(-26, -58, 0); M(bx(5, 0.15, 1.8), lam(0x3a3a40), 0, 2.6, 0, { p: g }); M(bx(5, 2.2, 0.08), lam(0x8ac0d0, { transparent: true, opacity: 0.35 }), 0, 1.4, -0.85, { p: g, cast: false }); for (const x of [-2.4, 2.4]) M(cyl(0.06, 0.06, 2.6, 6), lam(0x3a3a40), x, 1.3, 0.8, { p: g }); addBox(-26, -58.85, 2.5, 0.15); }
+    for (const [x, z, r] of [[12, -58, 0], [-10, -88, 0], [30, -84, 1.2]]) { const g = Grp(x, z, r); M(bx(2.4, 0.12, 0.6), lam(0x6a3a22), 0, 0.5, 0, { p: g }); M(bx(2.4, 0.6, 0.1), lam(0x6a3a22), 0, 0.85, -0.28, { p: g }); addBox(x, z, 1.2, 0.35, r); }
+    car(14, -76, 1.2, 0x2a3a52, { broken: true }); car(-32, -68, 0.2, 0x6a1e1e, { fire: true });
+    streetLamp(-12, -60, 0xffd890, true); streetLamp(18, -88, 0xffd890, false); streetLamp(34, -60, 0xffd890, false);
+    for (const [x, z] of [[0, -62], [-30, -86], [8, -86], [30, -70], [-36, -60], [20, -54], [-14, -70]]) spotK(x, z);
+    for (const [x, z] of [[-30, -90], [0, -90], [30, -90]]) world.spawns.push({ x, z, rise: true });
+    world.spawns.push({ x: 0, z: -74, rise: false });   // suben de las escaleras del metro
+  }
+
+  // ================= ESTE: EL HOSPITAL DE CAMPAÑA =================
+  { const tierra = noiseTex(256, '#4a4036', ['#3e352c', '#56493c', '#5a4e40', '#342c24'], 1500, 8, (g, w) => { for (let i = 0; i < 12; i++) { g.fillStyle = 'rgba(70,0,0,.45)'; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * w, 8, 5, Math.random() * 3, 0, TAU); g.fill(); } });
+    piso((F + A) / 2, 0, A - F + 1, 81.2, tierra);
+    const lona = lam(0xd8d4c8), cruz = bsc(0xc01818);
+    const carpa = (x, z, ry, w, d) => { const g = Grp(x, z, ry); M(bx(w, 2.2, d), lona, 0, 1.1, 0, { p: g, solid: true }); M(roofGeo(w + 0.4, 1.4, d + 0.4), lona, 0, 2.2, 0, { p: g }); M(bx(1.2, 0.3, 0.05), cruz, 0, 2.7, d / 2 + 0.22, { p: g, cast: false }); M(bx(0.3, 1.2, 0.05), cruz, 0, 2.7, d / 2 + 0.22, { p: g, cast: false }); M(bx(1.6, 1.9, 0.05), bsc(0x1a1612), 0, 0.95, d / 2 + 0.02, { p: g, cast: false }); addBox(x, z, w / 2, d / 2, ry); };
+    carpa(66, -26, 0, 8, 5); carpa(80, -6, Math.PI / 2, 9, 5.5); carpa(64, 18, 0, 8, 5); carpa(82, 28, -Math.PI / 2, 7, 5);
+    // camillas, ambulancia y sacos terreros
+    for (const [x, z, r] of [[60, -14, 0.3], [70, 4, 1.4], [58, 6, 0.1], [74, -34, 0.6]]) { const g = Grp(x, z, r); M(bx(0.7, 0.1, 2), lam(0x3a6a3a), 0, 0.7, 0, { p: g }); for (const sx of [-0.3, 0.3]) for (const sz of [-0.9, 0.9]) M(bx(0.05, 0.7, 0.05), lam(0x8a8a90), sx, 0.35, sz, { p: g }); addBox(x, z, 0.4, 1.05, r); }
+    { const g = car(58, 32, 0.4, 0xeeeeea, { police: false }); M(bx(2.6, 1.6, 1.9), lam(0xeeeeea), -1.2, 1.4, 0, { p: g, solid: true }); M(bx(0.05, 0.4, 1.2), cruz, -2.52, 1.6, 0, { p: g, cast: false }); M(bx(1.2, 0.4, 0.05), cruz, -1.2, 1.6, 0.96, { p: g, cast: false });
+      const r = bsc(0xff2020), s = glow(58 - 0.6, 2.4, 32, 0xff3030, 2.4, 0.6); M(bx(0.5, 0.15, 0.3), r, -0.3, 2.3, 0, { p: g, cast: false }); world.anims.push((dt, t) => { const on = Math.floor(t * 3) % 2 === 0; r.color.setHex(on ? 0xff2020 : 0x300606); s.material.opacity = on ? 0.6 : 0; }); }
+    const saco = lam(0x7a6a48);
+    for (const [x, z, r, n] of [[56, -36, 0, 5], [88, 12, Math.PI / 2, 4], [72, 36, 0.2, 4]]) { const g = Grp(x, z, r); for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) M(bx(1.1, 0.45, 0.6), saco, (i - (n - 1) / 2) * 1.05 + (j ? 0.5 : 0), 0.25 + j * 0.45, 0, { p: g, solid: true }); addBox(x, z, n * 0.55 + 0.3, 0.4, r); }
+    lampLight(70, 3, -10, 0xfff0d0, 1.6, 16); glow(64, 2.4, 18, 0xfff0d0, 3, 0.4);
+    for (const [x, z] of [[62, -18], [86, -24], [76, 14], [60, 26], [88, 34], [70, -38], [56, 0]]) spotK(x, z);
+    for (const [x, z] of [[90, -30], [90, 0], [90, 30]]) world.spawns.push({ x, z, rise: true });
+  }
+
+  // ================= OESTE: EL PARQUE CENTRAL =================
+  { const pasto = noiseTex(256, '#2a3a22', ['#33452a', '#22301c', '#3a4a2e', '#283620'], 2400, 10, (g, w) => { g.strokeStyle = 'rgba(120,100,70,.55)'; g.lineWidth = 22; g.beginPath(); g.moveTo(0, w / 2); g.bezierCurveTo(w * 0.3, w * 0.3, w * 0.6, w * 0.7, w, w / 2); g.stroke(); });
+    piso(-(F + A) / 2, 0, A - F + 1, 81.2, pasto);
+    // la fuente seca del centro
+    const piedra = lam(0x8a8478);
+    M(cyl(4.2, 4.4, 0.8, 24), piedra, -70, 0.4, 0, { solid: true }); M(cyl(3.7, 3.7, 0.1, 24), bsc(0x1e2a2a), -70, 0.78, 0, { cast: false }); M(cyl(0.5, 0.7, 2.4, 10), piedra, -70, 1.6, 0, { solid: true }); M(cyl(1.4, 1.2, 0.3, 14), piedra, -70, 2.8, 0);
+    addCircle(-70, 0, 4.4);
+    // árboles, bancos, un quiosco de música y los columpios
+    const arb = [[-58, -30], [-64, -20], [-84, -32], [-80, -14], [-56, 22], [-62, 34], [-86, 26], [-78, 16], [-88, -2], [-54, -8]];
+    for (const [x, z] of arb) oak(x, z, sr(1, 1.35), 0x22301e);
+    for (const [x, z, r] of [[-64, 8, 0], [-76, -8, Math.PI], [-60, -6, Math.PI / 2], [-82, 6, -Math.PI / 2]]) { const g = Grp(x, z, r); M(bx(2.4, 0.12, 0.6), lam(0x6a3a22), 0, 0.5, 0, { p: g }); M(bx(2.4, 0.6, 0.1), lam(0x6a3a22), 0, 0.85, -0.28, { p: g }); addBox(x, z, 1.2, 0.35, r); }
+    { const g = Grp(-82, -24, 0); M(cyl(3.2, 3.2, 0.5, 8), piedra, 0, 0.25, 0, { p: g, solid: true }); for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; M(cyl(0.1, 0.1, 2.6, 6), lam(0xe8e2d4), Math.cos(a) * 2.9, 1.8, Math.sin(a) * 2.9, { p: g }); } M(new THREE.ConeGeometry(3.6, 1.6, 8), lam(0x6a2a22), 0, 3.9, 0, { p: g }); addCircle(-82, -24, 3.2); }
+    { const g = Grp(-60, 30, 0.3), hierro = lam(0xc0302a); for (const x of [-2, 2]) { M(bx(0.12, 2.6, 0.12), hierro, x, 1.3, -0.8, { p: g }); M(bx(0.12, 2.6, 0.12), hierro, x, 1.3, 0.8, { p: g }); } M(bx(4.2, 0.12, 0.12), hierro, 0, 2.6, 0, { p: g }); const sw = [];
+      for (const x of [-1, 1]) { const p = new THREE.Group(); p.position.set(x, 2.55, 0); p.userData.vivo = 1; g.add(p); M(bx(0.03, 1.8, 0.03), lam(0x8a8a90), 0, -0.9, 0, { p }); M(bx(0.6, 0.06, 0.3), lam(0x3a2a1a), 0, -1.8, 0, { p }); sw.push(p); }
+      world.anims.push((dt, t) => { sw.forEach((p, i) => p.rotation.x = Math.sin(t * 1.6 + i * 2) * 0.35); }); addBox(-60, 30, 2.2, 0.9, 0.3); }
+    fenceLine(-90, -38, -54, -38, lam(0x1a1a1e), 1.1, 2.4, true); fenceLine(-90, 38, -54, 38, lam(0x1a1a1e), 1.1, 2.4, true);
+    streetLamp(-56, 12, 0xffe0a0, true); streetLamp(-88, -10, 0xffe0a0, false); mistField(6, 0x3a4a3a, 30);
+    for (const [x, z] of [[-70, 7], [-86, -20], [-58, -26], [-88, 32], [-66, 22], [-76, -34], [-56, 4]]) spotK(x, z);
+    for (const [x, z] of [[-90, -30], [-90, 0], [-90, 30]]) world.spawns.push({ x, z, rise: true });
+  }
+  // ningún punto de aparición encima de algo sólido
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildChaos() {
   world.arena = { t: 'r', hx: 40, hz: 40 }; world.start = { x: 0, z: 3 };
   world.shirts = [0x3a4a6a, 0x6a2a2a, 0x2a2a2e, 0x8a7a5a, 0x5a3a5a, 0x1a1a1a]; world.hat = 'cap'; world.hatP = 0.12; world.mix = { runner: 1.6, armored: 1.5, copz: 2, bloater: 1.3 };
   world.noMoon = true;
   env({ fog: 0x2e1610, dens: 0.024, top: 0x1a0604, hemiS: 0xd08050, hemiG: 0x2a1410, hemiI: 0.6, moonC: 0xff9a60, moonI: 0.5, moonDir: new THREE.Vector3(0.5, 0.7, -0.4), wind: 0.12 });
-  addGround(160, noiseTex(256, '#232326', ['#2c2c30', '#1c1c20', '#343236', '#201e22', '#2a2622'], 1800, 30));
+  addGround(240, noiseTex(256, '#232326', ['#2c2c30', '#1c1c20', '#343236', '#201e22', '#2a2622'], 1800, 45));
   // ---- Calles: avenidas que se cruzan, aceras, pasos de cebra, quemaduras, grietas y sangre
   overlayPlane(84, (g, w) => {
     const k = w / 84, X = v => (v + 42) * k;
@@ -15703,12 +15810,9 @@ function buildChaos() {
   // ---- Barricadas en las salidas de las avenidas (son el borde de la arena)
   const jM = lam(0x9a9890), bagM = lam(0x7a6a48);
   const jersey = [], bags = [];
-  // norte: barreras de hormigón con caballetes de la policía
-  for (let i = 0; i < 5; i++) jersey.push([-6 + i * 3, -39.5, 0]);
-  addBox(0, -39.5, 7.5, 0.45);
-  // este y oeste: barreras y sacos terreros
-  for (let i = 0; i < 5; i++) { jersey.push([39.5, -6 + i * 3, Math.PI / 2]); jersey.push([-39.5, -6 + i * 3, Math.PI / 2]); }
-  addBox(39.5, 0, 0.45, 7.5); addBox(-39.5, 0, 0.45, 7.5);
+  // norte, este y oeste: la barricada quedó rota a un costado (por ahí se va a las zonas de llave)
+  jersey.push([-6.2, -39.5, 0.4], [6.4, -40.2, -0.3], [39.5, -6.3, Math.PI / 2 + 0.3], [40.2, 6.2, Math.PI / 2 - 0.4], [-39.6, 6.3, Math.PI / 2 - 0.2], [-40.2, -6.4, Math.PI / 2 + 0.5]);
+  for (const [x, z] of [[-6.2, -39.5], [6.4, -40.2], [39.5, -6.3], [40.2, 6.2], [-39.6, 6.3], [-40.2, -6.4]]) addBox(x, z, 1.45, 1.45);
   // sur: coches atravesados y neumáticos ardiendo
   car(-3.2, 39, 0.08, 0x2a2a2e, { broken: true }); car(3.5, 39.1, -0.06, 0x5a1a1a, { broken: true });
   addBox(0, 39.2, 7.5, 0.7);
@@ -15725,7 +15829,7 @@ function buildChaos() {
   const tapes = [], tapeT = canvasTex(256, 32, (q, w, h) => { q.fillStyle = '#f0c820'; q.fillRect(0, 0, w, h); q.fillStyle = '#111'; q.fillRect(0, 0, w, 3); q.fillRect(0, h - 3, w, 3); q.font = 'bold 20px sans-serif'; q.textAlign = 'center'; q.fillText('POLICÍA · NO PASAR', w / 2, 23); });
   tapeT.wrapS = THREE.RepeatWrapping; tapeT.repeat.set(15 / 2.4, 1);
   const tapeM = bsc(0xd8d0c8, { map: tapeT, side: THREE.DoubleSide });
-  [[0, -39.1, 0, 15], [39.1, 0, Math.PI / 2, 15], [-39.1, 0, Math.PI / 2, 15]].forEach(([x, z, r, L]) => {
+  [].forEach(([x, z, r, L]) => {
     const pv = new THREE.Group(); pv.position.set(x, 1.15, z); pv.rotation.y = r; world.group.add(pv);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(L, 0.3), tapeM); m.position.y = -0.05; pv.add(m); tapes.push(pv);
   });
@@ -16003,7 +16107,7 @@ function buildChaos() {
   // ---- Ciudad lejana ardiendo: resplandores sobre el horizonte y torres oscuras
   {
     const skyT = windowTex(6, 14, 0.18), tm = new THREE.MeshBasicMaterial({ map: skyT, color: 0x6a5a50 });
-    for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + sr(-0.1, 0.1), r = sr(58, 72), h = sr(22, 45); M(bx(sr(8, 12), h, sr(8, 12)), tm, Math.cos(a) * r, h / 2, Math.sin(a) * r, { ry: sr(0, 3), cast: false, recv: false }); }
+    for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + sr(-0.1, 0.1), r = sr(118, 135), h = sr(30, 55); M(bx(sr(8, 12), h, sr(8, 12)), tm, Math.cos(a) * r, h / 2, Math.sin(a) * r, { ry: sr(0, 3), cast: false, recv: false }); }
     const glows = [];
     for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + 0.3, r = sr(110, 150), s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff5a1a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); const sc = sr(50, 90); s.scale.set(sc * 1.6, sc, 1); s.position.set(Math.cos(a) * r, sr(4, 14), Math.sin(a) * r); world.group.add(s); glows.push([s, sr(0, 9)]); }
     world.anims.push((dt, t) => { for (const [s, ph] of glows) s.material.opacity = 0.24 + Math.sin(t * 0.7 + ph) * 0.06 + Math.random() * 0.03; });
@@ -16016,6 +16120,7 @@ function buildChaos() {
   mistField(14, 0x6a4a3a, 38);
   [[-20, -39.2], [20.5, -39.2], [-22.5, 39.2], [18.5, 39.2], [-39.2, -13.5], [-39.2, 19.5], [39.2, -24.5], [39.2, 25.5], [0, -38.3], [-38.3, 0], [38.3, 0], [0, 37.9]].forEach(([x, z]) => world.spawns.push({ x, z, rise: false }));
   [[-14, -36], [33, 18]].forEach(([x, z]) => world.spawns.push({ x, z, rise: true }));
+  chaosGrande(world.group.children.length);   // las tres zonas de llave alrededor (PENDIENTES 44)
 }
 
 // DESC: La noria sigue girando y la montaña rusa no se detiene. Nadie se bajó.
@@ -26520,7 +26625,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [7, 11, 12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [11, 12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)

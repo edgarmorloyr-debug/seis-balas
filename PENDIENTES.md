@@ -24,7 +24,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 16. **Máquina expendedora en lugar de Apocalipsis Delivery:** con su modelo 3D y animación para los sobres. Vende sobres de balas y 3 tipos de bala sueltas. Se quita la puerta verde y la expendedora va en ese lugar.
 17. **Se quitan las puertas del tarot y del diablo.** En su lugar pueden salir (o no) otras máquinas expendedoras con lo mismo, cada una con su animación 3D.
 18. **Rediseño de la tienda:** cada cosa en un lugar fijo, salga una o varias, sin estorbarse.
-19. **Eventos nuevos:** carreras de caballos 6 % (en equipo e individual) y duelos de dados 5 %.
+19. **Eventos nuevos:** carreras de caballos 6 % (en equipo e individual) y duelos de dados 5 %. *Bocetos para aprobar (19-oct-2026): carreras de caballos y duelo de dados.*
 - Decisiones del dueño (17-oct-2026): las balas normales y la venta de especiales van en la máquina expendedora (pestaña «Normales»), no en la caja registradora; la máquina ofrece 3 balas sueltas al azar por visita; Crisol = primera fusión gratis y Cupón del herrero = 30 % de no pagar; en grupo, la animación de la máquina solo la ve quien compra.
 20. **Árbol de mejoras:** añadir mejoras de suerte y de cofres (y las «verificaciones» que pidió el dueño: por aclarar). *Hecho (19-oct-2026): 3 mejoras nuevas en la rama Suerte, de 5 niveles cada una (cuestan 1 a 5 fichas; cifras en BAL.arbolSuerte): «Suerte en las balas» (+3 % por nivel a todas las probabilidades de tus balas; sale del blackjack), «Más cofres» (+6 % por nivel de que salga un cofre en cada oleada; sale del zombi de oro) y «Mejores cofres» (+8 % por nivel de cofres dorados y menos malditos; sale de «Más cofres»). Falta: las «verificaciones» (pregunta al dueño: ¿qué quiere decir?).*
 
@@ -52,7 +52,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 26. **Enlaces a redes sociales** (TikTok, Instagram, Facebook) cuando existan.
 27. ~~Nombre nuevo «Zombie's and Gamblers»~~ (hecho, 17-oct-2026: es el nombre definitivo del juego).
 28. **Encuesta de diseños para las fichas de póker.**
-29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección. **Hecho (19-oct-2026):** cambiar teclas en Configuración → Controles (también las del cañón 1 a 9; se guardan en el teléfono o la computadora; botón «Restablecer teclas»); inglés de todo lo nuevo. **Falta:** la tecla O (necesita animar a tu personaje en tercera persona: trabajo de modelos y animaciones) y la Colección.
+29. Tecla O (cámara sobre el hombro), cambiar teclas en Configuración, inglés y Colección. **Hecho (19-oct-2026):** cambiar teclas en Configuración → Controles (también las del cañón 1 a 9; se guardan en el teléfono o la computadora; botón «Restablecer teclas»); inglés de todo lo nuevo. **Falta:** la tecla O (necesita animar a tu personaje en tercera persona: trabajo de modelos y animaciones) y la Colección. *Boceto de la Colección para aprobar (19-oct-2026).*
 
 ## Etapa 3 · Estructura del juego y final (con diagrama antes de construir)
 30. **Partidas que se alargan según el jefe** (decisión del dueño, 17-oct-2026): jefe 1 del casino al final del mapa 5, jefe 2 a los 7 mapas, jefe 3 a los 9, jefe 4 a los 10, y los 5 jefes seguidos también a los 10. *Hecho (19-oct-2026, rama etapa3): 5/7/9/10/10 mapas + el casino; si pierdes, repites la visita.*
@@ -79,7 +79,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 43. Renders 3D de todos los zombis.
 
 ## Etapa 5 · Mundo
-44. **Agrandar los mapas guardados** (Calles en Caos, Estación Espacial, Backrooms, La Luna, El Cielo, Isla de los Náufragos, Tierra de los Duendes, Planeta Océano, Planeta Arcade, Backrooms Nivel 2, Atlantis, Maid Café). Uno a la vez.
+44. **Agrandar los mapas guardados** (Calles en Caos, Estación Espacial, Backrooms, La Luna, El Cielo, Isla de los Náufragos, Tierra de los Duendes, Planeta Océano, Planeta Arcade, Backrooms Nivel 2, Atlantis, Maid Café). Uno a la vez. *Calles en Caos: hecho (19-oct-2026). El cruce de siempre queda en el centro; por las avenidas norte, este y oeste (sin barricadas) se llega a 3 zonas de llave: la estación de metro (con un tranvía descarrilado), el hospital de campaña (carpas, camillas y ambulancia) y el parque central (fuente, quiosco de música y columpios). 21 puntos de llave y 12 apariciones nuevas; ya sale en el camino. Siguiente: Estación Espacial.*
 45. **Mapas nuevos:** Backrooms 3 (y revisar Backrooms 2).
 46. **Puertas secretas y easter eggs** en distintos lugares.
 47. Ideas extra: empujón, ruido, golpes que empujan, objetos rompibles, balas que atraviesan.
