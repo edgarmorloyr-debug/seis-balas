@@ -59,7 +59,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 38. **Animaciones de entrada para los jefes.**
 39. **Zombi nuevo: corredor moderado, fuerte y resistente**, con el avance del Fortachón de House of the Dead pero con variantes de caminado propias (no copia).
 40. **Zombi raro (1 %) con tragamonedas:** al matarlo gira y se transforma en otro zombi (no jefe) al azar.
-41. **Animaciones de Mixamo, poses a dos manos y mano en primera persona por personaje** (falta el .zip con las 14 animaciones del dueño).
+41. ~~Animaciones de Mixamo y poses a dos manos~~ (hecho, 17-oct-2026). Falta la mano en primera persona por personaje y los detalles de la Etapa 6.
 42. Voces de las habilidades definitivas con un actor de voz (en espera).
 43. Renders 3D de todos los zombis.
 
