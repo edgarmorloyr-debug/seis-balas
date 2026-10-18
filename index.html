@@ -20138,6 +20138,132 @@ function moonSignGeo(row, rows, w, h) {
   for (let i = 0; i < uv.count; i++) uv.setY(i, (rows - 1 - row + uv.getY(i)) / rows);
   return g;
 }
+/* ===== La Luna grande (PENDIENTES 44, 19-oct-2026): el cráter de la base queda en el centro y por tres cañones que cortan
+   su borde se llega a 3 zonas con llave, cada una cerrada por acantilados: el monolito (norte), el cohete (este) y el
+   cráter del meteorito (oeste). */
+const LUG = { R: 43, c0: 40, r1: 52, D: 30, hw: 18, cw: 4, z: [] };
+function lunaLocal(a, x, z) { const ry = Math.PI / 2 - a, c = Math.cos(ry), s = Math.sin(ry); return { lx: x * c - z * s, lz: x * s + z * c }; }
+for (const [k, a, nombre] of [['mon', 1.5 * Math.PI, 'junto al monolito'], ['coh', 0, 'en la rampa del cohete'], ['met', Math.PI, 'en el cráter del meteorito']])
+  LUG.z.push({ k, a, nombre, en: (x, z) => { const q = lunaLocal(a, x, z); return Math.abs(q.lx) < LUG.hw - 0.8 && q.lz > LUG.r1 + 0.8 && q.lz < LUG.r1 + LUG.D - 0.8; } });
+const enMonolito = LUG.z[0].en, enCohete = LUG.z[1].en, enMeteoro = LUG.z[2].en;
+function zonaLuna(x, z) { return enMonolito(x, z) ? 'junto al monolito' : enCohete(x, z) ? 'en la rampa del cohete' : enMeteoro(x, z) ? 'en el cráter del meteorito' : 'en la base'; }
+const lunaHueco = (a, m) => LUG.z.some(Z => Math.abs(Math.atan2(Math.sin(a - Z.a), Math.cos(a - Z.a))) < m);
+function lunaGrande(g0, mt) {
+  const { R, c0, r1, D, hw, cw } = LUG, r2 = r1 + D, lc = r1 + D / 2, fast = FAST();
+  world.arena = { t: 'r', hx: r2 + 5, hz: r2 + 5 };
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = LUG.z.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  // el borde del cráter ahora es una pared invisible (antes lo era el círculo del lugar), con tres huecos para los cañones
+  for (let k = 0; k < 144; k++) { const a = (k + 0.5) / 144 * TAU; if (lunaHueco(a, 0.113)) continue; addBox(Math.cos(a) * (R + 0.8), Math.sin(a) * (R + 0.8), 1.05, 0.8, Math.PI / 2 - a); }
+  const box = (g, w, h, d, mat, lx, y, lz, o = {}) => M(bx(w, h, d), mat, lx, y, lz, Object.assign({ p: g }, o));
+  const col = (g, lx, lz, a, b) => { const p = lw(g, lx, lz); addBox(p.x, p.z, a, b, g.rotation.y); };
+  const colC = (g, lx, lz, r) => { const p = lw(g, lx, lz); addCircle(p.x, p.z, r); };
+  const glow = (g, lx, y, lz, c, s, op = 0.55) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(lx, y, lz); g.add(sp); return sp; };
+  const luz = (g, lx, y, lz, c, i, d) => { const p = lw(g, lx, lz); lampLight(p.x, y, p.z, c, i, d, null, 0.2); };
+  const spotK = (g, lx, lz) => { const p = lw(g, lx, lz); world.llvSpots.push({ x: p.x, z: p.z, zona: zonaLuna(p.x, p.z) }); };
+  const sale = (g, lx, lz) => { const p = lw(g, lx, lz); world.spawns.push({ x: p.x, z: p.z, rise: true }); };
+  // ---- acantilados: rocas altas en fila (todas en una sola malla) con su colisión
+  const rocas = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  const risco = (g, x0, z0, x1, z1, gruesa = 1) => {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(2, Math.ceil(L / 2.6));
+    for (let i = 0; i <= n; i++) { const t = i / n, p = lw(g, x0 + (x1 - x0) * t + sr(-0.4, 0.4), z0 + (z1 - z0) * t + sr(-0.4, 0.4)), h = sr(4.5, 8.5), s = sr(2, 2.8); rocas.push([p.x, h * 0.35, p.z, s, h, s * sr(0.8, 1.1)]); }
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, horiz = Math.abs(z1 - z0) < 0.01;
+    col(g, cx, cz, horiz ? L / 2 + gruesa : gruesa, horiz ? gruesa : L / 2 + gruesa);
+  };
+  const G = {};
+  for (const Z of LUG.z) {
+    const g = Grp(0, 0, Math.PI / 2 - Z.a); G[Z.k] = g;
+    for (const s of [-1, 1]) risco(g, s * (cw + 1.2), c0 + 1, s * (cw + 1.2), r1, 1.2);       // las paredes del cañón
+    for (const s of [-1, 1]) risco(g, s * (cw + 1.2), r1, s * (hw + 1), r1, 1);             // el frente de la zona
+    for (const s of [-1, 1]) risco(g, s * (hw + 1), r1, s * (hw + 1), r2 + 1, 1);           // los lados
+    risco(g, -hw - 1, r2 + 1, hw + 1, r2 + 1, 1);                                           // el fondo
+    // huellas de rover que entran por el cañón
+    M(new THREE.PlaneGeometry(2.2, r1 - c0 + 6), mt.trackM, 0, 0.03, (c0 + r1) / 2 + 3, { p: g, rx: -Math.PI / 2, cast: false });
+    // postes con balizas a la entrada del cañón
+    for (const s of [-1, 1]) { box(g, 0.14, 2.6, 0.14, lam(0xd8d8d8), s * (cw - 0.4), 1.3, c0 + 2.5, {}); const b = box(g, 0.25, 0.25, 0.25, bsc(0xff8a20), s * (cw - 0.4), 2.7, c0 + 2.5, { cast: false }); glow(g, s * (cw - 0.4), 2.7, c0 + 2.5, 0xff8a20, 1.4, 0.6); void b; colC(g, s * (cw - 0.4), c0 + 2.5, 0.15); }
+  }
+  { const im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), mt.rockD, rocas.length);
+    rocas.forEach(([x, y, z, sx, sy, sz], i) => { q.setFromEuler(e.set(sr(-0.2, 0.2), sr(0, TAU), sr(-0.2, 0.2))); m4.compose(v.set(x, y, z), q, sc.set(sx, sy, sz)); im.setMatrixAt(i, m4); });
+    im.castShadow = im.receiveShadow = true; world.group.add(im); }
+
+  // ================= NORTE: EL MONOLITO (lado oscuro: una losa negra que flota y piedras con runas que brillan) =================
+  { const g = G.mon;
+    M(new THREE.CircleGeometry(12, 32), new THREE.MeshBasicMaterial({ color: 0x0a0c14, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 0, 0.03, lc, { p: g, rx: -Math.PI / 2, cast: false });
+    const mono = new THREE.Group(); mono.position.set(0, 0, lc + 2); mono.userData.vivo = 1; g.add(mono);
+    M(bx(1.3, 7.5, 3.2), lam(0x050507, { emissive: 0x020208 }), 0, 4.2, 0, { p: mono });
+    const borde = M(bx(1.36, 7.56, 3.26), new THREE.MeshBasicMaterial({ color: 0x5a8aff, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide }), 0, 4.2, 0, { p: mono, cast: false });
+    colC(g, 0, lc + 2, 1.9);
+    const halo = glow(g, 0, 0.6, lc + 2, 0x6a9aff, 7, 0.4);
+    // círculo de piedras con runas
+    const runaT = canvasTex(64, 128, (q2, w, h) => { q2.fillStyle = '#2a2c34'; q2.fillRect(0, 0, w, h); q2.strokeStyle = '#7ab8ff'; q2.lineWidth = 4; for (let i = 0; i < 4; i++) { const y = 16 + i * 28; q2.beginPath(); q2.moveTo(16, y); q2.lineTo(48, y + 8); q2.lineTo(20, y + 18); q2.stroke(); } });
+    const runaM = lam(0xffffff, { map: runaT, emissive: 0x1a2a4a });
+    for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.3, x = Math.cos(a) * 9, z = lc + 2 + Math.sin(a) * 8; box(g, 1.1, sr(2.6, 3.6), 0.8, runaM, x, 1.5, z, { ry: -a + Math.PI / 2 }); colC(g, x, z, 0.75); }
+    const motas = [];
+    world.anims.push((dt, t) => { mono.position.y = 0.35 + Math.sin(t * 0.8) * 0.15; mono.rotation.y = Math.sin(t * 0.13) * 0.08; borde.material.opacity = 0.1 + Math.abs(Math.sin(t * 1.3)) * 0.12; halo.material.opacity = 0.3 + Math.sin(t * 1.3) * 0.12;
+      if (Math.random() < (fast ? 0.1 : 0.3)) { const p = lw(g, rand(-2, 2), lc + 2 + rand(-2, 2)); PA.add(p.x, rand(0.2, 1), p.z, 0, rand(0.4, 1), 0, rand(3, 5), rand(0.04, 0.08), 0.45, 0.65, 1, 0.8, -0.05, 0, 0, 0); } });
+    void motas;
+    // un astronauta que vino a mirarlo de cerca
+    { const p = lw(g, 3.5, lc - 3); const ag = Grp(p.x, p.z, g.rotation.y + 0.8); M(bx(0.55, 0.32, 0.8), lam(0xe8e8e4), 0, 0.18, 0, { p: ag }); M(new THREE.SphereGeometry(0.26, 12, 8), lam(0xe8e8e4), 0, 0.26, 0.6, { p: ag }); M(new THREE.SphereGeometry(0.2, 10, 6, 0, TAU, 0, 1.2), lam(0xd0a840, { emissive: 0x302008 }), 0, 0.3, 0.72, { p: ag, rx: Math.PI / 2 - 0.3, cast: false }); }
+    luz(g, 0, 4, lc - 2, 0x7aa8ff, 1.2, 22);
+    for (const [x, z] of [[-13, r1 + 3], [13, r1 + 4], [-14, lc + 2], [14, lc - 1], [-6, r2 - 3], [7, r2 - 2], [0, r1 + 3]]) spotK(g, x, z);
+    for (const x of [-12, 0, 12]) sale(g, x, r2 - 2.5);
+  }
+
+  // ================= ESTE: EL COHETE (rampa de lanzamiento, torre con luces y tanques que echan vapor) =================
+  { const g = G.coh;
+    M(cyl(9, 9.3, 0.2, 40), lam(0x6a6a6c), 0, 0.1, lc + 2, { p: g, cast: false });
+    M(new THREE.RingGeometry(7.6, 8.1, 40), lam(0xe8b020), 0, 0.22, lc + 2, { p: g, rx: -Math.PI / 2, cast: false });
+    const rx = 0, rz = lc + 2, blanco = lam(0xf0f2f4), negro = lam(0x1a1c20), naranja = lam(0xe86a10);
+    M(cyl(1.7, 1.7, 13, 20), blanco, rx, 7.2, rz, { p: g }); for (const y of [3.4, 8, 12.4]) M(cyl(1.72, 1.72, 0.5, 20), negro, rx, y, rz, { p: g });
+    M(new THREE.ConeGeometry(1.7, 4, 20), blanco, rx, 15.7, rz, { p: g }); M(cyl(0.9, 1.4, 1.2, 16), negro, rx, 0.9, rz, { p: g });
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + Math.PI / 4; M(bx(0.15, 2.6, 1.8), naranja, rx + Math.cos(a) * 1.9, 2, rz + Math.sin(a) * 1.9, { p: g, ry: -a }); }
+    for (const s of [-1, 1]) { M(cyl(0.6, 0.6, 7, 12), blanco, rx + s * 2.3, 4.5, rz, { p: g }); M(new THREE.ConeGeometry(0.6, 1.4, 12), naranja, rx + s * 2.3, 8.7, rz, { p: g }); }
+    colC(g, rx, rz, 3.1);
+    // la torre de servicio con su brazo y luces rojas
+    const tx = rx - 6, ac = lam(0xc0402a);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) M(bx(0.18, 17, 0.18), ac, tx + sx * 1.1, 8.5, rz + sz * 1.1, { p: g });
+    for (let y = 1.5; y < 17; y += 2.5) { M(bx(2.4, 0.12, 0.12), ac, tx, y, rz - 1.1, { p: g, cast: false }); M(bx(2.4, 0.12, 0.12), ac, tx, y, rz + 1.1, { p: g, cast: false }); M(bx(0.12, 0.12, 2.4), ac, tx - 1.1, y, rz, { p: g, cast: false }); }
+    M(bx(4, 0.3, 0.6), ac, tx + 3, 12, rz, { p: g });
+    col(g, tx, rz, 1.3, 1.3);
+    const rojas = []; for (const y of [6, 11, 16.8]) rojas.push(box(g, 0.3, 0.3, 0.3, bsc(0xff3020), tx + 1.2, y, rz - 1.2, { cast: false }));
+    // tanques de combustible y vapor
+    for (const [x, z] of [[9, r1 + 5], [12.5, r1 + 8], [-12, r2 - 6]]) { M(new THREE.SphereGeometry(2, 16, 12), lam(0xd8dce4), x, 2.4, z, { p: g }); M(cyl(0.2, 0.3, 1.4, 8), lam(0x8a929e), x, 0.6, z, { p: g }); colC(g, x, z, 2.1); }
+    world.anims.push((dt, t) => { const on = (t % 1.4) < 0.3; rojas.forEach(r => r.material.color.setHex(on ? 0xff3020 : 0x300804));
+      if (Math.random() < (fast ? 0.15 : 0.4)) { const a = rand(0, TAU), p = lw(g, rx + Math.cos(a) * 2, rz + Math.sin(a) * 2); P.add(p.x, 0.3, p.z, Math.cos(a) * rand(0.5, 1.5), rand(0.2, 0.6), Math.sin(a) * rand(0.5, 1.5), rand(2, 3.5), 0.4, 0.85, 0.86, 0.88, 0.3, 0.05, 0.6, 0.9, 0); } });
+    luz(g, -2, 5, lc - 6, 0xffe0c0, 1.3, 26);
+    for (const [x, z] of [[-14, r1 + 3], [14, lc + 2], [-13, lc + 2], [6, r2 - 2.5], [-6, r2 - 3], [3, r1 + 3], [14, r2 - 2]]) spotK(g, x, z);
+    for (const x of [-10, 4, 12]) sale(g, x, r2 - 2.5);
+  }
+
+  // ================= OESTE: EL CRÁTER DEL METEORITO (la roca que cayó brilla en verde y le crecen cristales) =================
+  { const g = G.met;
+    M(new THREE.CircleGeometry(10, 32), new THREE.MeshBasicMaterial({ color: 0x1a1a18, transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), 0, 0.03, lc, { p: g, rx: -Math.PI / 2, cast: false });
+    { const t = new THREE.TorusGeometry(10.5, 1.1, 6, 40); const m = M(t, mt.rockM, 0, 0, lc, { p: g, rx: Math.PI / 2 }); m.scale.set(1, 1, 0.45); }
+    // la roca del meteorito con grietas verdes
+    const met = M(new THREE.DodecahedronGeometry(2.4, 1), lam(0x2a2826, { flatShading: true, emissive: 0x0a3a14 }), 0, 1.6, lc, { p: g }); met.scale.set(1.2, 0.9, 1);
+    colC(g, 0, lc, 2.8);
+    const hal = glow(g, 0, 2, lc, 0x50ff70, 9, 0.35);
+    // cristales verdes
+    const cm = new THREE.MeshBasicMaterial({ color: 0x60ff80, transparent: true, opacity: 0.75 }), cris = [];
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU + sr(-0.2, 0.2), r = sr(4.5, 8), x = Math.cos(a) * r, z = lc + Math.sin(a) * r, h = sr(1.2, 2.6); M(new THREE.OctahedronGeometry(0.5, 0), cm, x, h * 0.4, z, { p: g, cast: false }).scale.set(0.8, h, 0.8); cris.push(glow(g, x, 0.6, z, 0x50ff70, 2, 0.4)); colC(g, x, z, 0.45); }
+    world.anims.push((dt, t) => { const k = 0.5 + Math.sin(t * 1.7) * 0.5; hal.material.opacity = 0.12 + k * 0.12; met.material.emissive.setRGB(0.01, 0.07 + k * 0.07, 0.03); cris.forEach((c, i) => c.material.opacity = 0.3 + Math.sin(t * 2 + i) * 0.15);
+      if (Math.random() < (fast ? 0.1 : 0.3)) { const p = lw(g, rand(-1.5, 1.5), lc + rand(-1.5, 1.5)); PA.add(p.x, 2.4, p.z, rand(-0.3, 0.3), rand(0.4, 1.2), rand(-0.3, 0.3), rand(1.5, 3), 0.05, 0.4, 1, 0.5, 0.9, 0.05, 0, 0, 0); } });
+    // rocas sueltas que salieron volando
+    for (const [x, z, s] of [[-13, r1 + 5, 1.3], [13, r1 + 7, 1.1], [-14, r2 - 5, 1.5], [12, r2 - 4, 1.2], [-4, r1 + 3, 0.9]]) { M(new THREE.DodecahedronGeometry(s, 0), mt.rockM, x, s * 0.45, z, { p: g, ry: sr(0, 3) }).scale.y = 0.7; colC(g, x, z, s * 0.85); }
+    luz(g, 0, 4, lc + 4, 0x70ff90, 1.2, 24);
+    for (const [x, z] of [[-15, r1 + 2.5], [15, r1 + 3], [-15, lc + 4], [15, lc - 2], [-5, r2 - 2.5], [8, r2 - 2], [4, r1 + 2.5]]) spotK(g, x, z);
+    for (const x of [-11, 0, 11]) sale(g, x, r2 - 2.5);
+  }
+
+  for (const sp of world.spawns) {
+    if (!pointBlocked(sp.x, sp.z, 0.9) && insideArena(sp.x, sp.z, 1)) continue;
+    let ok = false;
+    for (let r = 0.6; r <= 6 && !ok; r += 0.4) for (let k = 0; k < 12 && !ok; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; } }
+  }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildMoon() {
   const R = 43;
   world.arena = { t: 'c', r: R }; world.start = { x: 0, z: 10 }; world.grav = 0.3; world.noMoon = true;
@@ -20184,7 +20310,7 @@ function buildMoon() {
   // ---- borde: cresta de roca del cráter grande y postes con balizas
   {
     const N = 90, im = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), rockD, N), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-    for (let i = 0; i < N; i++) { const a = i / N * TAU + sr(-0.02, 0.02), r = R + sr(1.2, 3), s = sr(1.4, 2.6); q.setFromEuler(e.set(sr(0, 3), sr(0, 3), 0)); m4.compose(new THREE.Vector3(Math.cos(a) * r, s * 0.15, Math.sin(a) * r), q, new THREE.Vector3(s * 1.4, s * 0.55, s)); im.setMatrixAt(i, m4); }
+    for (let i = 0; i < N; i++) { const a = i / N * TAU + sr(-0.02, 0.02), r = R + sr(1.2, 3), s = sr(1.4, 2.6); if (lunaHueco(a, 0.12)) { m4.makeScale(0, 0, 0); im.setMatrixAt(i, m4); continue; } q.setFromEuler(e.set(sr(0, 3), sr(0, 3), 0)); m4.compose(new THREE.Vector3(Math.cos(a) * r, s * 0.15, Math.sin(a) * r), q, new THREE.Vector3(s * 1.4, s * 0.55, s)); im.setMatrixAt(i, m4); }
     im.castShadow = im.receiveShadow = true; world.group.add(im);
     const NP = 24, pm = new THREE.InstancedMesh(cyl(0.06, 0.08, 2.2, 6), lam(0xd8d8d8), NP), bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 8, 6), bsc(0xffffff), NP), cc = new THREE.Color();
     for (let i = 0; i < NP; i++) { const a = (i + 0.5) / NP * TAU, x = Math.cos(a) * (R + 0.4), z = Math.sin(a) * (R + 0.4); m4.makeTranslation(x, 1.1, z); pm.setMatrixAt(i, m4); m4.makeTranslation(x, 2.25, z); bm.setMatrixAt(i, m4); bm.setColorAt(i, cc.setHex(0xff8a20)); }
@@ -20200,7 +20326,7 @@ function buildMoon() {
     for (let i = 0; i < N; i++) { const a = i / N * TAU + sr(-0.1, 0.1), r = sr(120, 175), h = sr(8, 26), w = sr(22, 46); q.setFromEuler(e.set(0, sr(0, TAU), 0)); m4.compose(v.set(Math.cos(a) * r, -1, Math.sin(a) * r), q, sc.set(w, h, w * sr(0.5, 1))); im.setMatrixAt(i, m4); }
     im.receiveShadow = false; world.group.add(im);
     const N2 = 16, im2 = new THREE.InstancedMesh(hg, lam(0x7a7974, { flatShading: true }), N2);
-    for (let i = 0; i < N2; i++) { const a = i / N2 * TAU + sr(0, 0.3), r = sr(62, 80), h = sr(2, 5), w = sr(8, 16); q.setFromEuler(e.set(0, sr(0, TAU), 0)); m4.compose(v.set(Math.cos(a) * r, -0.5, Math.sin(a) * r), q, sc.set(w, h, w * sr(0.5, 1))); im2.setMatrixAt(i, m4); }
+    for (let i = 0; i < N2; i++) { const a = i / N2 * TAU + sr(0, 0.3), r = sr(62, 80), h = sr(2, 5), w = sr(8, 16); if (lunaHueco(a, 0.5)) { m4.makeScale(0, 0, 0); im2.setMatrixAt(i, m4); continue; } q.setFromEuler(e.set(0, sr(0, TAU), 0)); m4.compose(v.set(Math.cos(a) * r, -0.5, Math.sin(a) * r), q, sc.set(w, h, w * sr(0.5, 1))); im2.setMatrixAt(i, m4); }
     world.group.add(im2);
   }
   // ---- base lunar: cúpula central y tres módulos con ventanas encendidas
@@ -20386,7 +20512,7 @@ function buildMoon() {
     const wh = []; for (const sx of [-1.3, 1.3]) for (const sz of [-1.2, 1.2]) wh.push(M(cyl(0.55, 0.55, 0.4, 12), dark, sx, 0.55, sz, { p: g, rx: Math.PI / 2 }));
     const hl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xfff0c0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); hl.scale.set(3, 3, 1); hl.position.set(1.9, 1.1, 0); g.add(hl);
     const bk = M(new THREE.SphereGeometry(0.12, 6, 4), bsc(0xff3030), -1.8, 1.4, 0, { p: g, cast: false });
-    let a = 1.2; const RR = 53;
+    let a = 1.2; const RR = 96;   // más lejos: ahora alrededor están las zonas de llave
     world.anims.push((dt, t) => {
       a += dt * 0.07; const x = Math.cos(a) * RR, z = Math.sin(a) * RR; g.position.set(x, Math.abs(Math.sin(t * 2.3)) * 0.06, z); g.rotation.y = -a - Math.PI; g.rotation.z = Math.sin(t * 1.7) * 0.03;
       for (const w of wh) w.rotation.y -= dt * 6; bk.visible = (t % 1) < 0.5;
@@ -20537,6 +20663,7 @@ function buildMoon() {
   });
   // ---- puntos de aparición: salen del regolito por el borde
   for (let i = 0; i < 12; i++) { const a = (i + 0.25) / 12 * TAU; let x = Math.cos(a) * 39.5, z = Math.sin(a) * 39.5; world.spawns.push({ x, z, rise: i % 3 !== 0 }); }
+  lunaGrande(world.group.children.length, { rockD, rockM, trackM });   // las tres zonas de llave detrás del borde (PENDIENTES 44)
 }
 
 // DESC: Nieve, hielo y algo que no se congeló. La estación dejó de responder.
@@ -26877,7 +27004,7 @@ function routeGift(k) {
   renderChips();
 }
 const MAP_QUITADOS = [2, 5, 6, 10, 13, 16, 21, 24, 26];   // los 9 mapas quitados por el dueño (15-oct-2026)
-const MAP_EN_OBRA = [12, 15, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
+const MAP_EN_OBRA = [12, 18, 19, 20, 22, 27, 28, 29, 30];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
