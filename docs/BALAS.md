@@ -152,3 +152,25 @@ La Negra es especial secreta, fuera de las 84.
 | 13 | Hipnótica + Reloj | Hipnosis eterna | Activa, se rompe | Todos los zombis de la pantalla se detienen 6 s; los que mates dan doble oro |
 | 14 | Hipnótica + Ruleta rusa | Traición | Activa, vuelve | El zombi se vuelve una bomba que corre hacia los demás y explota |
 | 15 | Reloj + Ruleta rusa | Tormenta | Activa, vuelve | Relámpago del cielo que arrasa la zona |
+
+## Ronda 6 · Fusiones S + S = secreta (aprobadas el 18-oct-2026)
+
+| # | Pareja | Resultado (secreta) | Tipo | Efecto |
+|---|---|---|---|---|
+| 1 | Rey + Fénix | Emperador inmortal | Pasiva | Revives 3 veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada |
+| 2 | Rey + Ángel | Corona celestial | Pasiva | +50 % de vida máxima; cada 50 muertes te da una bala S al azar |
+| 3 | Rey + Agujero negro | Rey del vacío | Activa, vuelve | Agujero negro donde apuntas, sin tiro a la cabeza |
+| 4 | Rey + Tragamonedas | Jackpot real | Activa, se rompe | La tragamonedas siempre saca tres iguales |
+| 5 | Rey + Espejo | Corte de espejos | Pasiva | Cada activa que disparas lanza también una bala fantasma que impacta |
+| 6 | Fénix + Ángel | Resurrección | Pasiva | Revives con toda la vida y una explosión de fuego sagrado; se recarga cada 3 oleadas |
+| 7 | Fénix + Agujero negro | Supernova | Activa, se rompe | Elimina todo en 15 m; los jefes pierden 40 % de vida |
+| 8 | Fénix + Tragamonedas | Ave de la fortuna | Pasiva | Al bajar de 25 % de vida: +50 de oro y curas 30 (1 vez por oleada) |
+| 9 | Fénix + Espejo | Reflejo de fuego | Pasiva | El daño que recibes vuelve en llamas a los zombis cercanos |
+| 10 | Ángel + Agujero negro | Cielo y abismo | Activa, vuelve | Mitad: cura a todo el equipo al máximo; mitad: agujero negro |
+| 11 | Ángel + Tragamonedas | Milagro | Activa, se rompe | Tira la tragamonedas 3 veces seguidas |
+| 12 | Ángel + Espejo | Gemelo celestial | Pasiva | Aparece un doble tuyo que copia tus disparos |
+| 13 | Agujero negro + Tragamonedas | Casino del abismo | Activa, vuelve | Agujero negro; cada zombi tragado da 5 de oro |
+| 14 | Agujero negro + Espejo | Horizonte de sucesos | Activa, se rompe | Dos agujeros negros a la vez que se atraen entre sí |
+| 15 | Tragamonedas + Espejo | Doble o nada infinito | Pasiva | Cada vez que una bala de suerte gana, 1 de 2 de repetir el premio |
+
+**Las 84 balas están definidas** (24 base + 60 fusiones). Falta: despertares del nivel 4, familias, cómo se consiguen las balas, el boceto del cañón y el tamaño del slot por personaje.
