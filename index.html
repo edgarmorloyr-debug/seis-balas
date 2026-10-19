@@ -24784,7 +24784,7 @@ function muerte3d() {
   if (!game || !CHARS[game.char]) return;
   p3dCargar(game.char, C => {
     if (state !== 'dying' || YO3.inst) return;
-    const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
+    const I = p3dCopia(C, 1.8), g = new THREE.Group(); if (esSombra(game.char)) { I.ch = game.char; p3dSombra(I.m); } I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
     I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, animElige(I, 'caer') || (I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'), 0.05); for (const h of hands) h.root.visible = false;
   });
 }
@@ -29916,7 +29916,7 @@ function menuFondo(dt) {
     const libres = Object.keys(CHARS).filter(k => k !== vis), k = libres[Math.floor(Math.random() * libres.length)];
     card.classList.remove('gira'); void card.offsetWidth; card.classList.add('gira');
     setTimeout(() => { const im = card.querySelector('img'), b = card.querySelector('b'), nom = () => { if (b) b.textContent = CHARS[k].name; };   // el nombre cambia cuando la foto nueva ya se ve
-      if (im) { im.src = 'img/' + k + '.webp'; if (im.complete) nom(); else { im.addEventListener('load', nom, { once: true }); im.addEventListener('error', nom, { once: true }); } } else nom(); vis = k; }, 350);
+      if (im) { im.src = charPic(k); if (im.complete) nom(); else { im.addEventListener('load', nom, { once: true }); im.addEventListener('error', nom, { once: true }); } } else nom(); vis = k; }, 350);
   }, 4500);
 }
 
@@ -32715,7 +32715,7 @@ function setAvGun(av, p) {
   const key = `${p.model}|${p.dual ? 1 : 0}|${p.name}`; if (av.gunKey === key) return; av.gunKey = key;
   for (const g of av.guns) g.parent.remove(g); av.guns = [];
   const id = MODEL_RED[p.model] || 'paci';
-  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = avGun(id, p.char); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); }
+  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = avGun(id, p.char); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); if (av.p3d && esSombra(p.char)) p3dSombra(g); }
   const old = av.label.material.map; av.label.material.map = avLabelTex(p); av.label.material.needsUpdate = true; if (old) old.dispose();
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
@@ -32760,8 +32760,12 @@ function p3dSanear(m) {
   });
   return n;
 }
-// personajes que usan el modelo de otro (Ludo Cheng ya tiene el suyo: PENDIENTES 52)
-const P3D_ALIAS = {};
+// personajes que usan el modelo de otro: Ludo Cheng todavía no tiene diseño (PENDIENTES 52) y usa el del Pistolero, como una sombra negra
+const P3D_ALIAS = { ludo: 'pistolero' };
+// Ludo es una silueta negra total en 3D (cuerpo y armas, sin luz ni detalle) hasta que tenga su diseño
+const SOMBRA = { sk: new THREE.MeshBasicMaterial({ color: 0x030303, skinning: true }), rig: new THREE.MeshBasicMaterial({ color: 0x030303 }) };
+const esSombra = ch => ch === 'ludo';
+function p3dSombra(obj) { obj.traverse(o => { if (o.isMesh) o.material = o.isSkinnedMesh ? SOMBRA.sk : SOMBRA.rig; }); }
 function p3dCargar(ch, cb) {
   ch = P3D_ALIAS[ch] || ch;
   const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
@@ -32814,6 +32818,7 @@ function avatar3d(av, p) {
   p3dCargar(p.char, C => {
     if (!av.root.parent || av.p3d || av.charKey !== (p.char || '')) return;
     const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro; av.body.add(I.m); av.p3d = I;
+    if (esSombra(p.char)) { I.ch = p.char; p3dSombra(I.m); for (const g of av.guns) p3dSombra(g); }
     const deArma = new Set(); for (const g of av.guns) g.traverse(o => deArma.add(o));
     av.body.traverse(o => { if (o.isMesh && !deArma.has(o) && !I.m.getObjectById(o.id)) o.material = P3D.invisible; });   // material invisible (no oculta a los hijos, como el revólver)
     av.ocultos = true; p3dAnim(I, 'idle', 0);
@@ -33086,8 +33091,8 @@ const ANIMP_LOOP = new Set(['quieto', 'caminar', 'correr', 'disparo']);
 const ANIMP_ARMA = new Set(['quieto', 'caminar', 'correr', 'disparo', 'recarga']);
 // los personajes con modelo 3D (Ludo Cheng usa el del Pistolero hasta que tenga el suyo)
 function animpLista() {
-  const L = Object.keys(CHARS).filter(k => !P3D_ALIAS[k]).map(k => ({ f: k, n: CHARS[k].name }));
-  for (const f of NPC3D_FILES) { const k = Object.keys(NPC3D).find(a => NPC3D[a] === f); L.push({ f, n: (ALLY[k] && ALLY[k].name || f) + (Object.values(P3D_ALIAS).includes(f) ? ' (y ' + Object.keys(P3D_ALIAS).filter(a => P3D_ALIAS[a] === f).map(a => CHARS[a] ? CHARS[a].name : a).join(', ') + ')' : '') }); }
+  const L = Object.keys(CHARS).map(k => ({ f: k, n: CHARS[k].name }));   // Ludo sale con su nombre (como sombra negra)
+  for (const f of NPC3D_FILES) { const k = Object.keys(NPC3D).find(a => NPC3D[a] === f); L.push({ f, n: ALLY[k] && ALLY[k].name || f }); }
   return L;
 }
 const ANIMP = { on: false, pj: 0, ac: 0, copias: [], t: 0, lista: null, C: null, sep: 1.5, fondo: 2.4, pausa: 1.2 };
@@ -33095,8 +33100,8 @@ const ANIMP_URL = /[?&]animaciones\b/.test(location.search);
 function animpEntrar() {
   if (typeof Net !== 'undefined' && Net.on) return;
   ANIMP.lista = ANIMP.lista || animpLista();
-  const q = new URLSearchParams(location.search).get('animaciones'), iq = ANIMP.lista.findIndex(x => x.f === q || x.f === (P3D_ALIAS[q] || ''));
-  if (iq >= 0) ANIMP.pj = iq; else { const ic = ANIMP.lista.findIndex(x => x.f === (P3D_ALIAS[META.char] || META.char)); if (ic >= 0 && !ANIMP.on) ANIMP.pj = ic; }
+  const q = new URLSearchParams(location.search).get('animaciones'), iq = ANIMP.lista.findIndex(x => x.f === q);
+  if (iq >= 0) ANIMP.pj = iq; else { const ic = ANIMP.lista.findIndex(x => x.f === META.char); if (ic >= 0 && !ANIMP.on) ANIMP.pj = ic; }
   Sfx.init(); clearActors();
   if (world.idx !== 0) buildMap(0);   // el Cementerio, sin zombis y sin tiempo
   state = 'animp'; ANIMP.on = true; show(null); el.hud.hidden = true; $('#touch').hidden = true; hands.forEach(h => h.root.visible = false);
@@ -33135,6 +33140,7 @@ function animpArmar() {
     const lb = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })); lb.scale.setScalar(0.42); lb.position.set(0, 2.1, 0); lb.renderOrder = 9; g.add(lb);
     let arma = null;
     if (ANIMP_ARMA.has(A.k) && /^[pr]_/.test(nom)) { const larga = nom[0] === 'r'; arma = avGun(larga ? 'mp5' : (CHARS[P.f] && CHARS[P.f].gun) || 'paci', P.f); arma.rotation.x = Math.PI / 2; g.add(arma); arma.userData.larga = larga; }
+    if (esSombra(P.f)) { p3dSombra(I.m); if (arma) p3dSombra(arma); }   // Ludo: sombra negra
     ANIMP.copias.push({ g, I, nom, lb, arma });
   });
   ANIMP.t = 0; animpPlay(); animpUi();
@@ -34061,7 +34067,7 @@ function menu3dPoseMano(I, P, ch) {
   I.m.updateMatrixWorld(true);
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
   if (!P.arma || !B.R_Hand) return;
-  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g);
+  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g); if (esSombra(ch)) p3dSombra(g);
   // como en el juego: la empuñadura va en la palma (un poco más allá de la muñeca) y el cañón apunta hacia Rg
   const k = 1.05 * (g.userData.k || 1), hw = wp(B.R_Hand), brazo = hw.clone().sub(wp(B.R_Forearm)).normalize(), d = dir(P.Rg || P.R[1]);
   const up = (Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); up.addScaledVector(d, -up.dot(d)).normalize();
@@ -34116,6 +34122,7 @@ function menu3d(id) {
     p3dCargar(id === 'azar' ? 'sheriff' : id, C => {
       if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I;
       if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404, skinning: true }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
+      if (esSombra(id)) { I.ch = id; p3dSombra(I.m); }   // Ludo: sombra negra hasta que tenga diseño
       menu3dPose(I, id); menu3dPon(); });
   } else menu3dPon();
   if (!M3.on) { M3.on = true; const loop = () => { if (!M3.r.domElement.isConnected) { M3.on = false; return; } requestAnimationFrame(loop); if (state !== 'menu' || $('#menu').hidden || !M3.inst) return; M3.r.render(M3.scene, M3.cam); }; loop(); }
@@ -34309,33 +34316,20 @@ function azarPortrait() {
   g.fillStyle = '#ffd060'; g.shadowColor = '#ff9a20'; g.shadowBlur = 24; g.font = 'bold 120px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 160, 160);
   return cv.toDataURL();
 }
-// Ludo Cheng (Etapa 3): retrato hecho por código (fondo de neón del casino, chaqueta roja de cuello mao, lentes oscuros y sus dos revólveres)
+// Ludo Cheng: silueta negra sobre el neón del casino (su diseño está pendiente, PENDIENTES 52). Cerrado lleva «???»; abierto, la silueta sola (su nombre va en la carta)
 function ludoPortrait(tapado) {
   const S = 320, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.scale(S / 256, S / 256);
   const T2 = Math.PI * 2, ell = (x, y, rx, ry, f) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, T2); g.fillStyle = f; g.fill(); };
   const bg = g.createRadialGradient(128, 90, 10, 128, 128, 190); bg.addColorStop(0, '#5a1a6a'); bg.addColorStop(1, '#12061a'); g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
   g.lineWidth = 4; for (const [c, y] of [['#ff3fd0', 40], ['#3ff0ff', 62], ['#ffd040', 84]]) { g.strokeStyle = c; g.shadowColor = c; g.shadowBlur = 12; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y - 20); g.stroke(); } g.shadowBlur = 0;
-  if (tapado) {   // bloqueado: silueta negra con «???» de neón
-    g.fillStyle = '#050307';
-    ell(128, 110, 44, 52, '#050307'); g.beginPath(); g.moveTo(14, 260); g.bezierCurveTo(18, 196, 60, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(196, 178, 238, 196, 242, 260); g.closePath(); g.fill();
-    g.fillStyle = '#ffe2f6'; g.shadowColor = '#ff3fd0'; g.shadowBlur = 20; g.font = 'bold 76px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('???', 128, 118); g.shadowBlur = 0;
-    return cv.toDataURL();
-  }
-  for (const s2 of [-1, 1]) { g.save(); g.translate(128 + s2 * 74, 214); g.rotate(s2 * -0.65); g.fillStyle = '#2a2a30'; g.fillRect(-7, -78, 14, 78); g.fillStyle = '#c8c8d0'; g.fillRect(-3, -78, 4, 72); g.fillStyle = '#1a1a1a'; g.fillRect(-10, 0, 20, 34); g.restore(); }   // dos revólveres cruzados
-  g.beginPath(); g.moveTo(10, 260); g.bezierCurveTo(14, 196, 58, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(198, 178, 242, 196, 246, 260); g.closePath(); g.fillStyle = '#a8141c'; g.fill();   // chaqueta roja
-  g.fillStyle = '#7a0c12'; g.fillRect(110, 168, 36, 92); g.fillStyle = '#ffd040'; for (let i = 0; i < 4; i++) ell(128, 190 + i * 18, 4, 4, '#ffd040');   // botones dorados
-  g.fillStyle = '#c8a038'; g.fillRect(104, 160, 48, 12);   // cuello mao
-  ell(128, 150, 20, 14, '#c89a72');   // cuello
-  ell(128, 108, 42, 50, '#d8b08a'); ell(110, 128, 10, 7, 'rgba(200,110,90,.18)'); ell(146, 128, 10, 7, 'rgba(200,110,90,.18)');   // cara
-  g.beginPath(); g.moveTo(84, 104); g.bezierCurveTo(80, 52, 120, 44, 140, 48); g.bezierCurveTo(176, 54, 178, 86, 172, 104); g.bezierCurveTo(160, 74, 120, 70, 84, 104); g.closePath(); g.fillStyle = '#0c0c10'; g.fill();   // pelo peinado hacia atrás
-  g.fillStyle = '#0a0a0c'; g.beginPath(); g.roundRect ? g.roundRect(92, 98, 32, 18, 6) : g.rect(92, 98, 32, 18); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(132, 98, 32, 18, 6) : g.rect(132, 98, 32, 18); g.fill(); g.fillRect(122, 102, 12, 4);   // lentes oscuros
-  g.fillStyle = 'rgba(120,200,255,.35)'; g.fillRect(96, 101, 10, 4); g.fillRect(136, 101, 10, 4);
-  g.strokeStyle = '#6a3a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(112, 138); g.quadraticCurveTo(130, 146, 146, 134); g.stroke();   // media sonrisa
-  return cv.toDataURL('image/webp', 0.9);
+  g.fillStyle = '#050307';
+  ell(128, 110, 44, 52, '#050307'); g.beginPath(); g.moveTo(14, 260); g.bezierCurveTo(18, 196, 60, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(196, 178, 238, 196, 242, 260); g.closePath(); g.fill();
+  if (tapado) { g.fillStyle = '#ffe2f6'; g.shadowColor = '#ff3fd0'; g.shadowBlur = 20; g.font = 'bold 76px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('???', 128, 118); g.shadowBlur = 0; }
+  return cv.toDataURL();
 }
 function charPic(id) {
   if (id === 'azar') return charPicCache.azar || (charPicCache.azar = azarPortrait());
-  if (id === 'ludo') { if (charOpen('ludo')) return 'img/ludo.webp'; return charPicCache['ludo?'] || (charPicCache['ludo?'] = ludoPortrait(true)); }   // retrato sacado de su modelo 3D (PENDIENTES 52); cerrado, su silueta
+  if (id === 'ludo') { const k = charOpen('ludo') ? 'ludo' : 'ludo?'; return charPicCache[k] || (charPicCache[k] = ludoPortrait(k === 'ludo?')); }   // silueta negra (diseño pendiente, PENDIENTES 52); cerrado, con «???»
   if (CHAR_IMG[id]) return CHAR_IMG[id];
   if (id === 'carlos') return charPicCache.carlos || (charPicCache.carlos = carlosPortrait());
   if (charPicCache[id]) return charPicCache[id];

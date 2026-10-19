@@ -6,6 +6,6 @@ Modelos de otras personas que usa el juego. Las licencias CC-BY piden dar crédi
 
 | En el juego | Modelo original | Autor | Licencia | Enlace | Cambios |
 |---|---|---|---|---|---|
-| Ludo Cheng (`modelos/personajes/ludo.glb`, retrato `img/ludo.webp`) | Gregory (Street Outfit) | Vladislav Kolesnikov (https://sketchfab.com/VladislavKolesnikov), avatar hecho con Ready Player Me | CC BY 4.0 | https://sketchfab.com/3d-models/gregory-street-outfit-52ef2ba29871442ca92450a21c43f317 | Sin lentes; sudadera repintada (negra y roja, con un 龍 dorado y fichas de casino); ojos castaños; audífonos nuevos; huesos renombrados para las animaciones del juego; texturas reducidas. El retrato se sacó del modelo dentro del juego. |
+| (ya no se usa) Ludo Cheng v1 | Gregory (Street Outfit) | Vladislav Kolesnikov (https://sketchfab.com/VladislavKolesnikov), avatar hecho con Ready Player Me | CC BY 4.0 | https://sketchfab.com/3d-models/gregory-street-outfit-52ef2ba29871442ca92450a21c43f317 | Sin lentes; sudadera repintada (negra y roja, con un 龍 dorado y fichas de casino); ojos castaños; audífonos nuevos; huesos renombrados para las animaciones del juego; texturas reducidas. El retrato se sacó del modelo dentro del juego. Ya no se usa desde el 19-oct-2026: el dueño no aprobó el diseño y se quitaron el modelo y el retrato; Ludo es una silueta negra (usa el modelo del Pistolero) hasta tener uno nuevo. |
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
