@@ -73,7 +73,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Mapa nuevo: SUPER CUTE MALL.
 - Música de jefes («battle theme 1») y de minijefes («battle 2»).
 - Animaciones comiendo cada cosa.
-- Animaciones, 3D y efectos para zombis y jefes (zombis 3D en curso).
+- Animaciones, 3D y efectos para zombis y jefes. *Zombis 3D descartados por el dueño; jefes 3D hechos pero apagados (19-oct-2026): se revisan después junto al dueño, uno a uno, probando a detalle cómo caminan (?jefes3d=1).*
 - Mejorar los mapas con todos los recursos posibles. *Revisión (19-oct-2026): 17 mapas con 3 llaves y 3D al máximo; Duendes queda jugable aunque su 3D es parcial (decisión del dueño); el Casino es excepción a la regla de las llaves por ser el mapa final (decisión del dueño). Pendiente: setas y casitas de Duendes y piezas del Casino en 3D.* **Solo serán jugables los mapas con 3 llaves y 3D al máximo; el resto queda fuera hasta estar listo.**
 - Imágenes de mapas y de objetos.
 - Optimizar flujo y efectos de sonido.
