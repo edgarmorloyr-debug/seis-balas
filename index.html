@@ -198,6 +198,18 @@ body{font-family:var(--hud);font-size:16px}
 /* Tutorial: cartel del instructor y calificación final */
 #tuto{position:absolute;z-index:6;left:calc(16px + env(safe-area-inset-left,0px));top:calc(150px + env(safe-area-inset-top,0px));width:min(390px,calc(100% - 32px));box-sizing:border-box;padding:10px 14px 12px;background:rgba(14,11,9,.93);border:1px solid rgba(214,165,75,.55);border-left:5px solid var(--brass);box-shadow:0 6px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:6px;pointer-events:none;color:var(--bone)}
 #tuto.imp{border-left-color:var(--blood)}
+#animp{position:fixed;z-index:30;left:0;right:0;bottom:0;padding:8px max(12px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));background:rgba(14,11,9,.92);border-top:1px solid rgba(214,165,75,.55);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:center;color:var(--bone);font-size:15px}
+#animp[hidden]{display:none}
+#animp .ap-fila{display:flex;align-items:center;gap:6px;flex:1 1 260px;max-width:420px;justify-content:space-between}
+#animp .ap-fila b{flex:1;text-align:center;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#animp .ap-fila .btn2,#animp .ap-nums .btn2{min-width:48px;min-height:48px;padding:0 10px;font-size:18px}
+#animp .ap-nums{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;flex:1 1 100%}
+#animp .ap-nums .sel{background:rgba(214,165,75,.3);border-color:var(--brass);color:#ffd27a;box-shadow:inset 0 0 0 2px var(--brass)}
+#animp .note{flex:1 1 100%;margin:0;text-align:center;font-size:14px}
+#animp .ap-ft{flex:1 1 100%;max-width:640px;justify-content:center}
+#animp .ap-ft>*{flex:1;min-height:48px;font-size:14px;padding:0 6px;letter-spacing:.02em}
+@media (min-width:900px) and (min-height:500px){#animp .ap-ft{flex:1 1 auto}#animp .note{flex:1 1 auto}}
+@media (max-height:420px){#animp{gap:4px 10px;padding-top:4px}#animp .note{display:none}#animp .ap-ft{flex:1 1 auto;max-width:none}#animp .ap-nums{flex:1 1 auto}}
 #tuto.ok{border-color:var(--toxic);border-left-color:var(--toxic)}
 #tuto.ok #tu-t{color:var(--toxic)}
 .tu-top{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center}
@@ -2090,6 +2102,13 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
   <div id="use" hidden></div>
   <div id="spec" hidden><button class="spec-nav" id="spec-prev" aria-label="Ver al anterior">‹</button><div class="spec-txt"><b id="spec-name"></b><span id="spec-sub"></span></div><button class="spec-nav" id="spec-next" aria-label="Ver al siguiente">›</button></div>
 
+  <div id="animp" hidden>
+    <div class="ap-fila"><button class="btn2" id="animp-pj-a" type="button" aria-label="Personaje anterior">‹</button><b id="animp-pj"></b><button class="btn2" id="animp-pj-s" type="button" aria-label="Personaje siguiente">›</button></div>
+    <div class="ap-fila"><button class="btn2" id="animp-ac-a" type="button" aria-label="Acción anterior">‹</button><b id="animp-ac"></b><button class="btn2" id="animp-ac-s" type="button" aria-label="Acción siguiente">›</button></div>
+    <div class="ap-nums" id="animp-nums"></div>
+    <p class="note" id="animp-msg" aria-live="polite"></p>
+    <div class="ap-fila ap-ft"><button class="btn2" id="animp-salir" type="button">Salir</button><button class="btn2" id="animp-copiar" type="button" aria-label="Copiar elecciones">Copiar</button><button class="btn" id="animp-otra" type="button">Repetir</button></div>
+  </div>
   <div id="tuto" hidden aria-live="polite">
     <div class="tu-top"><span id="tu-step">Paso 1</span><h3 id="tu-t"></h3><button class="btn2" id="btn-tuto-skip" type="button" aria-label="Saltar tutorial">Saltar<span class="tu-lg"> tutorial</span></button></div>
     <b id="tu-imp" hidden>Importante</b>
@@ -2299,6 +2318,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
         <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
+        <span id="animp-lb">Animaciones 3D</span><button class="btn2" id="btn-animp" type="button">Probar animaciones</button>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select>
         <label for="vvol">Volumen de la voz</label><input type="range" id="vvol" min="0" max="1.5" step="0.05">
       </div>
@@ -23298,6 +23318,8 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
 }
 const G629_NAME = 'Revólver de acero .44';
 const isG629 = (id, h) => id === 'cowboy' && ((h && h.skin629) || (game && game.char === 'carlos'));
+// Ludo Cheng lleva sus dos revólveres cortos dorados (PENDIENTES 52)
+const isOroLudo = (id, h) => id === 'corto' && (h && h.ludo != null ? h.ludo : !!(game && game.char === 'ludo'));
 const gunName = id => isG629(id) ? G629_NAME : MODELS[id].name;
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
@@ -23322,8 +23344,9 @@ function buildGun(h, id) {
     escopeta: { frame: GM.blue, barrel: GM.blue, cyl: GM.wood, grip: GM.wood, trig: GM.brassF },
     sniper: { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.woodL, trig: GM.steel },
     tommy: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.wood, trig: GM.steel },
-    ak47: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.woodL, trig: GM.steel }
-  }[g629 ? 'g629' : id] || { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel };
+    ak47: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.woodL, trig: GM.steel },
+    oroLudo: { frame: GM.brass, barrel: GM.brass, cyl: GM.brass, grip: GM.ivory, trig: GM.brass }
+  }[g629 ? 'g629' : isOroLudo(id, h) ? 'oroLudo' : id] || { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel };
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
   let spinG = null, muzzleY = 0.03, muzzleZ;
@@ -23880,12 +23903,12 @@ const cops = []; let copUid = 0;
 const ALLY = {
   cop: { name: 'Oficial de policía', short: 'Un oficial', al: 'a un oficial', desc: 'Te sigue y dispara con su pistola. Apunta regular, pero nunca te deja solo.', price: 30, hp: 110, shirt: 0x24345a, pants: 0x151a25, hat: 'cop', gun: 'pistol', cd: [0.9, 1.4], dmg: 24, acc: 0.62, head: 0.15 },
   pistolero: { name: 'El Pistolero', short: 'El Pistolero', al: 'al Pistolero', desc: 'Vaquero de puntería fina. Cada disparo usa una bala al azar de tu caja, con su efecto especial, sin gastarla.', price: 55, hp: 120, shirt: 0x7a4a2a, pants: 0x2a2723, hat: 'cowboy', gun: 'pistol', cd: [1.0, 1.5], dmg: 30, acc: 0.72, head: 0.25, deck: true },
-  bill: { name: 'Bill y su M16', short: 'Bill', al: 'a Bill', desc: 'Soldado veterano. Dispara ráfagas de 3 balas con su fusil M16 y aguanta bastante.', price: 70, hp: 150, shirt: 0x4a5a32, pants: 0x3a4028, hat: 'helmet', gun: 'rifle', cd: [1.5, 2.0], dmg: 15, acc: 0.62, head: 0.1, burst: 3 },
+  bill: { name: 'Soldado', short: 'Soldado', al: 'a un soldado', desc: 'Soldado veterano. Dispara ráfagas de 3 balas con su fusil M16 y aguanta bastante.', price: 70, hp: 150, shirt: 0x4a5a32, pants: 0x3a4028, hat: 'helmet', gun: 'rifle', cd: [1.5, 2.0], dmg: 15, acc: 0.62, head: 0.1, burst: 3 },
   swat: { name: 'El SWAT', short: 'El SWAT', al: 'al SWAT', desc: 'Ráfagas rápidas de 4 balas con su MP5. Lleva chaleco: es el que más aguanta de los tiradores.', price: 75, hp: 190, shirt: 0x1c2026, pants: 0x1c2026, hat: 'swat', gun: 'smg', cd: [1.2, 1.6], dmg: 12, acc: 0.68, head: 0.1, burst: 4 },
   pandillero: { name: 'El Pandillero', short: 'El Pandillero', al: 'al Pandillero', desc: 'Vacía su UZI en ráfagas de 6 balas. Mala puntería, pero barato.', price: 40, hp: 90, shirt: 0xb02a2a, pants: 0x2a3a5a, hat: null, gun: 'smg', cd: [1.0, 1.4], dmg: 8, acc: 0.45, head: 0.05, burst: 6 },
-  carlos: { name: 'Carlos y su escopeta', short: 'Carlos', al: 'a Carlos', desc: 'Escopeta de 5 perdigones que empujan a los zombis. Solo alcanza 10 metros.', price: 50, hp: 120, shirt: 0x3a5a7a, pants: 0x2a2723, hat: 'straw', gun: 'shotgun', cd: [1.4, 1.9], dmg: 14, acc: 0.7, head: 0.1, pellets: 5, range: 10, push: true },
+  carlos: { name: 'El Granjero', short: 'El Granjero', al: 'al Granjero', desc: 'Escopeta de 5 perdigones que empujan a los zombis. Solo alcanza 10 metros.', price: 50, hp: 120, shirt: 0x3a5a7a, pants: 0x2a2723, hat: 'straw', gun: 'shotgun', cd: [1.4, 1.9], dmg: 14, acc: 0.7, head: 0.1, pellets: 5, range: 10, push: true },
   rebeca: { name: 'Rebeca y sus dos Glock', short: 'Rebeca', al: 'a Rebeca', desc: 'Una pistola en cada mano: dispara a dos zombis a la vez.', price: 55, hp: 100, shirt: 0x7a2a6a, pants: 0x1a1a1e, hat: null, gun: 'dual', cd: [0.8, 1.2], dmg: 18, acc: 0.65, head: 0.15, dual: true },
-  ursula: { name: 'Úrsula, la médica', short: 'Úrsula', al: 'a Úrsula', desc: 'Con su equipo médico cura 3 de vida por segundo a todo el grupo a menos de 6 metros: a ti, a tus compañeros y a los ayudantes.', price: 60, hp: 100, shirt: 0xe8e8e8, pants: 0x6a8ab0, hat: null, gun: 'pistol', cd: [1.6, 2.2], dmg: 14, acc: 0.5, head: 0.1, heal: 3, near: 6 },
+  ursula: { name: 'Úrsula', short: 'Úrsula', al: 'a Úrsula', desc: 'Con su equipo médico cura 3 de vida por segundo a todo el grupo a menos de 6 metros: a ti, a tus compañeros y a los ayudantes.', price: 60, hp: 100, shirt: 0xe8e8e8, pants: 0x6a8ab0, hat: null, gun: 'pistol', cd: [1.6, 2.2], dmg: 14, acc: 0.5, head: 0.1, heal: 3, near: 6 },
   contador: { name: 'El Contador', short: 'El Contador', al: 'al Contador', desc: 'No pelea. Al terminar cada oleada te paga 20 $ y además un 10 % del oro que tengas guardado (hasta 30 $ más). Mientras está vivo, cada zombi que matas te da 1 $ extra.', price: 45, hp: 80, shirt: 0x2a2a3a, pants: 0x2a2a3a, hat: null, gun: null, cd: [9, 9], gold: 20, interest: 0.1, intMax: 30, kill: 1, killMax: 3 },
   recargador: { name: 'El Recargador de pólvora', short: 'El Recargador', al: 'al Recargador', desc: 'No pelea. Fabrica 1 barril de pólvora en cada oleada que sobrevive. Mientras está vivo, recargas un 20 % más rápido y todos los ayudantes disparan un 15 % más seguido.', price: 50, hp: 90, shirt: 0x6a5a3a, pants: 0x3a3027, hat: null, gun: null, cd: [9, 9], powder: 1, reload: 0.2, rof: 0.15 },
   franco: { name: 'La Francotiradora', short: 'La Francotiradora', al: 'a la Francotiradora', desc: 'Rifle de cerrojo: dispara lento, pero casi nunca falla y a menudo da en la cabeza.', price: 65, hp: 90, shirt: 0x5a4a3a, pants: 0x2a2723, hat: null, gun: 'rifle', cd: [2.6, 3.2], dmg: 70, acc: 0.92, head: 0.5, range: 40 },
@@ -25073,8 +25096,8 @@ function muerte3d() {
   if (!game || !CHARS[game.char]) return;
   p3dCargar(game.char, C => {
     if (state !== 'dying' || YO3.inst) return;
-    const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
-    I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall', 0.05); for (const h of hands) h.root.visible = false;
+    const I = p3dCopia(C, 1.8), g = new THREE.Group(); if (esSombra(game.char)) { I.ch = game.char; p3dSombra(I.m); } I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
+    I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, animElige(I, 'caer') || (I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'), 0.05); for (const h of hands) h.root.visible = false;
   });
 }
 function muerte3dFin() { if (YO3.inst) { scene.remove(YO3.inst.g); YO3.inst = null; } }
@@ -29833,7 +29856,7 @@ function updateCops(dt) {
     if (c.dead) {
       c.deadT += dt; c.eatT -= dt; eatenFx(c, dt);
       const ft = clamp(c.deadT / 0.6, 0, 1);
-      if (c.p3d) { const I = c.p3d; if (!I.muerto) { I.muerto = I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'; p3dUna(I, I.muerto, 0.15); } I.mix.update(dt); }   // el modelo 3D se cae con su animación (una de varias muertes)
+      if (c.p3d) { const I = c.p3d; if (!I.muerto) { I.muerto = animElige(I, 'caer') || (I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'); p3dUna(I, I.muerto, 0.15); } I.mix.update(dt); }   // el modelo 3D se cae con su animación (una de varias muertes)
       else { c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; }
       if (c.deadT < 6 && Math.random() < 0.15) P.add(pos.x + rand(-0.4, 0.4), 0.2, pos.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.05, 0.42, 0.02, 0.02, 1, 9.8, 0.3, 0, 1);
       if (c.deadT > 8.5) {
@@ -30205,7 +30228,7 @@ function menuFondo(dt) {
     const libres = Object.keys(CHARS).filter(k => k !== vis), k = libres[Math.floor(Math.random() * libres.length)];
     card.classList.remove('gira'); void card.offsetWidth; card.classList.add('gira');
     setTimeout(() => { const im = card.querySelector('img'), b = card.querySelector('b'), nom = () => { if (b) b.textContent = CHARS[k].name; };   // el nombre cambia cuando la foto nueva ya se ve
-      if (im) { im.src = 'img/' + k + '.webp'; if (im.complete) nom(); else { im.addEventListener('load', nom, { once: true }); im.addEventListener('error', nom, { once: true }); } } else nom(); vis = k; }, 350);
+      if (im) { im.src = charPic(k); if (im.complete) nom(); else { im.addEventListener('load', nom, { once: true }); im.addEventListener('error', nom, { once: true }); } } else nom(); vis = k; }, 350);
   }, 4500);
 }
 
@@ -32652,7 +32675,7 @@ function netEvent(p, e) {
   else if (t === 'kill') { if (e[1] === Net.id) { const def = ZDEF[ZTYPES[e[2]]]; game.kills++; if (e[3]) game.heads++; creditKill(def, !!e[3], false, e[4]); if (e[3] && lv('vamp')) player.hp = Math.min(player.maxHp, player.hp + 4 * lv('vamp')); } }
   else if (t === 'clear') { if (['play', 'inv', 'pause'].includes(state) && game.phase !== 'cleared') { if (state === 'play') killcam(0.8, -6); game.wave = e[1]; game.phase = 'cleared'; clearWaveMod(); waveSummary(); casOlaFin(game.wave); const wt = lootWait(); const go = () => { if (!game || game.phase !== 'cleared') return; if (state === 'play') { if (game.wave === lastWave() && !game.endless) victory(); else afterClear(); } else setTimeout(go, 400); }; setTimeout(go, wt * 1000); if (wt > 3) setTimeout(() => { if (game && game.phase === 'cleared') { game.countT = 1; lootPull(); } }, (wt - 1.5) * 1000); } }
   else if (t === 'go') { if (e[2] !== world.idx) travel(e[2], e[1]); }
-  else if (t === 'evb') { const B = { saq: ['¡Saqueadores armados!', 'No son zombis: vienen a robarte y disparan', 'gun'], refuerzos: ['¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean con el grupo esta oleada', 'badge'], ejercito: ['¡Llegó el ejército!', '6 soldados como Bill pelean con el grupo esta oleada', 'medal'] }[e[1]]; if (B) setTimeout(() => { banner(B[0], B[1], 2800, B[2]); Sfx.bell(); }, 1700); }
+  else if (t === 'evb') { const B = { saq: ['¡Saqueadores armados!', 'No son zombis: vienen a robarte y disparan', 'gun'], refuerzos: ['¡Llegaron los refuerzos!', '3 policías y 3 SWAT pelean con el grupo esta oleada', 'badge'], ejercito: ['¡Llegó el ejército!', '6 soldados pelean con el grupo esta oleada', 'medal'] }[e[1]]; if (B) setTimeout(() => { banner(B[0], B[1], 2800, B[2]); Sfx.bell(); }, 1700); }
   else if (t === 'rvo') { if (e[1] === game.wave && !(game.exitOpts && game.exitOpts.w === e[1])) { game.exitOpts = { w: e[1], opts: e[2] }; if (game.phase === 'exit' && game.exitPend) openExitDoors(); } }
   else if (t === 'rvc') { if (e[1] === game.wave && game.phase === 'exit') rvMostrar(e[2], e[3], e[4]); }
   else if (t === 'rvf') { if (e[1] === game.wave && game.exitOpts && game.exitOpts.opts[e[2]]) rvFin(game.exitOpts.opts[e[2]], e[3]); }
@@ -32972,7 +32995,7 @@ function makeAvatar(p) {
 const RV_COL = { paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], cowboy: [0x2a3040, 0xe8e0c8], uzi: [0x1a1a1e, 0x1a1a1e], mp5: [0x1c1d20, 0x18181a], ballesta: [0x9a6a3a, 0x6e3b1b], tesla: [0xb88a3a, 0x3a90ff], jackpot: [0xd09a3e, 0xece2c8], bazuca: [0x3a3c42, 0x5a6a3a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
 // el arma de un compañero: la misma pieza detallada que se ve en primera persona (sin la mano), orientada como la versión simple
 function avGun(id, ch) {
-  const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'cowboy' && ch === 'carlos' };
+  const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'cowboy' && ch === 'carlos', ludo: ch === 'ludo' };
   try { buildGun(h, MODELS[id] ? id : 'paci'); } catch (e) { return revolverMini(id); }
   const g = new THREE.Group(), arma = h.gunG; h.k.remove(arma);
   arma.rotation.y = Math.PI; arma.position.set(0, 0.03, 0.02); arma.scale.setScalar(1.0);
@@ -33004,7 +33027,7 @@ function setAvGun(av, p) {
   const key = `${p.model}|${p.dual ? 1 : 0}|${p.name}`; if (av.gunKey === key) return; av.gunKey = key;
   for (const g of av.guns) g.parent.remove(g); av.guns = [];
   const id = MODEL_RED[p.model] || 'paci';
-  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = avGun(id, p.char); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); }
+  for (const arm of p.dual ? [av.armR, av.armL] : [av.armR]) { const g = avGun(id, p.char); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); g.rotation.x = Math.PI / 2; arm.add(g); av.guns.push(g); if (av.p3d && esSombra(p.char)) p3dSombra(g); }
   const old = av.label.material.map; av.label.material.map = avLabelTex(p); av.label.material.needsUpdate = true; if (old) old.dispose();
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
@@ -33049,8 +33072,12 @@ function p3dSanear(m) {
   });
   return n;
 }
-// Ludo Cheng no tiene modelo 3D propio (el arte 3D está congelado): usa el del pistolero
+// personajes que usan el modelo de otro: Ludo Cheng todavía no tiene diseño (PENDIENTES 52) y usa el del Pistolero, como una sombra negra
 const P3D_ALIAS = { ludo: 'pistolero' };
+// Ludo es una silueta negra total en 3D (cuerpo y armas, sin luz ni detalle) hasta que tenga su diseño
+const SOMBRA = { sk: new THREE.MeshBasicMaterial({ color: 0x030303, skinning: true }), rig: new THREE.MeshBasicMaterial({ color: 0x030303 }) };
+const esSombra = ch => ch === 'ludo';
+function p3dSombra(obj) { obj.traverse(o => { if (o.isMesh) o.material = o.isSkinnedMesh ? SOMBRA.sk : SOMBRA.rig; }); }
 function p3dCargar(ch, cb) {
   ch = P3D_ALIAS[ch] || ch;
   const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
@@ -33060,15 +33087,15 @@ function p3dCargar(ch, cb) {
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
-    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });   // sin sombra y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
-    const C = { m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
+    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, color: o.material.map ? 0xffffff : o.material.color, skinning: !!o.isSkinnedMesh }); } });   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
+    const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
     fetch(`modelos/${dir}/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : []).then(list => {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {})
       // animaciones de combate de Mixamo (compartidas por todos los modelos); si no llegan, quedan las de antes
-      .then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
+      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
       .finally(listo);
   }, undefined, () => {});
 }
@@ -33078,7 +33105,7 @@ function p3dCopia(C, alto) {
   const mix = new THREE.AnimationMixer(m), acts = {}; for (const c of C.clips) acts[c.name] = mix.clipAction(c);
   const B = {}; m.traverse(o => { if (o.isBone) B[o.name] = o; });
   const rest = new Map(); for (const n in B) rest.set(B[n], B[n].quaternion.clone());
-  return { m, mix, acts, B, rest, cur: null, O: C.O };
+  return { m, mix, acts, B, rest, cur: null, O: C.O, ch: C.ch };
 }
 function p3dUna(I, name, fade = 0.15, vel = 1) {
   const a = I.acts[name]; if (!a) return false;
@@ -33103,6 +33130,7 @@ function avatar3d(av, p) {
   p3dCargar(p.char, C => {
     if (!av.root.parent || av.p3d || av.charKey !== (p.char || '')) return;
     const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro; av.body.add(I.m); av.p3d = I;
+    if (esSombra(p.char)) { I.ch = p.char; p3dSombra(I.m); for (const g of av.guns) p3dSombra(g); }
     const deArma = new Set(); for (const g of av.guns) g.traverse(o => deArma.add(o));
     av.body.traverse(o => { if (o.isMesh && !deArma.has(o) && !I.m.getObjectById(o.id)) o.material = P3D.invisible; });   // material invisible (no oculta a los hijos, como el revólver)
     av.ocultos = true; p3dAnim(I, 'idle', 0);
@@ -33169,7 +33197,7 @@ function avAgarre(I, g, s, av) {
    quieto, apuntar, disparar, caminar y correr (adelante, atrás y de lado), recargar, golpes, muertes, festejo y habilidad.
    Un archivo por grupo: «comun» (golpes, muertes, festejo, habilidad), «corta» (pistola y revólver) y «larga» (rifle, escopeta, MP5, minigun).
    Se bajan una vez; las rotaciones se comparten entre todos los modelos y solo la cadera se ajusta a la altura de cada uno. */
-const ANIM = { v: 1, datos: {} };
+const ANIM = { v: 10, datos: {} };
 const ANIM_GRUPOS = ['comun', 'corta', 'larga'];
 const ANIM_CUERPO = new Set(['carnicero', 'dinamitero', 'contador', 'recargador', 'ursula']);   // estos además caminan sin arma o con el machete («cuerpo»)
 const ANIM_MUERTES = ['die1', 'die2', 'die3', 'die4', 'die5', 'die6', 'die7'];
@@ -33253,7 +33281,7 @@ const animSet = id => ARMA_LARGA.has(id) ? 'r' : 'p';
 const _cf = new THREE.Vector3(), _cq = new THREE.Quaternion();
 function p3dCombate(I, o, dt) {
   const A = I.acts, S = o.set;
-  if (o.muerto) { if (!I.muerto) { I.muerto = I.muerte || (I.muerte = pick(ANIM_MUERTES.filter(n => A[n])) || 'fall'); p3dUna(I, I.muerto, 0.2); } I.mix.update(dt); return; }
+  if (o.muerto) { if (!I.muerto) { I.muerto = I.muerte || (I.muerte = animElige(I, 'caer') || pick(ANIM_MUERTES.filter(n => A[n])) || 'fall'); p3dUna(I, I.muerto, 0.2); } I.mix.update(dt); return; }
   if (I.muerto) { I.muerto = null; I.una = null; }   // lo levantaron
   I.unaR = (I.unaR || 0) - dt;
   const spd = Math.hypot(o.vx, o.vz); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7;
@@ -33265,6 +33293,7 @@ function p3dCombate(I, o, dt) {
       n = S + (Math.abs(a) > 2.2 ? (corre ? '_runback' : '_back') : Math.abs(a) > 0.9 ? (a > 0 ? '_left' : '_right') : corre ? '_run' : '_walk');
     } else n = S + (o.apunta ? (S === 'r' && o.tiro < 0.3 ? '_fire' : '_aim') : '_idle');
     if (!A[n]) n = I.mueve && A[S + '_walk'] ? S + '_walk' : A[S + '_idle'] ? S + '_idle' : 'idle';
+    { const k = /_idle$/.test(n) ? 'quieto' : /_walk$/.test(n) ? 'caminar' : /_run$/.test(n) ? 'correr' : null, e = k ? animElige(I, k, S) : !I.mueve && o.apunta && o.tiro < 0.3 ? animElige(I, 'disparo', S) : null; if (e) n = e; }   // las que eligió el dueño (modo de prueba de animaciones)
     p3dAnim(I, n, 0.2);
     const ac = A[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(spd / c.v, 0.6, 1.6) : 1;   // los pies no patinan: el paso va a la velocidad real
   }
@@ -33272,6 +33301,7 @@ function p3dCombate(I, o, dt) {
 }
 // gestos de una vez: golpe, habilidad, festejo y recarga (con las animaciones de antes si el modelo no tiene las nuevas)
 function p3dGesto(I, k, set) {
+  const el = animElige(I, { golpe: 'golpe', hab: 'festejo', victoria: 'festejo', recarga: 'recarga' }[k], k === 'recarga' ? set || 'p' : null); if (el) return p3dUna(I, el, 0.15);   // las que eligió el dueño
   const L = ({ golpe: ['hit1', 'hit2', 'hit3'], hab: ['taunt'], victoria: ['victory'], recarga: [(set || 'p') + '_reload'] }[k] || [k]).filter(n => I.acts[n]);
   const viejo = { golpe: I.acts.hit_to_body_01 ? 'hit_to_body_01' : 'hurt', hab: 'cheer', victoria: I.acts.victory_celebration ? 'victory_celebration' : 'cheer' }[k];
   return p3dUna(I, L.length ? pick(L) : viejo || k, 0.15);
@@ -33347,6 +33377,128 @@ function p3dTorso(I, pitch, kick) {
   if (Math.abs(a) < 0.002) return;
   for (const n of ['Spine01', 'Spine02']) { const b = I.B[n]; if (b) b.rotateX(-a); }
   I.m.updateMatrixWorld(true);
+}
+/* ===== Animaciones elegidas por el dueño (PENDIENTES 48) =====
+   En el modo de prueba de animaciones el dueño marca, para cada personaje y cada acción, las variantes que más le gustan.
+   Se guardan en este aparato y, para que valgan para todos, se pasan a modelos/anim/elegidas.json. Si una acción no tiene
+   ninguna marcada, el juego hace lo de siempre (por ejemplo, una muerte al azar entre todas). */
+const ANIME = { arch: {}, loc: store.get('sbAnimElegidas', {}) || {} };
+ANIME.listo = fetch(`modelos/anim/elegidas.json?v=${ANIM.v}`).then(r => r.ok ? r.json() : {}).then(j => { ANIME.arch = j || {}; }).catch(() => {});
+const animElegidas = (ch, k) => { const L = ANIME.loc[ch] && ANIME.loc[ch][k]; return L && L.length ? L : (ANIME.arch[ch] && ANIME.arch[ch][k]) || []; };
+// con un arma de dos manos (rifle) o con el machete solo sirven las variantes de ese juego; con pistola o sin arma, cualquiera
+const animCabe = (n, set) => !set || !(set === 'r' || set === 'm') || n.startsWith(set + '_');
+function animElige(I, k, set) { const L = animElegidas(I && I.ch, k).filter(n => I.acts[n] && animCabe(n, set)); return L.length ? pick(L) : null; }
+// las acciones que se prueban: cada una con todas sus variantes (cada personaje muestra solo las que tiene)
+const ANIMP_ACC = [
+  { k: 'caer', n: 'Caídas', v: ['die1', 'die2', 'die3', 'die4', 'die5', 'die6', 'die7', 'fall'] },
+  { k: 'golpe', n: 'Golpes recibidos', v: ['hit1', 'hit2', 'hit3', 'hit_to_body_01', 'hurt'] },
+  { k: 'festejo', n: 'Festejos', v: ['victory', 'taunt', 'victory_idle', 'victory_celebration', 'cheer'] },
+  { k: 'disparo', n: 'Disparos', v: ['p_fire', 'r_fire', 'shoot'] },
+  { k: 'recarga', n: 'Recargas', v: ['p_reload', 'r_reload'] },
+  { k: 'quieto', n: 'Quieto', v: ['p_idle', 'r_idle', 'u_idle', 'm_idle', 'idle'] },
+  { k: 'caminar', n: 'Caminar', v: ['p_walk', 'r_walk', 'u_walk', 'm_walk', 'walk'] },
+  { k: 'correr', n: 'Correr', v: ['p_run', 'r_run', 'u_run', 'm_run', 'run'] }
+];
+const ANIMP_LOOP = new Set(['quieto', 'caminar', 'correr', 'disparo']);
+const ANIMP_ARMA = new Set(['quieto', 'caminar', 'correr', 'disparo', 'recarga']);
+// los personajes con modelo 3D (Ludo Cheng usa el del Pistolero hasta que tenga el suyo)
+function animpLista() {
+  const L = Object.keys(CHARS).map(k => ({ f: k, n: CHARS[k].name }));   // Ludo sale con su nombre (como sombra negra)
+  for (const f of NPC3D_FILES) { const k = Object.keys(NPC3D).find(a => NPC3D[a] === f); L.push({ f, n: ALLY[k] && ALLY[k].name || f }); }
+  return L;
+}
+const ANIMP = { on: false, pj: 0, ac: 0, copias: [], t: 0, lista: null, C: null, sep: 1.5, fondo: 2.4, pausa: 1.2 };
+const ANIMP_URL = /[?&]animaciones\b/.test(location.search);
+function animpEntrar() {
+  if (typeof Net !== 'undefined' && Net.on) return;
+  ANIMP.lista = ANIMP.lista || animpLista();
+  const q = new URLSearchParams(location.search).get('animaciones'), iq = ANIMP.lista.findIndex(x => x.f === q);
+  if (iq >= 0) ANIMP.pj = iq; else { const ic = ANIMP.lista.findIndex(x => x.f === META.char); if (ic >= 0 && !ANIMP.on) ANIMP.pj = ic; }
+  Sfx.init(); clearActors();
+  if (world.idx !== 0) buildMap(0);   // el Cementerio, sin zombis y sin tiempo
+  state = 'animp'; ANIMP.on = true; show(null); el.hud.hidden = true; $('#touch').hidden = true; hands.forEach(h => h.root.visible = false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  $('#animp').hidden = false; $('#xh').style.visibility = 'hidden'; animpPoner();
+}
+function animpSalir() {
+  animpQuitar(); ANIMP.on = false; $('#animp').hidden = true; $('#xh').style.visibility = ''; camera.clearViewOffset();
+  if (ANIMP_URL) history.replaceState(null, '', location.pathname);
+  state = 'menu'; show('inicio');
+}
+function animpQuitar() { for (const c of ANIMP.copias) { scene.remove(c.g); c.lb.material.map.dispose(); c.lb.material.dispose(); } ANIMP.copias = []; }
+function animpVariantes() { const C = ANIMP.C, A = ANIMP_ACC[ANIMP.ac]; if (!C) return []; const tiene = new Set(C.clips.map(c => c.name)); return A.v.filter(n => tiene.has(n)); }
+// pone una copia del personaje por cada variante de la acción, en filas frente a la cámara
+function animpPoner() {
+  animpQuitar(); animpUi();
+  const P = ANIMP.lista[ANIMP.pj], pide = ANIMP.pj * 100 + ANIMP.ac; ANIMP.pide = pide;
+  p3dCargar(P.f, C => {
+    const listo = () => { if (ANIMP.pide !== pide || state !== 'animp') return; ANIMP.C = C; animpArmar(); };
+    // las de caminar sin arma y con machete se bajan aparte (en el juego solo las tienen algunos)
+    if (!C.clips.some(c => c.name === 'u_idle') && C.mx) animBajar('cuerpo').then(g => { if (g && !C.clips.some(c => c.name === 'u_idle')) C.clips.push(...animParaModelo(C, [g])); listo(); }); else listo();
+  });
+}
+function animpArmar() {
+  animpQuitar();
+  const C = ANIMP.C, A = ANIMP_ACC[ANIMP.ac], V = animpVariantes(), n = V.length, P = ANIMP.lista[ANIMP.pj];
+  const cols = Math.max(1, Math.min(n, innerWidth < innerHeight ? 3 : 5)), filas = Math.ceil(n / cols);
+  ANIMP.cols = cols; ANIMP.filas = filas;
+  V.forEach((nom, i) => {
+    const fi = Math.floor(i / cols), co = i % cols, enFila = Math.min(cols, n - fi * cols);
+    const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); I.ch = P.f;
+    g.position.set((co - (enFila - 1) / 2 + (fi % 2 ? 0.5 : 0)) * ANIMP.sep, 0, -fi * ANIMP.fondo); scene.add(g);   // las filas de atrás van corridas medio lugar: no quedan tapadas
+    // el número encima de cada copia (el mismo que el botón para elegirla)
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+    x.fillStyle = 'rgba(14,11,9,.85)'; x.beginPath(); x.arc(32, 32, 30, 0, TAU); x.fill(); x.font = 'bold 36px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffd27a'; x.fillText(String(i + 1), 32, 34);
+    const lb = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })); lb.scale.setScalar(0.42); lb.position.set(0, 2.1, 0); lb.renderOrder = 9; g.add(lb);
+    let arma = null;
+    if (ANIMP_ARMA.has(A.k) && /^[pr]_/.test(nom)) { const larga = nom[0] === 'r'; arma = avGun(larga ? 'mp5' : (CHARS[P.f] && CHARS[P.f].gun) || 'paci', P.f); arma.rotation.x = Math.PI / 2; g.add(arma); arma.userData.larga = larga; }
+    if (esSombra(P.f)) { p3dSombra(I.m); if (arma) p3dSombra(arma); }   // Ludo: sombra negra
+    ANIMP.copias.push({ g, I, nom, lb, arma });
+  });
+  ANIMP.t = 0; animpPlay(); animpUi();
+}
+function animpPlay() {
+  const A = ANIMP_ACC[ANIMP.ac];
+  let dur = 0;
+  for (const c of ANIMP.copias) { if (ANIMP_LOOP.has(A.k)) p3dAnim(c.I, c.nom, 0); else { p3dUna(c.I, c.nom, 0); dur = Math.max(dur, c.I.unaR || 0); } }
+  ANIMP.dur = ANIMP_LOOP.has(A.k) ? 0 : dur + ANIMP.pausa;   // las de una vez se repiten todas juntas, con una pausa entre una y otra
+}
+function animpPaso(dt) {
+  ANIMP.t += dt; if (ANIMP.dur && ANIMP.t > ANIMP.dur) { ANIMP.t = 0; animpPlay(); }
+  for (const c of ANIMP.copias) {
+    c.I.mix.update(dt);
+    if (c.arma) { c.g.updateMatrixWorld(true); p3dDedos(c.I, 'R', 1); p3dDedos(c.I, 'L', c.arma.userData.larga ? 0.9 : 0.5); p3dArma(c.I, c.arma, 'R', c.arma.userData.larga, c.g, 0, ANIMP_ACC[ANIMP.ac].k === 'recarga' ? 0 : 1); }
+  }
+  // la cámara mira a todas las copias; el panel de abajo no las tapa
+  const ui = $('#animp'), ph = ui ? ui.offsetHeight : 0, W = innerWidth, H = Math.max(1, innerHeight - ph);
+  const ancho = (ANIMP.cols - 1 + (ANIMP.filas > 1 ? 0.5 : 0)) * ANIMP.sep + 1.4, hondo = (ANIMP.filas - 1) * ANIMP.fondo;
+  const Hf = innerHeight + ph, tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), th = tv * W / Hf, tvv = tv * H / Hf;   // la parte libre (sobre el panel) de la vista
+  const d = Math.max(ancho / 2 / th, 2.6 / 2 / tvv) + 1.2;
+  camera.setViewOffset(W, Hf, 0, ph, W, innerHeight);
+  camera.position.set(ANIMP.filas > 1 ? ANIMP.sep / 4 : 0, 1.6 + hondo * 0.8, d); camera.lookAt(ANIMP.filas > 1 ? ANIMP.sep / 4 : 0, 0.9, -hondo / 2);
+}
+// el panel: personaje, acción y los números para elegir
+function animpUi() {
+  const P = ANIMP.lista[ANIMP.pj], A = ANIMP_ACC[ANIMP.ac], V = animpVariantes(), E = new Set(animElegidas(P.f, A.k));
+  $('#animp-pj').textContent = P.n; $('#animp-ac').textContent = A.n;
+  $('#animp-nums').innerHTML = !ANIMP.C || ANIMP.copias.length !== V.length ? '<span class="note">Cargando…</span>' : V.map((n, i) => `<button class="btn2${E.has(n) ? ' sel' : ''}" type="button" data-n="${n}" aria-pressed="${E.has(n)}">${i + 1}</button>`).join('');
+  const el = [...E].map(n => V.indexOf(n) + 1).filter(x => x > 0).sort((a, b) => a - b);
+  $('#animp-msg').textContent = el.length ? `Elegidas: ${el.join(', ')}. El juego usa solo esas.` : 'Toca el número de las que más te gustan (puedes elegir varias). Sin elegir, el juego usa todas.';
+}
+function animpMarca(n) {
+  const P = ANIMP.lista[ANIMP.pj], A = ANIMP_ACC[ANIMP.ac], E = new Set(animElegidas(P.f, A.k));
+  if (E.has(n)) E.delete(n); else E.add(n);
+  (ANIME.loc[P.f] = ANIME.loc[P.f] || {})[A.k] = [...E]; store.set('sbAnimElegidas', ANIME.loc); animpUi();
+}
+// todas las elecciones juntas (las del archivo y las de este aparato), para pegarlas en el chat y que valgan para todos
+function animpTexto() {
+  const out = {};
+  for (const ch of new Set(Object.keys(ANIME.arch).concat(Object.keys(ANIME.loc)))) for (const a of ANIMP_ACC) { const L = animElegidas(ch, a.k); if (L.length) (out[ch] = out[ch] || {})[a.k] = L; }
+  return JSON.stringify(out);
+}
+function animpCopiar() {
+  const t = animpTexto(), ok = () => { $('#animp-msg').textContent = 'Copiado. Pégalo en el chat para que quede igual para todos los jugadores.'; };
+  try { navigator.clipboard.writeText(t).then(ok, () => prompt('Copia este texto:', t)); } catch (e) { prompt('Copia este texto:', t); }
 }
 /* ===== Zombi común en 3D con las animaciones de zombi de Mixamo (de prueba: se activa con ?zombi3d en el enlace) =====
    Cada zombi elige su forma de caminar, de correr y de atacar, y camina a su propio ritmo (no se ven todos iguales).
@@ -34227,7 +34379,7 @@ function menu3dPoseMano(I, P, ch) {
   I.m.updateMatrixWorld(true);
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
   if (!P.arma || !B.R_Hand) return;
-  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g);
+  const g = avGun(CHARS[ch].gun, ch); g.scale.setScalar(1.05 * (g.userData.k || 1)); M3.scene.add(g); M3.armas.push(g); if (esSombra(ch)) p3dSombra(g);
   // como en el juego: la empuñadura va en la palma (un poco más allá de la muñeca) y el cañón apunta hacia Rg
   const k = 1.05 * (g.userData.k || 1), hw = wp(B.R_Hand), brazo = hw.clone().sub(wp(B.R_Forearm)).normalize(), d = dir(P.Rg || P.R[1]);
   const up = (Math.abs(d.y) > 0.8 ? F.clone() : U.clone()); up.addScaledVector(d, -up.dot(d)).normalize();
@@ -34282,6 +34434,7 @@ function menu3d(id) {
     p3dCargar(id === 'azar' ? 'sheriff' : id, C => {
       if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I;
       if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404, skinning: true }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
+      if (esSombra(id)) { I.ch = id; p3dSombra(I.m); }   // Ludo: sombra negra hasta que tenga diseño
       menu3dPose(I, id); menu3dPon(); });
   } else menu3dPon();
   if (!M3.on) { M3.on = true; const loop = () => { if (!M3.r.domElement.isConnected) { M3.on = false; return; } requestAnimationFrame(loop); if (state !== 'menu' || $('#menu').hidden || !M3.inst) return; M3.r.render(M3.scene, M3.cam); }; loop(); }
@@ -34475,33 +34628,20 @@ function azarPortrait() {
   g.fillStyle = '#ffd060'; g.shadowColor = '#ff9a20'; g.shadowBlur = 24; g.font = 'bold 120px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 160, 160);
   return cv.toDataURL();
 }
-// Ludo Cheng (Etapa 3): retrato hecho por código (fondo de neón del casino, chaqueta roja de cuello mao, lentes oscuros y sus dos revólveres)
+// Ludo Cheng: silueta negra sobre el neón del casino (su diseño está pendiente, PENDIENTES 52). Cerrado lleva «???»; abierto, la silueta sola (su nombre va en la carta)
 function ludoPortrait(tapado) {
   const S = 320, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.scale(S / 256, S / 256);
   const T2 = Math.PI * 2, ell = (x, y, rx, ry, f) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, T2); g.fillStyle = f; g.fill(); };
   const bg = g.createRadialGradient(128, 90, 10, 128, 128, 190); bg.addColorStop(0, '#5a1a6a'); bg.addColorStop(1, '#12061a'); g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
   g.lineWidth = 4; for (const [c, y] of [['#ff3fd0', 40], ['#3ff0ff', 62], ['#ffd040', 84]]) { g.strokeStyle = c; g.shadowColor = c; g.shadowBlur = 12; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y - 20); g.stroke(); } g.shadowBlur = 0;
-  if (tapado) {   // bloqueado: silueta negra con «???» de neón
-    g.fillStyle = '#050307';
-    ell(128, 110, 44, 52, '#050307'); g.beginPath(); g.moveTo(14, 260); g.bezierCurveTo(18, 196, 60, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(196, 178, 238, 196, 242, 260); g.closePath(); g.fill();
-    g.fillStyle = '#ffe2f6'; g.shadowColor = '#ff3fd0'; g.shadowBlur = 20; g.font = 'bold 76px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('???', 128, 118); g.shadowBlur = 0;
-    return cv.toDataURL();
-  }
-  for (const s2 of [-1, 1]) { g.save(); g.translate(128 + s2 * 74, 214); g.rotate(s2 * -0.65); g.fillStyle = '#2a2a30'; g.fillRect(-7, -78, 14, 78); g.fillStyle = '#c8c8d0'; g.fillRect(-3, -78, 4, 72); g.fillStyle = '#1a1a1a'; g.fillRect(-10, 0, 20, 34); g.restore(); }   // dos revólveres cruzados
-  g.beginPath(); g.moveTo(10, 260); g.bezierCurveTo(14, 196, 58, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(198, 178, 242, 196, 246, 260); g.closePath(); g.fillStyle = '#a8141c'; g.fill();   // chaqueta roja
-  g.fillStyle = '#7a0c12'; g.fillRect(110, 168, 36, 92); g.fillStyle = '#ffd040'; for (let i = 0; i < 4; i++) ell(128, 190 + i * 18, 4, 4, '#ffd040');   // botones dorados
-  g.fillStyle = '#c8a038'; g.fillRect(104, 160, 48, 12);   // cuello mao
-  ell(128, 150, 20, 14, '#c89a72');   // cuello
-  ell(128, 108, 42, 50, '#d8b08a'); ell(110, 128, 10, 7, 'rgba(200,110,90,.18)'); ell(146, 128, 10, 7, 'rgba(200,110,90,.18)');   // cara
-  g.beginPath(); g.moveTo(84, 104); g.bezierCurveTo(80, 52, 120, 44, 140, 48); g.bezierCurveTo(176, 54, 178, 86, 172, 104); g.bezierCurveTo(160, 74, 120, 70, 84, 104); g.closePath(); g.fillStyle = '#0c0c10'; g.fill();   // pelo peinado hacia atrás
-  g.fillStyle = '#0a0a0c'; g.beginPath(); g.roundRect ? g.roundRect(92, 98, 32, 18, 6) : g.rect(92, 98, 32, 18); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(132, 98, 32, 18, 6) : g.rect(132, 98, 32, 18); g.fill(); g.fillRect(122, 102, 12, 4);   // lentes oscuros
-  g.fillStyle = 'rgba(120,200,255,.35)'; g.fillRect(96, 101, 10, 4); g.fillRect(136, 101, 10, 4);
-  g.strokeStyle = '#6a3a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(112, 138); g.quadraticCurveTo(130, 146, 146, 134); g.stroke();   // media sonrisa
-  return cv.toDataURL('image/webp', 0.9);
+  g.fillStyle = '#050307';
+  ell(128, 110, 44, 52, '#050307'); g.beginPath(); g.moveTo(14, 260); g.bezierCurveTo(18, 196, 60, 178, 100, 170); g.lineTo(156, 170); g.bezierCurveTo(196, 178, 238, 196, 242, 260); g.closePath(); g.fill();
+  if (tapado) { g.fillStyle = '#ffe2f6'; g.shadowColor = '#ff3fd0'; g.shadowBlur = 20; g.font = 'bold 76px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('???', 128, 118); g.shadowBlur = 0; }
+  return cv.toDataURL();
 }
 function charPic(id) {
   if (id === 'azar') return charPicCache.azar || (charPicCache.azar = azarPortrait());
-  if (id === 'ludo') { const k = charOpen('ludo') ? 'ludo' : 'ludo?'; return charPicCache[k] || (charPicCache[k] = ludoPortrait(k === 'ludo?')); }
+  if (id === 'ludo') { const k = charOpen('ludo') ? 'ludo' : 'ludo?'; return charPicCache[k] || (charPicCache[k] = ludoPortrait(k === 'ludo?')); }   // silueta negra (diseño pendiente, PENDIENTES 52); cerrado, con «???»
   if (CHAR_IMG[id]) return CHAR_IMG[id];
   if (id === 'carlos') return charPicCache.carlos || (charPicCache.carlos = carlosPortrait());
   if (charPicCache[id]) return charPicCache[id];
@@ -35243,6 +35383,7 @@ function frame() {
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
+  else if (state === 'animp') animpPaso(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
@@ -35340,7 +35481,7 @@ $('#btn-altar-ini').addEventListener('click', () => { volverA = 'inicio'; $('#bt
 $('#btn-ach').addEventListener('click', () => { if (!$('#inicio').hidden) volverA = 'inicio'; }, true);
 $('#btn-como-back').addEventListener('click', () => show('inicio'));
 // Configuración: los mismos controles de la pausa, repartidos en pestañas; al volver regresan a la pausa en su orden
-const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', sens: 'controles' };
+const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', 'btn-animp': 'graficos', sens: 'controles' };
 let cfgOrden = null;
 // los controles se reparten una sola vez en las pestañas; el mismo bloque va a la Configuración del inicio o a la pausa
 function cfgRepartir() {
@@ -35368,6 +35509,17 @@ $('#btn-mictest').addEventListener('click', () => micTest(!MT.st));
 document.querySelectorAll('.cfg-tabs [data-t]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.cfg-tabs [data-t]').forEach(x => x.setAttribute('aria-selected', x === b)); document.querySelectorAll('.cfg-sec').forEach(sc => sc.hidden = sc.dataset.s !== b.dataset.t); pagTodas(); }));
 $('#btn-config').addEventListener('click', cfgAbrir);
 $('#btn-config-back').addEventListener('click', cfgCerrar);
+// modo de prueba de animaciones (PENDIENTES 48): desde Configuración → Gráficos, o con ?animaciones en el enlace
+$('#btn-animp').addEventListener('click', () => { if (state !== 'menu') { Sfx.err(); $('#pause-note').textContent = 'Las animaciones se prueban desde el menú principal.'; return; } micTest(false); animpEntrar(); });
+{ const cambia = (k, d) => { const n = k === 'pj' ? ANIMP.lista.length : ANIMP_ACC.length; ANIMP[k] = (ANIMP[k] + d + n) % n; ANIMP.C = k === 'pj' ? null : ANIMP.C; animpPoner(); };
+  $('#animp-pj-a').addEventListener('click', () => cambia('pj', -1)); $('#animp-pj-s').addEventListener('click', () => cambia('pj', 1));
+  $('#animp-ac-a').addEventListener('click', () => cambia('ac', -1)); $('#animp-ac-s').addEventListener('click', () => cambia('ac', 1));
+  $('#animp-nums').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b) animpMarca(b.dataset.n); });
+  $('#animp-otra').addEventListener('click', () => { ANIMP.t = 0; animpPlay(); });
+  $('#animp-copiar').addEventListener('click', animpCopiar);
+  $('#animp-salir').addEventListener('click', animpSalir);
+  addEventListener('keydown', e => { if (state === 'animp' && e.key === 'Escape') animpSalir(); });
+  addEventListener('resize', () => { if (state === 'animp' && ANIMP.C) animpArmar(); }); }
 $('#btn-keys-reset').addEventListener('click', () => { keyMap = {}; store.set('sb_keys', keyMap); teclaEspera = null; teclasRefrescar(); });
 teclasRefrescar();
 $('#idioma').value = LANG;
@@ -35383,6 +35535,7 @@ for (let i = 0; i < 6; i++) { const a = rand(0, TAU), r = rand(6, 18); const z =
 $('#loading').remove();
 frame();
 setTimeout(() => $('#btn-jugar').focus(), 50);
+if (ANIMP_URL) setTimeout(animpEntrar, 300);   // ?animaciones en el enlace: entra directo al modo de prueba de animaciones
 })();
 </script>
 
