@@ -73,7 +73,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Animaciones y sonidos para cada tipo de ficha según su función: jackpot, canje de oro, daño, destrucción de ficha, invocación, control.
 
 ### G4 · Contenido y presentación
-- **Perfil con indicadores de poder (dueño, 19-oct-2026):** en el perfil también salen los indicadores de poder que se ven al elegir personaje, más 3 nuevos: movimiento, crítico y suerte. Cada uno con una descripción corta al pasar el cursor o tocarlo.
+- **Perfil con indicadores de poder (dueño, 19-oct-2026):** en el perfil también salen los indicadores de poder que se ven al elegir personaje, más 3 nuevos: movimiento, crítico y suerte. Cada uno con una descripción corta al pasar el cursor o tocarlo. *Hecho (19-oct-2026, rama perfil-stats): 8 indicadores en la selección y en la pestaña «Perfil» del inventario; falta que el dueño lo pruebe.*
 
 - Mapa nuevo: SUPER CUTE MALL.
 - Música de jefes («battle theme 1») y de minijefes («battle 2»).
