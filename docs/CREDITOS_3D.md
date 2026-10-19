@@ -58,7 +58,18 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `flor.glb` | Margarita flower | Maf'j Alvarez | CC BY 4.0 | varios (flores sembradas) | 7 KB | https://sketchfab.com/3d-models/margarita-flower-58ce34c65642408cb92eab784af2bd6c |
 | `tractor.glb` | Low Poly Tractor | maxymation | CC BY 4.0 | Granja | 18 KB | https://sketchfab.com/3d-models/low-poly-tractor-9520e331b4e24c259063450a0d5bb992 |
 | `espantapajaros.glb` | scarecrow low poly game ready | DynamicSAV | CC BY 4.0 | Granja | 20 KB | https://sketchfab.com/3d-models/scarecrow-low-poly-game-ready-ebf0d28cea6b4ff6b02ab2244f1dc007 |
+| `planta_tropical.glb` | Tropical Plant | alint | CC BY 4.0 | Isla | 29 KB | https://sketchfab.com/3d-models/tropical-plant-3ee280726f1f496e9b2377d43b4cbb2d |
+| `terminal.glb` | Spacecraft Control Terminal Console FOLLOW ME | DOM | CC BY 4.0 | La Estación Espacial | 118 KB | https://sketchfab.com/3d-models/spacecraft-control-terminal-console-follow-me-3e45923d316e48efb7b0650ebe6c9411 |
+| `bidon_scifi.glb` | Stylized Sci-fi Canister | Darren McNerney 3D | CC BY 4.0 | La Estación Espacial | 56 KB | https://sketchfab.com/3d-models/stylized-sci-fi-canister-c4c2bc42657f41eebe0a10dc33f667d2 |
+| `escritorio_pc.glb` | desk and pc | linus1178 | CC BY 4.0 | Los Backrooms | 32 KB | https://sketchfab.com/3d-models/desk-and-pc-76f7abaa49014cc8a9e2aab39cabf628 |
+| `tele_vieja.glb` | Retro CRT TV | meipal | CC BY 4.0 | Los Backrooms | 75 KB | https://sketchfab.com/3d-models/retro-crt-tv-6bc462b233ce4c78904dfcadf5123e29 |
+| `regalo.glb` | Gift | Ekaterina | CC BY 4.0 | Los Backrooms | 22 KB | https://sketchfab.com/3d-models/gift-1d212c374aa04377869a622d28b9a9e8 |
+| `modulo_lunar.glb` | Simple Low Poly Lunar Lander | Trockk | CC BY 4.0 | La Luna | 73 KB | https://sketchfab.com/3d-models/simple-low-poly-lunar-lander-bc9a0f58bd35480eb0cbf39167789042 |
+| `rover.glb` | Lunar rover | Spranky | CC BY 4.0 | La Luna | 58 KB | https://sketchfab.com/3d-models/lunar-rover-000e372b8d0f44d681f5cf946347c66f |
+| `angel.glb` | Angel Statue | Vixal | CC BY 4.0 | El Cielo | 50 KB | https://sketchfab.com/3d-models/angel-statue-424cc9de4bc145ce9435ce11c3f264b7 |
+| `helicoptero.glb` | Low Poly Helicopter | antonmoek | CC BY 4.0 | El Océano | 153 KB | https://sketchfab.com/3d-models/low-poly-helicopter-5bbed2de9baa4a13a7faa72653b78b64 |
+| `submarino.glb` | PSX Mini Submarine | Nana7mi | CC BY 4.0 | El Océano | 80 KB | https://sketchfab.com/3d-models/psx-mini-submarine-b127bf25336c4f8f962b4273f1d6eb93 |
 
-Peso total: 1067 KB.
+Peso total: 1819 KB.
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.es
