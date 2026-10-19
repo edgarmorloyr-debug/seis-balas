@@ -33038,7 +33038,7 @@ function setAvGun(av, p) {
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
 const P3D = { cache: {}, esperan: {}, v: 5 };
 // modelos 3D de los zombis (modelos/zombis/): cada tipo usa uno de estos cuerpos (PENDIENTES 43)
-const ZOMBI_FILES = new Set(['zombi_h', 'zombi_m']);   // v2: personajes de Mixamo con dedos
+const ZOMBI_FILES = new Set(['zombi_h', 'zombi_m', 'zombi_perro', 'zombi_esq']);   // v2: personajes de Mixamo con dedos
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
 const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante', maid_rubia: 'maid_rubia', maid_rosa: 'maid_rosa', maid_plata: 'maid_plata',
   pistolero: 'pistolero', pandillero: 'pandillero', carlos: 'granjero', rebeca: 'rebeca', ursula: 'ursula', contador: 'contador', recargador: 'recargador', franco: 'franco', dinamitero: 'dinamitero', carnicero: 'carnicero' };
@@ -33092,7 +33092,7 @@ function p3dCargar(ch, cb) {
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
-    m.updateMatrixWorld(true); p3dSanear(m);
+    m.updateMatrixWorld(true); if (!ZOMBI_FILES.has(ch)) p3dSanear(m);
     m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; const mt = o.material; o.material = new THREE.MeshLambertMaterial({ map: mt.map, color: mt.color, skinning: !!o.isSkinnedMesh, transparent: mt.transparent, opacity: mt.opacity, alphaTest: mt.alphaTest, side: mt.side }); } });   // con su color y su transparencia (pelo con recorte)   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
     const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
@@ -33519,7 +33519,15 @@ const Z3D_TIPO = {
   runner: { c: ['zombi_h', 'zombi_m'], ropa: [[0xc8c8be, 0x404048], [0x4a6a8a, 0x34343a], [0x8a3a3a, 0x2a2a30]], forma: { pecho: [0.9, 1, 0.9] } },
   crawler: { c: ['zombi_h', 'zombi_m'], ropa: [[0x8a8a78, 0x4a4a52], [0x6a5a4a, 0x3a3a40]], arrastra: true },
   screamer: { c: ['zombi_m'], ropa: [[0xe0d8d0, 0x6a5a6a], [0xa83a5a, 0x34303a], [0x7a8aa0, 0x3a3a46]], forma: { pecho: [0.85, 1.05, 0.85] } },
-  copz: { c: ['zombi_h'], ropa: [[0x2a3c66, 0x1c2232]] }
+  copz: { c: ['zombi_h'], ropa: [[0x2a3c66, 0x1c2232]] },
+  spitter: { c: ['zombi_h', 'zombi_m'], ropa: [[0x6a7a3a, 0x3a3a2a], [0x8a9a5a, 0x40402e]], forma: { pecho: [1.08, 1, 1.15] } },
+  bloater: { c: ['zombi_h'], ocultar: [ZG.belly], ropa: [[0x8a8a6a, 0x4a4030], [0x9a7a5a, 0x3a3a40]], forma: { pecho: [1.5, 1.08, 1.6], brazos: 1.25 } },
+  brute: { c: ['zombi_h'], ropa: [[0x5a3a2a, 0x2a2a2a], [0x3a3a40, 0x2a241e]], forma: { pecho: [1.3, 1.05, 1.25], brazos: 1.4 } },
+  armored: { c: ['zombi_h'], ropa: [[0x2a2e36, 0x22262e]], forma: { pecho: [1.06, 1, 1.06] } },
+  maton: { c: ['zombi_h'], ropaBloques: true, forma: { pecho: [1.35, 1.05, 1.2], brazos: 1.3 } },
+  dog: { c: ['zombi_perro'], perro: { fl: 'Upper_ArmL', fr: 'Upper_ArmR', bl: 'ThighL', br: 'ThighR', neck: 'Neck', head: 'Head', jaw: 'Tongue', alto: 0.85 } },
+  esqueleto: { c: ['zombi_esq'], luz: 1.05 },
+  axer: { c: ['zombi_h'], ropa: [[0x6a3a2a, 0x3a3428], [0x4a5a3a, 0x3a3a40], [0x7a6a4a, 0x2a2a30]] }
 };
 if (Z3D.on) setTimeout(() => { for (const f of ZOMBI_FILES) p3dCargar(f); }, 0);
 // geometrías del cuerpo de bloques (lo que no es esto, es algo que lleva encima)
@@ -33549,13 +33557,16 @@ function z3dPoner(z) {
   if (z.mini || z.boss != null || z.dead || z.lost || z.headless) return;
   if (Z3D.vivos >= Z3D.max) return;   // muchos zombis a la vez: este queda de bloques (cuando se libera un lugar, el más cercano pasa a 3D)
   const cu = T.c[Math.floor(tirada(z.id, 7) * T.c.length)], C = P3D.cache[cu];
-  if (!C || !C.mx) { p3dCargar(cu); return; }
+  if (!C || !(C.mx || T.perro)) { p3dCargar(cu); return; }
+  if (T.perro) return z3dPerro(z, C, cu, T.perro);
   const I = p3dCopia(C, 1.78 * (z.s || 1)); I.m.rotation.y = P3D.giro; z.root.add(I.m); I.cu = cu;
   // materiales propios: el destello del golpe, el fuego, el hielo y el veneno se ven en el modelo (z.mats)
   let ropa = T.ropa ? T.ropa[Math.floor(tirada(z.id, 8) * T.ropa.length)] : null;
   if (z.look || T.ropaBloques) ropa = [z.mats[1].color.getHex(), z.mats[2].color.getHex()];   // disfraz del mapa: la ropa del modelo toma sus colores
-  I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (ropa && o.name === 'material') o.material.color.setHex(ropa[0]); if (ropa && o.name === 'Bottom') o.material.color.setHex(ropa[1]); if (!/Hair/.test(o.name)) o.material.color.multiplyScalar(Z3D.luz); z.mats.push(o.material); I.mallas.push(o); });
-  if (T.forma && T.forma.pecho && I.B.Spine01) { I.B.Spine01.scale.set(...T.forma.pecho); if (I.B.NeckTwist01) I.B.NeckTwist01.scale.set(1 / T.forma.pecho[0], 1 / T.forma.pecho[1], 1 / T.forma.pecho[2]); }
+  I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (ropa && o.name === 'material') o.material.color.setHex(ropa[0]); if (ropa && o.name === 'Bottom') o.material.color.setHex(ropa[1]); if (!/Hair/.test(o.name)) o.material.color.multiplyScalar(T.luz || Z3D.luz); z.mats.push(o.material); I.mallas.push(o); });
+  // forma del cuerpo: pecho más ancho o más flaco (la cabeza no cambia) y brazos más gruesos
+  if (T.forma && T.forma.pecho && I.B.Spine01) { const [a, b, c] = T.forma.pecho; I.B.Spine01.scale.set(a, b, c); for (const n of ['NeckTwist01', 'L_Clavicle', 'R_Clavicle']) if (I.B[n]) I.B[n].scale.set(1 / a, 1 / b, 1 / c); }
+  if (T.forma && T.forma.brazos) for (const n of ['L_Upperarm', 'R_Upperarm']) if (I.B[n]) I.B[n].scale.set(T.forma.brazos, 1, T.forma.brazos);
   z.root.updateMatrixWorld(true);
   const lado = n => { I.B[n].getWorldPosition(_zv); z.root.worldToLocal(_zv); return _zv.x; };
   const brazo = lado('L_Upperarm') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' }, pierna = lado('L_Thigh') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' };
@@ -33567,7 +33578,7 @@ function z3dPoner(z) {
   if (z.armL) marco.armL = z3dMarcoMano(I, brazo.L.slice(0, 1), z.armL, z.root);
   if (z.armR) marco.armR = z3dMarcoMano(I, brazo.R.slice(0, 1), z.armR, z.root);
   // lo que lleva encima pasa a los marcos
-  const movidos = [], mueve = (par, m, dy) => { if (!par || !m) return; for (const o of par.children.slice()) { if (o.isMesh && Z3D_BASE.has(o.geometry)) continue; if (o === z.jaw) continue; movidos.push([o, par, o.position.clone(), o.scale.clone()]); m.add(o); if (dy) o.position.y += dy; if (o.geometry === ZG.eye) { o.scale.multiplyScalar(0.5); o.position.z += 0.012; } } };   // los ojos brillan con el color de su tipo
+  const movidos = [], mueve = (par, m, dy) => { if (!par || !m) return; for (const o of par.children.slice()) { if (o.isMesh && (Z3D_BASE.has(o.geometry) || (T.ocultar && T.ocultar.includes(o.geometry)))) continue; if (o === z.jaw) continue; movidos.push([o, par, o.position.clone(), o.scale.clone()]); m.add(o); if (dy) o.position.y += dy; if (o.geometry === ZG.eye) { o.scale.multiplyScalar(0.5); o.position.z += 0.012; } } };   // los ojos brillan con el color de su tipo
   mueve(z.head, marco.head); mueve(z.torso, marco.torso); { const base = new Set([z.legL, z.legR, z.torsoG, z.headG, z.tail].filter(Boolean)); for (const o of z.body.children.slice()) if (!base.has(o) && !(o.isMesh && Z3D_BASE.has(o.geometry))) { movidos.push([o, z.body, o.position.clone(), o.scale.clone()]); marco.body.add(o); } }   // falda, capa… mueve(z.armL, marco.armL, 0.68); mueve(z.armR, marco.armR, 0.68);
   // el cuerpo de bloques se vuelve invisible (sigue recibiendo tiros y sus hijos de adorno se siguen viendo)
   const mat0 = new Map(); z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id) && !o.userData.z3dProp) { mat0.set(o, o.material); o.material = P3D.invisible; } });
@@ -33577,6 +33588,40 @@ function z3dPoner(z) {
     walk: pick(['z_walk1', 'z_walk2', 'z_walk4']), run: pick(['z_run1', 'z_run2']), atk: pick(['z_attack1', 'z_attack2', 'z_punch', 'z_bite']), hit: pick(['z_hit1', 'z_hit2']), ritmo: rand(0.95, 1.25), px: z.root.position.x, pz: z.root.position.z, v: 0, acc: 0 };
   if (T.arrastra) A.arrastra = true;
   z.z3d = A; Z3D.list.push(z); Z3D.vivos++;
+}
+// el perro: va dentro del cuerpo de bloques (así se agacha, salta y cae igual) y sus patas, cabeza, mandíbula y cola copian las del perro de bloques
+function z3dPerro(z, C, cu, H) {
+  const I = p3dCopia(C, 0.95); I.cu = cu; z.body.add(I.m); I.m.rotation.y = Math.PI; I.m.position.z -= 0.02;   // el modelo mira hacia −z
+  for (const n in I.B) I.B[n.replace(/_\d+$/, '')] = I.B[n];   // los huesos sin el número del final
+  // tamaño de verdad (el de la malla no cuenta la escala de los huesos): por la altura de los huesos
+  { z.body.updateMatrixWorld(true); let lo = 1e9, hi = -1e9; for (const n in I.B) { I.B[n].getWorldPosition(_zv); z.body.worldToLocal(_zv); lo = Math.min(lo, _zv.y); hi = Math.max(hi, _zv.y); } const h = hi - lo; if (h > 1e-4) { const k = (H.alto || 0.8) / h; I.m.scale.multiplyScalar(k); I.m.position.y = (I.m.position.y - lo) * k + 0.02; } }
+  I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); o.material.color.multiplyScalar(0.75); z.mats.push(o.material); I.mallas.push(o); });
+  const mat0 = new Map(); z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id)) { mat0.set(o, o.material); o.material = P3D.invisible; } });
+  z.root.updateMatrixWorld(true);
+  const lado = n => { const b = I.B[n]; if (!b) return 0; b.getWorldPosition(_zv); z.body.worldToLocal(_zv); return _zv.x; };
+  const sx = lado(H.fl) < 0 ? 1 : -1;   // la pata izquierda del modelo está del lado de la pata 0 de bloques
+  const A = { I, perro: H, sx, mat0, movidos: [], marco: {}, partes: {}, vistas: {}, px: z.root.position.x, pz: z.root.position.z, v: 0, acc: 0 };
+  z.z3d = A; Z3D.list.push(z); Z3D.vivos++;
+}
+// los ejes de giro de cada hueso (de lado y hacia arriba del perro) en el espacio de su padre: se calculan una vez
+function z3dPerroEjes(z, A) {
+  const B = A.I.B, H = A.perro, ej = A.ejes = {}; z.body.updateMatrixWorld(true); z.body.getWorldQuaternion(_zq);
+  for (const k of ['fl', 'fr', 'bl', 'br', 'neck', 'head', 'jaw', 'tail1', 'tail2']) {
+    const b = H[k] && B[H[k]]; if (!b) continue; b.parent.getWorldQuaternion(_zq2); const inv = _zq2.clone().invert();
+    ej[k] = { b, x: new THREE.Vector3(1, 0, 0).applyQuaternion(_zq).applyQuaternion(inv), y: new THREE.Vector3(0, 1, 0).applyQuaternion(_zq).applyQuaternion(inv), r: A.I.rest.get(b) };
+  }
+}
+const _zqa = new THREE.Quaternion();
+function z3dPerroPaso(z, A) {
+  if (!A.ejes) z3dPerroEjes(z, A);
+  const E = A.ejes;
+  const gira = (k, eje, a) => { const e = E[k]; if (!e) return; e.b.quaternion.copy(e.r); if (a) e.b.quaternion.premultiply(_zqa.setFromAxisAngle(e[eje], a)); };
+  const L = z.legs || [], s = A.sx;
+  gira(s > 0 ? 'fl' : 'fr', 'x', L[0] ? L[0].rotation.x : 0); gira(s > 0 ? 'fr' : 'fl', 'x', L[1] ? L[1].rotation.x : 0);
+  gira(s > 0 ? 'bl' : 'br', 'x', L[2] ? L[2].rotation.x : 0); gira(s > 0 ? 'br' : 'bl', 'x', L[3] ? L[3].rotation.x : 0);
+  gira('neck', 'x', z.headG ? z.headG.rotation.x * 0.6 : 0); gira('head', 'x', z.headG ? z.headG.rotation.x * 0.5 : 0);
+  gira('jaw', 'x', z.windup > 0 || z.eating || z.lunge > 0 ? 0.55 : 0.12 + Math.sin(z.t * 3) * 0.05);   // abre la boca al atacar
+  gira('tail1', 'y', z.tail ? z.tail.rotation.y : 0); gira('tail2', 'y', z.tail ? z.tail.rotation.y * 0.6 : 0);
 }
 // vuelve a ser de bloques (los jefes y minijefes siguen de bloques por ahora)
 function z3dQuitar(z) {
@@ -33620,6 +33665,7 @@ function z3dPaso(dt) {
   for (let i = Z3D.list.length - 1; i >= 0; i--) {
     const z = Z3D.list[i], A = z.z3d, I = A.I, p = z.root.position;
     if (!z.root.parent) { Z3D.list.splice(i, 1); continue; }
+    if (A.perro) { z3dPerroPaso(z, A); continue; }
     if (!z.body.visible && I.m.visible) I.m.visible = false;   // el Hinchado revienta
     const v = Math.hypot(p.x - A.px, p.z - A.pz) / Math.max(dt, 1e-3); A.px = p.x; A.pz = p.z; A.v = damp(A.v, v, 8, dt);
     // los lejanos se animan menos seguido (en el teléfono hay muchos zombis)
