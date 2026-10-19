@@ -15,6 +15,10 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 6. Las cajas de la Trastienda tapan la ruleta.
 7. Lag cuando hay explosiones.
 
+### G0b · Mapas y jefes (decisión del dueño, 19-oct-2026) · hecho en la versión de prueba
+- Todos los mapas listos están abiertos desde el inicio; el Cementerio siempre es el primero.
+- Jefe 1 del casino tras 5 mapas, jefe 2 tras 6, luego 7, 8 y 9 (visita final). Se quitan los logros «Desbloquea 4 mapas nuevos» y «Todos los lugares».
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
