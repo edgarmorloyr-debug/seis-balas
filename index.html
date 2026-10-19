@@ -3237,6 +3237,7 @@ function streetLamp(x, z, color, withLight, ry = 0) {
   M(bx(0.35, 0.12, 0.3), bsc(color), 0.9, 4.05, 0, { p: g, cast: false });
   if (withLight) lampLight(0.9, 3.85, 0, color, 1.5, 18, g);
   addCircle(x, z, 0.3);
+  if (world.m3dL && world.m3dL.on) { g.children.filter(o => o.isMesh).forEach(m3dQuitarObj); const p = lw(g, 0.9, 0); world.m3dL.pon(M3G.farola(color), p.x, p.z, ry); }   // modelo 3D (la luz se queda)
 }
 function oak(x, z, s, col = 0x23331f, collide = true) {
   const g = Grp(x, z, sr(0, TAU));
@@ -3244,6 +3245,7 @@ function oak(x, z, s, col = 0x23331f, collide = true) {
   const cm = lam(col, { flatShading: true });
   for (let i = 0; i < 3; i++) M(new THREE.IcosahedronGeometry(sr(1.2, 1.8) * s, 0), cm, sr(-0.8, 0.8) * s, sr(3.2, 4.2) * s, sr(-0.8, 0.8) * s, { p: g });
   if (collide) addCircle(x, z, 0.4 * s);
+  if (world.m3dL && world.m3dL.on) { m3dQuitarObj(g); world.m3dL.pon(M3G.roble, x, z, g.rotation.y, 5 * s); }   // modelo 3D (mismo choque)
 }
 const branchGeo = new THREE.CylinderGeometry(0.35, 1, 1, 5); branchGeo.translate(0, 0.5, 0);
 function deadTree(x, z, s, collide, mat) {
@@ -3257,6 +3259,7 @@ function deadTree(x, z, s, collide, mat) {
     if (srand() < 0.6) { const t = new THREE.Mesh(branchGeo, mat); t.scale.set(0.6, 0.5, 0.6); t.position.set(0, 0.7, 0); t.rotation.z = sr(-0.9, 0.9); b.add(t); }
   }
   if (collide) addCircle(x, z, 0.45 * s);
+  if (world.m3dL && world.m3dL.on && !deadTree.sin3d) { m3dQuitarObj(g); world.m3dL.pon(M3G.arbolSeco, x, z, g.rotation.y, 5.2 * s); }   // modelo 3D (mismo choque)
 }
 function fenceLine(x1, z1, x2, z2, mat, h = 1.2, gap = 2.4, collide = true, picket = false) {
   const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz), ry = Math.atan2(-dz, dx);
@@ -5004,7 +5007,7 @@ function buildMap(i) {
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null; world.zonas = null;
-  world.idx = i; world.maidSpots = null; world.m3d = null; srand = mulberry32(1866 + i * 977);
+  world.idx = i; world.maidSpots = null; world.m3d = null; world.m3dCaja = null; srand = mulberry32(1866 + i * 977);
   const L3 = world.m3dL = m3dLote();   // modelos 3D del mapa: cada constructor anota dónde va cada uno
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
@@ -12378,6 +12381,15 @@ const M3D_CRED = [
   ["linterna_piedra", "Old Japanese Lamp", "MarcHoogkamp", "CC BY 4.0", "https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db"],
   ["cerezo", "Low- Poly Cherry Blossom Tree 3D Models", "lsclarke", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cherry-blossom-tree-3d-models-4b76fd63c81e4d489cc06ec66c12a866"],
   ["palmera", "Coconut Tree", "sujirour", "CC BY 4.0", "https://sketchfab.com/3d-models/coconut-tree-d141941578044b0f861ca83b36d4c411"],
+  ["mesa_redonda", "Casino Poker Table", "Nathan Powell", "CC BY 4.0", "https://sketchfab.com/3d-models/casino-poker-table-f36fc75d825148618aa6e5cbfb43f28e"],
+  ["columna", "Low Poly Classical Column", "chmonya200", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-classical-column-e232b50b588a48e291b7a1be0b82d9d3"],
+  ["osito", "Teddy Bear Low Poly", "espinoz4la", "CC BY 4.0", "https://sketchfab.com/3d-models/teddy-bear-low-poly-ebee03fcc13d44bf88dcdcbd2fd6db03"],
+  ["patito_peluche", "Duck Plush", "SunnyBuns", "CC BY 4.0", "https://sketchfab.com/3d-models/duck-plush-886b9a0dfbc34cf2bea40cfb724457a6"],
+  ["cono", "Traffic Cone Low-poly PBR", "MaX3Dd", "CC BY 4.0", "https://sketchfab.com/3d-models/traffic-cone-low-poly-pbr-05d3184730f942a3a94465b72dfc766d"],
+  ["silla_oficina", "Low Poly Office Chair", "NoodleBaguette", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-office-chair-448bfab6a5bb4d94ba439a50ddc89a29"],
+  ["rocas", "Low Poly Stylized Rocks", "Erdem Dağdelen", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-stylized-rocks-99544bd16600463fa5a34ecbd98eb980"],
+  ["contenedor", "Low Poly Cargo Container", "yxungsauce2", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7"],
+  ["caja_scifi", "Sci-fi Crate", "Darren McNerney 3D", "CC BY 4.0", "https://sketchfab.com/3d-models/sci-fi-crate-0e60a62a8f1e4048b638a32eb0661015"],
 ];
 function m3dArchivo(n) {
   if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
@@ -12425,7 +12437,7 @@ function d3Mat(p, S) {
   if (S.tinte != null) return lam(S.tinte, { flatShading: true });
   const map = m.map || null; if (map) { map.encoding = THREE.LinearEncoding; map.needsUpdate = true; }
   const o = { map, flatShading: !!m.flatShading || !p.geo.attributes.normal }; if (m.vertexColors) o.vertexColors = true; if (m.transparent || m.alphaTest) { o.alphaTest = 0.5; o.side = THREE.DoubleSide; }
-  const c = new THREE.Color(map ? 0xffffff : m.color.getHex()); if (S.color != null) c.multiply(new THREE.Color(S.color));
+  const c = new THREE.Color(map || (S.blanco && S.pinta && new RegExp(S.pinta).test(m.name)) ? 0xffffff : m.color.getHex()); if (S.color != null) c.multiply(new THREE.Color(S.color));   // blanco: lo que se pinta por copia parte de blanco
   return lam(c, o);
 }
 // pone copias de una pieza: lista de [x, z, giro, escala, y, matriz (opcional, manda sobre x/z/giro), color (opcional)]
@@ -12437,7 +12449,8 @@ function d3Poner(v, lista, S) {
   for (const p of v.parts) {
     const im = new THREE.InstancedMesh(p.geo, d3Mat(p, S), lista.length);
     lista.forEach(([x, z, ry, s, y = 0, m, c], i) => {
-      if (m) { O.matrix.multiplyMatrices(m, _d3S.makeScale(s, s, s)); } else { O.position.set(x, y, z); O.rotation.set(0, ry, 0); O.scale.setScalar(s); O.updateMatrix(); }
+      const sx = Array.isArray(s) ? s[0] : s, sy = Array.isArray(s) ? s[1] : s, sz = Array.isArray(s) ? (s[2] != null ? s[2] : s[0]) : s;   // [ancho, alto(, largo)] estira el modelo
+      if (m) { O.matrix.multiplyMatrices(m, _d3S.makeScale(sx, sy, sz)); } else { O.position.set(x, y, z); O.rotation.set(0, ry, 0); O.scale.set(sx, sy, sz); O.updateMatrix(); }
       im.setMatrixAt(i, O.matrix);
       if (pinta && pinta.test(p.src.name)) { _d3C.setHex(c != null ? c : 0xffffff); if (S.aclara) _d3C.lerp(_d3W, S.aclara); im.setColorAt(i, _d3C); }
     });
@@ -12453,22 +12466,25 @@ function m3dLote() {
   L.pon = (S, x, z, ry = 0, tam = null, y = 0, vi = null, m = null, c = null) => { let a = L.lista.get(S); if (!a) L.lista.set(S, a = []); a.push([x, z, ry, tam, y, vi, m, c]); };
   L.fin = () => {
     if (!M3D.on) return;
-    for (const [S, a] of L.lista) m3dPiezas(S).then(vs => {
+    let pend = L.lista.size; if (!pend) tok.listo = true;   // tok.listo: ya están todos (las pruebas lo esperan)
+    for (const [S, a] of L.lista) m3dPiezas(S).finally(() => { if (--pend === 0) tok.listo = true; }).then(vs => {
       if (world.m3d !== tok || !vs.length) return;
       const por = vs.map(() => []);
       a.forEach(([x, z, ry, tam, y, vi, m, c], i) => {
         const k = vi != null ? vi % vs.length : (i * 7 + Math.floor(Math.abs(x * 13 + z * 7))) % vs.length, v = vs[k];
         const al = (S.altoDe && S.altoDe(v)) || S.alto, t = tam != null ? tam : al ? al[0] + (al[1] - al[0]) * (((i * 37) % 100) / 100) : v.h;
-        const base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, s = t / base, a = ry + (S.giro || 0);
+        const base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, a = ry + (S.giro || 0);
+        let s = t / base; if (Array.isArray(t)) s = t.length > 2 ? [t[0] / v.w, t[1] / v.h, t[2] / v.d] : [t[0] / v.w, t[1] / v.h];   // tamaño [ancho, alto(, largo)]: el modelo se estira
+        const s1 = Array.isArray(s) ? s[0] : s;
         let px = x, pz = z;
         if (S.ancla) {   // un punto del modelo (p. ej. la luz del farol) queda justo en x, z
           if (!v.ancla) v.ancla = S.ancla(v) || new THREE.Vector3();
-          const ox = v.ancla.x * s, oz = v.ancla.z * s; px -= ox * Math.cos(a) + oz * Math.sin(a); pz -= -ox * Math.sin(a) + oz * Math.cos(a);
+          const ox = v.ancla.x * s1, oz = v.ancla.z * s1; px -= ox * Math.cos(a) + oz * Math.sin(a); pz -= -ox * Math.sin(a) + oz * Math.cos(a);
         }
         if (m && (S.giro || S.anclaLocal)) {   // con matriz: el giro del modelo y (farolas) su luz en un punto de la pieza vieja
           m = m.clone(); if (S.anclaLocal) m.multiply(new THREE.Matrix4().makeTranslation(S.anclaLocal[0], 0, S.anclaLocal[1]));
           if (S.giro) m.multiply(new THREE.Matrix4().makeRotationY(S.giro));
-          if (S.ancla) { if (!v.ancla) v.ancla = S.ancla(v) || new THREE.Vector3(); m.multiply(new THREE.Matrix4().makeTranslation(-v.ancla.x * s, 0, -v.ancla.z * s)); }
+          if (S.ancla) { if (!v.ancla) v.ancla = S.ancla(v) || new THREE.Vector3(); m.multiply(new THREE.Matrix4().makeTranslation(-v.ancla.x * s1, 0, -v.ancla.z * s1)); }
         }
         por[k].push([px, pz, a, s, y, m, c]);
       });
@@ -12480,16 +12496,20 @@ function m3dLote() {
 // para lo que se rompe, se mueve o se dispara (cajas rompibles…): el objeto de siempre se queda (choques, disparos, animación)
 // pero se vuelve invisible y el modelo va colgado de él; hasta que llega el modelo se ve el de antes
 const M3D_INV = new THREE.MeshBasicMaterial({ visible: false });
-function m3dHijo(obj, S, tam, vi = 0) {
+// o = { ocultar: [mallas que se vuelven invisibles (siguen chocando)], color: color de la copia (spec.pinta) }
+function m3dHijo(obj, S, tam, vi = 0, o = {}) {
   if (!M3D.on) return;
   const tok = world.m3d;
   m3dPiezas(S).then(vs => {
     if (world.m3d !== tok || !vs.length || !obj.parent) return;
-    const v = vs[vi % vs.length], base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, k = tam / base;
+    const v = vs[vi % vs.length], base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, k = tam / base, pinta = S.pinta ? new RegExp(S.pinta) : null;
     let y0 = 0; if (obj.geometry) { if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox(); y0 = obj.geometry.boundingBox.min.y; }
     if (obj.isMesh) obj.material = M3D_INV;
+    for (const q of o.ocultar || []) q.material = M3D_INV;
     for (const p of v.parts) {
-      const m = new THREE.Mesh(p.geo, p.mat3 || (p.mat3 = d3Mat(p, S))); m.scale.setScalar(k / (obj.scale.x || 1)); m.position.y = y0; if (S.giro) m.rotation.y = S.giro;
+      let mat = p.mat3 || (p.mat3 = d3Mat(p, S));
+      if (pinta && o.color != null && pinta.test(p.src.name)) { mat = mat.clone(); const c = new THREE.Color(o.color); if (S.aclara) c.lerp(_d3W, S.aclara); mat.color.multiply(c); }
+      const m = new THREE.Mesh(p.geo, mat); m.scale.setScalar(k / (obj.scale.x || 1)); m.position.y = y0; if (S.giro) m.rotation.y = S.giro;
       m.castShadow = true; m.receiveShadow = true; m.raycast = () => {}; obj.add(m);
     }
   });
@@ -12522,6 +12542,17 @@ const M3G = {
   cedro: { f: 'pino', color: 0x6a8a6e, sombra: false },
   bidonP: { f: 'bidon', pinta: '.', aclara: 0.4 },
   palmera: { f: 'palmera' },
+  mesaRedonda: { f: 'mesa_redonda' },
+  columna: { f: 'columna' },
+  osito: { f: 'osito', pinta: '^material$', blanco: true, aclara: 0.2, sombra: false, solido: false },
+  patitoP: { f: 'patito_peluche', sombra: false, solido: false },
+  cono: { f: 'cono' },
+  sillaOficina: { f: 'silla_oficina', giro: Math.PI },
+  rocaLuna: { f: 'rocas', clave: 'nodo', tinte: 0x8a8a92 },
+  contenedor: { f: 'contenedor', pinta: '.', aclara: 0.45 },
+  cajaScifi: { f: 'caja_scifi' },
+  rocaLunaO: { f: 'rocas', clave: 'nodo', tinte: 0x5a5a62 },
+  cocheX: { f: 'coche', por: 'largo', giro: Math.PI / 2, pinta: '^Rough' },   // coche con el largo en x
   pinoHada: { f: 'pino', color: 0x5a6a8a, sombra: false },   // el bosque oscuro de los duendes
   farolaBrazo(col, dx) { const k = 'b' + col + dx; return this.farolas[k] || (this.farolas[k] = Object.assign({}, this.farola(col), { anclaLocal: [dx, 0] })); },
   papelera: { f: 'papelera' },
@@ -13725,8 +13756,17 @@ function farmSway(mat, uT, amp) {
   };
   mat.customProgramCacheKey = () => 'farmSway' + amp;
 }
+// la granja: fardos redondos, manzanos, calabazas (algunas talladas) y pinos del borde
+const G3 = {
+  fardo: { f: 'fardos', clave: 'nodo', usar: '\\|HayRoll_Straw0' },
+  manzano: { f: 'manzano' },
+  calabaza: { f: 'calabaza' },
+  tallada: { f: 'calabaza_tallada' },
+  pino: { f: 'pino' }
+};
 function buildFarm() {
   world.arena = { t: 'r', hx: 82, hz: 82 }; world.start = { x: 2, z: 6 };   // la granja de siempre en el centro y tres zonas alrededor (granjaGrande)
+  const L3 = world.m3dL, F3 = L3.on;   // modelos 3D (ver M3D y G3)
   world.shirts = [0x2e4a6e, 0x7a2a22, 0x5a4a32, 0x6a5a3a, 0x3a5a3a, 0x8a3a2a]; world.hat = 'straw'; world.hatP = 0.35;
   world.mix = { dog: 2.2, crawler: 1.2 };
   env({ fog: 0x2a2019, dens: 0.026, top: 0x0d0c1a, hemiS: 0x9a8470, hemiG: 0x2a2015, hemiI: 0.62, moonC: 0xe8c8a0, moonI: 0.7, wind: 0.09 });
@@ -14162,6 +14202,7 @@ function grjValla(h, mat, puertas, signTex) {
   }
 }
 function granjaGrande(K) {
+  const L3 = world.m3dL, F3 = L3.on;   // modelos 3D (ver M3D y G3)
   const { wood, straw, roofDark, red, white, metal, black, uT } = K;
   world.big = true; world.llaves = true; world.llvSpots = [];
   world.zonas = [{ k: 'mai', nombre: 'en el maizal', en: enMaizal }, { k: 'gra', nombre: 'en el granero', en: enGranero }, { k: 'pan', nombre: 'en el pantano', en: enPantano }];
@@ -14416,7 +14457,7 @@ function granjaGrande(K) {
     world.spawns.push({ x: BX + 2, z: BZ - 4, rise: false }, { x: BX - 6, z: BZ - 3.6, rise: false });
     // fardos redondos sueltos en el prado del oeste
     const ROLL = new THREE.CylinderGeometry(0.8, 0.8, 1.4, 14);
-    for (const [x, z] of [[-42, -60], [-41, -66.5], [-43.5, -70], [-52, -50], [-55, -76], [-72, -48], [-8, -76], [-14, -47.6], [3, -66]]) { M(ROLL, hayM, x, 0.8, z, { solid: true, rz: Math.PI / 2, ry: sr(0, TAU) }); addCircle(x, z, 0.95); }
+    for (const [x, z] of [[-42, -60], [-41, -66.5], [-43.5, -70], [-52, -50], [-55, -76], [-72, -48], [-8, -76], [-14, -47.6], [3, -66]]) { const ry = sr(0, TAU); if (F3) L3.pon(G3.fardo, x, z, ry, 1.6); else M(ROLL, hayM, x, 0.8, z, { solid: true, rz: Math.PI / 2, ry }); addCircle(x, z, 0.95); }
   }
   {
     // ---- Los tres silos, la cinta que sube al más alto y la campana de la cena
@@ -14603,6 +14644,7 @@ function granjaGrande(K) {
       for (let i = 0; i < 5; i++) { const a = sr(0, TAU); M(MANZ, appleM, Math.cos(a) * 1.15, sr(2.2, 3.2), Math.sin(a) * 1.15, { p: g, cast: false }); }
       for (let i = 0; i < 2; i++) M(MANZ, appleM, sr(-1.4, 1.4), 0.07, sr(-1.4, 1.4), { p: g, cast: false });
       addCircle(x, z, 0.35);
+      if (F3) { g.children.slice(0, 8).forEach(m3dQuitarObj); L3.pon(G3.manzano, x, z, g.rotation.y, 4.3); }   // modelo 3D (las manzanas del suelo se quedan)
     }
     // carro de manzanas junto al camino
     { const g = Grp(-61, -15.6, 0.1); M(bx(2.0, 0.5, 1.2), wood, 0, 0.8, 0, { p: g }); for (const s of [-1, 1]) M(cyl(0.5, 0.5, 0.1, 10), woodDk, 0.4, 0.5, s * 0.66, { p: g, rx: Math.PI / 2 }); M(bx(0.08, 0.08, 1.6), wood, -1.6, 0.6, 0, { p: g, rz: 0.4 }); for (let i = 0; i < 14; i++) M(MANZ, appleM, sr(-0.8, 0.8), 1.1 + sr(0, 0.15), sr(-0.45, 0.45), { p: g, cast: false }); addBox(-61, -15.6, 1.1, 0.7, 0.1); }
@@ -14612,9 +14654,10 @@ function granjaGrande(K) {
     const CAL = new THREE.SphereGeometry(0.34, 8, 6), RAB = new THREE.CylinderGeometry(0.03, 0.04, 0.16, 5), cara = bsc(0xffb040);
     for (let i = 0; i < 70; i++) {
       const x = sr(-67, -43), z = sr(17, 37); if (Math.hypot(x + 54, z - 16) < 2.5 || pointBlocked(x, z, 0.5) || Math.hypot(x + 56.5, z - 27.6) < 2.2) continue;
-      const s = sr(0.6, 1.4), c = M(CAL, pumpM, x, 0.24 * s, z, { ry: sr(0, TAU) }); c.scale.set(s, 0.72 * s, s); M(RAB, vineM, x, 0.5 * s, z, { cast: false });
+      const s = sr(0.6, 1.4), c = M(CAL, pumpM, x, 0.24 * s, z, { ry: sr(0, TAU) }), rab = M(RAB, vineM, x, 0.5 * s, z, { cast: false }); c.scale.set(s, 0.72 * s, s);
       M(bx(sr(0.6, 1.4), 0.03, 0.05), vineM, x + 0.4, 0.03, z, { ry: sr(0, TAU), cast: false });
-      if (i % 9 === 0) { M(bx(0.3 * s, 0.1 * s, 0.02), cara, x, 0.26 * s, z + 0.33 * s, { cast: false }); flames.push(glowAt(x, 0.3 * s, z + 0.5 * s, 0xffa040, 0.8)); }
+      if (F3) { m3dQuitarObj(c); m3dQuitarObj(rab); L3.pon(i % 9 === 0 ? G3.tallada : G3.calabaza, x, z, i % 9 === 0 ? 0 : c.rotation.y, 0.62 * s); }   // modelo 3D
+      if (i % 9 === 0) { if (!F3) M(bx(0.3 * s, 0.1 * s, 0.02), cara, x, 0.26 * s, z + 0.33 * s, { cast: false }); flames.push(glowAt(x, 0.3 * s, z + 0.5 * s, 0xffa040, 0.8)); }
       if (s > 1.1) addCircle(x, z, 0.35 * s);
     }
     { const g = Grp(-54, 15.2, 0); M(cyl(0.05, 0.05, 1.6, 5), wood, 0, 0.8, 0, { p: g }); M(new THREE.PlaneGeometry(1.4, 0.45), bsc(0xffffff, { map: signTex('CALABAZAS', 256, 80, 'bold 40px serif', '#4a3626', '#e8c070') }), 0, 1.45, 0.04, { p: g, cast: false }); addCircle(-54, 15.2, 0.15); }
@@ -14636,7 +14679,7 @@ function granjaGrande(K) {
     const mk = (geo, mat, list, cast) => { const im = new THREE.InstancedMesh(geo, mat, list.length); list.forEach((mm, i) => im.setMatrixAt(i, mm)); im.castShadow = cast; im.receiveShadow = true; im.frustumCulled = false; world.group.add(im); };
     mk(bx(0.1, 1.4, 0.1), woodDk, postes, true); mk(bx(1, 0.02, 0.02), iron, hilos, false);
     const PT = new THREE.CylinderGeometry(0.12, 0.3, 3.4, 6), PC = [new THREE.ConeGeometry(2.0, 3.2, 7), new THREE.ConeGeometry(1.6, 2.8, 7), new THREE.ConeGeometry(1.1, 2.3, 7)];
-    const pino = (x, z, s) => { const g = Grp(x, z, sr(0, TAU)); M(PT, bark, 0, 1.7 * s, 0, { p: g }).scale.setScalar(s); PC.forEach((geo, i) => { const m = M(geo, i % 2 ? pineM : pineM2, 0, (2.6 + i * 1.5) * s, 0, { p: g }); m.scale.setScalar(s); }); };
+    const pino = (x, z, s) => { const g = Grp(x, z, sr(0, TAU)); if (F3) { m3dQuitarObj(g); L3.pon(G3.pino, x, z, g.rotation.y, 6.8 * s); return; } M(PT, bark, 0, 1.7 * s, 0, { p: g }).scale.setScalar(s); PC.forEach((geo, i) => { const m = M(geo, i % 2 ? pineM : pineM2, 0, (2.6 + i * 1.5) * s, 0, { p: g }); m.scale.setScalar(s); }); };
     for (let x = -96; x < 44; x += 4.2) { pino(x + sr(-1, 1), -sr(85, 90), sr(1.3, 2.0)); pino(x + sr(-1, 1), -sr(91, 97), sr(1.4, 2.1)); }
     for (let z = -96; z < 44; z += 4.2) { pino(-sr(85, 90), z + sr(-1, 1), sr(1.3, 2.0)); if (z > -80) pino(-sr(91, 97), z + sr(-1, 1), sr(1.4, 2.1)); }
     for (let x = -96; x < 44; x += 5.5) deadTree(x + sr(-1.5, 1.5), sr(85, 94), sr(1.3, 2.0), false, bark);
