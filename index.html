@@ -2591,7 +2591,7 @@ const fmt = n => Math.round(n).toLocaleString('es-ES');
 
 /* ===================== SONIDO (todo sintetizado) ===================== */
 const Sfx = (() => {
-  let ctx = null, out, lp, revIn, noise, hurtT = 0, windG = null, windLevel = 0.07;
+  let ctx = null, out, lp, revIn, noise, hurtT = 0, duckG = null, vozG = null, dolG = 0, windG = null, windLevel = 0.07;
   // Eco de cada lugar y oído 3D (lo que suena detrás se oye más apagado)
   let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null, echoIn, echoD, echoF, echoFb, echoOut, earF, earO, earG, ear = 0, takeN = {}, ambT = 2;
   // Sonidos grabados (de uso libre, CC0: Kenney y OpenGameArt; ver snd/CREDITOS.txt). Si no cargan, suena lo sintetizado.
@@ -2624,7 +2624,7 @@ const Sfx = (() => {
     if (o.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; n.connect(f); n = f; }
     const v = Math.max(0.0002, o.vol == null ? 1 : o.vol);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012); g.gain.setValueAtTime(v, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    n.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.15 : o.wet)); s.start(t, off, dur * r + 0.05); s.stop(t + dur + 0.05);
+    n.connect(g); g.connect((o.voz ? busVoz : bus)(o.pan || 0, o.wet == null ? 0.15 : o.wet)); s.start(t, off, dur * r + 0.05); s.stop(t + dur + 0.05);
     return true;
   }
   // Voz sintetizada para quejidos: cuerdas vocales (diente de sierra con su curva de tono) y tres formantes de la vocal
@@ -2711,7 +2711,7 @@ const Sfx = (() => {
     out = ctx.createGain(); out.gain.value = settings.vol * settings.gvol;
     lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 20000;
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -5; comp.knee.value = 4; comp.ratio.value = 10; comp.attack.value = 0.002; comp.release.value = 0.12;
-    lp.connect(comp); comp.connect(out); out.connect(ctx.destination);
+    duckG = ctx.createGain(); lp.connect(duckG); duckG.connect(comp); comp.connect(out); out.connect(ctx.destination);   // G0-4: duckG baja un instante los disparos y efectos cuando tu personaje se queja
     const rev = ctx.createConvolver(); rev.buffer = impulse(2.6, 2.6); revNode = rev;
     revIn = ctx.createGain(); revIn.gain.value = 0.5; revIn.connect(rev); rev.connect(lp);
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -2721,6 +2721,7 @@ const Sfx = (() => {
     echoIn.connect(echoD); echoD.connect(echoF); echoF.connect(echoOut); echoF.connect(echoFb); echoFb.connect(echoD); echoOut.connect(lp); echoOut.gain.value = 0;
     // D · oídos aturdidos: filtro general y un pitido muy suave
     earF = ctx.createBiquadFilter(); earF.type = 'lowpass'; earF.frequency.value = 20000; comp.disconnect(); comp.connect(earF); earF.connect(out);
+    vozG = ctx.createGain(); vozG.connect(earF);   // G0-4: los quejidos van por su propio camino: no los aplasta el compresor de los disparos
     earO = ctx.createOscillator(); earO.type = 'sine'; earO.frequency.value = 3900; earG = ctx.createGain(); earG.gain.value = 0; earO.connect(earG); earG.connect(out); earO.start();
     ambient(); applyRoom(); loadSamples();
   }
@@ -2731,6 +2732,15 @@ const Sfx = (() => {
     if (bh > 0.08) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 16000 - 12500 * bh; f.Q.value = 0.5; const a = ctx.createGain(); a.gain.value = 1 - 0.3 * bh; node.connect(f); f.connect(a); node = a; }
     if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
     node.connect(lp);
+    if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet; node.connect(w); w.connect(revIn); }
+    return g;
+  }
+  // camino de la voz (quejidos): paneo y eco como los demás, pero entra después del compresor
+  function busVoz(pan = 0, wet = 0.15) {
+    if (!vozG) return bus(pan, wet);
+    const g = ctx.createGain(); let node = g;
+    if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
+    node.connect(vozG);
     if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet; node.connect(w); w.connect(revIn); }
     return g;
   }
@@ -3006,15 +3016,18 @@ const Sfx = (() => {
     // quejido al recibir un golpe: 4 por personaje (mmf, ¡uh!, un trozo de su grito y, si el golpe es fuerte, el trozo largo con un «¡ah!» encima).
     // pw: fuerza del golpe (0 = daño continuo como fuego o gas; 1 = golpe grande) · quien: 'yo' o el id del compañero (cada uno con su espera)
     dolor(ch, pw = 0.5, pan = 0, vol = 1, quien = 'yo') {
-      if (!ctx) return 0; const V = VOZ[ch] || VOZ.sheriff, now = ctx.currentTime;
-      if (now < (dolT[quien] || 0)) return 0;
+      if (!ctx) return 0; const V = VOZ[ch] || VOZ.sheriff, now = ctx.currentTime, Q = BAL.vozDolor;
+      if (now < (dolT[quien] || 0) || now < dolG) return 0;   // cada uno con su espera y, entre todos, nunca dos quejidos encima (G0-4)
       let v; if (pw <= 0.05) v = 1; else if (pw >= 0.6) v = 4; else { v = Math.random() < 0.5 ? 2 : 3; if (v === dolU[quien]) v = 5 - v; }
-      dolU[quien] = v; dolT[quien] = now + (v === 1 ? 2.2 : v === 4 ? 1.1 : 0.75);
-      const b = () => bus(pan, 0.15);
+      dolU[quien] = v; dolT[quien] = now + (v === 1 ? Q.esperaSuave : v === 4 ? Q.esperaFuerte : Q.espera); dolG = now + Q.entre;
+      vol *= quien === 'yo' ? Q.vol : Q.volOtro;
+      const b = () => busVoz(pan, 0.15);
       if (v === 1) voz(ctx, b(), now, V, 'm', rand(0.2, 0.26), 0.22 * vol);
       else if (v === 2) voz(ctx, b(), now, V, 'u', rand(0.17, 0.24), 0.5 * vol);
-      else if (v === 3) { const [o, d, r] = V.corto; if (!smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.75 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp })) voz(ctx, b(), now, V, 'a', 0.26, 0.5 * vol); }
-      else { const [o, d, r] = V.fuerte; const ok = smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.85 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, wet: 0.25 }); voz(ctx, b(), now, V, 'a', ok ? 0.34 : 0.48, (ok ? 0.28 : 0.55) * vol); }
+      else if (v === 3) { const [o, d, r] = V.corto; if (!smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.75 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, voz: true })) voz(ctx, b(), now, V, 'a', 0.26, 0.5 * vol); }
+      else { const [o, d, r] = V.fuerte; const ok = smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.85 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, wet: 0.25, voz: true }); voz(ctx, b(), now, V, 'a', ok ? 0.34 : 0.48, (ok ? 0.28 : 0.55) * vol); }
+      // tu propio quejido: los disparos y efectos bajan un momento para que se entienda (solo si no es el daño continuo)
+      if (quien === 'yo' && v > 1 && duckG) { duckG.gain.cancelScheduledValues(now); duckG.gain.setTargetAtTime(Q.agacha, now, 0.02); duckG.gain.setTargetAtTime(1, now + Q.agachaT, 0.12); }
       return v;
     },
     _voz: voz, _voces: VOZ,
@@ -22741,6 +22754,9 @@ const BAL = {
     X: { rar: 5, name: 'Secreta', col: '#ff3d6e', fondo: '#4d0d1e', texto: '#ffd0dc', brillo: true }   // secreta: carmesí con brillo (elegido por Claude: distinto de los otros cuatro)
   },
   subeRango: { C: 'B', B: 'A', A: 'S', S: 'X' },
+  // G0-4 · Quejidos al recibir un golpe: volumen (tú y tus compañeros), esperas en segundos (suave, normal, fuerte y entre dos quejidos de cualquiera),
+  // y cuánto bajan un instante los disparos (agacha, de 0 a 1, durante agachaT s) y la música (musica, durante musicaT s) para que se oigan
+  vozDolor: { vol: 1.8, volOtro: 1.3, esperaSuave: 2.2, espera: 0.85, esperaFuerte: 1.1, entre: 0.35, agacha: 0.45, agachaT: 0.4, musica: 0.55, musicaT: 0.6 },
   slotBase: 6,
   slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
   balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro', ludo: 'apuesta' },
@@ -25107,7 +25123,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
   if (!opt.tick || Math.random() < 0.1) Sfx.hurt();
   { const k = opt.k === undefined ? (opt.acid ? 'acid' : opt.tick ? 'burn' : 'blunt') : opt.k; if (k) Golpes.marca(k, amount, src, !!opt.tick); }
-  if (player.hp > 0) Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo');   // quejido de dolor de tu personaje (al morir suena su grito)
+  if (player.hp > 0 && Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo') > 1) Music.duck(BAL.vozDolor.musica, BAL.vozDolor.musicaT);   // quejido de dolor de tu personaje (al morir suena su grito)
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
   if (player.hp <= 0 && game.char === 'armando' && !game.veloUsed) { game.veloUsed = 1; player.hp = Math.round(player.maxHp * 0.3); banner('¡Don Velorio se levanta!', 'Su única segunda vida de la partida', 2400); Sfx.heart(); return; }
   if (player.hp <= 0 && balRevivir()) return;   // Resurrección, Emperador inmortal y Fénix
@@ -33910,7 +33926,7 @@ const Music = (() => {
     },
     // amenaza 0..1 (zombis cerca), si hay jefe vivo y si estamos en calma (Trastienda)
     mood(x, b, c) { tension += (x - tension) * 0.25; boss = b; calm = c; },
-    duck() { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(0.35, t, 0.03); bus.gain.setTargetAtTime(1, t + 1, 0.5); } },
+    duck(nv = 0.35, dt = 1) { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(nv, t, 0.03); bus.gain.setTargetAtTime(1, t + dt, 0.5); } },
     setVol(v) { if (ctx) master.gain.setTargetAtTime(v * 0.55, ctx.currentTime, 0.05); }
   };
 })();
