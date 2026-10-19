@@ -258,6 +258,19 @@ body:has(#use:not([hidden])) #hint{top:auto;bottom:calc(106px + env(safe-area-in
 #hud~#combo{top:calc(126px + env(safe-area-inset-top,0px))}
 #hud~#combo b{font-size:16px;padding:4px 8px}
 }
+/* G0-3 · En PC, la misma idea del teléfono (pedido del dueño, 19-oct-2026: los textos tapaban la vista): el anuncio, pequeño y en una línea bajo el título de la oleada;
+   la pista arriba a la izquierda, bajo el panel de vida; y los avisos cortos abajo a la izquierda, a lo sumo 3. La mira del centro queda libre. */
+@media (min-height:501px) and (min-width:601px){
+#banner{top:calc(140px + env(safe-area-inset-top,0px));left:30%;right:30%;padding-inline:0}
+#banner-i{display:none}
+#banner-t{font-size:clamp(24px,2.6vw,34px);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 0 #000,0 0 14px rgba(196,35,44,.6)}
+#banner-s{font-size:15px;letter-spacing:.08em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#feed{top:auto;bottom:calc(96px + env(safe-area-inset-bottom,0px));left:calc(16px + env(safe-area-inset-left,0px));right:auto;width:min(320px,26vw);align-items:flex-start;padding-inline:0}
+#feed .msg{font-size:17px;text-align:left;line-height:1.2}
+#feed .msg:nth-last-child(n+4){display:none}
+#hint{top:calc(140px + env(safe-area-inset-top,0px));bottom:auto;left:calc(16px + env(safe-area-inset-left,0px));transform:none;text-align:left;font-size:15px;letter-spacing:.05em;max-width:min(320px,26vw);width:max-content;white-space:normal;line-height:1.25}
+body:has(#tuto:not([hidden])) #hint{top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);text-align:center;max-width:40vw}   /* en el tutorial, la izquierda es del panel del tutorial */
+}
 @media (orientation:portrait) and (max-width:600px){
 #banner{top:calc(282px + env(safe-area-inset-top,0px))}
 #banner-i{display:none}
@@ -2591,7 +2604,7 @@ const fmt = n => Math.round(n).toLocaleString('es-ES');
 
 /* ===================== SONIDO (todo sintetizado) ===================== */
 const Sfx = (() => {
-  let ctx = null, out, lp, revIn, noise, hurtT = 0, windG = null, windLevel = 0.07;
+  let ctx = null, out, lp, revIn, noise, hurtT = 0, duckG = null, vozG = null, dolG = 0, windG = null, windLevel = 0.07;
   // Eco de cada lugar y oído 3D (lo que suena detrás se oye más apagado)
   let revNode = null, room = { sec: 2.6, decay: 2.6, wet: 0.5, lp: 20000 }, behindNext = 0, behindT = -1, sawN = null, echoIn, echoD, echoF, echoFb, echoOut, earF, earO, earG, ear = 0, takeN = {}, ambT = 2;
   // Sonidos grabados (de uso libre, CC0: Kenney y OpenGameArt; ver snd/CREDITOS.txt). Si no cargan, suena lo sintetizado.
@@ -2624,7 +2637,7 @@ const Sfx = (() => {
     if (o.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; n.connect(f); n = f; }
     const v = Math.max(0.0002, o.vol == null ? 1 : o.vol);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012); g.gain.setValueAtTime(v, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    n.connect(g); g.connect(bus(o.pan || 0, o.wet == null ? 0.15 : o.wet)); s.start(t, off, dur * r + 0.05); s.stop(t + dur + 0.05);
+    n.connect(g); g.connect((o.voz ? busVoz : bus)(o.pan || 0, o.wet == null ? 0.15 : o.wet)); s.start(t, off, dur * r + 0.05); s.stop(t + dur + 0.05);
     return true;
   }
   // Voz sintetizada para quejidos: cuerdas vocales (diente de sierra con su curva de tono) y tres formantes de la vocal
@@ -2711,7 +2724,7 @@ const Sfx = (() => {
     out = ctx.createGain(); out.gain.value = settings.vol * settings.gvol;
     lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 20000;
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -5; comp.knee.value = 4; comp.ratio.value = 10; comp.attack.value = 0.002; comp.release.value = 0.12;
-    lp.connect(comp); comp.connect(out); out.connect(ctx.destination);
+    duckG = ctx.createGain(); lp.connect(duckG); duckG.connect(comp); comp.connect(out); out.connect(ctx.destination);   // G0-4: duckG baja un instante los disparos y efectos cuando tu personaje se queja
     const rev = ctx.createConvolver(); rev.buffer = impulse(2.6, 2.6); revNode = rev;
     revIn = ctx.createGain(); revIn.gain.value = 0.5; revIn.connect(rev); rev.connect(lp);
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -2721,6 +2734,7 @@ const Sfx = (() => {
     echoIn.connect(echoD); echoD.connect(echoF); echoF.connect(echoOut); echoF.connect(echoFb); echoFb.connect(echoD); echoOut.connect(lp); echoOut.gain.value = 0;
     // D · oídos aturdidos: filtro general y un pitido muy suave
     earF = ctx.createBiquadFilter(); earF.type = 'lowpass'; earF.frequency.value = 20000; comp.disconnect(); comp.connect(earF); earF.connect(out);
+    vozG = ctx.createGain(); vozG.connect(earF);   // G0-4: los quejidos van por su propio camino: no los aplasta el compresor de los disparos
     earO = ctx.createOscillator(); earO.type = 'sine'; earO.frequency.value = 3900; earG = ctx.createGain(); earG.gain.value = 0; earO.connect(earG); earG.connect(out); earO.start();
     ambient(); applyRoom(); loadSamples();
   }
@@ -2731,6 +2745,15 @@ const Sfx = (() => {
     if (bh > 0.08) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 16000 - 12500 * bh; f.Q.value = 0.5; const a = ctx.createGain(); a.gain.value = 1 - 0.3 * bh; node.connect(f); f.connect(a); node = a; }
     if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
     node.connect(lp);
+    if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet; node.connect(w); w.connect(revIn); }
+    return g;
+  }
+  // camino de la voz (quejidos): paneo y eco como los demás, pero entra después del compresor
+  function busVoz(pan = 0, wet = 0.15) {
+    if (!vozG) return bus(pan, wet);
+    const g = ctx.createGain(); let node = g;
+    if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
+    node.connect(vozG);
     if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet; node.connect(w); w.connect(revIn); }
     return g;
   }
@@ -2919,7 +2942,7 @@ const Sfx = (() => {
     clang(pan) { if (smpOf('clang', 3, { vol: 0.5, pan, rate: rand(0.9, 1.1), wet: 0.3 })) return; tone({ type: 'square', f0: 1800, f1: 1400, dur: 0.12, vol: 0.12, pan, wet: 0.3 }); tone({ type: 'triangle', f0: 3100, f1: 2900, dur: 0.25, vol: 0.08, pan, wet: 0.3 }); },
     splat(pan, vol = 0.5) { burst({ ftype: 'lowpass', f0: 600, f1: 120, q: 2, dur: 0.25, vol, pan, wet: 0.2 }); },
     thud(pan) { smpOf('fall', 3, { vol: 0.8, pan, rate: rand(0.7, 0.85), wet: 0.3 }); tone({ f0: 90, f1: 30, dur: 0.4, vol: 0.6, pan, wet: 0.3 }); burst({ ftype: 'lowpass', f0: 400, dur: 0.3, vol: 0.4, pan }); },
-    boom() { tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
+    boom() { if (ctx) { if (ctx.currentTime - (this._boomT || -9) < BAL.explosion.sonidoGap) return; this._boomT = ctx.currentTime; } tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
     gas(pan) { this.boom(); burst({ ftype: 'highpass', f0: 2500, dur: 1.2, vol: 0.25, pan, wet: 0.4, attack: 0.05 }); },
     groan(pan, vol, pitch = 1, long = false) {
       if (!ctx || !(vol >= 0.02)) return;
@@ -3006,15 +3029,18 @@ const Sfx = (() => {
     // quejido al recibir un golpe: 4 por personaje (mmf, ¡uh!, un trozo de su grito y, si el golpe es fuerte, el trozo largo con un «¡ah!» encima).
     // pw: fuerza del golpe (0 = daño continuo como fuego o gas; 1 = golpe grande) · quien: 'yo' o el id del compañero (cada uno con su espera)
     dolor(ch, pw = 0.5, pan = 0, vol = 1, quien = 'yo') {
-      if (!ctx) return 0; const V = VOZ[ch] || VOZ.sheriff, now = ctx.currentTime;
-      if (now < (dolT[quien] || 0)) return 0;
+      if (!ctx) return 0; const V = VOZ[ch] || VOZ.sheriff, now = ctx.currentTime, Q = BAL.vozDolor;
+      if (now < (dolT[quien] || 0) || now < dolG) return 0;   // cada uno con su espera y, entre todos, nunca dos quejidos encima (G0-4)
       let v; if (pw <= 0.05) v = 1; else if (pw >= 0.6) v = 4; else { v = Math.random() < 0.5 ? 2 : 3; if (v === dolU[quien]) v = 5 - v; }
-      dolU[quien] = v; dolT[quien] = now + (v === 1 ? 2.2 : v === 4 ? 1.1 : 0.75);
-      const b = () => bus(pan, 0.15);
+      dolU[quien] = v; dolT[quien] = now + (v === 1 ? Q.esperaSuave : v === 4 ? Q.esperaFuerte : Q.espera); dolG = now + Q.entre;
+      vol *= quien === 'yo' ? Q.vol : Q.volOtro;
+      const b = () => busVoz(pan, 0.15);
       if (v === 1) voz(ctx, b(), now, V, 'm', rand(0.2, 0.26), 0.22 * vol);
       else if (v === 2) voz(ctx, b(), now, V, 'u', rand(0.17, 0.24), 0.5 * vol);
-      else if (v === 3) { const [o, d, r] = V.corto; if (!smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.75 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp })) voz(ctx, b(), now, V, 'a', 0.26, 0.5 * vol); }
-      else { const [o, d, r] = V.fuerte; const ok = smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.85 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, wet: 0.25 }); voz(ctx, b(), now, V, 'a', ok ? 0.34 : 0.48, (ok ? 0.28 : 0.55) * vol); }
+      else if (v === 3) { const [o, d, r] = V.corto; if (!smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.75 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, voz: true })) voz(ctx, b(), now, V, 'a', 0.26, 0.5 * vol); }
+      else { const [o, d, r] = V.fuerte; const ok = smpCut(V.s, { off: o, dur: d, rate: r * rand(0.97, 1.03), vol: 0.85 * (V.g || 1) * vol, pan, lp: V.lp, hp: V.hp, wet: 0.25, voz: true }); voz(ctx, b(), now, V, 'a', ok ? 0.34 : 0.48, (ok ? 0.28 : 0.55) * vol); }
+      // tu propio quejido: los disparos y efectos bajan un momento para que se entienda (solo si no es el daño continuo)
+      if (quien === 'yo' && v > 1 && duckG) { duckG.gain.cancelScheduledValues(now); duckG.gain.setTargetAtTime(Q.agacha, now, 0.02); duckG.gain.setTargetAtTime(1, now + Q.agachaT, 0.12); }
       return v;
     },
     _voz: voz, _voces: VOZ,
@@ -22741,6 +22767,19 @@ const BAL = {
     X: { rar: 5, name: 'Secreta', col: '#ff3d6e', fondo: '#4d0d1e', texto: '#ffd0dc', brillo: true }   // secreta: carmesí con brillo (elegido por Claude: distinto de los otros cuatro)
   },
   subeRango: { C: 'B', B: 'A', A: 'S', S: 'X' },
+  // G0-4 · Quejidos al recibir un golpe: volumen (tú y tus compañeros), esperas en segundos (suave, normal, fuerte y entre dos quejidos de cualquiera),
+  // y cuánto bajan un instante los disparos (agacha, de 0 a 1, durante agachaT s) y la música (musica, durante musicaT s) para que se oigan
+  // G0-5 · Los ayudantes también recargan: balas del cargador y segundos de recarga según su arma (porAyudante cambia uno en particular).
+  // tactica: segundos sin blanco tras los que recargan solos si les quedan menos de la mitad
+  recargaNpc: {
+    arma: { pistol: { cargador: 8, t: 1.5 }, dual: { cargador: 16, t: 2.1 }, rifle: { cargador: 21, t: 2.4 }, smg: { cargador: 30, t: 2 }, shotgun: { cargador: 6, t: 2.6 } },
+    porAyudante: { franco: { cargador: 5, t: 2.8 }, pistolero: { cargador: 6, t: 1.8 } },
+    tactica: 2
+  },
+  // G0-7 · Explosiones sin tirones: partículas de cada explosión (fuego y humo; en el teléfono se multiplican por tel), cuántas explosiones con todo su efecto
+  // caben en «ventana» segundos (las que pasan de ahí solo hacen daño y un poco de humo), espera mínima entre dos estruendos y charcos de ácido a la vez
+  explosion: { fuego: 50, humo: 14, tel: 0.5, ventana: 0.35, maxPc: 6, maxTel: 3, extra: 6, sonidoGap: 0.07, charcosPc: 14, charcosTel: 7 },
+  vozDolor: { vol: 1.8, volOtro: 1.3, esperaSuave: 2.2, espera: 0.85, esperaFuerte: 1.1, entre: 0.35, agacha: 0.45, agachaT: 0.4, musica: 0.55, musicaT: 0.6 },
   slotBase: 6,
   slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
   balaInicial: { sheriff: 'polvora', johnny: 'apuesta', armando: 'cantimplora', lilith: 'pluma', carlos: 'cinturon', francois: 'oro', ludo: 'apuesta' },
@@ -24238,7 +24277,16 @@ function makePickup(type, x, z, amount) {
     vs.forEach((v, i) => { const a = i / vs.length * TAU + Math.random(), r = vs.length > 1 ? 0.5 + Math.random() * 0.4 : 0; makePickup('moneda', x + Math.cos(a) * r, z + Math.sin(a) * r, v); });
     return;
   }
-  const g = new THREE.Group(); g.position.set(x, 0.6, z);
+  // G0-7: cada tipo de premio se arma una sola vez y luego se copia (comparte figuras y materiales): una explosión que mata a muchos ya no crea cientos de figuras nuevas
+  const key = type + ':' + (type === 'bala' || type === 'moneda' ? amount : '');
+  let proto = PK_PROTO.get(key); if (!proto) { proto = pkModelo(type, amount); PK_PROTO.set(key, proto); }
+  const g = proto.clone(); g.position.set(x, 0.6, z);
+  scene.add(g);
+  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+}
+const PK_PROTO = new Map();
+function pkModelo(type, amount) {
+  const g = new THREE.Group();
   const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
   if (type === 'health') { g.add(new THREE.Mesh(bx(0.42, 0.13, 0.13), mat)); g.add(new THREE.Mesh(bx(0.13, 0.42, 0.13), mat)); }
   else if (type === 'deadeye') { g.add(new THREE.Mesh(cyl(0.1, 0.12, 0.3, 10), mat)); const n = new THREE.Mesh(cyl(0.035, 0.035, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); n.position.y = 0.2; g.add(n); }
@@ -24254,8 +24302,7 @@ function makePickup(type, x, z, amount) {
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(type === 'moneda' ? 0.9 : 1.3, type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'moneda') halo.material.opacity = 0.12; g.add(halo);
-  scene.add(g);
-  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  return g;
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -24858,9 +24905,11 @@ function addGold(n, silent) {
   if (n > 0 && game.waveMod && game.waveMod.gold && game.phase === 'fight') n = Math.round(n * game.waveMod.gold);
   if (n > 0 && game.phase === 'fight' && zmodOn('gold')) n = Math.round(n * zmodOn('gold'));
   game.gold += n; game.goldTotal += n; if (n > 0 && !tuto) META.st.gold += n;
-  el.goldPop.textContent = '+' + n + ' $'; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on');
+  // G0-7: el «+N $» se pinta una vez por cuadro con la suma (antes cada moneda obligaba al navegador a recalcular la página: una explosión que mata a muchos daba tirones)
+  goldPop.n += n; if (!goldPop.raf) goldPop.raf = requestAnimationFrame(() => { goldPop.raf = 0; el.goldPop.textContent = '+' + goldPop.n + ' $'; goldPop.n = 0; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on'); });
   if (!silent && n >= 5) Sfx.coin();
 }
+const goldPop = { n: 0, raf: 0 };
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
@@ -24868,7 +24917,7 @@ function clearActors() {
   for (let k = zombies.length - 1; k >= 0; k--) removeZombie(k);
   debris.forEach(d => scene.remove(d.m)); debris.length = 0;
   acids.forEach(a => scene.remove(a.m)); acids.length = 0;
-  puddles.forEach(p => { scene.remove(p.m); p.m.material.dispose(); }); puddles.length = 0;
+  puddles.forEach(charcoSoltar); puddles.length = 0;
   pickups.forEach(p => scene.remove(p.g)); pickups.length = 0;
   wells.forEach(w => scene.remove(w.m)); wells.length = 0; traps.forEach(t => scene.remove(t.g)); traps.length = 0; strikes.length = 0;
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -24911,11 +24960,22 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
-function saveGame() {
+const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV'];
+// G0-2 · Puntos de guardado (pedido del dueño, 19-oct-2026). sv.punto dice dónde se retoma:
+//   'ola'    al empezar una oleada (y al cruzar la puerta hacia la siguiente): se vuelve a jugar desde su inicio, con el MISMO jefe y la misma regla especial
+//   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
+//   'sala'   en la Trastienda (al entrar y tras cada compra): las máquinas, las ofertas y lo comprado quedan igual
+// Salir al menú fuera de pelea guarda en ese mismo punto; salir en plena pelea vuelve al inicio de la oleada. Así no se puede repetir ni volver a tirar nada.
+const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed'];
+function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
   for (const k of SAVE_FIELDS) sv[k] = game[k];
+  const punto = (o && o.punto) || 'ola'; sv.punto = punto; game.puntoAct = punto;
+  if (o && o.wave) sv.wave = o.wave;
+  if (punto === 'sala') for (const k of SALA_FIELDS) { try { sv[k] = JSON.parse(JSON.stringify(game[k] === undefined ? null : game[k])); } catch (e) {} }
+  // las balas que tienes cargadas vuelven a la caja: al retomar se recargan de ella (no se pierden ni se duplican)
+  { const box = (game.box || []).slice(); for (const L of balManos()) for (const b of L || []) if (isLoaded(b) && !String(b).endsWith('*')) box.push(b); sv.box = box; }
   if (game.habMini) { const M = game.habMini, id = M.id || 'minigun'; sv.owned = Object.assign({}, game.owned); if (M.owned === undefined) delete sv.owned[id]; else sv.owned[id] = M.owned; sv.mag = undefined; }
   store.set(SAVE_KEY, sv);
 }
@@ -24933,12 +24993,14 @@ function newGame(sv, run) {
   };
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
+  const punto = sv && sv.punto ? sv.punto : 'ola';
+  if (sv && punto === 'sala') for (const k of SALA_FIELDS) if (sv[k] !== undefined) game[k] = sv[k];
   if (!CHARS[game.char]) game.char = 'sheriff';
   game.slot = game.slot || []; game.balTemp = game.balTemp || {}; game.nextRescue = 1e9; calcStats();
   game.prog0 = progresoFoto();
   if (!sv && !tuto) {   // Etapa 3: cuántos mapas tiene esta partida y con qué mapa empieza (al azar entre los abiertos)
     game.visita = run && run.visita != null ? run.visita : PRUEBA_CASINO ? PRUEBA_CASINO.v : visitaDe(game.diff); game.nMap = VISITA_MAPAS[game.visita];
-    game.route = [run && run.mapa0 != null ? run.mapa0 : pick(mapasAbiertos())];
+    game.route = [run && run.mapa0 != null && Net.on ? run.mapa0 : primerMapa()];   // G0-1: el Cementerio siempre es el mapa 1 (lo que se anuncia es lo que se carga)
   }
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
@@ -24948,7 +25010,8 @@ function newGame(sv, run) {
   shuffleBox(true);
   Object.assign(player, { vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, lastHurt: -99, shake: 0, roll: 0, down: false, webT: 0, frostT: 0 });
   player.hp = player.maxHp = CHAR_VIDA[game.char] || 100;
-  const w0 = sv ? sv.wave : 1, mi = mapForWave(w0);
+  const w0 = sv ? sv.wave : 1, mi = punto === 'sala' ? ROOM_IDX : mapForWave(w0);
+  if (punto !== 'ola') game.wave = w0;
   buildMap(mi);   // siempre de cero: barriles, puertas y objetos vuelven a estar como nuevos
   player.pos.set(world.start.x, 0, world.start.z);
   if (sv) { player.maxHp = sv.maxHp; player.hp = Math.min(sv.hp, sv.maxHp); player.maxSt = sv.maxSt; }
@@ -24956,7 +25019,12 @@ function newGame(sv, run) {
   equip(game.owned[game.equip] && MODELS[game.equip] ? game.equip : CHARS[game.char].gun, true);
   if (sv) for (const k of (sv.allies || new Array(sv.cops || 0).fill('cop'))) spawnCop(ALLY[k] ? k : 'cop');
   if (!sv) applyChar(); else game.eliteMul = (game.skull | 0) >= 3 ? 2 : 1;
-  startWave(w0);
+  if (punto === 'sala') {   // de vuelta en la Trastienda, tal como la dejaste
+    game.routeWave = w0; game.phase = 'room'; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'sala';
+    setTimeout(() => { if (game && game.phase === 'room') hint('De vuelta en la Trastienda · todo sigue como lo dejaste', 3000); }, 400);
+  } else if (punto === 'limpia') {   // la oleada ya está vencida: se sigue con las mismas puertas
+    game.phase = 'cleared'; game.countT = 0; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'limpia'; afterClear();
+  } else startWave(w0);
 }
 const WAVES_PER_MAP = 3, MAP_COUNT = 10, LAST_WAVE = WAVES_PER_MAP * MAP_COUNT;
 // ---- Etapa 3 (decisiones del dueño, 19-oct-2026): la partida son N mapas de 3 oleadas y al final el BIG NEON CASINO (5 oleadas).
@@ -25010,14 +25078,16 @@ function startWave(n) {
   if (mapIni(n)) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
   waveSupplies(n);
-  game.waveMod = game.nextMod || null; game.nextMod = null;
+  const F = !Net.on && game.olaFija && game.olaFija.w === n ? game.olaFija : null;   // G0-2: al retomar, la oleada sale igual (mismo jefe y misma regla)
+  game.waveMod = F ? F.nm : game.nextMod || null; game.nextMod = null;
+  game.olaFija = { w: n, nm: game.waveMod ? JSON.parse(JSON.stringify(game.waveMod)) : null, mk: null, boss: null };
   waveStartLocal(n);
-  if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && !casN(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
+  if (F ? F.mk : !game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && !casN(n) && Math.random() < 0.2) { const key = F ? F.mk : pick(Object.keys(WAVE_MODS)); game.olaFija.mk = key; applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
     if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
     else if (!runN() && n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
-    else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
+    else { game.bossPick = F && F.boss != null && BOSSES[F.boss] ? F.boss : pickBoss(); game.olaFija.boss = game.bossPick; game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
   else if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
   else if (wavePos(n) === 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
@@ -25086,7 +25156,7 @@ function hurtPlayer(amount, src, opt = {}) {
   if (src) { dmgArc(src); player.shake = Math.min(1, player.shake + amount / 35); }
   if (!opt.tick || Math.random() < 0.1) Sfx.hurt();
   { const k = opt.k === undefined ? (opt.acid ? 'acid' : opt.tick ? 'burn' : 'blunt') : opt.k; if (k) Golpes.marca(k, amount, src, !!opt.tick); }
-  if (player.hp > 0) Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo');   // quejido de dolor de tu personaje (al morir suena su grito)
+  if (player.hp > 0 && Sfx.dolor(game.char, opt.tick ? 0 : amount / 30, 0, 1, 'yo') > 1) Music.duck(BAL.vozDolor.musica, BAL.vozDolor.musicaT);   // quejido de dolor de tu personaje (al morir suena su grito)
   if (opt.knock && src) { const dx = player.pos.x - src.x, dz = player.pos.z - src.z, d = Math.hypot(dx, dz) || 1; player.kx += dx / d * opt.knock; player.kz += dz / d * opt.knock; player.vy = Math.max(player.vy, 3); player.onGround = false; }
   if (player.hp <= 0 && game.char === 'armando' && !game.veloUsed) { game.veloUsed = 1; player.hp = Math.round(player.maxHp * 0.3); banner('¡Don Velorio se levanta!', 'Su única segunda vida de la partida', 2400); Sfx.heart(); return; }
   if (player.hp <= 0 && balRevivir()) return;   // Resurrección, Emperador inmortal y Fénix
@@ -25144,7 +25214,7 @@ function gameOver() {
   updateBest();
 }
 function updateBest() {
-  let sv = store.get(SAVE_KEY, null); if (sv && !(sv.wave >= 2)) { store.set(SAVE_KEY, null); sv = null; }   // una partida recién empezada no se ofrece para continuar
+  let sv = store.get(SAVE_KEY, null); if (sv && !(sv.wave >= 2 || (sv.punto && sv.punto !== 'ola'))) { store.set(SAVE_KEY, null); sv = null; }   // una partida recién empezada no se ofrece para continuar
   const bc = $('#btn-continue');
   bc.hidden = !sv; $('#save-note').hidden = !sv; $('#modo-cards').classList.toggle('solo', !sv);
   if (sv) modoPartida(sv);
@@ -25156,7 +25226,7 @@ function modoPartida(sv) {
   const img = $('#mc-img'); if (img.getAttribute('src') !== CHAR_IMG[ch]) img.src = CHAR_IMG[ch];
   $('#mc-nm').textContent = CHARS[ch].name; const d = $('#mc-df'); d.textContent = DIFF[df].name; d.className = 'df ' + df;
   const N = sv.nMap | 0, tot = N ? WAVES_PER_MAP * N + CAS_OLEADAS : LAST_WAVE, cas = N && w > WAVES_PER_MAP * N && w <= tot;
-  const mapa = cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
+  const mapa = sv.punto === 'sala' ? MAPS[ROOM_IDX].name : cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
   $('#mc-where').textContent = w <= tot ? `Oleada ${w} de ${tot} · ${mapa}` : `Oleada ${w} · ${mapa}`;
   $('#mc-g').textContent = '$ ' + fmt(sv.gold | 0); $('#mc-k').textContent = sv.keys | 0; $('#mc-p').textContent = sv.poker | 0; $('#mc-z').textContent = fmt(sv.kills | 0);
   const sl = (sv.slot || []).filter(e => BALAS[e.k]), ids = sl.map(e => e.k), its = Object.fromEntries(sl.map(e => [e.k, e.lv]));
@@ -25342,7 +25412,18 @@ const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'], lu
 const oroArmaMat = new THREE.MeshLambertMaterial({ color: 0xf2c440, emissive: 0x5a3a00 });
 function armaDorada() { for (const h of hands) if (h.active && h.k) h.k.traverse(o => { if (o.isMesh && o.material && !o.material.transparent) o.material = oroArmaMat; }); }
 const turnoOro = () => game && game.habK === 'turno' && game.habT > 0 && !!game.habMini;
+// G0-7: los premios y los charcos se preparan en la tarjeta gráfica al entrar al mapa (antes se preparaban en plena explosión y daban un tirón)
+function precalentarFx() {
+  const g = new THREE.Group(); g.position.set(0, 0, -3); camera.add(g); let ch = null;
+  try {
+    for (const t of Object.keys(PK)) { if (t === 'bag') continue; const a = t === 'moneda' ? MONEDAS[0][0] : 0, k = t + ':' + (t === 'bala' || t === 'moneda' ? a : ''); let pr = PK_PROTO.get(k); if (!pr) { pr = pkModelo(t, a); PK_PROTO.set(k, pr); } g.add(pr.clone()); }
+    ch = charcosLibres.pop() || new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 })); g.add(ch);
+    g.updateMatrixWorld(true); renderer.compile(scene, camera);
+  } catch (e) {}
+  camera.remove(g); if (ch) { g.remove(ch); charcosLibres.push(ch); }
+}
 function precalentarHab() {
+  precalentarFx();
   const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
   const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
   try {
@@ -25694,7 +25775,7 @@ function teslaChain(z, pt, d, dmg, n) {
 function rocketBoom(p, r, dmg) {
   Sfx.boom(); explode(p, r, dmg, 0, false);
   const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z); if (pd < r * 0.7) hurtPlayer(30 * (1 - pd / (r * 0.7)), p, { knock: 7, k: 'burn' });
-  for (let i = 0; i < 30; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
+  for (let i = 0, n = IS_TOUCH ? 30 * BAL.explosion.tel : 30; i < n; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
 }
 /* ===================== EFECTOS DE LAS BALAS (las cifras están en BALAS y BAL) =====================
    Quién hace qué en grupo: el que dispara decide (tira los dados de probabilidad) y el anfitrión aplica lo que toca a los zombis
@@ -26273,10 +26354,19 @@ function damageZombie(z, amount, info) {
 function dropHit(z, m) { const i = z.hits.indexOf(m); if (i >= 0) z.hits.splice(i, 1); }
 function panOf(p) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz) || 1; Sfx.setBehind(clamp((dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / d, 0, 1)); return clamp((dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / d, -1, 1); }
 function volOf(p, base = 1) { const o = state === 'menu' && !game ? camera.position : player.pos; return base / (1 + Math.hypot(p.x - o.x, p.z - o.z) * 0.18); }   // en el menú se oye desde la cámara
+// G0-7: cuántas explosiones con efecto completo hubo hace poco (las de más solo hacen daño: así una cadena de hinchados no congela el juego)
+const expFx = { t: [] };
+function expCupo() {
+  const X = BAL.explosion, now = performance.now() / 1000; let n = 0;
+  for (let i = expFx.t.length - 1; i >= 0; i--) { if (now - expFx.t[i] > X.ventana) { expFx.t.splice(i, 1); continue; } n++; }
+  if (n >= (IS_TOUCH ? X.maxTel : X.maxPc)) return 0;
+  expFx.t.push(now); return IS_TOUCH ? X.tel : 1;
+}
 function explode(c, r, dmgZ, dmgP, green) {
   { const pd0 = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd0 < 10) Sfx.deafen(0.9 * (1 - pd0 / 10)); }
-  for (let i = 0; i < 50; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
-  for (let i = 0; i < 14; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
+  const X = BAL.explosion, k = expCupo(), nF = k ? Math.round(X.fuego * k) : X.extra, nH = k ? Math.round(X.humo * k) : Math.ceil(X.extra / 2);
+  for (let i = 0; i < nF; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
+  for (let i = 0; i < nH; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
   const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z);
   if (pd < r && dmgP > 0) hurtPlayer(dmgP * (1 - pd / r * 0.6), c, { knock: 6, acid: green, k: green ? 'acid' : 'burn' });
   if (dmgP > 0) netHurtArea(c, r, dmgP * 0.7, 6, green ? 1 : 0);
@@ -28602,6 +28692,7 @@ function updateWave(dt) {
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]); casOlaFin(game.wave);
+      if (!(game.wave === lastWave() && !game.endless)) saveGame({ punto: 'limpia' });   // G0-2: oleada (o jefe) vencida: lo ganado queda guardado
       if (Net.host && relicTime()) rvPrep();
       if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
@@ -28747,6 +28838,8 @@ function routeGift(k) {
 const MAP_QUITADOS = [2, 4, 5, 6, 7, 9, 10, 13, 14, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026; Circo 4, Rascacielos 9 y Zoológico 14, el 19-oct-2026)
 const MAP_EN_OBRA = [];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
+const MAPA_PRIMERO = 0;   // el Cementerio abre todas las partidas (pedido del dueño, 19-oct-2026)
+const primerMapa = () => MAP_WIP.has(MAPA_PRIMERO) ? mapasAbiertos()[0] : MAPA_PRIMERO;
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
     const z = zoneOf(game.wave), last = !game.endless && z + 1 === MAP_COUNT - 1;
@@ -29373,6 +29466,7 @@ function hostProceed() {
   if (game.pendingRoute) { const o = game.pendingRoute; game.pendingRoute = null; takeRoute(o); return; }
   if (isMapEnd(game.wave) && game.routeWave !== game.wave && !(game.wave >= lastWave() && !game.endless)) { openRoute(); return; }
   const ni = mapForWave(game.wave + 1);
+  saveGame({ punto: 'ola', wave: game.wave + 1 });   // G0-2: camino elegido: al volver empiezas la oleada siguiente en el lugar nuevo
   Net.ev(['go', game.wave + 1, ni]);
   if (ni !== world.idx) travel(ni, game.wave + 1);
   else { state = 'play'; game.phase = 'count'; game.countT = 3; renderChips(); }
@@ -29919,9 +30013,24 @@ function updateCops(dt) {
     c.armRG.rotation.x = c.swing > 0 ? -2.6 + (0.25 - c.swing) * 10 : lerp(sw * 0.4, -1.5, c.aim); c.armLG.rotation.x = lerp(-sw * 0.4, -1.3, c.aim); c.armLG.rotation.z = lerp(-0.05, 0.5, c.aim);
     if (c.p3d) ally3dPaso(c, spd, dt);
     c.cd -= dt;
-    if (c.burst > 0) { c.burstT -= dt; if (c.burstT <= 0) { c.burst--; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; if (c.tgt && !c.tgt.dead && state === 'play') allyFire(c, c.tgt, D); } }
-    if (c.tgt && c.cd <= 0 && Math.abs(dy) < 0.4 && state === 'play') copShoot(c, c.tgt);
+    if (c.burst > 0) { c.burstT -= dt; if (c.burstT <= 0) { c.burst--; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; if (c.tgt && !c.tgt.dead && state === 'play' && !(c.recT > 0)) allyFire(c, c.tgt, D); } }
+    npcRecarga(c, D, dt);
+    if (c.tgt && c.cd <= 0 && Math.abs(dy) < 0.4 && state === 'play' && !(c.recT > 0)) copShoot(c, c.tgt);
   }
+}
+// G0-5 · Recarga de los ayudantes (cifras en BAL.recargaNpc): cada disparo gasta una bala; con el cargador vacío se paran a recargar con su animación
+const npcCargador = (c, D) => D.melee || D.aoe || !D.gun ? null : BAL.recargaNpc.porAyudante[c.kind] || BAL.recargaNpc.arma[D.gun] || null;
+function npcRecarga(c, D, dt) {
+  const R = npcCargador(c, D); if (!R) return;
+  if (c.balas == null) c.balas = R.cargador;
+  if (c.recT > 0) { c.recT -= dt; c.aim = Math.min(c.aim, 0.3); if (c.recT <= 0) { c.balas = R.cargador; c.recT = 0; Sfx.clink(panOf(c.root.position), volOf(c.root.position, 0.6)); } return; }
+  if (!c.tgt && c.balas < R.cargador / 2) { if ((c.sinBlanco = (c.sinBlanco || 0) + dt) > BAL.recargaNpc.tactica) npcRecargar(c, D); } else c.sinBlanco = 0;
+}
+function npcRecargar(c, D) {
+  const R = npcCargador(c, D); if (!R || c.recT > 0) return;
+  c.recT = R.t / recMul(); c.burst = 0; c.sinBlanco = 0;
+  Sfx.clink(panOf(c.root.position), volOf(c.root.position, 0.5));
+  if (c.p3d) { const set0 = c.kind === 'pandillero' ? 'p' : ALLY_SET[D.gun] || 'p'; p3dGesto(c.p3d, 'recarga', c.p3d.acts[set0 + '_reload'] ? set0 : 'p'); }
 }
 const DECK_FX = ['frita', 'gravedad', 'trampa', 'acida', 'tormenta'];
 function copShoot(c, z) {
@@ -29948,6 +30057,7 @@ function copShoot(c, z) {
   if (D.burst) { c.burst = D.burst - 1; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; }
 }
 function allyFire(c, z, D, muz) {
+  if (c.balas != null) { if (c.balas <= 0) { npcRecargar(c, D); return; } if (--c.balas <= 0) npcRecargar(c, D); }   // G0-5: gasta una bala del cargador
   const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c) * (c.dmgX || 1);
   if (c.p3d) { c.p3d.kick = 1; c.p3d.tiro = 0; }
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
@@ -30013,8 +30123,13 @@ function updateDebris(dt) {
     if (d.t > d.life) { d.m.scale.multiplyScalar(Math.exp(-4 * dt)); if (d.t > d.life + 1.2) { scene.remove(d.m); debris.splice(i, 1); } }
   }
 }
+// G0-7: los charcos se reciclan (antes cada uno creaba su material nuevo) y hay un tope a la vez
+const charcosLibres = [];
+function charcoSoltar(p) { scene.remove(p.m); if (charcosLibres.length < 24) charcosLibres.push(p.m); else p.m.material.dispose(); }
 function makePuddle(x, z, r, life, good) {
-  const m = new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ color: good ? 0x40ffa0 : 0x6fd12a, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+  const mx = IS_TOUCH ? BAL.explosion.charcosTel : BAL.explosion.charcosPc; while (puddles.length >= mx) charcoSoltar(puddles.shift());
+  const m = charcosLibres.pop() || new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+  m.material.color.setHex(good ? 0x40ffa0 : 0x6fd12a); m.material.opacity = 0.6;
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z); m.scale.setScalar(0.2); scene.add(m); puddles.push({ m, t: 0, life, r, good: !!good });
 }
 function updateAcid(dt) {
@@ -30041,7 +30156,7 @@ function updateAcid(dt) {
     if (Math.random() < 0.3) PA.add(p.m.position.x + rand(-0.8, 0.8) * s, 0.05, p.m.position.z + rand(-0.8, 0.8) * s, 0, rand(0.3, 0.8), 0, 0.6, 0.06, 0.45, 1, 0.2, 0.7, 0, 0, 0, 0);
     if (p.good) { if (!Net.client) for (const o of zombies) if (!o.dead && Math.hypot(o.root.position.x - p.m.position.x, o.root.position.z - p.m.position.z) < s) damageZombie(o, 30 * effSc() * dt, { part: 'body', dir: null, ally: true }); }
     else if (state === 'play' && player.onGround && Math.hypot(p.m.position.x - player.pos.x, p.m.position.z - player.pos.z) < s * 0.9) hurtPlayer(9 * dt, null, { acid: true, tick: true });
-    if (p.t > p.life) { scene.remove(p.m); p.m.material.dispose(); puddles.splice(i, 1); }
+    if (p.t > p.life) { charcoSoltar(p); puddles.splice(i, 1); }
   }
 }
 function updatePickups(dt) {
@@ -30505,7 +30620,11 @@ function openExitDoors() {
    encima aparece un contador con los votos. Cuando todos votaron empieza una cuenta atrás; gana la más votada y, si empatan, una al azar. */
 const RV = { r: 2.6, t: 3 };
 function rvOpts(conLlave) {
-  if (!Net.on) return conLlave || routeOptions();
+  if (!Net.on) {   // G0-2: las puertas no cambian aunque salgas al menú y vuelvas
+    if (conLlave) return conLlave;
+    if (!(game.salidaOpts && game.salidaOpts.w === game.wave)) { game.salidaOpts = { w: game.wave, opts: routeOptions() }; saveGame({ punto: 'limpia' }); }
+    return game.salidaOpts.opts;
+  }
   if (game.exitOpts && game.exitOpts.w === game.wave) return game.exitOpts.opts;
   if (Net.client) return null;
   rvPrep(conLlave); return game.exitOpts.opts;
@@ -30587,7 +30706,7 @@ function prepRoom() {
 }
 function enterRoom() {
   if (player.down) revive();
-  prepRoom(); game.routeWave = game.wave;
+  prepRoom(); game.routeWave = game.wave; saveGame({ punto: 'sala' });   // G0-2: lo que trae la Trastienda queda fijo
   if (document.pointerLockElement && state !== 'play') document.exitPointerLock();
   show(null); travel(ROOM_IDX, game.wave, () => {
     state = 'play'; game.phase = 'room'; renderChips(); requestLock(); canvas.focus();
@@ -30912,9 +31031,10 @@ function shopRoomDecor(HX, HZ, H) {
   const poster = (txt, sub, col, x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.7), lam(0xffffff, { map: canvasTex(256, 336, (g, w, h) => { g.fillStyle = '#e8d8b0'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(120,80,30,.25)'; for (let i = 0; i < 40; i++) g.fillRect(rand(0, w), rand(0, h), rand(4, 30), rand(2, 6)); g.fillStyle = col; g.font = 'bold 44px serif'; g.textAlign = 'center'; g.fillText(txt, w / 2, 62); g.fillStyle = '#2a1a0e'; g.fillRect(48, 86, w - 96, 150); g.fillStyle = '#7a8a5a'; g.beginPath(); g.arc(w / 2, 140, 36, 0, TAU); g.fill(); g.fillRect(w / 2 - 44, 176, 88, 60); g.fillStyle = '#c02020'; g.fillRect(w / 2 - 22, 132, 12, 8); g.fillRect(w / 2 + 10, 132, 12, 8); g.fillStyle = '#2a1a0e'; g.font = 'bold 26px serif'; g.fillText(sub, w / 2, 280); g.font = '20px serif'; g.fillText('Pregunte en el mostrador', w / 2, 314); }) })); m.position.set(x, 2.9, z); m.rotation.y = ry; world.group.add(m); };
   poster('SE BUSCA', '500 $ · VIVO O MUERTO', '#8a1a10', -HX + 0.02, 5.4, Math.PI / 2);
   poster('NO FIAMOS', 'NI A VIVOS NI A MUERTOS', '#1a3a6a', -HX + 0.02, -6.4, Math.PI / 2);
-  // cajas en las esquinas de la entrada
+  // cajas: en la esquina izquierda de la entrada y en la esquina del fondo a la derecha, detrás del tragamonedas
+  // (G0-6, pedido del dueño, 19-oct-2026: la de la esquina derecha de la entrada tapaba la ruleta; ahí ya no hay nada delante de una máquina)
   const crateM = lam(0x7a5530);
-  for (const [x, z, sx] of [[-HX + 0.9, HZ - 0.9, 1], [HX - 0.9, HZ - 0.9, -1]]) {
+  for (const [x, z, sx] of [[-HX + 0.9, HZ - 0.9, 1], [HX - 0.9, -HZ + 0.9, -1]]) {
     M(bx(1, 0.9, 1), crateM, x, 0.45, z, { solid: true }); M(bx(0.8, 0.7, 0.8), crateM, x + 0.1 * sx, 1.25, z - 0.05, { ry: 0.3 }); addBox(x, z, 0.55, 0.55);
   }
   // macetas y apliques de luz en las paredes laterales
@@ -31991,6 +32111,7 @@ function backToRoom() {
   if (vend && world.room) { for (const o of world.room.objs) { if (o.surtir) o.surtir(); if (o.auto) o.wait = true; } }
   else if (world.idx === ROOM_IDX) { const p = player.pos.clone(); buildMap(ROOM_IDX); player.pos.copy(p); for (const o of world.room.objs) if (o.auto) o.wait = true; }
   releaseInput();
+  if (world.idx === ROOM_IDX) saveGame({ punto: 'sala' });   // G0-2: cada compra queda guardada
   renderChips(); requestLock(); canvas.focus();
 }
 
@@ -33880,7 +34001,7 @@ const Music = (() => {
     },
     // amenaza 0..1 (zombis cerca), si hay jefe vivo y si estamos en calma (Trastienda)
     mood(x, b, c) { tension += (x - tension) * 0.25; boss = b; calm = c; },
-    duck() { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(0.35, t, 0.03); bus.gain.setTargetAtTime(1, t + 1, 0.5); } },
+    duck(nv = 0.35, dt = 1) { if (ctx && cur) { const t = ctx.currentTime; bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(nv, t, 0.03); bus.gain.setTargetAtTime(1, t + dt, 0.5); } },
     setVol(v) { if (ctx) master.gain.setTargetAtTime(v * 0.55, ctx.currentTime, 0.05); }
   };
 })();
@@ -35217,7 +35338,7 @@ $('#btn-tu-menu').addEventListener('click', () => toMenu());
 // (antes el menú se quedaba congelado uno o dos segundos mientras se armaba). En grupo se arma enseguida, como antes, y solo se aclara con un fundido.
 let arrancando = false;
 function fundidoAntes(sv) {
-  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[mapForWave(w0, sv && sv.route)] || MAPS[0];
+  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[sv && sv.punto === 'sala' ? ROOM_IDX : mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])] || MAPS[0];
   $('#fade-s').textContent = sv && sv.wave ? `Oleada ${w0}` : 'Nivel 1'; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc || '';
   el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = '';
 }
@@ -35238,7 +35359,7 @@ function startGameNow(sv) {
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   if (PRUEBA_CASINO && !(sv && sv.wave) && !Net.client && !tuto) irAlCasino(PRUEBA_CASINO.ola);
-  state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
+  if (state !== 'trans') state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   $('#me-pic').src = charPic(game.char);
   renderChips(); requestLock(); canvas.focus();
 }
@@ -35250,12 +35371,25 @@ function pause() {
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
+// G0-2: al salir al menú fuera de pelea se guarda tal cual (en la pelea manda el guardado del inicio de la oleada)
+function guardarAlSalir() {
+  const P = game.puntoAct;
+  if (P === 'sala') saveGame({ punto: 'sala' });
+  else if (P === 'limpia') {
+    if (game.phase === 'cleared') {   // el botín que quedaba en el suelo es tuyo
+      for (const p of pickups) if (isLoot(p)) p.g.position.set(player.pos.x, p.g.position.y, player.pos.z);
+      const st = state, pd = player.down; state = 'play'; player.down = false; try { updatePickups(0); } catch (e) {} state = st; player.down = pd;
+    }
+    saveGame({ punto: 'limpia' });
+  }
+}
 function toMenu(dest) {
   dest = dest === 'inicio' ? 'inicio' : 'menu';   // al morir o ganar, «Menú» vuelve a la portada (Mesa del saloon), no a elegir personaje
   Golpes.limpiar();
   if (I18N.pend) { location.reload(); return; }
   tutoStop(); $('#tuto-end').hidden = true;
   if (game && game.deOn) deadEye(false);
+  if (game && !tuto && !Net.on && !['over', 'win', 'dying', 'menu'].includes(state)) guardarAlSalir();
   netLeave();
   state = 'menu'; game = null; clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
   if (world.idx !== 0) buildMap(0);
@@ -35292,7 +35426,7 @@ $('#salas-list').addEventListener('click', e => { const b = e.target.closest('.s
 $('#room-code').addEventListener('keydown', e => { if (e.key === 'Enter') lobbyJoin(); });
 $('#btn-rs-pay').addEventListener('click', () => rescuePay(false));
 $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') startHorde(false); });
-$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; { const d = Net.diffSel || META.diff; Net.run0 = { visita: visitaDe(d), mapa0: pick(mapasAbiertos()) }; Net.ev(['start', 0, DIFF_KEYS.indexOf(d), Net.run0.visita, Net.run0.mapa0]); } Net.flush(); startGame(); });
+$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; { const d = Net.diffSel || META.diff; Net.run0 = { visita: visitaDe(d), mapa0: primerMapa() }; Net.ev(['start', 0, DIFF_KEYS.indexOf(d), Net.run0.visita, Net.run0.mapa0]); } Net.flush(); startGame(); });
 $('#lobby-chars').addEventListener('click', e => { const b = e.target.closest('[data-ch]'); if (!b || b.disabled) return; Net.myChar = b.dataset.ch; Sfx.reel(); Net.flush(); renderLobby(); });
 $('#lobby-diff').addEventListener('click', e => { const b = e.target.closest('[data-ld]'); if (!b || !Net.host || !diffAbierta(b.dataset.ld)) return; Net.diffSel = b.dataset.ld; Net.flush(); renderLobby(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause' && !tuto) saveBest(); toMenu(); });
