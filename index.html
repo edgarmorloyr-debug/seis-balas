@@ -23006,6 +23006,8 @@ function gunExtras(id, P_, rot, L, R, LOOK) {
 }
 const G629_NAME = 'Revólver de acero .44';
 const isG629 = (id, h) => id === 'cowboy' && ((h && h.skin629) || (game && game.char === 'carlos'));
+// Ludo Cheng lleva sus dos revólveres cortos dorados (PENDIENTES 52)
+const isOroLudo = (id, h) => id === 'corto' && (h && h.ludo != null ? h.ludo : !!(game && game.char === 'ludo'));
 const gunName = id => isG629(id) ? G629_NAME : MODELS[id].name;
 function buildGun(h, id) {
   if (h.muzzle) { h.muzzle.remove(h.flash); h.muzzle.remove(h.flashLight); }
@@ -23030,8 +23032,9 @@ function buildGun(h, id) {
     escopeta: { frame: GM.blue, barrel: GM.blue, cyl: GM.wood, grip: GM.wood, trig: GM.brassF },
     sniper: { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.woodL, trig: GM.steel },
     tommy: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.wood, trig: GM.steel },
-    ak47: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.woodL, trig: GM.steel }
-  }[g629 ? 'g629' : id] || { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel };
+    ak47: { frame: GM.black, barrel: GM.black, cyl: GM.black, grip: GM.woodL, trig: GM.steel },
+    oroLudo: { frame: GM.brass, barrel: GM.brass, cyl: GM.brass, grip: GM.ivory, trig: GM.brass }
+  }[g629 ? 'g629' : isOroLudo(id, h) ? 'oroLudo' : id] || { frame: GM.black, barrel: GM.black, cyl: GM.blue, grip: GM.rubber, trig: GM.steel };
   const cylG = new THREE.Group(); h.k.add(cylG); const cylSpin = new THREE.Group(); cylG.add(cylSpin);
   const hammer = new THREE.Group(); h.k.add(hammer);
   let spinG = null, muzzleY = 0.03, muzzleZ;
@@ -32680,7 +32683,7 @@ function makeAvatar(p) {
 const RV_COL = { paci: [0x3a3e46, 0x7a4a24], corto: [0x22252a, 0x2a1a10], viejo: [0x8a6a3a, 0x5a3a20], magnum: [0xd0d4dc, 0x1a1a1a], cowboy: [0x2a3040, 0xe8e0c8], uzi: [0x1a1a1e, 0x1a1a1e], mp5: [0x1c1d20, 0x18181a], ballesta: [0x9a6a3a, 0x6e3b1b], tesla: [0xb88a3a, 0x3a90ff], jackpot: [0xd09a3e, 0xece2c8], bazuca: [0x3a3c42, 0x5a6a3a], escopeta: [0x2a3a6a, 0x7a4a24], minigun: [0x4a4e56, 0x2a2a2a] };
 // el arma de un compañero: la misma pieza detallada que se ve en primera persona (sin la mano), orientada como la versión simple
 function avGun(id, ch) {
-  const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'cowboy' && ch === 'carlos' };
+  const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D(), skin629: id === 'cowboy' && ch === 'carlos', ludo: ch === 'ludo' };
   try { buildGun(h, MODELS[id] ? id : 'paci'); } catch (e) { return revolverMini(id); }
   const g = new THREE.Group(), arma = h.gunG; h.k.remove(arma);
   arma.rotation.y = Math.PI; arma.position.set(0, 0.03, 0.02); arma.scale.setScalar(1.0);
@@ -32757,8 +32760,8 @@ function p3dSanear(m) {
   });
   return n;
 }
-// Ludo Cheng no tiene modelo 3D propio (el arte 3D está congelado): usa el del pistolero
-const P3D_ALIAS = { ludo: 'pistolero' };
+// personajes que usan el modelo de otro (Ludo Cheng ya tiene el suyo: PENDIENTES 52)
+const P3D_ALIAS = {};
 function p3dCargar(ch, cb) {
   ch = P3D_ALIAS[ch] || ch;
   const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
@@ -32768,7 +32771,7 @@ function p3dCargar(ch, cb) {
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
-    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });   // sin sombra y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
+    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, color: o.material.map ? 0xffffff : o.material.color, skinning: !!o.isSkinnedMesh }); } });   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
     const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
@@ -34332,7 +34335,7 @@ function ludoPortrait(tapado) {
 }
 function charPic(id) {
   if (id === 'azar') return charPicCache.azar || (charPicCache.azar = azarPortrait());
-  if (id === 'ludo') { const k = charOpen('ludo') ? 'ludo' : 'ludo?'; return charPicCache[k] || (charPicCache[k] = ludoPortrait(k === 'ludo?')); }
+  if (id === 'ludo') { if (charOpen('ludo')) return 'img/ludo.webp'; return charPicCache['ludo?'] || (charPicCache['ludo?'] = ludoPortrait(true)); }   // retrato sacado de su modelo 3D (PENDIENTES 52); cerrado, su silueta
   if (CHAR_IMG[id]) return CHAR_IMG[id];
   if (id === 'carlos') return charPicCache.carlos || (charPicCache.carlos = carlosPortrait());
   if (charPicCache[id]) return charPicCache[id];
