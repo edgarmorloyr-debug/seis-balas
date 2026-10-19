@@ -53,7 +53,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Meta de dinero por oleadas para pagar los rescates: armarse bien y a la vez ir pagando (la gracia del juego).
 
 ### G2 · Balas nuevas (roguelike) · primero bocetos y lista para aprobar
-- **Decisiones del dueño (19-oct-2026), mandan sobre lo de abajo:** sin fusiones; todas las balas del juego (las 24 de base, las 60 que eran fusiones y la Negra) pasan a ser balas individuales. Se suben de nivel juntando 2 iguales del mismo nivel (2 de nivel 1 = nivel 2, 2 de nivel 2 = nivel 3, 2 de nivel 3 = nivel 4); nivel máximo 4. Rarezas: común, poco común, rara y legendaria. Apertura de sobre: Tragamonedas. Un diseño de sobre por tipo (Naipe = Standard, Dinamita = Terminator, Neón = Especial). Sin bolsillo extra: solo el cinturón de 8 y la reserva de 6 (decisión del dueño). Interfaz elegida por el dueño (19-oct-2026): como en Balatro, en la misma expendedora. A la izquierda (60 %) se compra como hoy, viendo caer el paquete que pides; a la derecha (40 %) está siempre tu inventario (cinturón de 8 y reserva de 6) para acomodar, vender y juntar pares ahí mismo.
+- **Decisiones del dueño (19-oct-2026), mandan sobre lo de abajo:** sin fusiones; todas las balas del juego (las 24 de base, las 60 que eran fusiones y la Negra) pasan a ser balas individuales. Se suben de nivel juntando 2 iguales del mismo nivel (2 de nivel 1 = nivel 2, 2 de nivel 2 = nivel 3, 2 de nivel 3 = nivel 4); nivel máximo 4. Rarezas: común, poco común, rara y legendaria. Apertura de sobre: animación de cartas (3 cartas que se voltean una por una, con brillo según rareza), dentro de la ventana de productos de la expendedora; el estilo de paño rojo es solo para el tragamonedas de juego (corrección del dueño, 19-oct-2026). Un diseño de sobre por tipo (Naipe = Standard, Dinamita = Terminator, Neón = Especial). Sin bolsillo extra: solo el cinturón de 8 y la reserva de 6 (decisión del dueño). Interfaz elegida por el dueño (19-oct-2026): como en Balatro, en la misma expendedora. A la izquierda (60 %) se compra como hoy, viendo caer el paquete que pides; a la derecha (40 %) está siempre tu inventario (cinturón de 8 y reserva de 6) para acomodar, vender y juntar pares ahí mismo.
 - Se reemplaza todo el sistema de balas actual (queda de referencia) por **40 balas nuevas** con efectos divertidos y útiles. **No se borra nada hasta que el dueño apruebe la lista y la interfaz.**
 - Las balas suben de nivel del 1 al 5 (más nivel, mejores efectos).
 - Cinturón de balas especiales de 8 espacios + un espacio extra con hasta 5 balas; inventario de 6 balas extras.
@@ -63,6 +63,9 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Probar la mecánica de «pool» roguelike: inventario finito, más combinaciones para subir de nivel.
 
 ### G3 · Expendedora, sobres y fichas
+- **Sobre azul de cartas (dueño, 19-oct-2026):** cada zombi tiene 3 % de soltar un sobre azul. Trae 3 cartas; cada carta sale así: 50 % nada (carta blanca), 10 % ficha de miembro, 5 % bala al azar, 3 % caja de balas normales, 5 % 3 balas, 10 % 12 balas, 7 % ficha de 25 $, 5 % una pistola de la tienda, 5 % un plato de comida. Solo se abre desde la interfaz de la tienda de balas y ocupa un espacio de la reserva de 6.
+
+
 - La expendedora vende: Sobres de balas especiales, Cajas de balas y «Oferta de hoy» (las balas disponibles, 1 por compra). Que se vea claro con imágenes cada producto del menú.
 - Animación cuando eliges las balas y salen de la máquina. Animación después de comprar un sobre.
 - Diseños de sobre y de animación de apertura: encuesta con 5 de cada uno.
@@ -70,10 +73,12 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Animaciones y sonidos para cada tipo de ficha según su función: jackpot, canje de oro, daño, destrucción de ficha, invocación, control.
 
 ### G4 · Contenido y presentación
+- **Perfil con indicadores de poder (dueño, 19-oct-2026):** en el perfil también salen los indicadores de poder que se ven al elegir personaje, más 3 nuevos: movimiento, crítico y suerte. Cada uno con una descripción corta al pasar el cursor o tocarlo.
+
 - Mapa nuevo: SUPER CUTE MALL.
 - Música de jefes («battle theme 1») y de minijefes («battle 2»).
 - Animaciones comiendo cada cosa.
-- Animaciones, 3D y efectos para zombis y jefes (zombis 3D en curso).
+- Animaciones, 3D y efectos para zombis y jefes. *Zombis 3D descartados por el dueño; jefes 3D hechos pero apagados (19-oct-2026): se revisan después junto al dueño, uno a uno, probando a detalle cómo caminan (?jefes3d=1).*
 - Mejorar los mapas con todos los recursos posibles. *Revisión (19-oct-2026): 17 mapas con 3 llaves y 3D al máximo; Duendes queda jugable aunque su 3D es parcial (decisión del dueño); el Casino es excepción a la regla de las llaves por ser el mapa final (decisión del dueño). Pendiente: setas y casitas de Duendes y piezas del Casino en 3D.* **Solo serán jugables los mapas con 3 llaves y 3D al máximo; el resto queda fuera hasta estar listo.**
 - Imágenes de mapas y de objetos.
 - Optimizar flujo y efectos de sonido.

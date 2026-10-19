@@ -1,12 +1,16 @@
 // apertura.js · Las 5 aperturas de sobre animadas de verdad (JS + WebAudio).
 // Necesita fichas.js, sobres.js y vivo.js. El escenario usa coordenadas de 360×240 (como los bocetos).
+// Diseño de cada tipo de sobre (elegido por el dueño, 19-oct-2026): Naipe = Standard, Dinamita = Terminator, Neón = Especial.
+// Los otros dos diseños (puros y botín) quedan como alternativas.
 const TIER = { 1: 'Standard', 2: 'Terminator', 3: 'Especial', 4: 'Standard', 5: 'Especial' };
-const PESOS = { Standard: { C: 65, B: 28, A: 6, S: 1 }, Terminator: { C: 40, B: 40, A: 16, S: 4 }, Especial: { C: 22, B: 40, A: 28, S: 10 } };
+const SOBRE_DE = { Standard: 1, Terminator: 2, Especial: 5 };
+// Sorteo con las 4 rarezas nuevas (C común, B poco común, A rara, S legendaria). Tomado de BAL.sobres del juego, con un poco de legendaria.
+const PESOS = { Standard: { C: 70, B: 24, A: 5, S: 1 }, Terminator: { C: 40, B: 42, A: 15, S: 3 }, Especial: { C: 10, B: 45, A: 37, S: 8 } };
 function sortear(tier = 'Standard', n = 3) {
   const p = PESOS[tier] || PESOS.Standard, out = [];
   while (out.length < n) {
     let x = Math.random() * 100, r = 'C'; for (const k of ['C', 'B', 'A', 'S']) { if (x < p[k]) { r = k; break; } x -= p[k]; }
-    const pool = LISTA40.filter(id => rareza(id) === r && !out.includes(id)); out.push(pool[Math.floor(Math.random() * pool.length)]);
+    const pool = LISTA85.filter(id => rareza(id) === r && !out.includes(id)); out.push(pool[Math.floor(Math.random() * pool.length)]);
   }
   return out.sort((a, b) => RORD[rareza(a)] - RORD[rareza(b)]); // la más rara sale al final
 }
@@ -140,29 +144,36 @@ const ANIMS = {
     an(cil, [{ opacity: .3 }, { opacity: 0 }], 400);
     return nodos;
   },
-  // 5. Tragamonedas
+  // 5. Tragamonedas (mismo estilo que el modelo 3, elegido por el dueño): paño rojo, rodillos blancos con brillo dorado,
+  //    letrero con bombillas y palanca grande de bola roja. Un rodillo por bala; paran uno por uno.
   async 5(c, k) {
-    const u = uu(c), pk = k.pack;
-    const m = pon(c, `<div class="luces">${'<i></i>'.repeat(9)}</div><div class="rods">${'<div class="rod"><div class="tira"></div></div>'.repeat(3)}</div><div class="ranura"></div><div class="brazo"><i></i><b></b></div>`, 175, 122, 190, 222, 'maq');
-    an(m, [{ opacity: 0, transform: 'scale(.8)' }, { opacity: 1, transform: 'none' }], 350);
-    pk.style.zIndex = 3; await ir(c, pk, 180, 110, 90, 128, 350);
-    Son.whoosh(); await ir(c, pk, 175, 214, 12, 17, 600, 'ease-in'); pk.remove(); Son.clic();
-    const br = m.querySelector('.brazo'); Son.palanca();
-    an(br.querySelector('b'), [{ transform: 'none' }, { transform: `translateY(${70 * u}px)`, offset: .45 }, { transform: 'none' }], 650, 'ease-in-out');
-    an(br.querySelector('i'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(.35)', offset: .45 }, { transform: 'scaleY(1)' }], 650, 'ease-in-out');
-    const tiras = [...m.querySelectorAll('.tira')], luces = m.querySelector('.luces');
-    tiras.forEach(t => { t.innerHTML = Array.from({ length: 6 }, () => chipH(LISTA40[Math.floor(Math.random() * 40)])).join(''); t.classList.add('gira'); });
-    luces.classList.add('rapido');
-    const tk = setInterval(() => Son.tic(900 + Math.random() * 300, .03), 75);
+    const u = uu(c), pk = k.pack, bul = '<span class="bulbs"><i></i><i></i><i></i></span>';
+    const m = pon(c, `<div class="marq2">${bul}SOBRE${bul}</div><div class="rods2">${'<div class="rod2"><div class="tira"></div></div>'.repeat(3)}</div><div class="rlabs">${'<span></span>'.repeat(3)}</div><div class="ranura2"></div><div class="lever2"><div class="bar"></div><div class="knob"></div></div>`, 172, 120, 284, 212, 'maq2');
+    an(m, [{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'none' }], 350);
+    pk.style.zIndex = 3; await ir(c, pk, 172, 70, 74, 105, 380);
+    Son.whoosh(); await ir(c, pk, 172, 214, 10, 14, 520, 'ease-in'); pk.remove(); Son.clic();
+    // la palanca
+    const lv = m.querySelector('.lever2'); Son.palanca();
+    an(lv.querySelector('.knob'), [{ transform: 'none' }, { transform: `translateY(${110 * u}px)`, offset: .45 }, { transform: 'none' }], 650, 'ease-in-out');
+    an(lv.querySelector('.bar'), [{ transform: 'scaleY(1)' }, { transform: 'scaleY(.25)', offset: .45 }, { transform: 'scaleY(1)' }], 650, 'ease-in-out');
+    const rods = [...m.querySelectorAll('.rod2')], tiras = rods.map(r => r.firstChild), labs = [...m.querySelectorAll('.rlabs span')];
+    tiras.forEach(t => { t.innerHTML = Array.from({ length: 6 }, () => chipH(LISTA85[Math.floor(Math.random() * LISTA85.length)])).join(''); t.classList.add('gira'); });
+    m.classList.add('loca');
+    const tk = setInterval(() => Son.tic(900 + Math.random() * 400, .03), 70);
     for (let i = 0; i < 3; i++) {
-      await espera(i ? 650 : 1100);
-      const t = tiras[i]; t.classList.remove('gira'); t.innerHTML = chipH(k.balas[i]); t.classList.add('fin');
-      an(t, [{ transform: 'translateY(-90%)' }, { transform: 'translateY(-38%)', offset: .7 }, { transform: 'translateY(-50%)' }], 280, 'ease-out'); Son.clac();
+      // el último rodillo tarda más (suspenso)
+      if (i === 2) { rods[2].classList.add('espera'); for (let j = 0; j < 4; j++) { await espera(230); Son.tic(1300 + j * 200, .08); } } else await espera(i ? 600 : 1000);
+      const t = tiras[i], id = k.balas[i], r = rareza(id); t.classList.remove('gira'); t.innerHTML = chipH(id); t.classList.add('fin');
+      an(t, [{ transform: 'translateY(-95%)' }, { transform: 'translateY(-38%)', offset: .7 }, { transform: 'translateY(-50%)' }], 280, 'ease-out'); Son.clac();
+      rods[i].classList.remove('espera'); rods[i].style.setProperty('--gc', RAREZA[r]); rods[i].classList.add('win');
+      labs[i].textContent = RNOM[r]; labs[i].style.color = RAREZA[r];
+      if (RORD[r] >= 2) { Son.campana(); FX.estallido(rods[i], RAREZA[r], 14, r === 'S'); }
     }
     clearInterval(tk);
-    const r = rareza(k.balas[2]);
-    if (RORD[r] >= 2) { pon(c, `<b class="cartel" style="--gc:${RAREZA[r]};color:${r === 'S' ? '#140f0a' : '#fff'}">${r === 'S' ? '¡LEGENDARIA!' : '¡ÉPICA!'}</b>`, 175, 206, 170, 30); } else luces.classList.remove('rapido');
-    return [...m.querySelectorAll('.rod')];
+    const mejor = k.balas.reduce((x, id) => Math.max(x, RORD[rareza(id)]), 0), rm = ['C', 'B', 'A', 'S'][mejor];
+    if (mejor >= 2) pon(c, `<b class="cartel" style="--gc:${RAREZA[rm]};color:${rm === 'S' ? '#140f0a' : '#fff'}">${rm === 'S' ? '¡LEGENDARIA!' : '¡RARA!'}</b>`, 172, 214, 170, 30);
+    else m.classList.remove('loca');
+    return rods;
   },
 };
 
@@ -176,7 +187,8 @@ function revelarFinal(nodos, balas, etq = true) {
     if (etq && n.classList.contains('pz')) n.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${RAREZA[r]}">${RNOM[r]}</span>`);
     setTimeout(() => FX.estallido(n, RAREZA[r], RORD[r] >= 2 ? 22 : 10, r === 'S'), i * 90);
   });
-  if (mejor === 'S') { Son.acorde(); Son.jackpot(); } else if (mejor === 'A') { Son.acorde(); } else if (mejor === 'B') Son.campana(); else Son.ficha();
+  // campanas de jackpot con una rara o una legendaria
+  if (mejor === 'S') { Son.acorde(); Son.jackpot(); } else if (mejor === 'A') { Son.jackpot(); } else if (mejor === 'B') Son.campana(); else Son.ficha();
 }
 
 // Monta el escenario dentro de host (que debe ser una columna flexible).
@@ -203,6 +215,8 @@ function montarEscenario(host, o) {
     res.innerHTML = 'Te salió: ' + balas.map(id => `<b style="color:${rcol(id)}">${nombre(id)}</b> (${RNOM[rareza(id)]})`).join(', ');
     st.todas.push(...balas); o.alTerminar?.(balas);
     bOtro.textContent = 'Abrir otro'; bOtro.disabled = false; if (bCerrar) bCerrar.disabled = false; st.estado = 'listo';
+    // Un solo sobre (expendedora): el botón naranja pasa a «Guardar en mi cinturón»
+    if (o.unaVez && bCerrar) { bOtro.hidden = true; bCerrar.className = 'btn main'; bCerrar.textContent = 'Guardar las balas'; bCerrar.focus(); }
   }
   esc.addEventListener('click', () => { if (st.estado === 'quieto') abrir(); });
   bOtro.onclick = abrir;
@@ -220,5 +234,7 @@ function abrirVentanaSobre(o) {
   setTimeout(() => e.abrir(), 350);
   return e;
 }
-const apElegida = () => guardado('zg_apertura', 1);
+// La apertura elegida por el dueño es la Tragamonedas (5): va por defecto en todos los sobres.
+const apElegida = () => guardado('zg_apertura2', 5);
 const sobreElegido = () => guardado('zg_sobre', 1);
+const elegirAp = n => guardar('zg_apertura2', n);

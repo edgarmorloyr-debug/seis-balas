@@ -9,7 +9,7 @@
 .loop.vacio::before{content:"";width:var(--ch);height:var(--ch);border-radius:50%;border:2px dashed #ffffff44}
 .loop.elegida .f{transform:translateY(calc(var(--ch)*-.3)) rotate(-10deg)}
 .buckle{width:calc(var(--ch)*.7);height:calc(var(--ch)*.9);border:5px solid var(--brass);border-radius:8px;box-shadow:0 0 0 2px #0006;flex:none}
-.bottom{flex:1;min-height:0;display:grid;grid-template-columns:auto auto 1fr;gap:var(--gap)}
+.bottom{flex:1;min-height:0;display:grid;grid-template-columns:auto 1fr;gap:var(--gap)}
 .bag{border-radius:16px 16px 34px 34px;background:linear-gradient(#7a4a26,#4a2a12);border:2px solid #2a1608;box-shadow:inset 0 0 0 3px #e0b07a33;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
 .bag .g{display:grid;grid-template-columns:repeat(3,auto);gap:4px 6px}
 .bag .slot{width:calc(var(--ch) + 4px);height:calc(var(--ch) + 4px)}
@@ -29,15 +29,14 @@
   .top{flex-wrap:wrap;row-gap:6px}.top h1{flex-basis:100%;order:-1}.top .lbl{display:none}
   :root{--ch:clamp(44px,12vw,60px)}
   .belt{display:grid;grid-template-columns:repeat(4,auto);justify-content:space-around;gap:10px 4px;padding:12px 8px}.buckle{display:none}
-  .bottom{grid-template-columns:auto 1fr;grid-template-rows:auto 1fr}
-  .sug{grid-column:1/3}
+  .bottom{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .bag{align-items:center}.bag .g{grid-template-columns:repeat(6,auto)}
 }
 </style></head><body><div class="frame">
 <div class="top"><a class="btn" href="index.html">Menú</a><h1>Cartuchera</h1><span class="lbl">Toca 2 balas o una pareja lista</span><span class="sp"></span><span id="pills"></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="beltwrap"><div class="belt leather" id="cin"></div></div>
 <div class="bottom">
- <div class="bag"><div class="lbl">Alforja <b id="cInv"></b></div><div class="g" id="inv"></div></div>
- <div class="pouch panel"><div class="lbl">Bolsillo</div><span id="bol"></span><div class="txt" id="tBol"></div></div>
+ <div class="bag"><div class="lbl">Reserva <b id="cInv"></b></div><div class="g" id="inv"></div></div>
  <div class="sug"><div class="lbl">Parejas listas</div><div class="lista" id="lista"></div><button class="btn main" id="bTodo">Juntar todo</button></div>
 </div>
 </div>
@@ -51,34 +50,32 @@ function render() {
   $('#pills').innerHTML = pastillas();
   $('#cin').innerHTML = Z.e.cin.map((_, i) => hueco('cin:' + i, 'loop') + (i === 3 ? '<div class="buckle"></div>' : '')).join('');
   $('#inv').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
-  $('#bol').innerHTML = bolsilloHTML(); $('#tBol').textContent = (Z.e.bol ? Z.e.bol.nv : 0) + '/5';
   $('#cInv').textContent = cuenta('inv');
   if (sel) locEl(sel)?.classList.add('elegida');
   pares = Z.parejas(); const max = 8;
   $('#lista').innerHTML = pares.length ? pares.slice(0, max).map((p, i) => {
-    const A = Z.get(p.a), B = Z.get(p.b), r = p.r, nueva = r.tipo === 'fusion' && !Z.conocida(r.id);
-    return `<button class="duo${r.tipo === 'fusion' ? ' mys' : ''}" data-par="${i}">${ficha(A.id, A.nv)}${ficha(B.id, B.nv)}<span class="ar">&gt;</span>${nueva ? '<span class="q">?</span>' : ficha(r.id, r.nv)}<span class="t">${nueva ? 'Fusión nueva' : nombre(r.id) + ' Nv ' + r.nv}<small>${nueva ? 'Pruébala para descubrirla' : queHace(r.id, r.nv)}</small></span></button>`;
+    const A = Z.get(p.a), B = Z.get(p.b), r = p.r;
+    return `<button class="duo" data-par="${i}">${ficha(A.id, A.nv)}${ficha(B.id, B.nv)}<span class="ar">&gt;</span>${ficha(r.id, r.nv)}<span class="t">${nombre(r.id)} Nv ${r.nv}<small>${queHace(r.id, r.nv)}</small></span></button>`;
   }).join('') : '<div class="nada">No hay parejas. Arrastra balas para ordenarlas o toca Reiniciar.</div>';
   const L = $('#lista'); [...L.children].forEach(d => { if (d.offsetTop + d.offsetHeight > L.clientHeight + 1) d.hidden = true; });
-  const n = disjuntas(pares.filter(p => p.r.tipo === 'nivel')).length;
-  $('#bTodo').textContent = n ? `Juntar todo · ${n} ${n > 1 ? 'fichas' : 'ficha'}` : 'Juntar todo';
+  const n = pares.length;
+  $('#bTodo').textContent = n ? `Juntar todo · ${n} ${n > 1 ? 'parejas' : 'pareja'}` : 'Juntar todo';
   $('#bTodo').disabled = !n || ocupado;
 }
 async function juntarPar(a, b) {
   const A = Z.get(a), antes = foto(); const fa = fichaEl(a), fb = fichaEl(b);
   const r0 = Z.combinar(A, Z.get(b)); if (r0.err) { FX.toast(r0.err, true); FX.sacudir(fa); return false; }
-  if (Z.e.fichas < 1) { FX.toast('No te quedan fichas. Toca «Reiniciar».', true); return false; }
   Son.whoosh(); await fa.animate([{ transform: 'none' }, { transform: 'translateY(-40%) scale(1.15)' }], { duration: 160, easing: 'ease-out', fill: 'forwards' }).finished;
   fa.style.visibility = 'hidden';
   await FX.volar(fa, fb, ficha(A.id, A.nv), { color: brillo(A.id), arco: -70, ms: 420 });
-  Son.tintineo(); FX.estallido(fb, '#ffd27a', 12);
+  Son.tintineo(); Son.juntar(A.nv + 1); FX.estallido(fb, '#ffd27a', 12);
   const r = Z.juntar(a, b); sel = null; render(); contarPastillas(antes);
   await celebrar(fichaEl(b), r); return true;
 }
 $('#lista').addEventListener('click', async e => { const d = e.target.closest('[data-par]'); if (!d || ocupado) return; const p = pares[+d.dataset.par]; ocupado = true; render(); await juntarPar(p.a, p.b); ocupado = false; render(); });
 $('#bTodo').onclick = async () => {
   if (ocupado) return; ocupado = true; render(); let n = 0;
-  while (true) { const p = Z.parejas().find(p => p.r.tipo === 'nivel'); if (!p || Z.e.fichas < 1) break; if (!await juntarPar(p.a, p.b)) break; n++; await espera(350); }
+  while (true) { const p = Z.parejas()[0]; if (!p) break; if (!await juntarPar(p.a, p.b)) break; n++; await espera(350); }
   ocupado = false; render(); if (n > 1) { FX.toast('Cadena de ' + n + ' juntadas'); Son.acorde(); }
 };
 arrastre(mesa, {
@@ -91,8 +88,11 @@ arrastre(mesa, {
     if (r.err) { sel = k; Son.clic(); render(); FX.toast(r.err + '. Elegiste la otra.'); return; }
     ocupado = true; const a = sel; sel = null; render(); await juntarPar(a, k); ocupado = false; render();
   },
-  alPasar(a, b) { if (b === 'bol') return Z.e.bol && Z.e.bol.id === Z.get(a).id ? 'Apilar' : Z.e.bol ? '' : 'Guardar'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
-  alSoltar(a, b) { const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; } sel = null; render(); FX.rebote(fichaEl(b), 1.2); r.ok === 'apilar' ? Son.ficha() : Son.clic(); },
+  alPasar(a, b) { const B = Z.get(b); if (!B) return 'Mover'; const r = Z.combinar(Z.get(a), B); return r.err ? 'Cambiar' : 'Juntar · Nv ' + r.nv; },
+  async alSoltar(a, b) {
+    const B = Z.get(b); if (B && !Z.combinar(Z.get(a), B).err) { ocupado = true; sel = null; render(); await juntarPar(a, b); ocupado = false; render(); return; }
+    const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; } sel = null; render(); FX.rebote(fichaEl(b), 1.2); Son.clic();
+  },
 });
 botonReiniciar(() => { sel = null; render(); });
 addEventListener('resize', render);

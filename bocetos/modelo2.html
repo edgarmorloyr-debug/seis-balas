@@ -41,23 +41,21 @@
  </div>
  <div class="side">
   <div class="card panel" id="card"></div>
-  <div class="row panel"><div class="lbl">Bolsillo <b id="cBol"></b></div><div class="ammo"><span id="bol"></span><span class="txt" id="tBol"></span></div></div>
-  <div class="row panel"><div class="lbl">Inventario <b id="cInv"></b></div><div class="ammo" id="inv"></div></div>
+  <div class="row panel"><div class="lbl">Reserva <b id="cInv"></b></div><div class="ammo" id="inv"></div></div>
   <div class="panel pc-only" id="lad"></div>
-  <button class="btn main" id="bGirar">Girar y juntar · 1 ficha</button>
+  <button class="btn main" id="bGirar">Girar y juntar</button>
  </div>
 </div></div>
 <script>
 let sel = [], mostrar = null, foco = 'cin:1';
 const mesa = document.querySelector('.frame');
-function orden() { const [a, b] = sel; if (a === 'bol') return [a, b]; if (b === 'bol') return [b, a]; if (a.startsWith('cin') && !b.startsWith('cin')) return [b, a]; return [a, b]; }
+function orden() { const [a, b] = sel; if (a.startsWith('cin') && !b.startsWith('cin')) return [b, a]; return [a, b]; }
 function render() {
   sel = sel.filter(l => Z.get(l));
   $('#pills').innerHTML = pastillas();
-  $('#rot').innerHTML = '<div class="drum"></div>' + Z.e.cin.map((x, i) => `<div class="ch${x ? '' : ' vacio'}" style="--a:${i * 45}deg" data-loc="cin:${i}">${x ? ficha(x.id, x.nv, { pair: Z.pareja('cin:' + i) }) : ''}</div>`).join('');
+  $('#rot').innerHTML = '<div class="drum"></div>' + Z.e.cin.map((x, i) => `<div class="ch${x ? '' : ' vacio'}${x && Z.pareja('cin:' + i) ? ' par' : ''}" style="--a:${i * 45}deg" data-loc="cin:${i}">${x ? ficha(x.id, x.nv) : ''}</div>`).join('');
   $('#inv').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
-  $('#bol').innerHTML = bolsilloHTML(); $('#tBol').textContent = Z.e.bol ? '×' + Z.e.bol.nv + ' · +' + Z.e.bol.nv * 20 + ' %' : 'vacío';
-  $('#cInv').textContent = cuenta('inv'); $('#cBol').textContent = (Z.e.bol ? Z.e.bol.nv : 0) + '/5';
+  $('#cInv').textContent = cuenta('inv');
   sel.forEach(l => locEl(l)?.classList.add('elegida'));
   const core = $('#core'); let h = '<div class="rays"></div>', ok = false, cc = '';
   let it = mostrar || (Z.get(foco) ? Z.get(foco) : null), titulo = '', txt = '';
@@ -65,23 +63,23 @@ function render() {
   else if (sel.length === 2) {
     const [s, d] = orden(), r = Z.combinar(Z.get(s), Z.get(d));
     if (r.err) { h += `<span class="vac">No se juntan</span>`; txt = r.err; }
-    else { ok = true; cc = brillo(r.id); if (r.tipo === 'fusion' && !Z.conocida(r.id)) { h += '<span class="q">?</span>'; it = null; titulo = 'Fusión nueva'; txt = nombre(Z.get(s).id) + ' + ' + nombre(Z.get(d).id) + ' · pruébala'; } else { h += `<span class="prev">${ficha(r.id, r.nv)}</span>`; it = { id: r.id, nv: r.nv }; } }
+    else { ok = true; cc = brillo(r.id); h += `<span class="prev">${ficha(r.id, r.nv)}</span>`; it = { id: r.id, nv: r.nv }; }
   } else if (sel.length === 1) { const x = Z.get(sel[0]); h += `<span class="prev">${ficha(x.id, x.nv)}</span>`; cc = brillo(x.id); it = x; }
   else h += '<span class="vac">Toca 2 balas</span>';
   core.innerHTML = h; core.style.setProperty('--cc', cc || '#ffd27a66'); if (!mostrar) core.classList.remove('brilla');
   if (it) { titulo = `${nombre(it.id)} · Nv ${it.nv}`; txt = `${queHace(it.id, it.nv)} <small>· ${RNOM[rareza(it.id)]}</small>`; }
-  $('#card').innerHTML = (it ? ficha(it.id, it.nv) : '<span class="slot"></span>') + `<div><h2 style="color:${it ? brillo(it.id) : '#b67cff'}">${titulo || 'Elige 2 balas'}</h2><div class="txt">${txt || 'Iguales suben de nivel; distintas pueden fusionarse'}</div></div>`;
+  $('#card').innerHTML = (it ? ficha(it.id, it.nv) : '<span class="slot"></span>') + `<div><h2 style="color:${it ? brillo(it.id) : '#b67cff'}">${titulo || 'Elige 2 balas'}</h2><div class="txt">${txt || '2 iguales del mismo nivel suben 1 nivel (hasta Nv 4)'}</div></div>`;
   $('#lad').innerHTML = it ? `<div class="lbl" style="margin-bottom:6px">Niveles de ${nombre(it.id)}</div>` + escalera(it.id, it.nv) : '';
   $('#bGirar').disabled = !ok || !!mostrar;
 }
 function elegir(l) { foco = l; if (sel.includes(l)) { sel = sel.filter(x => x !== l); Son.clic(); } else { if (sel.length === 2) sel.shift(); sel.push(l); Son.martillo(); } render(); FX.rebote(fichaEl(l), 1.2); }
 arrastre(mesa, {
   alTocar(k) { if (k.startsWith('drop:')) return; if (Z.get(k)) elegir(k); },
-  alPasar(a, b) { if (b === 'drop:centro') return 'Al centro'; if (b === 'bol') return Z.e.bol && Z.e.bol.id === Z.get(a).id ? 'Apilar' : Z.e.bol ? '' : 'Guardar'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
+  alPasar(a, b) { if (b === 'drop:centro') return 'Al centro'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
   alSoltar(a, b) {
     if (b === 'drop:centro') { if (!sel.includes(a)) elegir(a); return; }
     const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; }
-    sel = sel.map(x => x === a ? b : x === b ? a : x); foco = b; render(); FX.rebote(fichaEl(b), 1.2); if (r.ok === 'apilar') { Son.ficha(); FX.flotar(fichaEl(b), 'Bolsillo ×' + r.item.nv, '#e86fae'); } else Son.clic();
+    sel = sel.map(x => x === a ? b : x === b ? a : x); foco = b; render(); FX.rebote(fichaEl(b), 1.2); Son.clic();
   },
 });
 $('#bGirar').onclick = async () => {
@@ -89,7 +87,7 @@ $('#bGirar').onclick = async () => {
   const A = Z.get(s), B = Z.get(d);
   Son.girar(16, 95);
   await $('#rot').animate([{ transform: 'rotate(0)' }, { transform: 'rotate(720deg)' }], { duration: 1600, easing: 'cubic-bezier(.25,0,.2,1)' }).finished;
-  Son.martillo(); const core = $('#core'); core.classList.add('brilla');
+  Son.martillo(); Son.juntar(B.nv + 1); const core = $('#core'); core.classList.add('brilla');
   await Promise.all([FX.volar(fichaEl(s), core, ficha(A.id, A.nv), { color: brillo(A.id), arco: -30 }), FX.volar(fichaEl(d), core, ficha(B.id, B.nv), { color: brillo(B.id), arco: 30 })]);
   const r = Z.juntar(s, d); if (r.err) { FX.toast(r.err, true); render(); return; }
   sel = []; mostrar = r.item; foco = d; render(); core.classList.add('brilla'); contarPastillas(antes);
