@@ -7355,6 +7355,11 @@ function buildPolice() {
   // --- patrullas (blanco y azul, con barra de luces)
   const CAR = (arr, f, o = {}) => {
     const body = o.burnt ? 0x1c1a18 : 0x15203c, white = o.burnt ? 0x2a2624 : 0xd8dce0, glass = 0x0c121a, blk = 0x111111;
+    if (world.m3dL.on && arr === ST) {   // modelo 3D: el coche de verdad pintado de patrulla (rótulos, sirenas y choque, los de siempre)
+      world.m3dL.pon(M3G.cocheX, f.x, f.z, f.ry, 4.5, 0, null, null, body);
+      if (!o.burnt && !o.noText) for (const s of [-1, 1]) put(SG, F(...wp(f, -0.15, s * 0.95), f.ry + (s > 0 ? 0 : Math.PI)), policeSignGeo(1.8, 0.42, 5, 0, 0.5), 0xffffff, 0, 0.68, 0);
+      boxL(f, 0, 0, 2.3, 1.0); return;
+    }
     put(arr, f, gb(4.4, 0.7, 1.86), body, 0, 0.62, 0); put(arr, f, gb(2.0, 0.5, 1.88), white, -0.15, 0.66, 0);
     put(arr, f, gb(2.2, 0.6, 1.62), glass, -0.25, 1.27, 0); put(arr, f, gb(2.0, 0.07, 1.62), white, -0.25, 1.6, 0);
     for (const sx of [-1.4, 1.4]) for (const sz of [-0.88, 0.88]) put(arr, f, gc(0.38, 0.38, 0.28, 8), blk, sx, 0.38, sz, Math.PI / 2);
@@ -7382,7 +7387,7 @@ function buildPolice() {
   CAR(ST, C4, { doors: true }); const sir4 = siren(C4, 1.3, false);
   CAR(ST, C5, { noBar: true }); CAR(ST, C6, {}); CAR(ST, C7, { burnt: true, noBar: true });
   // capó aplastado contra la fachada
-  put(ST, C5, gb(1.2, 0.5, 1.9), 0x15203c, 1.9, 0.9, 0, 0, 0, 0.5);
+  if (!world.m3dL.on) put(ST, C5, gb(1.2, 0.5, 1.9), 0x15203c, 1.9, 0.9, 0, 0, 0, 0.5);
   // --- la patrulla con bidones de gasolina en el maletero (se dispara para que explote)
   const BC = [];
   { const f = F(0, 0, 0); CAR(BC, f, { noText: true }); for (const s of [-1, 1]) put(SG, F(...wp(C2, -0.15, s * 0.945), C2.ry + (s > 0 ? 0 : Math.PI)), policeSignGeo(1.8, 0.42, 5, 0, 0.5), 0xffffff, 0, 0.68, 0); put(BC, f, gb(1.0, 0.06, 1.6), 0x15203c, -2.4, 1.4, 0, 0, 0, -1.1);
@@ -7390,6 +7395,7 @@ function buildPolice() {
   colliders.pop(); // la colisión la pone el coche en su sitio
   const bombMat = lam(0xffffff, { vertexColors: true });
   const bomb = new THREE.Mesh(policeGeo(BC), bombMat); bomb.position.set(C2.x, 0, C2.z); bomb.rotation.y = C2.ry; bomb.castShadow = true; bomb.receiveShadow = true; world.group.add(bomb);
+  m3dHijo(bomb, M3G.cocheX, 4.5, 0, { color: 0x15203c });   // modelo 3D: la patrulla bomba (se sigue disparando y vuela igual)
   addBox(C2.x, C2.z, 2.3, 1.0, C2.ry);
   const sir2 = siren(C2, 0.35, false);
   const [tkx, tkz] = wp(C2, -1.9, 0);
@@ -7402,24 +7408,28 @@ function buildPolice() {
   });
   // --- furgoneta de los antidisturbios, quemada y ardiendo
   const VAN = F(31, 22, 0.7);
-  put(ST, VAN, gb(5.2, 2.2, 2.2), 0x161412, 0, 1.4, 0); put(ST, VAN, gb(1.2, 1.2, 2.1), 0x0c0a08, 2.4, 1.1, 0);
+  if (world.m3dL.on) world.m3dL.pon(M3G.furgonetaQuemada, VAN.x, VAN.z, VAN.ry, 5.8);   // modelo 3D: la furgoneta quemada
+  else { put(ST, VAN, gb(5.2, 2.2, 2.2), 0x161412, 0, 1.4, 0); put(ST, VAN, gb(1.2, 1.2, 2.1), 0x0c0a08, 2.4, 1.1, 0);
   for (const sx of [-1.7, 1.7]) for (const sz of [-1.0, 1.0]) put(ST, VAN, gc(0.42, 0.42, 0.3, 8), 0x0a0a0a, sx, 0.42, sz, Math.PI / 2);
-  for (let i = 0; i < 4; i++) put(ST, VAN, gb(0.9, 0.5, 0.05), 0x050505, -1.6 + i * 1.1, 1.8, 1.11);
+  for (let i = 0; i < 4; i++) put(ST, VAN, gb(0.9, 0.5, 0.05), 0x050505, -1.6 + i * 1.1, 1.8, 1.11); }
   boxL(VAN, 0, 0, 2.7, 1.15);
   const fireL = lampLight(VAN.x, 3, VAN.z, 0xff7a2a, 2.2, 16, null, 4);
   const fGl1 = glow(VAN.x, 2.7, VAN.z, 0xff6a1a, 4.5, 0.7), fGl2 = glow(VAN.x, 2.5, VAN.z, 0xffc040, 2, 0.8);
   // --- el autobús de traslado de presos: llegó con los detenidos ya mordidos
   const BUS = F(-12.5, 20.5, 0.35);
+  const nBus = ST.length; if (world.m3dL.on) world.m3dL.pon(M3G.autobus, BUS.x, BUS.z, BUS.ry, 10.2, 0, null, null, 0xd8dce0);   // modelo 3D: el autobús de presos (pintado de blanco)
   put(ST, BUS, gb(10, 2.3, 2.5), 0xd8dce0, 0, 1.55, 0); put(ST, BUS, gb(10.02, 0.45, 2.52), 0x15203c, 0, 1.05, 0); put(ST, BUS, gb(10, 0.12, 2.4), 0x9a9ea2, 0, 2.76, 0);
   put(ST, BUS, gb(0.06, 1.0, 2.2), 0x0c121a, 5.02, 2.0, 0);
   for (let i = 0; i < 7; i++) for (const sd of [-1, 1]) { const lx = -3.9 + i * 1.25; put(ST, BUS, gb(0.95, 0.6, 0.04), 0x0c121a, lx, 2.1, sd * 1.26); for (let b = 0; b < 3; b++) put(ST, BUS, gb(0.04, 0.6, 0.04), 0x8a8e92, lx - 0.3 + b * 0.3, 2.1, sd * 1.29); }
   for (const lx of [-3.4, -2.2, 3.4]) for (const sd of [-1, 1]) put(ST, BUS, gc(0.5, 0.5, 0.35, 8), 0x111111, lx, 0.5, sd * 1.15, Math.PI / 2);
   put(ST, BUS, gb(0.06, 2.0, 1.1), 0xd8dce0, -5.5, 1.4, 1.2, 0, -1.2); put(ST, BUS, gb(0.06, 2.0, 1.1), 0x050505, -5.02, 1.4, -0.5);
+  if (world.m3dL.on) ST.length = nBus;   // (sin las piezas de caja: va el modelo)
   for (const sd of [-1, 1]) put(SG, F(...wp(BUS, 0.2, sd * 1.265), BUS.ry + (sd > 0 ? 0 : Math.PI)), policeSignGeo(4.2, 0.42, 5, 0.5, 1), 0xffffff, 0, 1.05, 0);
   boxL(BUS, 0, 0, 5.1, 1.3);
   for (let k = 0; k < 6; k++) { const [x, z] = wp(BUS, -5.6 - k * 0.6, sr(-0.5, 0.5)); put(FL, F(x, z, sr(0, 3)), gb(sr(0.3, 0.7), 0.02, sr(0.2, 0.5)), 0x3a0605, 0, 0.02, 0); }
   // barreras de hormigón en zigzag junto al portón
-  for (const [x, z, r] of [[-8.5, 27.5, 0], [-10.6, 27.8, 0.12], [8.2, 24.5, 0], [10.3, 24.8, -0.1], [16, 30.5, 0.5]]) { const f = F(x, z, r); put(ST, f, gb(2, 0.22, 0.75), 0x8a8a84, 0, 0.11, 0); put(ST, f, gb(2, 0.6, 0.35), 0x8a8a84, 0, 0.52, 0); put(ST, f, gb(2.01, 0.12, 0.36), 0xc02018, 0, 0.7, 0); boxL(f, 0, 0, 1.0, 0.38); }
+  for (const [x, z, r] of [[-8.5, 27.5, 0], [-10.6, 27.8, 0.12], [8.2, 24.5, 0], [10.3, 24.8, -0.1], [16, 30.5, 0.5]]) { const f = F(x, z, r); boxL(f, 0, 0, 1.0, 0.38); if (world.m3dL.on) { world.m3dL.pon(M3G.barrera, x, z, r, 2.05); continue; }   // modelo 3D: barrera de hormigón
+    put(ST, f, gb(2, 0.22, 0.75), 0x8a8a84, 0, 0.11, 0); put(ST, f, gb(2, 0.6, 0.35), 0x8a8a84, 0, 0.52, 0); put(ST, f, gb(2.01, 0.12, 0.36), 0xc02018, 0, 0.7, 0); }
   // --- sacos terreros: el semicírculo de la entrada y otros nidos
   const bags = [], bagC = [];
   const bagLine = (pts, rows = 3) => {
@@ -7447,7 +7457,8 @@ function buildPolice() {
   };
   for (const [x, z, r, fl] of [[-2, 31, 0, 0], [2.6, 30.6, 0.2, 0], [-12, 26, 0.6, 0], [10.5, 31, -0.3, 1], [-26, -12, 0, 0], [-29, -12.4, 0.2, 0], [25, -10.5, 0.4, 0], [16, 20.5, 1.2, 1], [-32, 18, 0.9, 0], [28, 31, -0.5, 0]]) horse(x, z, r, fl);
   for (const [x, z, f] of [[-4, 24, 0], [4.4, 23.2, 1], [-5.5, 16.5, 0], [9, 16, 0], [-3, -9, 1], [21, 4, 0], [-20, -9, 0], [27.5, 9, 1], [-27, 33, 0], [33, -14, 0], [-10, 12, 0], [12, 34, 1]]) {
-    const ff = F(x, z, sr(0, 3)); put(ST, ff, new THREE.ConeGeometry(0.2, 0.62, 8), 0xe8501a, 0, f ? 0.18 : 0.34, 0, f ? Math.PI / 2 : 0); put(ST, ff, gb(0.42, 0.04, 0.42), 0xe8501a, 0, 0.02, 0);
+    const ff = F(x, z, sr(0, 3)); if (!f && world.m3dL.on) { world.m3dL.pon(M3G.cono, x, z, ff.ry, 0.66); continue; }   // modelo 3D: cono
+    put(ST, ff, new THREE.ConeGeometry(0.2, 0.62, 8), 0xe8501a, 0, f ? 0.18 : 0.34, 0, f ? Math.PI / 2 : 0); put(ST, ff, gb(0.42, 0.04, 0.42), 0xe8501a, 0, 0.02, 0);
   }
   // --- cinta policial entre postes
   const tape = (pts) => { for (let s = 0; s < pts.length - 1; s++) { const [x1, z1] = pts[s], [x2, z2] = pts[s + 1], len = Math.hypot(x2 - x1, z2 - z1), ry = Math.atan2(-(z2 - z1), x2 - x1); put(SG, F((x1 + x2) / 2, (z1 + z2) / 2, ry), policeSignGeo(len, 0.12, 4), 0xffffff, 0, 1.0 - Math.sin(s * 1.7) * 0.06, 0, 0, 0, sr(-0.04, 0.04)); put(SG, F((x1 + x2) / 2, (z1 + z2) / 2, ry + Math.PI), policeSignGeo(len, 0.12, 4), 0xffffff, 0, 1.0 - Math.sin(s * 1.7) * 0.06, 0); } for (const [x, z] of pts) put(ST, W, gc(0.04, 0.05, 1.1, 6), 0x3a3a3a, x, 0.55, z); };
@@ -7644,7 +7655,7 @@ function buildPolice() {
     // la patrulla bomba
     if (bombS === 1) {
       fuse -= dt; for (let i = 0; i < 3; i++) PA.add(tkx + rand(-0.3, 0.3), 1.3, tkz + rand(-0.3, 0.3), rand(-0.3, 0.3), rand(1, 2.4), rand(-0.3, 0.3), rand(0.3, 0.6), rand(0.15, 0.3), 1, rand(0.4, 0.7), 0.1, 1, -1, 0.5, -0.2, 0);
-      if (fuse <= 0) { bombS = 2; burnT = 22; jump = 1; Sfx.boom(); explode(new THREE.Vector3(C2.x, 1, C2.z), 6.5, 360, 22); bombMat.color.setHex(0x3a3430); sir2.on = false; puddle.material.color.setHex(0x080605); tankG.material.opacity = 0; banner('¡BUM!', 'La patrulla voló por los aires', 1400); }
+      if (fuse <= 0) { bombS = 2; burnT = 22; jump = 1; Sfx.boom(); explode(new THREE.Vector3(C2.x, 1, C2.z), 6.5, 360, 22); bombMat.color.setHex(0x3a3430); for (const c of bomb.children) if (c.isMesh && c.material.color) { c.material = c.material.clone(); c.material.color.multiplyScalar(0.22); } sir2.on = false; puddle.material.color.setHex(0x080605); tankG.material.opacity = 0; banner('¡BUM!', 'La patrulla voló por los aires', 1400); }
     }
     if (bombS === 2) {
       if (jump > 0) { jump = Math.max(0, jump - dt * 1.6); bomb.position.y = Math.sin((1 - jump) * Math.PI) * 1.1; bomb.rotation.z = Math.sin((1 - jump) * Math.PI) * 0.25; }
