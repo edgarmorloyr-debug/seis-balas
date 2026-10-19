@@ -24,6 +24,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Ya no hay balas de regalo al empezar cada oleada; solo Françoise por su pasiva (decisión del dueño).
 
 ### G1b · Trastienda nueva (decisión del dueño, 19-oct-2026) · primero boceto
+*Hecho en la rama trastienda-nueva (19-oct-2026), para probar: salón, 3 salas, pasillo de los caminos, vendedor de armas, teclas 1-4 (el cañón pasó a Num 1-9 y Z/X), deuda con el teléfono, escena de la derrota, texto de entrada, plato extra del ramen y la tragamonedas con la pantalla del prototipo. Cifras en BAL.trastienda, BAL.deuda y BAL.armeria.*
 - Sala principal: el puesto de ramen y el teléfono negro para abonar la deuda de cada mapa. Deuda: 100 $ el mapa 1 y 50 % más en cada mapa (decisión del dueño).
 - 3 puertas al frente (lo de dentro siempre es sorpresa de su categoría) + 1 puerta de salida fija:
   1. Símbolo de intercambio: el Diablo, Madame y la expendedora de retos pueden salir juntos o no.
@@ -44,6 +45,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Ametralladoras del vendedor: Thompson, M60 y Gatling de manivela (propuesta del boceto).
 
 ### G1 · Historia y deuda con el casino
+*Hecho en la rama trastienda-nueva (ver G1b). Al colgar sin dinero se abre la sala de los dados para apostar (las otras dos siguen con cadena hasta pagar).*
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
 - Al pagar: «¡Esta es solo la primera parte! ¡Págame o te rompo las piernas!». Otras frases: «Hmmm… dinero…», «Sabía que podías hacerlo, eres como un hijo para mí», «Más te vale conseguir el resto pronto».
