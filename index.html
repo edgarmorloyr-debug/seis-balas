@@ -5037,6 +5037,7 @@ function buildMap(i) {
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
   moonMesh.visible = moonHalo.visible = !world.noMoon;
+  m3dSembrar(i);   // hierba, matas y flores de adorno (sin choque)
   L3.fin();
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -12432,6 +12433,11 @@ const M3D_CRED = [
   ["contenedor", "Low Poly Cargo Container", "yxungsauce2", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7"],
   ["caja_scifi", "Sci-fi Crate", "Darren McNerney 3D", "CC BY 4.0", "https://sketchfab.com/3d-models/sci-fi-crate-0e60a62a8f1e4048b638a32eb0661015"],
   ["tanque_agua", "Water Tower", "Chamod1999", "CC BY 4.0", "https://sketchfab.com/3d-models/water-tower-500cfe0cf4a74350bb49c5736b692339"],
+  ["hierba", "Low Poly Grass Pack", "Anskar", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-grass-pack-2ffb4d5302c14d038eaf6488b8c7ede2"],
+  ["mata", "Low Poly Shrub - Small Texture", "Natural_Disbuster", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-shrub-small-texture-6e16ec47d7c246a69efffb9e857165ed"],
+  ["flor", "Margarita flower", "Maf'j Alvarez", "CC BY 4.0", "https://sketchfab.com/3d-models/margarita-flower-58ce34c65642408cb92eab784af2bd6c"],
+  ["tractor", "Low Poly Tractor", "maxymation", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-tractor-9520e331b4e24c259063450a0d5bb992"],
+  ["espantapajaros", "scarecrow low poly game ready", "DynamicSAV", "CC BY 4.0", "https://sketchfab.com/3d-models/scarecrow-low-poly-game-ready-ebf0d28cea6b4ff6b02ab2244f1dc007"],
 ];
 function m3dArchivo(n) {
   if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
@@ -12582,6 +12588,20 @@ function m3dLista(list, S, tam, yc = 0, conColor = false) {
   const L = world.m3dL, T = new THREE.Matrix4().makeTranslation(0, -yc, 0);
   for (const o of list) L.pon(S, 0, 0, 0, tam, 0, null, o.m.clone().multiply(T), conColor ? o.c : null);
 }
+// adornos sembrados por el mapa (hierba, matas, flores, piedritas): sin choque y con su propio azar, así el mapa no cambia
+// M3D_SIEMBRA[mapa] = [[spec, cuántos, [tamaño mín, máx], filtro(x, z) opcional], ...]
+const M3D_SIEMBRA = {};
+function m3dSembrar(mi) {
+  const L = world.m3dL, plan = M3D_SIEMBRA[mi]; if (!L || !L.on || !plan) return;
+  const R = mulberry32(4242 + mi * 131), a = world.arena, ex = a.t === 'c' ? a.r : a.hx, ez = a.t === 'c' ? a.r : a.hz;
+  for (const [S, n, tam, filtro] of plan) {
+    for (let i = 0, k = 0; i < n && k < n * 10; k++) {
+      const x = (R() * 2 - 1) * ex, z = (R() * 2 - 1) * ez, ry = R() * TAU, t = tam[0] + (tam[1] - tam[0]) * R(), vi = Math.floor(R() * 16);
+      if (!insideArena(x, z, 0.8) || pointBlocked(x, z, 0.5) || Math.hypot(x - world.start.x, z - world.start.z) < 2 || (filtro && !filtro(x, z))) continue;
+      L.pon(S, x, z, ry, t, 0, vi); i++;
+    }
+  }
+}
 // quita un objeto del dibujo (sus choques quedan)
 function m3dQuitarObj(o) { if (o.parent) o.parent.remove(o); o.traverse(c => { if (c.isMesh) solidOff(c); }); }
 // piezas que usan varios mapas (los ayudantes de siempre: árbol seco, roble y farola)
@@ -12604,6 +12624,9 @@ const M3G = {
   cedro: { f: 'pino', color: 0x6a8a6e, sombra: false },
   bidonP: { f: 'bidon', pinta: '.', aclara: 0.4 },
   palmera: { f: 'palmera' },
+  hierba: (col) => ({ f: 'hierba', clave: 'nodo', color: col, sombra: false, solido: false }),
+  mata: (col) => ({ f: 'mata', color: col, sombra: false, solido: false }),
+  flor: { f: 'flor', sombra: false, solido: false },
   mesaRedonda: { f: 'mesa_redonda' },
   columna: { f: 'columna' },
   osito: { f: 'osito', pinta: '^material$', blanco: true, aclara: 0.2, sombra: false, solido: false },
@@ -12641,6 +12664,14 @@ const C3 = {
   pino: { f: 'pino', color: 0x4a5a52 },
   farol: { f: 'farol', solido: false, giro: Math.PI / 2, alto: [5.08, 5.08], ancla: v => { const p = v.parts.find(q => /Emission/i.test(q.src.name)); if (!p) return null; p.geo.computeBoundingBox(); return p.geo.boundingBox.getCenter(new THREE.Vector3()); } }
 };
+// adornos sembrados de cada mapa al aire libre (ver m3dSembrar): hierba, matas y flores del color de cada lugar
+M3D_SIEMBRA[0] = [   // el cementerio: hierba seca y matas oscuras (no dentro de las catacumbas ni del castillo)
+  [M3G.hierba(0x55634a), 800, [0.3, 0.7], (x, z) => Math.hypot(x, z) < 44 || enBosque(x, z)],
+  [M3G.mata(0x5a6650), 60, [0.7, 1.3], (x, z) => !enCatacumbas(x, z) && !enCastillo(x, z) && Math.hypot(x, z) > 8]];
+M3D_SIEMBRA[1] = [   // la granja: hierba, matas y flores (no en el granero, ni en la casa, ni en el maizal)
+  [M3G.hierba(0xb0b070), 520, [0.35, 0.8], (x, z) => !(x > -37 && x < -11 && z > -72 && z < -54) && !(Math.abs(x) < 14 && Math.abs(z) < 14) && x < 44],
+  [M3G.mata(0x8a9a60), 50, [0.7, 1.2], (x, z) => !(x > -37 && x < -11 && z > -72 && z < -54) && !(Math.abs(x) < 16 && Math.abs(z) < 16) && x < 44],
+  [M3G.flor, 90, [0.35, 0.55], (x, z) => x < -42 && z > -45 && z < 12]];
 function cemBake(root, solidMats) {
   root.updateMatrixWorld(true);
   const groups = new Map();
@@ -12924,7 +12955,7 @@ function buildCemetery() {
   for (let i = 0; i < 8; i++) { const p = spot(1.2, [12, 34]); if (p) grave(p[0], p[1]); }
   for (let i = 0; i < 52; i++) { const p = spot(0.6, [6, 39]); if (p) tombstone(p[0], p[1]); }
   for (let i = 0; i < 12; i++) { const p = spot(0.8, [10, 40]); if (p) treeD(p[0], p[1], sr(0.8, 1.3), true); }
-  for (let i = 0; i < 10; i++) { const p = spot(1, [9, 40]); if (!p) continue; const rr = sr(0.5, 1.1), m = M(ROCK, darkStone, p[0], rr * 0.35, p[1], { p: tmp }); m.scale.set(rr, rr * sr(0.5, 0.8), rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); addCircle(p[0], p[1], rr * 0.9); }
+  for (let i = 0; i < 10; i++) { const p = spot(1, [9, 40]); if (!p) continue; const rr = sr(0.5, 1.1), m = M(ROCK, darkStone, p[0], rr * 0.35, p[1], { p: tmp }); m.scale.set(rr, rr * sr(0.5, 0.8), rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); addCircle(p[0], p[1], rr * 0.9); if (D3) { tmp.remove(m); L3.pon(M3G.rocaLunaO, p[0], p[1], m.rotation.y, [rr * 2, rr * 1.3 * m.scale.y / rr], 0, i % 4); } }   // modelo 3D: roca
   cemGrande({ stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree, treeD, tombstone, grave });
   cemBake(tmp, [stoneMat, darkStone, bark]);
 

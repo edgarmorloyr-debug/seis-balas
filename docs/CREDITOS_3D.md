@@ -25,14 +25,14 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `cruces.glb` | Haunted Cemetery Low Poly: Game Asset Pack | ronildo.facanha | CC BY 4.0 | Cementerio, Parque | 94 KB | https://sketchfab.com/3d-models/haunted-cemetery-low-poly-game-asset-pack-da41bb9f2ffe42fb8a69438e92dd2936 |
 | `mausoleo.glb` | Mausoleum stylized | Arhokis | CC BY 4.0 | Cementerio | 108 KB | https://sketchfab.com/3d-models/mausoleum-stylized-5d7521e81fd149ba9ecd6d241849b2a6 |
 | `arbol_seco.glb` | Low Poly: Dead Tree | ClintonAbbott.Art | CC BY 4.0 | Cementerio, Granja, Parque | 22 KB | https://sketchfab.com/3d-models/low-poly-dead-tree-addc2aef9e534a93a8798320fea440ef |
-| `farol.glb` | Stylized Street Light | WillowBoxArt | CC BY 4.0 | Cementerio, Zoo, Policía y farolas de todos los mapas | 66 KB | https://sketchfab.com/3d-models/stylized-street-light-877c0ac0ad414ac1a9c9f7689add01c4 |
+| `farol.glb` | Stylized Street Light | WillowBoxArt | CC BY 4.0 | Cementerio, Zoo, Policía y farolas de todos los mapas | 21 KB | https://sketchfab.com/3d-models/stylized-street-light-877c0ac0ad414ac1a9c9f7689add01c4 |
 | `calabaza.glb` | Pumpkin | SleepyPineapple | CC BY 4.0 | Granja | 5 KB | https://sketchfab.com/3d-models/pumpkin-79f906eceb3640bf8729b903cdd47f9b |
 | `calabaza_tallada.glb` | Pumpkin Lowpoly | Yumy Cubillos | CC BY 4.0 | Granja | 32 KB | https://sketchfab.com/3d-models/pumpkin-lowpoly-4ba264c53df944efbd977072a2637d91 |
 | `manzano.glb` | Apple tree Low-poly 3D model | Gunther | CC BY 4.0 | Granja | 28 KB | https://sketchfab.com/3d-models/apple-tree-low-poly-3d-model-956713eaab454decb4081fa38dfdb84b |
 | `pino.glb` | Low Poly Pine | Afloat Above the World | CC BY 4.0 | Cementerio, Granja, Tokio, Duendes | 7 KB | https://sketchfab.com/3d-models/low-poly-pine-107e3eab9dcb4e29a282c6709178752f |
 | `fardos.glb` | Free Pack - Stylized Hay Bale | PolyOne Studio | CC BY 4.0 | Granja | 35 KB | https://sketchfab.com/3d-models/free-pack-stylized-hay-bale-036289580a6a467b9705cd9a311747c1 |
 | `arboles.glb` | Low Poly Trees | reymarch | CC BY 4.0 | Granja, Súper, Circo, Parque, Zoo, Maid Café (y el roble de los demás mapas) | 24 KB | https://sketchfab.com/3d-models/low-poly-trees-2e70c34af8994852acd4b9ffce596336 |
-| `coche.glb` | Low-poly Car | BUKKBEEK | CC BY 4.0 | Súper, Zoo, Policía, Parque, Tokio, Maid Café, Backrooms | 35 KB | https://sketchfab.com/3d-models/low-poly-car-8e500541f5e341b3a7ad86b08a5aaeab |
+| `coche.glb` | Low-poly Car | BUKKBEEK | CC BY 4.0 | Súper, Zoo, Policía, Parque, Tokio, Maid Café, Backrooms | 28 KB | https://sketchfab.com/3d-models/low-poly-car-8e500541f5e341b3a7ad86b08a5aaeab |
 | `camioneta.glb` | Low Poly Pickup Truck 2 | Aditya Voxel | CC BY 4.0 | Súper | 44 KB | https://sketchfab.com/3d-models/low-poly-pickup-truck-2-4d29173e76624021b80630db2cf089df |
 | `carrito.glb` | Shopping Cart | AdrianXY | CC BY 4.0 | Súper | 12 KB | https://sketchfab.com/3d-models/shopping-cart-b96f896453b240ae804d0399f1faf027 |
 | `cajas_barril.glb` | Stylized Low Poly Wooden Boxes And Barrel | sdvtljkrgv | CC BY 4.0 | Circo, Isla y cajas rompibles de todos los mapas | 33 KB | https://sketchfab.com/3d-models/stylized-low-poly-wooden-boxes-and-barrel-1c5dabaacc6949da8bf809b3e463bcf3 |
@@ -53,15 +53,12 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `contenedor.glb` | Low Poly Cargo Container | yxungsauce2 | CC BY 4.0 | Océano | 6 KB | https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7 |
 | `caja_scifi.glb` | Sci-fi Crate | Darren McNerney 3D | CC BY 4.0 | Estación Espacial | 19 KB | https://sketchfab.com/3d-models/sci-fi-crate-0e60a62a8f1e4048b638a32eb0661015 |
 | `tanque_agua.glb` | Water Tower | Chamod1999 | CC BY 4.0 | Rascacielos | 58 KB | https://sketchfab.com/3d-models/water-tower-500cfe0cf4a74350bb49c5736b692339 |
+| `hierba.glb` | Low Poly Grass Pack | Anskar | CC BY 4.0 | varios (hierba sembrada) | 5 KB | https://sketchfab.com/3d-models/low-poly-grass-pack-2ffb4d5302c14d038eaf6488b8c7ede2 |
+| `mata.glb` | Low Poly Shrub - Small Texture | Natural_Disbuster | CC BY 4.0 | varios (matas sembradas) | 32 KB | https://sketchfab.com/3d-models/low-poly-shrub-small-texture-6e16ec47d7c246a69efffb9e857165ed |
+| `flor.glb` | Margarita flower | Maf'j Alvarez | CC BY 4.0 | varios (flores sembradas) | 7 KB | https://sketchfab.com/3d-models/margarita-flower-58ce34c65642408cb92eab784af2bd6c |
+| `tractor.glb` | Low Poly Tractor | maxymation | CC BY 4.0 | Granja | 18 KB | https://sketchfab.com/3d-models/low-poly-tractor-9520e331b4e24c259063450a0d5bb992 |
+| `espantapajaros.glb` | scarecrow low poly game ready | DynamicSAV | CC BY 4.0 | Granja | 20 KB | https://sketchfab.com/3d-models/scarecrow-low-poly-game-ready-ebf0d28cea6b4ff6b02ab2244f1dc007 |
 
-Peso total: 1033 KB.
+Peso total: 1067 KB.
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.es
-
-## Zombis
-
-| En el juego | Modelo original | Autor | Licencia | Enlace | Cambios |
-|---|---|---|---|---|---|
-| `modelos/zombis/zombi_h.glb` (caminante, corredor, reptante, oficial zombi…) | Zombie (Male 1) | martinezequielgorno (https://sketchfab.com/martinezequielgorno) | CC BY 4.0 | https://sketchfab.com/3d-models/zombie-male-1-f40dda49b8b94f2faedf58679f676763 | Esqueleto nuevo con los nombres del juego (para las animaciones de zombi de Mixamo), menos triángulos (de 24 000 a 7 900), texturas reducidas y repintadas: piel gris verdosa con moretones morados, sangre más oscura y ropa más sucia. La ropa cambia de color según el tipo. |
-| `modelos/zombis/zombi_m.glb` (caminante, corredor, reptante, gritona…) | Zombie (Female 1) | martinezequielgorno (https://sketchfab.com/martinezequielgorno) | CC BY 4.0 | https://sketchfab.com/3d-models/zombie-female-1-ce037bf3c08e40eea92df46e4ec32b16 | Los mismos cambios que el de arriba. |
-
