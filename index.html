@@ -2942,7 +2942,7 @@ const Sfx = (() => {
     clang(pan) { if (smpOf('clang', 3, { vol: 0.5, pan, rate: rand(0.9, 1.1), wet: 0.3 })) return; tone({ type: 'square', f0: 1800, f1: 1400, dur: 0.12, vol: 0.12, pan, wet: 0.3 }); tone({ type: 'triangle', f0: 3100, f1: 2900, dur: 0.25, vol: 0.08, pan, wet: 0.3 }); },
     splat(pan, vol = 0.5) { burst({ ftype: 'lowpass', f0: 600, f1: 120, q: 2, dur: 0.25, vol, pan, wet: 0.2 }); },
     thud(pan) { smpOf('fall', 3, { vol: 0.8, pan, rate: rand(0.7, 0.85), wet: 0.3 }); tone({ f0: 90, f1: 30, dur: 0.4, vol: 0.6, pan, wet: 0.3 }); burst({ ftype: 'lowpass', f0: 400, dur: 0.3, vol: 0.4, pan }); },
-    boom() { tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
+    boom() { if (ctx) { if (ctx.currentTime - (this._boomT || -9) < BAL.explosion.sonidoGap) return; this._boomT = ctx.currentTime; } tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
     gas(pan) { this.boom(); burst({ ftype: 'highpass', f0: 2500, dur: 1.2, vol: 0.25, pan, wet: 0.4, attack: 0.05 }); },
     groan(pan, vol, pitch = 1, long = false) {
       if (!ctx || !(vol >= 0.02)) return;
@@ -22776,6 +22776,9 @@ const BAL = {
     porAyudante: { franco: { cargador: 5, t: 2.8 }, pistolero: { cargador: 6, t: 1.8 } },
     tactica: 2
   },
+  // G0-7 · Explosiones sin tirones: partículas de cada explosión (fuego y humo; en el teléfono se multiplican por tel), cuántas explosiones con todo su efecto
+  // caben en «ventana» segundos (las que pasan de ahí solo hacen daño y un poco de humo), espera mínima entre dos estruendos y charcos de ácido a la vez
+  explosion: { fuego: 50, humo: 14, tel: 0.5, ventana: 0.35, maxPc: 6, maxTel: 3, extra: 6, sonidoGap: 0.07, charcosPc: 14, charcosTel: 7 },
   vozDolor: { vol: 1.8, volOtro: 1.3, esperaSuave: 2.2, espera: 0.85, esperaFuerte: 1.1, entre: 0.35, agacha: 0.45, agachaT: 0.4, musica: 0.55, musicaT: 0.6 },
   slotBase: 6,
   slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
@@ -24274,7 +24277,16 @@ function makePickup(type, x, z, amount) {
     vs.forEach((v, i) => { const a = i / vs.length * TAU + Math.random(), r = vs.length > 1 ? 0.5 + Math.random() * 0.4 : 0; makePickup('moneda', x + Math.cos(a) * r, z + Math.sin(a) * r, v); });
     return;
   }
-  const g = new THREE.Group(); g.position.set(x, 0.6, z);
+  // G0-7: cada tipo de premio se arma una sola vez y luego se copia (comparte figuras y materiales): una explosión que mata a muchos ya no crea cientos de figuras nuevas
+  const key = type + ':' + (type === 'bala' || type === 'moneda' ? amount : '');
+  let proto = PK_PROTO.get(key); if (!proto) { proto = pkModelo(type, amount); PK_PROTO.set(key, proto); }
+  const g = proto.clone(); g.position.set(x, 0.6, z);
+  scene.add(g);
+  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+}
+const PK_PROTO = new Map();
+function pkModelo(type, amount) {
+  const g = new THREE.Group();
   const c = type === 'bala' ? hexCol(BULLETS[BKEYS[amount]].col) : PK[type].color, mat = new THREE.MeshLambertMaterial({ color: c, emissive: c, emissiveIntensity: 0.55 });
   if (type === 'health') { g.add(new THREE.Mesh(bx(0.42, 0.13, 0.13), mat)); g.add(new THREE.Mesh(bx(0.13, 0.42, 0.13), mat)); }
   else if (type === 'deadeye') { g.add(new THREE.Mesh(cyl(0.1, 0.12, 0.3, 10), mat)); const n = new THREE.Mesh(cyl(0.035, 0.035, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); n.position.y = 0.2; g.add(n); }
@@ -24290,8 +24302,7 @@ function makePickup(type, x, z, amount) {
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(type === 'moneda' ? 0.9 : 1.3, type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'moneda') halo.material.opacity = 0.12; g.add(halo);
-  scene.add(g);
-  pickups.push({ id: Net.client ? -(++pickUid) : ++pickUid, type, g, t: 0, life: (type === 'bag' || type === 'moneda' || type === 'bala' || type === 'key' || type === 'ammo' || type === 'ficha' ? 40 : 18) * (lv('magpie') ? 2 : 1), amount: amount || 0 });
+  return g;
 }
 
 /* ===================== MEJORAS Y TIENDA ===================== */
@@ -24904,7 +24915,7 @@ function clearActors() {
   for (let k = zombies.length - 1; k >= 0; k--) removeZombie(k);
   debris.forEach(d => scene.remove(d.m)); debris.length = 0;
   acids.forEach(a => scene.remove(a.m)); acids.length = 0;
-  puddles.forEach(p => { scene.remove(p.m); p.m.material.dispose(); }); puddles.length = 0;
+  puddles.forEach(charcoSoltar); puddles.length = 0;
   pickups.forEach(p => scene.remove(p.g)); pickups.length = 0;
   wells.forEach(w => scene.remove(w.m)); wells.length = 0; traps.forEach(t => scene.remove(t.g)); traps.length = 0; strikes.length = 0;
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -25751,7 +25762,7 @@ function teslaChain(z, pt, d, dmg, n) {
 function rocketBoom(p, r, dmg) {
   Sfx.boom(); explode(p, r, dmg, 0, false);
   const pd = Math.hypot(player.pos.x - p.x, player.pos.z - p.z); if (pd < r * 0.7) hurtPlayer(30 * (1 - pd / (r * 0.7)), p, { knock: 7, k: 'burn' });
-  for (let i = 0; i < 30; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
+  for (let i = 0, n = IS_TOUCH ? 30 * BAL.explosion.tel : 30; i < n; i++) P.add(p.x, p.y + 0.3, p.z, rand(-3, 3), rand(1, 5), rand(-3, 3), rand(1.5, 2.6), rand(0.5, 0.9), 0.18, 0.16, 0.15, 0.6, -0.4, 1.2, 0.8, 0);
 }
 /* ===================== EFECTOS DE LAS BALAS (las cifras están en BALAS y BAL) =====================
    Quién hace qué en grupo: el que dispara decide (tira los dados de probabilidad) y el anfitrión aplica lo que toca a los zombis
@@ -26330,10 +26341,19 @@ function damageZombie(z, amount, info) {
 function dropHit(z, m) { const i = z.hits.indexOf(m); if (i >= 0) z.hits.splice(i, 1); }
 function panOf(p) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz) || 1; Sfx.setBehind(clamp((dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / d, 0, 1)); return clamp((dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw)) / d, -1, 1); }
 function volOf(p, base = 1) { const o = state === 'menu' && !game ? camera.position : player.pos; return base / (1 + Math.hypot(p.x - o.x, p.z - o.z) * 0.18); }   // en el menú se oye desde la cámara
+// G0-7: cuántas explosiones con efecto completo hubo hace poco (las de más solo hacen daño: así una cadena de hinchados no congela el juego)
+const expFx = { t: [] };
+function expCupo() {
+  const X = BAL.explosion, now = performance.now() / 1000; let n = 0;
+  for (let i = expFx.t.length - 1; i >= 0; i--) { if (now - expFx.t[i] > X.ventana) { expFx.t.splice(i, 1); continue; } n++; }
+  if (n >= (IS_TOUCH ? X.maxTel : X.maxPc)) return 0;
+  expFx.t.push(now); return IS_TOUCH ? X.tel : 1;
+}
 function explode(c, r, dmgZ, dmgP, green) {
   { const pd0 = Math.hypot(player.pos.x - c.x, player.pos.z - c.z); if (pd0 < 10) Sfx.deafen(0.9 * (1 - pd0 / 10)); }
-  for (let i = 0; i < 50; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
-  for (let i = 0; i < 14; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
+  const X = BAL.explosion, k = expCupo(), nF = k ? Math.round(X.fuego * k) : X.extra, nH = k ? Math.round(X.humo * k) : Math.ceil(X.extra / 2);
+  for (let i = 0; i < nF; i++) (green ? PA : P).add(c.x, c.y, c.z, rand(-5, 5), rand(0, 5), rand(-5, 5), rand(0.6, 1.6), rand(0.15, 0.35), green ? 0.45 : 1, green ? 1 : 0.5, green ? 0.2 : 0.15, green ? 0.7 : 1, 2, 2.5, 0.5, 0);
+  for (let i = 0; i < nH; i++) P.add(c.x, c.y, c.z, rand(-2, 2), rand(0.5, 2), rand(-2, 2), rand(1.5, 2.5), 0.6, green ? 0.35 : 0.3, green ? 0.45 : 0.3, green ? 0.15 : 0.3, 0.45, -0.2, 1.5, 1);
   const pd = Math.hypot(player.pos.x - c.x, player.pos.z - c.z);
   if (pd < r && dmgP > 0) hurtPlayer(dmgP * (1 - pd / r * 0.6), c, { knock: 6, acid: green, k: green ? 'acid' : 'burn' });
   if (dmgP > 0) netHurtArea(c, r, dmgP * 0.7, 6, green ? 1 : 0);
@@ -30090,8 +30110,13 @@ function updateDebris(dt) {
     if (d.t > d.life) { d.m.scale.multiplyScalar(Math.exp(-4 * dt)); if (d.t > d.life + 1.2) { scene.remove(d.m); debris.splice(i, 1); } }
   }
 }
+// G0-7: los charcos se reciclan (antes cada uno creaba su material nuevo) y hay un tope a la vez
+const charcosLibres = [];
+function charcoSoltar(p) { scene.remove(p.m); if (charcosLibres.length < 24) charcosLibres.push(p.m); else p.m.material.dispose(); }
 function makePuddle(x, z, r, life, good) {
-  const m = new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ color: good ? 0x40ffa0 : 0x6fd12a, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+  const mx = IS_TOUCH ? BAL.explosion.charcosTel : BAL.explosion.charcosPc; while (puddles.length >= mx) charcoSoltar(puddles.shift());
+  const m = charcosLibres.pop() || new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+  m.material.color.setHex(good ? 0x40ffa0 : 0x6fd12a); m.material.opacity = 0.6;
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z); m.scale.setScalar(0.2); scene.add(m); puddles.push({ m, t: 0, life, r, good: !!good });
 }
 function updateAcid(dt) {
@@ -30118,7 +30143,7 @@ function updateAcid(dt) {
     if (Math.random() < 0.3) PA.add(p.m.position.x + rand(-0.8, 0.8) * s, 0.05, p.m.position.z + rand(-0.8, 0.8) * s, 0, rand(0.3, 0.8), 0, 0.6, 0.06, 0.45, 1, 0.2, 0.7, 0, 0, 0, 0);
     if (p.good) { if (!Net.client) for (const o of zombies) if (!o.dead && Math.hypot(o.root.position.x - p.m.position.x, o.root.position.z - p.m.position.z) < s) damageZombie(o, 30 * effSc() * dt, { part: 'body', dir: null, ally: true }); }
     else if (state === 'play' && player.onGround && Math.hypot(p.m.position.x - player.pos.x, p.m.position.z - player.pos.z) < s * 0.9) hurtPlayer(9 * dt, null, { acid: true, tick: true });
-    if (p.t > p.life) { scene.remove(p.m); p.m.material.dispose(); puddles.splice(i, 1); }
+    if (p.t > p.life) { charcoSoltar(p); puddles.splice(i, 1); }
   }
 }
 function updatePickups(dt) {
