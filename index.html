@@ -25556,17 +25556,21 @@ const RAYBVH = (() => {
   // Mallas instanciadas (cientos de copias): three.js arma la matriz de cada copia en cada rayo solo para ver si cruza su esfera.
   // Las esferas de las copias se guardan (se rehacen si las copias se movieron) y solo se miran de cerca las que el rayo cruza.
   const imOrig = THREE.InstancedMesh.prototype.raycast, _im = new THREE.Mesh(), _iL = new THREE.Matrix4(), _iW = new THREE.Matrix4(), _iR = [], _ic = new THREE.Vector3(), esf = new WeakMap();
+  function esferas(im) {
+    const g = im.geometry, mw = im.matrixWorld, n = im.count; if (g.boundingSphere === null) g.computeBoundingSphere();
+    const bs = g.boundingSphere, e = mw.elements; let S = esf.get(im);
+    if (!S || S.v !== im.instanceMatrix.version || S.n !== n || S.bx !== bs.center.x || S.by !== bs.center.y || S.bz !== bs.center.z || S.br !== bs.radius || S.mw.some((x, i) => x !== e[i])) {
+      S = { v: im.instanceMatrix.version, n, bx: bs.center.x, by: bs.center.y, bz: bs.center.z, br: bs.radius, mw: e.slice(), d: new Float64Array(n * 4) };
+      for (let r = 0; r < n; r++) { im.getMatrixAt(r, _iL); _iW.multiplyMatrices(mw, _iL); _s.copy(bs).applyMatrix4(_iW); S.d[r * 4] = _s.center.x; S.d[r * 4 + 1] = _s.center.y; S.d[r * 4 + 2] = _s.center.z; S.d[r * 4 + 3] = _s.radius; }
+      esf.set(im, S);
+    }
+    return S;
+  }
   THREE.InstancedMesh.prototype.raycast = function (rc, out) {
     const mw = this.matrixWorld, n = this.count, g = this.geometry;
     if (this.material === undefined) return;
     if (!g || n < 8) return imOrig.call(this, rc, out);
-    if (g.boundingSphere === null) g.computeBoundingSphere();
-    const bs = g.boundingSphere, e = mw.elements; let S = esf.get(this);
-    if (!S || S.v !== this.instanceMatrix.version || S.n !== n || S.bx !== bs.center.x || S.by !== bs.center.y || S.bz !== bs.center.z || S.br !== bs.radius || S.mw.some((x, i) => x !== e[i])) {
-      S = { v: this.instanceMatrix.version, n, bx: bs.center.x, by: bs.center.y, bz: bs.center.z, br: bs.radius, mw: e.slice(), d: new Float64Array(n * 4) };
-      for (let r = 0; r < n; r++) { this.getMatrixAt(r, _iL); _iW.multiplyMatrices(mw, _iL); _s.copy(bs).applyMatrix4(_iW); S.d[r * 4] = _s.center.x; S.d[r * 4 + 1] = _s.center.y; S.d[r * 4 + 2] = _s.center.z; S.d[r * 4 + 3] = _s.radius; }
-      esf.set(this, S);
-    }
+    const S = esferas(this);
     _im.geometry = g; _im.material = this.material; const D = S.d;
     for (let r = 0; r < n; r++) {
       const rad = D[r * 4 + 3]; _ic.set(D[r * 4], D[r * 4 + 1], D[r * 4 + 2]);
@@ -25577,7 +25581,7 @@ const RAYBVH = (() => {
     }
   };
   // se arman al cargar el lugar (detrás de la pantalla negra), no en el primer tiro
-  const preparar = list => { for (const o of list) if (o && o.isMesh && o.geometry && o.geometry.isBufferGeometry && o.geometry.attributes.position && !Array.isArray(o.material)) arbol(o.geometry); };
+  const preparar = list => { for (const o of list) if (o && o.isMesh && o.geometry && o.geometry.isBufferGeometry && o.geometry.attributes.position && !Array.isArray(o.material)) { arbol(o.geometry); if (o.isInstancedMesh && o.count >= 8) { o.updateMatrixWorld(true); esferas(o); } } };
   return { preparar, orig, raycast, imOrig, imRaycast: THREE.InstancedMesh.prototype.raycast };
 })();
 const _cp = new THREE.Vector3(), _dir = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _mp = new THREE.Vector3(), _n = new THREE.Vector3(), _tmp = new THREE.Vector3(), _t2 = new THREE.Vector3();
