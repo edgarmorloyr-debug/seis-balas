@@ -1,88 +1,369 @@
-// Fichas de póker de las balas (mismo estilo que el juego: 8 rayas, centro oscuro, borde por rareza,
-// placa cuadrada = Cinturón (no se dispara), anillo fino = Disparo).
-const RAREZA = { C: '#a9adb3', B: '#4f95ff', A: '#b67cff', S: '#ffd27a' };
-const BALAS = {
-  polvora:  ['Pólvora fina', '#c0392b', 'C', 'c', 'PF'],
-  plomo:    ['Plomo gordo', '#6d7680', 'C', 'd', 'PG'],
-  taladro:  ['Taladro', '#8e6b3a', 'C', 'd', 'TA'],
-  frita:    ['Frita', '#e8641e', 'B', 'd', 'FR'],
-  perdigon: ['Perdigón extra', '#a05a2c', 'C', 'c', 'PE'],
-  seis:     ['Seis de seis', '#7a1f1f', 'A', 'c', '6'],
-  ruleta:   ['Ruleta rusa', '#1d1d1d', 'A', 'd', 'RR'],
-  doble:    ['Doble o nada', '#2d7d46', 'B', 'c', 'x2'],
-  escarcha: ['Escarcha', '#3aa7d6', 'B', 'd', 'ES'],
-  rayo:     ['Relámpago', '#d6b52a', 'B', 'd', 'RE'],
-  chicle:   ['Chicle', '#e86fae', 'C', 'd', 'CH'],
-  lazo:     ['Lazo del vaquero', '#a8742f', 'B', 'd', 'LZ'],
-  agujero:  ['Agujero negro', '#3b1f6b', 'S', 'd', 'AN'],
-  hipno:    ['Hipnótica', '#7d3bb3', 'A', 'd', 'HI'],
-  reloj:    ['Reloj de bolsillo', '#9b7b3a', 'A', 'c', 'RJ'],
-  oro:      ['Oro', '#d4a017', 'C', 'c', '$'],
-  alcancia: ['Alcancía', '#d98aa0', 'C', 'c', 'AL'],
-  usurero:  ['Usurero', '#5b7f2a', 'B', 'c', '%'],
-  pinata:   ['Piñata', '#e0457b', 'B', 'd', 'PÑ'],
-  casa:     ['Ficha de la casa', '#b0302a', 'A', 'c', 'FC'],
-  tahur:    ['Tahúr', '#2c5aa0', 'B', 'c', 'TH'],
-  pagare:   ['Pagaré', '#6f6a4a', 'A', 'c', 'PA'],
-  vampira:  ['Vampira', '#8b0f2a', 'C', 'd', 'VA'],
-  cantimplora:['Cantimplora', '#4f8a5b', 'C', 'c', 'CA'],
-  junior:   ['Junior', '#3f7fbf', 'B', 'd', 'JR'],
-  angel:    ['Ángel', '#e9e2c8', 'S', 'd', 'AG'],
-  fenix:    ['Fénix', '#ff6a2a', 'S', 'c', 'FX'],
-  ronda:    ['Ronda para todos', '#b07a2a', 'B', 'c', 'RT'],
-  negra:    ['Bala negra', '#121212', 'S', 'c', '+'],
-  robot:    ['Robot', '#7c8a96', 'B', 'c', 'RB'],
-  bolsa:    ['Bolsa sin fondo', '#7a5a3a', 'C', 'c', 'BS'],
-  canon:    ['Cañón doble', '#5a5f66', 'A', 'c', '2'],
-  tambor:   ['Tambor de siete', '#6a4a2a', 'B', 'c', '7'],
-  espejo:   ['Espejo', '#9fc6d6', 'A', 'c', 'EP'],
-  trebol:   ['Trébol', '#2f9e44', 'A', 'c', 'TR'],
-  dado:     ['Dado cargado', '#e8e2d0', 'B', 'c', 'DC'],
-  rey:      ['Rey', '#b8860b', 'S', 'c', 'RY'],
-  mira:     ['Mira del tuerto', '#4a6b7a', 'B', 'c', 'MT'],
-  caliente: ['Cañón caliente', '#c4501e', 'C', 'c', 'CC'],
-  flecha:   ['Flecha de fuego', '#d9771e', 'C', 'c', 'FF'],
-  // fusiones
-  bomba:    ['Bomba de sangre', '#9b1b30', 'A', 'd', 'BB'],
-  juicio:   ['Bala del juicio', '#5a1a1a', 'S', 'c', 'J'],
-  rodeo:    ['Rodeo del vacío', '#4a2a7a', 'S', 'd', 'RV'],
-  caramelo: ['Piñata de caramelo', '#ff7ab0', 'A', 'd', 'PC'],
-  torreta:  ['Torreta Junior', '#4f7fa0', 'A', 'c', 'TJ'],
-  sheriff:  ['Sheriff de los muertos', '#6b5a2a', 'S', 'c', 'SH'],
-  banquero: ['Banquero corrupto', '#3f6a2a', 'S', 'c', 'BC'],
-  ventisca: ['Ventisca', '#6fd3f0', 'A', 'd', 'VE'],
-  jackpot:  ['Jackpot', '#ffcc33', 'S', 'd', '777'],
-  estrella: ['Estrella de plomo', '#2a2a2a', 'S', 'c', '*'],
-  mojada:   ['Bala mojada', '#4a5a6a', 'C', 'd', '~'],
-};
-function fichaSVG(id, opt = {}) {
-  const b = BALAS[id] || BALAS.mojada; const [name, col, r, forma, sym] = b;
-  const rc = opt.rareza ? RAREZA[opt.rareza] : RAREZA[r];
-  const dark = ['#121212', '#1d1d1d', '#2a2a2a'].includes(col);
-  const stripes = Array.from({ length: 8 }, (_, i) => {
-    const a = i * 45; return `<rect x="46" y="4" width="8" height="15" rx="2" fill="${dark ? '#d9533f' : '#fff'}" transform="rotate(${a} 50 50)"/>`;
-  }).join('');
-  const plate = forma === 'c' ? `<rect x="34" y="-6" width="32" height="14" rx="3" fill="${rc}" stroke="#0008" stroke-width="2"/>` : '';
-  const ring = forma === 'd' ? `<circle cx="50" cy="50" r="52" fill="none" stroke="#fff" stroke-width="2.5" opacity=".9"/>` : '';
-  const glowS = r === 'S' ? `<circle cx="50" cy="50" r="49" fill="none" stroke="${rc}" stroke-width="3" opacity=".6" filter="url(#gS)"/>` : '';
-  const fs = sym.length >= 3 ? 20 : sym.length === 2 ? 25 : 34;
-  return `<svg viewBox="-8 -8 116 116" aria-label="${name}"><defs><filter id="gS"><feGaussianBlur stdDeviation="3"/></filter></defs>
-  ${ring}${glowS}<circle cx="50" cy="50" r="46" fill="${col}" stroke="${rc}" stroke-width="6"/>${stripes}
-  <circle cx="50" cy="50" r="29" fill="#120c08" stroke="#0006" stroke-width="2"/>
-  <circle cx="50" cy="50" r="25" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="3 4" opacity=".8"/>
-  <text x="50" y="${50 + fs * 0.36}" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="${fs}" fill="${dark ? '#ff6b57' : col === '#e9e2c8' || col === '#e8e2d0' ? '#f6ead7' : '#fff'}">${sym}</text>${plate}</svg>`;
+// Las 85 balas del juego (index.html: BALAS, DESPERTAR y BAL_ICO), sin fusiones. Generado.
+// [nombre, rareza (C común · B poco común · A rara · S legendaria), activa, tipo, [texto Nv 1..4], despertar del Nv 4]
+const DATOS = {"oro":["Oro","C",0,"Pasiva",["1 de 5 de ganar 2 de oro por cada muerte.","1 de 5 de ganar 3 de oro por cada muerte.","1 de 5 de ganar 4 de oro por cada muerte.","1 de 5 de ganar 6 de oro por cada muerte."],
+"Lluvia de monedas: cada 25 muertes caen 30 monedas del cielo a tu alrededor"],
+"cinturon":["Cinturón","C",0,"Pasiva",["Tu caja pasa de 50 a 60 balas.","Tu caja pasa de 50 a 65 balas.","Tu caja pasa de 50 a 70 balas.","Tu caja pasa de 50 a 80 balas."],
+"Cinturón infinito: al recargar, 1 de 4 de no gastar balas normales"],
+"polvora":["Pólvora fina","C",0,"Pasiva",["+12 % de daño.","+18 % de daño.","+24 % de daño.","+36 % de daño."],
+"Pólvora negra: cada 6.º tiro explota en un área pequeña"],
+"pluma":["Gatillo de pluma","C",0,"Pasiva",["Disparas un 12 % más rápido.","Disparas un 18 % más rápido.","Disparas un 24 % más rápido.","Disparas un 36 % más rápido."],
+"Ráfaga: al vaciar el tambor sin fallar, la siguiente recarga es instantánea"],
+"cantimplora":["Cantimplora","C",0,"Pasiva",["Curas 15 de vida al empezar cada oleada.","Curas 23 de vida al empezar cada oleada.","Curas 30 de vida al empezar cada oleada.","Curas 45 de vida al empezar cada oleada."],
+"Manantial: a mitad de cada oleada te curas otra vez y curas al equipo"],
+"apuesta":["Apuesta","C",1,"Activa, vuelve a la caja",["Doble o nada: la mitad de las veces hace ×3 de daño; la otra mitad no hace nada.","Doble o nada: la mitad de las veces hace ×4,5 de daño; la otra mitad no hace nada.","Doble o nada: la mitad de las veces hace ×6 de daño; la otra mitad no hace nada.","Doble o nada: la mitad de las veces hace ×9 de daño; la otra mitad no hace nada."],
+"Doble o nada: cuando gana, el siguiente tiro también hace triple daño"],
+"robot":["Robot","B",0,"Pasiva",["+2 espacios en el slot.","+3 espacios en el slot.","+4 espacios en el slot.","+6 espacios en el slot."],
+"Robot obrero: la bala a su derecha sube 1 nivel durante la oleada (máx. 4)"],
+"caramelo":["Caramelo","B",0,"Pasiva",["×3 de daño si es la única bala de comida en tu slot.","×4,5 de daño si es la única bala de comida en tu slot.","×6 de daño si es la única bala de comida en tu slot.","×9 de daño si es la única bala de comida en tu slot."],
+"Fiebre de azúcar: al matar, 1 de 10 de soltar un caramelo que da 5 s de velocidad doble"],
+"tahur":["Tahúr","B",0,"Pasiva",["Cuando te sale una activa en el cañón, 25 % de que se repita gratis.","Cuando te sale una activa en el cañón, 37,5 % de que se repita gratis.","Cuando te sale una activa en el cañón, 50 % de que se repita gratis.","Cuando te sale una activa en el cañón, 75 % de que se repita gratis."],
+"As bajo la manga: la primera activa de cada oleada siempre se repite"],
+"escarcha":["Escarcha","B",1,"Activa, vuelve a la caja",["Congela al zombi y todo en 4 m por 2 s.","Congela al zombi y todo en 4 m por 3 s.","Congela al zombi y todo en 4 m por 4 s.","Congela al zombi y todo en 4 m por 6 s."],
+"Glaciar: los congelados se rompen en pedazos con un tiro a la cabeza"],
+"relampago":["Relámpago","B",1,"Activa, vuelve a la caja",["Un rayo salta a 4 zombis, les hace 45 de daño y los aturde.","Un rayo salta a 4 zombis, les hace 67,5 de daño y los aturde.","Un rayo salta a 4 zombis, les hace 90 de daño y los aturde.","Un rayo salta a 4 zombis, les hace 135 de daño y los aturde."],
+"Cadena infinita: el rayo salta mientras haya zombis a menos de 6 m"],
+"bumeran":["Bumerán","B",1,"Activa, vuelve a la caja",["Si impacta, vuelve al cañón al instante.","Si impacta, vuelve al cañón al instante. Efecto ×1,5.","Si impacta, vuelve al cañón al instante. Efecto ×2.","Si impacta, vuelve al cañón al instante. Efecto ×3."],
+"Bumerán doble: al volver golpea otra vez a todos los que cruza"],
+"suerte":["Suerte","A",0,"Pasiva",["La bala de su izquierda en el slot activa su efecto con ×2 de probabilidad.","La bala de su izquierda en el slot activa su efecto con ×3 de probabilidad.","La bala de su izquierda en el slot activa su efecto con ×4 de probabilidad.","La bala de su izquierda en el slot activa su efecto con ×6 de probabilidad."],
+"Racha: también potencia a la bala de su derecha"],
+"dadocargado":["Dado cargado","A",0,"Pasiva",["Al empezar cada oleada, 1 bala al azar de tu slot sube 1 nivel solo por esa oleada.","Al empezar cada oleada, 2 bala al azar de tu slot sube 1 nivel solo por esa oleada.","Al empezar cada oleada, 2 bala al azar de tu slot sube 1 nivel solo por esa oleada.","Al empezar cada oleada, 3 bala al azar de tu slot sube 1 nivel solo por esa oleada."],
+"Tirada perfecta: la bala que sube por el dado también gana su despertar durante esa oleada"],
+"invocacion":["Invocación","A",1,"Activa, se rompe al usarla",["Un caballero pelea por ti hasta morir.","Un caballero pelea por ti hasta morir.","Un caballero pelea por ti hasta morir.","Un caballero pelea por ti hasta morir."],
+"Orden de caballería: 2 caballeros que explotan al morir"],
+"hipnotica":["Hipnótica","A",1,"Activa, vuelve a la caja",["El zombi pelea de tu lado 10 s.","El zombi pelea de tu lado 15 s.","El zombi pelea de tu lado 20 s.","El zombi pelea de tu lado 30 s."],
+"Hipnosis en cadena: lo que mata el hipnotizado también se pasa a tu lado"],
+"reloj":["Reloj","A",1,"Activa, se rompe al usarla",["El tiempo se frena 4 s.","El tiempo se frena 6 s.","El tiempo se frena 8 s.","El tiempo se frena 12 s."],
+"Tiempo detenido: el tiempo se detiene 2 s antes de frenarse"],
+"ruleta":["Ruleta rusa","A",1,"Activa, se rompe al usarla",["33,3 % de matar a todo lo que atraviesa; si no, se encasquilla.","50 % de matar a todo lo que atraviesa; si no, se encasquilla.","66,7 % de matar a todo lo que atraviesa; si no, se encasquilla.","95 % de matar a todo lo que atraviesa; si no, se encasquilla."],
+"Bala de plata: nunca se encasquilla; si falla, la siguiente sale con 1 de 2"],
+"rey":["Rey","S",0,"Pasiva",["Cada 50 zombis muertos te da una bala B al azar.","Cada 33 zombis muertos te da una bala B al azar.","Cada 25 zombis muertos te da una bala B al azar.","Cada 17 zombis muertos te da una bala B al azar."],
+"Rey de reyes: cada 50 muertes da una bala A en vez de B"],
+"fenix":["Fénix","S",0,"Pasiva",["Una vez por partida revives con 50 % de vida; luego se rompe.","Una vez por partida revives con 75 % de vida; luego se rompe.","Una vez por partida revives con 100 % de vida; luego se rompe.","Una vez por partida revives con 150 % de vida; luego se rompe."],
+"Renacer eterno: se recarga cada 5 oleadas y al revivir quema todo a 8 m"],
+"angel":["Ángel","S",1,"Activa, se rompe al usarla",["Si mata: +10 % de vida máxima toda la partida.","Si mata: +15 % de vida máxima toda la partida.","Si mata: +20 % de vida máxima toda la partida.","Si mata: +30 % de vida máxima toda la partida."],
+"Alas: al matar también cura 25 a todo el equipo"],
+"agujero":["Agujero negro","S",1,"Activa, vuelve a la caja",["En la cabeza: atrae a todos en 8 m y los elimina en 3 s.","En la cabeza: atrae a todos en 12 m y los elimina en 3 s.","En la cabeza: atrae a todos en 16 m y los elimina en 3 s.","En la cabeza: atrae a todos en 24 m y los elimina en 3 s."],
+"Singularidad: no necesita tiro a la cabeza y dura el doble"],
+"tragamonedas":["Tragamonedas","S",1,"Activa, se rompe al usarla",["3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +10 de oro.","3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +15 de oro.","3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +20 de oro.","3 símbolos: tres iguales = mata a todos menos jefes; dos iguales = gran explosión; nada = +30 de oro."],
+"Máquina trucada: premio menor +50 de oro y explosiones el doble de grandes"],
+"espejo":["Espejo","S",1,"Activa, vuelve a la caja",["Copia el efecto de la última activa disparada.","Copia el efecto de la última activa disparada. Efecto ×1,5.","Copia el efecto de la última activa disparada. Efecto ×2.","Copia el efecto de la última activa disparada. Efecto ×3."],
+"Sala de espejos: copia las 2 últimas activas a la vez"],
+"iman":["Imán","C",0,"Pasiva",["Recoges oro y cosas del suelo desde 6 m.","Recoges oro y cosas del suelo desde 9 m.","Recoges oro y cosas del suelo desde 12 m.","Recoges oro y cosas del suelo desde 18 m."],
+"Imán gigante: también atrae las balas que sueltan los zombis"],
+"alcancia":["Alcancía","C",0,"Pasiva",["+7 de oro por oleada sobrevivida.","+11 de oro por oleada sobrevivida.","+14 de oro por oleada sobrevivida.","+21 de oro por oleada sobrevivida."],
+"Cerdito lleno: cada 5 oleadas rompes la alcancía y ganas el triple"],
+"usurero":["Usurero","C",0,"Pasiva",["1 % de interés sobre tu oro al terminar la oleada (máx. 10).","1,5 % de interés sobre tu oro al terminar la oleada (máx. 15).","2 % de interés sobre tu oro al terminar la oleada (máx. 20).","3 % de interés sobre tu oro al terminar la oleada (máx. 30)."],
+"Prestamista: al final de cada oleada te presta 50 de oro si tienes menos de 20 (sin devolverlo)"],
+"mercenaria":["Mercenaria","C",0,"Pasiva",["+2 espacios en el slot; −10 de oro al empezar cada oleada.","+3 espacios en el slot; −10 de oro al empezar cada oleada.","+4 espacios en el slot; −10 de oro al empezar cada oleada.","+6 espacios en el slot; −10 de oro al empezar cada oleada."],
+"Sin sueldo: ya no cobra 10 de oro por oleada"],
+"dado":["Dado","C",1,"Activa, vuelve a la caja",["Dispara de 1 a 6 balas a la vez.","Dispara de 1 a 6 balas a la vez. Efecto ×1,5.","Dispara de 1 a 6 balas a la vez. Efecto ×2.","Dispara de 1 a 6 balas a la vez. Efecto ×3."],
+"Dado de oro: si salen 6 balas, todas cuentan como tiro a la cabeza"],
+"racimo":["Racimo","C",1,"Activa, vuelve a la caja",["Al impactar se parte en 6 perdigones.","Al impactar se parte en 6 perdigones.","Al impactar se parte en 6 perdigones.","Al impactar se parte en 6 perdigones."],
+"Racimo de racimos: cada perdigón se parte otra vez en 3"],
+"junior":["Junior","C",1,"Activa, vuelve a la caja",["Si impacta, recarga todo el tambor.","Si impacta, recarga todo el tambor. Efecto ×1,5.","Si impacta, recarga todo el tambor. Efecto ×2.","Si impacta, recarga todo el tambor. Efecto ×3."],
+"Recarga perfecta: al recargar también se recargan los usos de las activas que vuelven"],
+"espuelas":["Espuelas","C",0,"Pasiva",["Caminas un 15 % más rápido.","Caminas un 22,5 % más rápido.","Caminas un 30 % más rápido.","Caminas un 45 % más rápido."],
+"Galope: tras correr 3 s, el siguiente tiro hace doble daño"],
+"bolsa":["Bolsa sin fondo","C",0,"Pasiva",["Al recargar, 25 % de que una normal salga como una activa al azar.","Al recargar, 37,5 % de que una normal salga como una activa al azar.","Al recargar, 50 % de que una normal salga como una activa al azar.","Al recargar, 75 % de que una normal salga como una activa al azar."],
+"Bolsa mágica: la sorpresa puede ser también una activa A"],
+"taladro":["Taladro","C",1,"Activa, vuelve a la caja",["Atraviesa a todos en línea.","Atraviesa a todos en línea. Efecto ×1,5.","Atraviesa a todos en línea. Efecto ×2.","Atraviesa a todos en línea. Efecto ×3."],
+"Perforadora: atraviesa también paredes"],
+"vampira":["Vampira","C",1,"Activa, vuelve a la caja",["Cada impacto te cura 8 de vida.","Cada impacto te cura 12 de vida.","Cada impacto te cura 16 de vida.","Cada impacto te cura 24 de vida."],
+"Sed de sangre: con la vida llena, la curación se guarda como escudo (hasta 30)"],
+"frita":["Frita","C",1,"Activa, vuelve a la caja",["Explota al impactar.","Explota al impactar.","Explota al impactar.","Explota al impactar."],
+"Barbacoa: la explosión deja fuego en el suelo 3 s"],
+"segundoaire":["Segundo aire","C",0,"Pasiva",["Con menos de 25 % de vida disparas un 30 % más rápido.","Con menos de 25 % de vida disparas un 45 % más rápido.","Con menos de 25 % de vida disparas un 60 % más rápido.","Con menos de 25 % de vida disparas un 90 % más rápido."],
+"Último aliento: con menos de 10 % de vida, 3 s sin recibir daño (1 vez por oleada)"],
+"punteria":["Puntería","C",0,"Pasiva",["10 % de crítico (doble daño).","15 % de crítico (doble daño).","20 % de crítico (doble daño).","30 % de crítico (doble daño)."],
+"Ojo de halcón: los críticos hacen triple daño"],
+"trago":["Trago de valor","C",1,"Activa, vuelve a la caja",["Cura 20 y el próximo tiro hace doble daño.","Cura 30 y el próximo tiro hace doble daño.","Cura 40 y el próximo tiro hace doble daño.","Cura 60 y el próximo tiro hace doble daño."],
+"Trago doble: el tiro potenciado también atraviesa"],
+"chicles":["Máquina de chicles","B",1,"Activa, vuelve a la caja",["5 bolas de chicle que pegan a los zombis al suelo 3 s.","5 bolas de chicle que pegan a los zombis al suelo 4,5 s.","5 bolas de chicle que pegan a los zombis al suelo 6 s.","5 bolas de chicle que pegan a los zombis al suelo 9 s."],
+"Chicle gigante: las bolas hacen daño al reventar"],
+"crupier":["Crupier mecánico","B",0,"Pasiva",["+1 espacio en el slot y 33,3 % de que una activa se repita.","+1 espacio en el slot y 50 % de que una activa se repita.","+1 espacio en el slot y 66,7 % de que una activa se repita.","+1 espacio en el slot y 95 % de que una activa se repita."],
+"Crupier de oro: la activa repetida sale con 1 nivel más"],
+"congelador":["Congelador","B",0,"Pasiva",["Cada tiro: 12,5 % de congelar 2 s.","Cada tiro: 18,8 % de congelar 2 s.","Cada tiro: 25 % de congelar 2 s.","Cada tiro: 37,5 % de congelar 2 s."],
+"Cámara frigorífica: los congelados contagian el frío a los de al lado"],
+"tesla":["Bobina Tesla","B",0,"Pasiva",["Cada 10 s un rayo sale de ti a los 3 zombis más cercanos.","Cada 10 s un rayo sale de ti a los 3 zombis más cercanos.","Cada 10 s un rayo sale de ti a los 3 zombis más cercanos.","Cada 10 s un rayo sale de ti a los 3 zombis más cercanos."],
+"Torre Tesla: el rayo sale cada 5 s"],
+"dron":["Dron","B",1,"Activa, vuelve a la caja",["Un dron que dispara solo 10 s.","Un dron que dispara solo 15 s.","Un dron que dispara solo 20 s.","Un dron que dispara solo 30 s."],
+"Escuadrilla: salen 2 drones"],
+"golosina":["Golosina de la suerte","B",0,"Pasiva",["2 % de que un zombi suelte un dulce: cura 10 y +5 % de daño en la oleada.","3 % de que un zombi suelte un dulce: cura 10 y +5 % de daño en la oleada.","4 % de que un zombi suelte un dulce: cura 10 y +5 % de daño en la oleada.","6 % de que un zombi suelte un dulce: cura 10 y +5 % de daño en la oleada."],
+"Dulcería: los dulces caen el doble de seguido"],
+"helado":["Helado","B",1,"Activa, vuelve a la caja",["Congela a todos en 6 m por 3 s; los congelados reciben ×2 de daño.","Congela a todos en 6 m por 4,5 s; los congelados reciben ×2 de daño.","Congela a todos en 6 m por 6 s; los congelados reciben ×2 de daño.","Congela a todos en 6 m por 9 s; los congelados reciben ×2 de daño."],
+"Era de hielo: área de 10 m"],
+"chicleelec":["Chicle eléctrico","B",1,"Activa, vuelve a la caja",["Se pega al zombi y da descargas de 25 a los cercanos 5 s.","Se pega al zombi y da descargas de 37,5 a los cercanos 5 s.","Se pega al zombi y da descargas de 50 a los cercanos 5 s.","Se pega al zombi y da descargas de 75 a los cercanos 5 s."],
+"Chicle pegajoso: se pega también a los zombis cercanos"],
+"pinata":["Piñata","B",1,"Activa, se rompe al usarla",["El zombi que muere con ella suelta 30 de oro y 1 bala al azar.","El zombi que muere con ella suelta 45 de oro y 1 bala al azar.","El zombi que muere con ella suelta 60 de oro y 1 bala al azar.","El zombi que muere con ella suelta 90 de oro y 1 bala al azar."],
+"Gran piñata: suelta 2 balas al azar"],
+"pokerhielo":["Póker de hielo","B",0,"Pasiva",["La 4.ª bala de cada tambor congela 2 s al impactar.","La 4.ª bala de cada tambor congela 3 s al impactar.","La 4.ª bala de cada tambor congela 4 s al impactar.","La 4.ª bala de cada tambor congela 6 s al impactar."],
+"Full de hielo: también congela la 6.ª bala del tambor"],
+"carta":["Carta marcada","B",0,"Pasiva",["Tus críticos lanzan un rayo a 2 zombis.","Tus críticos lanzan un rayo a 2 zombis.","Tus críticos lanzan un rayo a 2 zombis.","Tus críticos lanzan un rayo a 2 zombis."],
+"Baraja marcada: el rayo de los críticos salta a 4 zombis"],
+"truco":["Truco de manos","B",0,"Pasiva",["Las activas que se rompen tienen 33,3 % de volver a la caja.","Las activas que se rompen tienen 50 % de volver a la caja.","Las activas que se rompen tienen 66,7 % de volver a la caja.","Las activas que se rompen tienen 95 % de volver a la caja."],
+"Mago: las activas que se rompen vuelven 1 de cada 2 veces"],
+"ventisca":["Ventisca","B",1,"Activa, vuelve a la caja",["Tormenta de hielo de 5 s que congela y aturde en 8 m.","Tormenta de hielo de 7,5 s que congela y aturde en 8 m.","Tormenta de hielo de 10 s que congela y aturde en 8 m.","Tormenta de hielo de 15 s que congela y aturde en 8 m."],
+"Tormenta polar: dura el doble y te sigue"],
+"carambano":["Carámbano","B",1,"Activa, vuelve a la caja",["Atraviesa, congela 2 s a todos en su camino y regresa al cañón.","Atraviesa, congela 3 s a todos en su camino y regresa al cañón.","Atraviesa, congela 4 s a todos en su camino y regresa al cañón.","Atraviesa, congela 6 s a todos en su camino y regresa al cañón."],
+"Lanza de hielo: al regresar deja una pared de hielo 3 s"],
+"rayobum":["Rayo bumerán","B",1,"Activa, vuelve a la caja",["El rayo va y vuelve: golpea a 6 zombis dos veces (45 cada vez).","El rayo va y vuelve: golpea a 6 zombis dos veces (67,5 cada vez).","El rayo va y vuelve: golpea a 6 zombis dos veces (90 cada vez).","El rayo va y vuelve: golpea a 6 zombis dos veces (135 cada vez)."],
+"Rayo eterno: va y vuelve 2 veces"],
+"trebol":["Trébol de cuatro hojas","A",0,"Pasiva",["Todas las probabilidades de tus balas se multiplican ×2.","Todas las probabilidades de tus balas se multiplican ×3.","Todas las probabilidades de tus balas se multiplican ×4.","Todas las probabilidades de tus balas se multiplican ×6."],
+"Trébol dorado: los cofres dan el doble"],
+"angelguardian":["Ángel guardián","A",0,"Pasiva",["En cada oleada aparece un caballero que pelea a tu lado.","En cada oleada aparece un caballero que pelea a tu lado.","En cada oleada aparece un caballero que pelea a tu lado.","En cada oleada aparece un caballero que pelea a tu lado."],
+"Arcángel: el caballero revive 1 vez por oleada"],
+"encantador":["Encantador","A",0,"Pasiva",["6,7 % de que cada zombi que hieres se pase a tu lado 8 s.","10 % de que cada zombi que hieres se pase a tu lado 8 s.","13,3 % de que cada zombi que hieres se pase a tu lado 8 s.","20 % de que cada zombi que hieres se pase a tu lado 8 s."],
+"Flautista: encantados 15 s y atacan el doble"],
+"asespadas":["As de espadas","A",1,"Activa, se rompe al usarla",["Tus próximos 12 tiros son críticos.","Tus próximos 18 tiros son críticos.","Tus próximos 24 tiros son críticos.","Tus próximos 36 tiros son críticos."],
+"Mano ganadora: cada crítico de su racha cura 3 de vida"],
+"ruletadorada":["Ruleta dorada","A",1,"Activa, vuelve a la caja",["50 % de matar a todo lo que atraviesa; nunca se encasquilla.","75 % de matar a todo lo que atraviesa; nunca se encasquilla.","95 % de matar a todo lo que atraviesa; nunca se encasquilla.","95 % de matar a todo lo que atraviesa; nunca se encasquilla."],
+"Casa gana: +5 de oro cada vez que mata"],
+"legion":["Legión","A",1,"Activa, se rompe al usarla",["Tiras un dado: invocas de 1 a 6 caballeros.","Tiras un dado: invocas de 1 a 6 caballeros.","Tiras un dado: invocas de 1 a 6 caballeros.","Tiras un dado: invocas de 1 a 6 caballeros."],
+"Ejército: el dado se tira 2 veces y se suman los caballeros"],
+"titiritero":["Titiritero","A",1,"Activa, vuelve a la caja",["Hipnotiza a todos los zombis en 6 m por 6 s.","Hipnotiza a todos los zombis en 6 m por 9 s.","Hipnotiza a todos los zombis en 6 m por 12 s.","Hipnotiza a todos los zombis en 6 m por 18 s."],
+"Marionetas explosivas: los zombis hipnotizados explotan al terminar el efecto"],
+"relojarena":["Reloj de arena","A",0,"Pasiva",["Los primeros 10 s de cada oleada el tiempo va 30 % más lento.","Los primeros 15 s de cada oleada el tiempo va 30 % más lento.","Los primeros 20 s de cada oleada el tiempo va 30 % más lento.","Los primeros 30 s de cada oleada el tiempo va 30 % más lento."],
+"Arena eterna: tiempo lento toda la primera mitad de la oleada"],
+"seisdeseis":["Seis de seis","A",1,"Activa, se rompe al usarla",["Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones de 150.","Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones de 225.","Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones de 300.","Dado: con 6 mata a todos menos jefes; con 1 a 5, esa cantidad de explosiones de 450."],
+"Dados cargados: el 6 sale con el doble de probabilidad"],
+"nigromante":["Nigromante","A",0,"Pasiva",["20 % de que un zombi que matas se levante a pelear por ti 15 s.","30 % de que un zombi que matas se levante a pelear por ti 15 s.","40 % de que un zombi que matas se levante a pelear por ti 15 s.","60 % de que un zombi que matas se levante a pelear por ti 15 s."],
+"Rey de los muertos: los levantados duran hasta el final de la oleada"],
+"caballerotiempo":["Caballero del tiempo","A",1,"Activa, se rompe al usarla",["Un caballero que congela el tiempo a su alrededor (6 m) 5 s.","Un caballero que congela el tiempo a su alrededor (6 m) 7,5 s.","Un caballero que congela el tiempo a su alrededor (6 m) 10 s.","Un caballero que congela el tiempo a su alrededor (6 m) 15 s."],
+"Guardián del tiempo: el caballero se queda toda la oleada"],
+"duelo":["Duelo","A",1,"Activa, vuelve a la caja",["Un caballero reta al zombi y lo mata seguro (a los jefes les quita 25 % de vida).","Un caballero reta al zombi y lo mata seguro (a los jefes les quita 37,5 % de vida).","Un caballero reta al zombi y lo mata seguro (a los jefes les quita 50 % de vida).","Un caballero reta al zombi y lo mata seguro (a los jefes les quita 75 % de vida)."],
+"Pistolero veloz: el caballero se queda 10 s más peleando después del duelo"],
+"hipnosiseterna":["Hipnosis eterna","A",1,"Activa, se rompe al usarla",["Todos los zombis se detienen 6 s; los que mates dan ×2 de oro.","Todos los zombis se detienen 9 s; los que mates dan ×2 de oro.","Todos los zombis se detienen 12 s; los que mates dan ×2 de oro.","Todos los zombis se detienen 18 s; los que mates dan ×2 de oro."],
+"Trance: los detenidos dan triple oro"],
+"traicion":["Traición","A",1,"Activa, vuelve a la caja",["El zombi se vuelve una bomba que corre hacia los demás y explota (200).","El zombi se vuelve una bomba que corre hacia los demás y explota (300).","El zombi se vuelve una bomba que corre hacia los demás y explota (400).","El zombi se vuelve una bomba que corre hacia los demás y explota (600)."],
+"Motín: contagia la traición a 2 más antes de explotar"],
+"tormenta":["Tormenta","A",1,"Activa, vuelve a la caja",["Un relámpago cae del cielo y arrasa la zona.","Un relámpago cae del cielo y arrasa la zona. Efecto ×1,5.","Un relámpago cae del cielo y arrasa la zona. Efecto ×2.","Un relámpago cae del cielo y arrasa la zona. Efecto ×3."],
+"Diluvio: caen 3 relámpagos"],
+"emperador":["Emperador inmortal","S",0,"Pasiva",["Revives 3 veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada.","Revives 5 veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada.","Revives 6 veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada.","Revives 9 veces por partida; cada vez todas tus balas suben 1 nivel en esa oleada."],
+"Dinastía: al revivir, todo el equipo recibe +1 nivel en sus balas esa oleada"],
+"corona":["Corona celestial","S",0,"Pasiva",["+50 % de vida máxima; cada 50 muertes te da una bala S al azar.","+75 % de vida máxima; cada 33 muertes te da una bala S al azar.","+100 % de vida máxima; cada 25 muertes te da una bala S al azar.","+150 % de vida máxima; cada 17 muertes te da una bala S al azar."],
+"Coronación: la bala S que recibe llega en nivel 2"],
+"reyvacio":["Rey del vacío","S",1,"Activa, vuelve a la caja",["Agujero negro donde apuntas, sin tiro a la cabeza.","Agujero negro donde apuntas, sin tiro a la cabeza.","Agujero negro donde apuntas, sin tiro a la cabeza.","Agujero negro donde apuntas, sin tiro a la cabeza."],
+"Señor del abismo: el agujero negro también se traga los disparos enemigos"],
+"jackpot":["Jackpot real","S",1,"Activa, se rompe al usarla",["La tragamonedas siempre saca tres iguales.","La tragamonedas siempre saca tres iguales. Efecto ×1,5.","La tragamonedas siempre saca tres iguales. Efecto ×2.","La tragamonedas siempre saca tres iguales. Efecto ×3."],
+"Jackpot eterno: ya no se rompe; se recarga cada 2 oleadas"],
+"cortespejos":["Corte de espejos","S",0,"Pasiva",["Cada activa que disparas lanza también una bala fantasma que impacta.","Cada activa que disparas lanza también una bala fantasma que impacta.","Cada activa que disparas lanza también una bala fantasma que impacta.","Cada activa que disparas lanza también una bala fantasma que impacta."],
+"Laberinto: 2 balas fantasma"],
+"resurreccion":["Resurrección","S",0,"Pasiva",["Revives con toda la vida y una explosión de fuego sagrado; se recarga cada 3 oleadas.","Revives con toda la vida y una explosión de fuego sagrado; se recarga cada 3 oleadas.","Revives con toda la vida y una explosión de fuego sagrado; se recarga cada 3 oleadas.","Revives con toda la vida y una explosión de fuego sagrado; se recarga cada 3 oleadas."],
+"Santo: se recarga cada 2 oleadas"],
+"supernova":["Supernova","S",1,"Activa, se rompe al usarla",["Elimina todo en 15 m; los jefes pierden 40 % de vida.","Elimina todo en 15 m; los jefes pierden 60 % de vida.","Elimina todo en 15 m; los jefes pierden 80 % de vida.","Elimina todo en 15 m; los jefes pierden 120 % de vida."],
+"Big bang: tras la explosión, 10 s de daño doble"],
+"avefortuna":["Ave de la fortuna","S",0,"Pasiva",["Al bajar de 25 % de vida: +50 de oro y curas 30 (1 vez por oleada).","Al bajar de 25 % de vida: +75 de oro y curas 45 (1 vez por oleada).","Al bajar de 25 % de vida: +100 de oro y curas 60 (1 vez por oleada).","Al bajar de 25 % de vida: +150 de oro y curas 90 (1 vez por oleada)."],
+"Ave dorada: 2 veces por oleada"],
+"reflejo":["Reflejo de fuego","S",0,"Pasiva",["El daño que recibes vuelve en llamas a los zombis cercanos (4 m).","El daño que recibes vuelve en llamas a los zombis cercanos (4 m).","El daño que recibes vuelve en llamas a los zombis cercanos (4 m).","El daño que recibes vuelve en llamas a los zombis cercanos (4 m)."],
+"Infierno: el doble de fuego y llamas en el suelo"],
+"cieloabismo":["Cielo y abismo","S",1,"Activa, vuelve a la caja",["Mitad de las veces: cura a todo el equipo al máximo; la otra mitad: agujero negro.","Mitad de las veces: cura a todo el equipo al máximo; la otra mitad: agujero negro. Efecto ×1,5.","Mitad de las veces: cura a todo el equipo al máximo; la otra mitad: agujero negro. Efecto ×2.","Mitad de las veces: cura a todo el equipo al máximo; la otra mitad: agujero negro. Efecto ×3."],
+"Equilibrio: hace las dos cosas a la vez"],
+"milagro":["Milagro","S",1,"Activa, se rompe al usarla",["Tira la tragamonedas 3 veces seguidas.","Tira la tragamonedas 3 veces seguidas. Efecto ×1,5.","Tira la tragamonedas 3 veces seguidas. Efecto ×2.","Tira la tragamonedas 3 veces seguidas. Efecto ×3."],
+"Milagro mayor: 5 tiradas"],
+"gemelo":["Gemelo celestial","S",0,"Pasiva",["Aparece un doble tuyo que copia tus disparos (60 % del daño).","Aparece un doble tuyo que copia tus disparos (90 % del daño).","Aparece un doble tuyo que copia tus disparos (120 % del daño).","Aparece un doble tuyo que copia tus disparos (180 % del daño)."],
+"Trillizos: 2 dobles"],
+"casinoabismo":["Casino del abismo","S",1,"Activa, vuelve a la caja",["Agujero negro; cada zombi tragado da 5 de oro.","Agujero negro; cada zombi tragado da 8 de oro.","Agujero negro; cada zombi tragado da 10 de oro.","Agujero negro; cada zombi tragado da 15 de oro."],
+"La casa nunca pierde: el agujero negro deja caer 1 ficha de miembro por cada 10 zombis tragados"],
+"horizonte":["Horizonte de sucesos","S",1,"Activa, se rompe al usarla",["Dos agujeros negros a la vez que se atraen entre sí.","Dos agujeros negros a la vez que se atraen entre sí. Efecto ×1,5.","Dos agujeros negros a la vez que se atraen entre sí. Efecto ×2.","Dos agujeros negros a la vez que se atraen entre sí. Efecto ×3."],
+"Colapso: al juntarse explotan y arrasan la pantalla (jefes −30 %)"],
+"doblenada":["Doble o nada infinito","S",0,"Pasiva",["Cada vez que una bala de suerte gana, 50 % de repetir el premio.","Cada vez que una bala de suerte gana, 75 % de repetir el premio.","Cada vez que una bala de suerte gana, 95 % de repetir el premio.","Cada vez que una bala de suerte gana, 95 % de repetir el premio."],
+"Infinito: el premio se puede repetir hasta 3 veces seguidas"],
+"negra":["Negra","S",1,"Activa, se rompe al usarla",["Abre una puerta directa al siguiente mapa.","Abre una puerta directa al siguiente mapa. Efecto ×1,5.","Abre una puerta directa al siguiente mapa. Efecto ×2.","Abre una puerta directa al siguiente mapa. Efecto ×3."],
+"No sube de nivel: es única"]};
+const BAL_ICO_SRC = (() => {
+  const K = { cr: '#f6e7c8', go: '#ffc83a', gd: '#b8800e', re: '#ec4a30', ic: '#a6ecff', ib: '#4ab8e8', ye: '#ffe14a', pu: '#c47cff', pd: '#3c0f66', gr: '#6cd46a', st: '#cfd6de', sd: '#7a8490', pk: '#ff8ad8', or: '#ff9a30', br: '#b0702e', bd: '#6a3e16', dk: '#1a120a', wh: '#ffffff', bl: '#5a9aff', ol: '#8a9a5a' };
+  const f2 = n => +n.toFixed(2);
+  const c = (x, y, r, f) => `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(r)}" fill="${f}"/>`;
+  const e = (x, y, rx, ry, f) => `<ellipse cx="${f2(x)}" cy="${f2(y)}" rx="${f2(rx)}" ry="${f2(ry)}" fill="${f}"/>`;
+  const r = (x, y, w, h, rx, f) => `<rect x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" rx="${f2(rx)}" fill="${f}"/>`;
+  const p = (pts, f) => `<polygon points="${pts}" fill="${f}"/>`;
+  const d = (dd, f) => `<path d="${dd}" fill="${f}"/>`;
+  const s = (dd, col, w = 2.4) => `<path d="${dd}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const g = (x, y, k, inner, rot = 0) => `<g transform="translate(${f2(x)} ${f2(y)})${rot ? ` rotate(${rot})` : ''} scale(${f2(k)})">${inner}</g>`;
+  const estrella = (n, ro, ri, f, rot = -90) => { const q = []; for (let i = 0; i < n * 2; i++) { const a = (rot + i * 180 / n) * Math.PI / 180, R = i % 2 ? ri : ro; q.push(f2(Math.cos(a) * R) + ',' + f2(Math.sin(a) * R)); } return p(q.join(' '), f); };
+  // ---- figuras base (centradas en 0,0)
+  const F = {
+    moneda: () => c(0, 0, 10, K.go) + c(0, 0, 7, K.gd) + s('M3.5 -3.5 C3 -6 -3.5 -6 -3.5 -3 C-3.5 0 3.5 -0.5 3.5 2.5 C3.5 5.5 -3 5.5 -3.8 3', K.go, 2.2) + s('M0 -7 V7', K.go, 1.6),
+    dado: (pips, cara = K.cr, pip = K.dk) => { const P_ = { 1: [[0, 0]], 2: [[-4, -4], [4, 4]], 3: [[-4.5, -4.5], [0, 0], [4.5, 4.5]], 5: [[-4.5, -4.5], [4.5, -4.5], [0, 0], [-4.5, 4.5], [4.5, 4.5]], 6: [[-4.5, -5], [4.5, -5], [-4.5, 0], [4.5, 0], [-4.5, 5], [4.5, 5]] }; return r(-9.5, -9.5, 19, 19, 4.5, cara) + P_[pips].map(([x, y]) => c(x, y, 2.1, pip)).join(''); },
+    copo: (col = K.ic) => [0, 60, 120].map(a => `<g transform="rotate(${a})">${s('M0 -10 V10 M-3.5 -7.5 L0 -4.5 L3.5 -7.5 M-3.5 7.5 L0 4.5 L3.5 7.5', col, 2.6)}</g>`).join('') + c(0, 0, 2.2, K.wh),
+    rayo: (col = K.ye) => p('3,-11 -7,1.5 -1,1.5 -4,11 7.5,-2.5 1.5,-2.5 5,-11', col),
+    pica: (col = K.dk) => d('M0 -10 C3 -6 10 -2.5 10 2.5 C10 6.5 5.5 8 1.6 5.6 L3.2 10 L-3.2 10 L-1.6 5.6 C-5.5 8 -10 6.5 -10 2.5 C-10 -2.5 -3 -6 0 -10Z', col),
+    corazon: (col = K.re) => d('M0 9 C-8 3.5 -10.5 -0.5 -10 -4.5 C-9.4 -9 -3 -10 0 -5 C3 -10 9.4 -9 10 -4.5 C10.5 -0.5 8 3.5 0 9Z', col),
+    trebol: (col = K.gr) => c(0, -5, 4.6, col) + c(-5, 1, 4.6, col) + c(5, 1, 4.6, col) + p('-1.4,1 1.4,1 3,10 -3,10', col),
+    rombo: (col = K.re) => p('0,-10 7.5,0 0,10 -7.5,0', col),
+    carta: (palo, col) => r(-7.5, -10.5, 15, 21, 2.2, K.cr) + r(-5.5, -8.5, 11, 17, 1.2, '#efdcb4') + g(0, 0, 0.55, F[palo](col)),
+    ala: lado => `<g transform="scale(${lado} 1)">${d('M0 0 C-3 -8 -11 -11 -14 -8 C-11 -6.5 -9.5 -5 -8.5 -3.2 C-11.5 -3.2 -14 -1 -14 1.5 C-11 0.4 -8.8 0.6 -7 1.6 C-8.5 3.6 -8.5 6 -7.2 7.5 C-4 5.6 -1.5 3.2 0 0Z', K.cr)}</g>`,
+    aureola: (col = K.go) => `<ellipse cx="0" cy="0" rx="7" ry="2.4" fill="none" stroke="${col}" stroke-width="2.4"/>`,
+    corona: (col = K.go) => p('-10,5 -10,-6 -5,-0.5 0,-9.5 5,-0.5 10,-6 10,5', col) + r(-10.5, 4.5, 21, 4, 1.2, col) + c(0, 6.5, 1.5, K.re) + c(-6, 6.5, 1.2, K.bl) + c(6, 6.5, 1.2, K.bl),
+    calavera: (ojo = K.dk) => c(0, -2.5, 8.5, K.cr) + r(-5, 2.5, 10, 7, 2, K.cr) + c(-3.3, -2, 2.4, ojo) + c(3.3, -2, 2.4, ojo) + p('0,1.5 -1.5,4 1.5,4', K.dk) + r(-3.2, 6.5, 1.2, 3, 0.4, K.dk) + r(-0.6, 6.5, 1.2, 3, 0.4, K.dk) + r(2, 6.5, 1.2, 3, 0.4, K.dk),
+    casco: (col = K.st) => d('M-8 10 L-8 -1 C-8 -9.5 8 -9.5 8 -1 L8 10Z', col) + r(-6.5, -1.5, 13, 2.8, 1, K.dk) + r(-0.8, 1.5, 1.6, 7, 0.6, K.sd) + d('M0 -9 C4 -14 9 -12 10 -9 C6 -10 3 -9 0 -7Z', K.re),
+    reloj: () => r(-1.8, -12, 3.6, 3.5, 1, K.go) + c(0, 1, 10, K.go) + c(0, 1, 7.6, K.cr) + s('M0 1 V-4.5 M0 1 L4 3.5', K.dk, 2),
+    arena: () => r(-8, -11, 16, 3, 1, K.br) + r(-8, 8, 16, 3, 1, K.br) + p('-6.5,-8 6.5,-8 0,0', K.ic) + p('0,0 6.5,8 -6.5,8', K.ic) + p('-4,-5.5 4,-5.5 0,-1', K.go) + p('0,2 4.6,8 -4.6,8', K.go),
+    espiral: (col = K.pk) => s('M0 0 C2 -2 4.2 0 3.2 3 C1.6 6.6 -4.6 6 -5.8 1.2 C-7 -4.6 -0.6 -8.6 4.6 -6.6 C10 -4.4 10.4 4 6.4 8', col, 2.8),
+    ojo: (iris = K.pu, centro = null) => d('M-11 0 C-6 -8 6 -8 11 0 C6 8 -6 8 -11 0Z', K.cr) + c(0, 0, 5, iris) + (centro || c(0, 0, 2.2, K.dk)) + c(1.6, -1.8, 1, K.wh),
+    agujero: () => c(0, 0, 10, K.pu) + c(0, 0, 7.4, '#6a2aa8') + c(0, 0, 4.6, '#08020e') + `<ellipse cx="0" cy="0" rx="11.5" ry="3" fill="none" stroke="${K.or}" stroke-width="1.8" transform="rotate(-20)"/>`,
+    tragaperras: (cuerpo = K.re, barra = K.re) => r(-8.5, -10, 15, 20, 3, cuerpo) + r(-6.5, -6, 11, 8, 1.2, K.cr) + [-4.3, -1, 2.3].map(x => r(x - 1.2, -4.5, 2.4, 5, 0.6, barra)).join('') + r(-6.5, 4.5, 11, 3, 1, K.dk) + s('M7 -2 L10 -2 L10 -8', K.st, 2) + c(10, -9, 2.2, K.re),
+    ficha: (col = K.re) => c(0, 0, 10, col) + [0, 60, 120, 180, 240, 300].map(a => `<rect x="-1.6" y="-10" width="3.2" height="3.6" fill="${K.cr}" transform="rotate(${a})"/>`).join('') + c(0, 0, 6, K.cr) + c(0, 0, 4.2, col),
+    llama: (col = K.or, dentro = K.ye) => d('M0 -11 C6 -4.5 8.5 1 6.5 5.5 C5 8.6 2.5 10 0 10 C-2.5 10 -5 8.6 -6.5 5.5 C-8.5 1 -5.5 -2 -3 -5 C-2.5 -2 -1.5 -1 0 -1 C-1 -4 -1 -8 0 -11Z', col) + d('M0 -1 C3 2 3.6 5 2.4 7 C1.6 8.4 -1.6 8.4 -2.4 7 C-3.4 5 -2 2.5 0 -1Z', dentro),
+    escudo: (col = K.st) => d('M0 -10.5 L9 -7 C9 2 6 7.5 0 10.5 C-6 7.5 -9 2 -9 -7Z', col),
+    bomba: () => c(-1, 2, 8.5, K.sd) + c(-3.5, -0.5, 2.4, K.st) + r(2.5, -9, 4.5, 4.5, 1, K.sd) + s('M6 -8 C8 -11 10 -10 11 -12', K.br, 1.8) + g(11, -12, 0.28, estrella(6, 10, 4.5, K.ye)),
+    nube: () => c(-5, 1, 5.5, K.cr) + c(1, -2.5, 6.5, K.cr) + c(6.5, 1.5, 4.5, K.cr) + r(-10, 1, 20, 5.5, 2.8, K.cr),
+    bolsa: (col = K.br) => d('M-4 -6 L4 -6 C9 -1 10.5 4 9.5 7.5 C8.5 10.5 -8.5 10.5 -9.5 7.5 C-10.5 4 -9 -1 -4 -6Z', col) + p('-4,-6 -6,-11 -1.5,-8.5 0,-11.5 1.5,-8.5 6,-11 4,-6', col) + r(-4.6, -7.4, 9.2, 2.6, 1, K.bd),
+    revolver: (col = K.st) => d('M-11 -3.5 L5 -3.5 L5 -6 L11 -6 L11 -1.5 L3 -1.5 L3 1 C3 2.5 1.5 3 0.5 2 L-1 0.5 L-2 0.5 L-4 9 C-4.3 10 -5.6 10.3 -6.6 10 L-8.8 9.4 C-9.6 9.2 -10 8.4 -9.7 7.6 L-7.4 0 L-11 0Z', col) + c(-1.5, -1.5, 2.3, K.sd),
+    espada: (col = K.st) => p('0,-11.5 2.2,-8.5 2.2,4.5 -2.2,4.5 -2.2,-8.5', col) + r(-6.5, 4, 13, 2.6, 1.2, K.go) + r(-1.4, 6.4, 2.8, 4.2, 0.8, K.br) + c(0, 11.4, 1.8, K.go),
+    estrellita: (col = K.wh) => estrella(4, 10, 3, col),
+    bala: (punta = K.st) => r(-3.6, -2, 7.2, 12, 1, K.go) + d('M-3.6 -2 C-3.6 -8 -1.5 -11 0 -11.5 C1.5 -11 3.6 -8 3.6 -2Z', punta) + r(-4.4, 8.4, 8.8, 2.2, 0.8, K.gd),
+    infinito: (col = K.go) => s('M0 0 C-3 -5 -10 -5 -10 0 C-10 5 -3 5 0 0 C3 -5 10 -5 10 0 C10 5 3 5 0 0Z', col, 3),
+    viento: (col = K.ic) => s('M-10 -4 H4 C8 -4 8 -9 4.5 -9 M-10 1 H8 C12 1 12 7 8 6.5 M-8 6 H0', col, 2.4),
+    flecha: (col = K.cr) => s('M-9 9 L8 -8', col, 2.4) + p('9,-9 2,-7.5 7.5,-2', col) + p('-9,9 -9.5,4 -5,8.5', col)
+  };
+  const B = (x, y, k, inner) => g(x, y, k, inner);   // figura chica en una esquina
+  // ---- las 85 balas
+  const I = {
+    oro: () => F.moneda(),
+    cinturon: () => r(-11.5, -3, 23, 7.5, 2, K.br) + [-9.5, -6.5, 5, 8].map(x => r(x - 1, -8, 2.4, 6, 1, K.go)).join('') + r(-4.5, -5.5, 9, 12.5, 2, K.go) + r(-2.4, -3.4, 4.8, 8.3, 1, K.bd) + r(-0.6, -3, 1.2, 4.5, 0.5, K.go),
+    polvora: () => r(-7.5, -6, 15, 17, 5, K.br) + r(-7.5, -2.4, 15, 2.2, 0, K.bd) + r(-7.5, 5, 15, 2.2, 0, K.bd) + e(0, -6, 7.5, 2.4, K.bd) + s('M0 -7 C1 -10 4 -10 5 -12', K.cr, 1.8) + g(6, -12.5, 0.32, estrella(7, 10, 4.5, K.ye)),
+    pluma: () => d('M10 -11 C1 -10 -6 -3 -7 7 L-5 9 C4 8 11 1 10 -11Z', K.cr) + s('M-9 11 L6 -6', K.bd, 1.6) + s('M1 -2 L5 -1 M-1 2 L3 3 M3 -6 L7 -5', K.bd, 1.1),
+    cantimplora: () => r(-1.8, -11.5, 3.6, 4, 1, K.st) + c(0, 1.5, 9.5, K.ol) + c(0, 1.5, 6.6, '#a8b878') + s('M-9 -4 C-9 -10 9 -10 9 -4', K.br, 1.8) + c(-2.5, -1, 1.8, '#c8d898'),
+    apuesta: () => F.ficha(K.re),
+    robot: () => s('M0 -7 V-11', K.st, 1.8) + c(0, -11.5, 2, K.re) + r(-9, -7.5, 18, 16, 3.5, K.st) + c(-4, -1, 2.6, K.ib) + c(4, -1, 2.6, K.ib) + r(-4.5, 4, 9, 2.2, 1, K.dk) + r(-11.5, -2, 2.5, 6, 1, K.sd) + r(9, -2, 2.5, 6, 1, K.sd),
+    caramelo: () => p('-6,0 -12,-6 -11,6', K.pk) + p('6,0 12,-6 11,6', K.pk) + c(0, 0, 7, K.pk) + s('M-4 -5.5 C-1 -2 -1 2 -4 5.5 M2 -6.5 C5 -3 5 3 2 6.5', K.wh, 1.8),
+    tahur: () => r(-6, -10, 12, 13.5, 1.5, K.cr) + r(-11, 3, 22, 3.6, 1.8, K.cr) + r(-6, -1, 12, 3, 0, K.re) + g(7, 8, 0.36, F.carta('pica', K.dk), 14),
+    escarcha: () => F.copo(),
+    relampago: () => F.rayo(),
+    bumeran: () => d('M-10.5 7 L-3 -9 C-1.5 -11.5 2.5 -10.6 1.6 -7.4 L-3.6 4 L9 4 C12 4 12.2 8.6 9 8.6 L-8.6 8.6 C-10.6 8.6 -11.4 8.2 -10.5 7Z', K.or) + s('M-6 5 L-1 -6', K.ye, 1.2),
+    suerte: () => d('M-9 -8 C-12 4 -6 10 0 10 C6 10 12 4 9 -8 L4 -8 C6 0 4 5 0 5 C-4 5 -6 0 -4 -8Z', K.go) + [[-7.5, -4], [-7.2, 2], [7.5, -4], [7.2, 2]].map(([x, y]) => c(x, y, 1, K.dk)).join(''),
+    dadocargado: () => F.dado(5) + d('M5 4 L11 4 L11 11 C11 12 10 12.5 9 12.5 L7 12.5 C6 12.5 5 12 5 11Z', K.sd) + c(8, 3.5, 1.2, K.sd),
+    invocacion: () => `<circle cx="0" cy="0" r="10" fill="none" stroke="${K.pu}" stroke-width="2.4"/>` + estrella(5, 8, 3.2, K.pu) + c(0, 0, 1.8, K.wh),
+    hipnotica: () => F.espiral(K.pk),
+    reloj: () => F.reloj(),
+    ruleta: () => c(0, 0, 10.5, K.st) + [0, 60, 120, 180, 240, 300].map(a => { const x = Math.sin(a * Math.PI / 180) * 6, y = -Math.cos(a * Math.PI / 180) * 6; return c(x, y, 2.6, a ? K.dk : K.re); }).join('') + c(0, 0, 1.8, K.sd),
+    rey: () => F.corona(),
+    fenix: () => F.ala(1) + F.ala(-1) + g(0, 1, 0.75, F.llama(K.re, K.or)),
+    angel: () => g(-1, 4, 0.82, F.ala(1)) + g(1, 4, 0.82, F.ala(-1)) + g(0, -8, 1, F.aureola()) + c(0, 0, 3.6, K.cr),
+    agujero: () => F.agujero(),
+    tragamonedas: () => F.tragaperras(),
+    espejo: () => r(-1.8, 5, 3.6, 7, 1, K.br) + e(0, -2, 8, 9.5, K.go) + e(0, -2, 6, 7.5, K.ic) + s('M-3 -6 L-1 -8 M-3.5 -2 L1 -6.5', K.wh, 1.4),
+    iman: () => d('M-9 -10 L-3 -10 L-3 1 C-3 5 3 5 3 1 L3 -10 L9 -10 L9 1 C9 13 -9 13 -9 1Z', K.re) + r(-9, -10, 6, 4, 0, K.st) + r(3, -10, 6, 4, 0, K.st),
+    alcancia: () => e(0, 2, 10, 7.5, K.pk) + c(-8.5, 1, 3, K.pk) + p('-3,-4 -1,-9 2,-4', K.pk) + r(-6, 7, 3, 4, 1, K.pk) + r(3, 7, 3, 4, 1, K.pk) + r(-2.5, -4.6, 6, 1.6, 0.8, K.dk) + c(-4.5, -0.5, 1.1, K.dk) + c(-9.4, 1, 0.8, K.dk) + B(7, -7, 0.33, F.moneda()),
+    usurero: () => F.bolsa(K.br) + c(0, 3.5, 4.5, K.go) + s('M0 0.5 V6.5', K.bd, 1.4),
+    mercenaria: () => `<g transform="rotate(-38)">${F.espada()}</g><g transform="rotate(38)">${F.espada()}</g>`,
+    dado: () => F.dado(3),
+    racimo: () => [[-4.5, -4], [4.5, -4], [0, 3.5], [-6, 5], [6, 5], [0, -9.5]].map(([x, y]) => c(x, y, 3.8, K.st) + c(x - 1.1, y - 1.1, 1.2, K.wh)).join(''),
+    junior: () => g(0, 1, 0.82, F.bala()) + `<path d="M-9 -2 A9.5 9.5 0 1 1 -6 7" fill="none" stroke="${K.gr}" stroke-width="2.4" stroke-linecap="round"/>` + p('-10.5,4.5 -4,6.5 -8.5,10.5', K.gr),
+    espuelas: () => s('M-11 -3 C-6 3 0 3 2 1', K.br, 3.4) + g(5, 1, 0.62, estrella(8, 9, 3.6, K.st)) + c(5, 1, 2, K.sd),
+    bolsa: () => F.bolsa(K.pu) + g(0, 3, 0.45, estrella(4, 10, 3, K.ye)) + g(8, -9, 0.3, estrella(4, 10, 3, K.wh)),
+    taladro: () => d('M-11 -3.5 L-3 -3.5 L-3 3.5 L-11 3.5Z', K.go) + d('M-3 -5.5 L4 -3 L11 0 L4 3 L-3 5.5Z', K.st) + s('M-1 -5 L1 5 M3 -3.6 L5 3.6 M7 -2 L8 2', K.sd, 1.4),
+    vampira: () => d('M0 -3 C-2 -6 -6 -7 -11 -5 C-9 -3 -9 0 -10 2 C-7 1 -5 2 -4 4 C-3 2 -1 2 0 4 C1 2 3 2 4 4 C5 2 7 1 10 2 C9 0 9 -3 11 -5 C6 -7 2 -6 0 -3Z', K.re) + p('-2.4,4 -1.4,8.5 -0.4,4', K.wh) + p('0.4,4 1.4,8.5 2.4,4', K.wh) + c(-2.4, -1, 1, K.ye) + c(2.4, -1, 1, K.ye),
+    frita: () => estrella(10, 11, 5, K.or) + estrella(8, 6.5, 3, K.ye) + c(0, 0, 2.2, K.wh),
+    segundoaire: () => F.viento(K.ic) + B(6, 7, 0.38, F.corazon()),
+    punteria: () => `<circle cx="0" cy="0" r="8" fill="none" stroke="${K.re}" stroke-width="2.6"/>` + s('M0 -11.5 V-4 M0 4 V11.5 M-11.5 0 H-4 M4 0 H11.5', K.re, 2.6) + c(0, 0, 1.8, K.re),
+    trago: () => r(-2, -12, 4, 4, 1, K.br) + r(-2.8, -9, 5.6, 4, 1, K.gd) + d('M-2.8 -5 L-6.5 -1 L-6.5 10 C-6.5 11 -5.5 11.5 -4.5 11.5 L4.5 11.5 C5.5 11.5 6.5 11 6.5 10 L6.5 -1 L2.8 -5Z', K.or) + r(-6.5, 1.5, 13, 5.5, 0, K.cr) + r(-3.5, 3.4, 7, 1.6, 0.6, K.re),
+    chicles: () => c(0, -3, 8.5, K.ic) + [[-3.5, -5], [2.5, -6.5], [4, -1], [-2, 0], [0.5, -3]].map(([x, y], i) => c(x, y, 2.3, [K.re, K.ye, K.gr, K.pk, K.bl][i])).join('') + r(-6.5, 4.5, 13, 7, 1.6, K.re) + r(-1.6, 7, 3.2, 2.4, 0.6, K.dk),
+    crupier: () => g(-2, -1, 0.8, I.robot()) + B(6.5, 6, 0.42, F.carta('corazon', K.re)),
+    congelador: () => r(-9, -9, 18, 18, 3.5, K.ic) + r(-6, -6, 5, 3, 1.5, K.wh) + g(0, 0, 0.55, F.copo(K.ib)),
+    tesla: () => r(-6, 4, 12, 7.5, 1.5, K.sd) + [-1, 2.4].map(y => e(0, y, 5.5, 1.8, K.go)).join('') + r(-1.6, -6, 3.2, 8, 1, K.go) + c(0, -7, 3.2, K.st) + g(-6.5, -6, 0.42, F.rayo(K.ye), -25) + g(6.5, -6, 0.42, F.rayo(K.ye), 25),
+    dron: () => r(-5, -2, 10, 6, 2.5, K.st) + c(0, 1, 1.6, K.re) + s('M-5 0 L-9 -3 M5 0 L9 -3', K.sd, 1.8) + e(-9, -4.5, 4.6, 1.4, K.cr) + e(9, -4.5, 4.6, 1.4, K.cr) + s('M-2 4 L-3 8 M2 4 L3 8', K.sd, 1.6),
+    golosina: () => r(-1.2, 1, 2.4, 11, 1, K.cr) + c(0, -3, 8.5, K.pk) + g(0, -3, 0.72, F.espiral(K.wh)) + B(8, 8, 0.32, F.trebol()),
+    helado: () => p('-7,-1 7,-1 0,12', K.or) + s('M-4.5 2 L3.5 9 M4.5 2 L-3.5 9', K.br, 1.2) + c(-3.5, -4, 4.6, K.ic) + c(3.5, -4, 4.6, K.pk) + c(0, -8.5, 4.4, K.cr),
+    chicleelec: () => c(-1.5, 1.5, 8.5, K.pk) + c(-4, -1.5, 2.4, '#ffc4ee') + g(6, -5, 0.55, F.rayo()),
+    pinata: () => estrella(5, 11, 5.2, K.pk) + estrella(5, 6.5, 3, K.ye) + c(0, 0.5, 2, K.re),
+    pokerhielo: () => F.carta('copo', K.ib),
+    carta: () => F.carta('pica', K.dk) + d('M7.5 -10.5 L7.5 -4 L2.5 -10.5Z', K.re),
+    truco: () => `<g transform="rotate(-40)">${r(-1.6, -9, 3.2, 18, 1, K.dk)}${r(-1.6, -9, 3.2, 4, 1, K.wh)}${r(-1.6, 5, 3.2, 4, 1, K.wh)}</g>` + g(-6, -6, 0.42, F.estrellita(K.ye)) + g(7, 6, 0.32, F.estrellita(K.ye)) + g(6.5, -7.5, 0.25, F.estrellita(K.wh)),
+    ventisca: () => g(-2, -2, 0.75, F.copo()) + g(1, 5, 0.55, F.viento(K.wh)),
+    carambano: () => p('-10,-9 10,-9 7,-6 4,10 1.5,-6 -1,6 -3.5,-6 -6,3 -8,-6', K.ic) + r(-10.5, -11, 21, 3, 1.2, K.wh),
+    rayobum: () => I.bumeran().replace(new RegExp(K.or, 'g'), K.ye) + g(-4, -7, 0.38, F.rayo(K.wh)),
+    trebol: () => [0, 90, 180, 270].map(a => `<g transform="rotate(${a})">${d('M0 0 C-6 -2 -8 -8 -4 -10 C-2 -11 0 -9 0 -7 C0 -9 2 -11 4 -10 C8 -8 6 -2 0 0Z', K.gr)}</g>`).join('') + s('M0 0 C2 5 3 8 6 11', K.gr, 2),
+    angelguardian: () => F.ala(1) + F.ala(-1) + g(0, 1, 0.78, F.escudo(K.cr)) + s('M0 -4 V6 M-3.5 0 H3.5', K.go, 2),
+    encantador: () => g(0, 1, 0.9, F.corazon(K.pk)) + g(0, 0, 0.9, F.flecha(K.go)),
+    asespadas: () => r(-7.5, -10.5, 15, 21, 2.2, K.cr) + g(0, 1, 0.68, F.pica(K.dk)) + s('M-5.8 -4.6 L-4.3 -9 L-2.8 -4.6 M-5.2 -6.2 L-3.4 -6.2', K.re, 1.2),
+    ruletadorada: () => c(0, 0, 11, K.go) + c(0, 0, 9, K.dk) + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M0 0 L0 -9 A9 9 0 0 1 6.36 -6.36Z" fill="${i % 2 ? K.re : '#2a1a0e'}" transform="rotate(${i * 45})"/>`).join('') + c(0, 0, 4, K.go) + c(0, -7, 1.6, K.wh),
+    legion: () => g(-6, 2, 0.55, F.casco(K.sd)) + g(6, 2, 0.55, F.casco(K.sd)) + g(0, 0, 0.68, F.casco(K.st)),
+    titiritero: () => r(-10, -11, 20, 3, 1.2, K.br) + r(-1.5, -12.5, 3, 6, 1, K.br) + s('M-8 -8 L-4 1 M8 -8 L4 1 M0 -6 L0 -2', K.wh, 0.9) + c(0, 0, 3, K.cr) + r(-2.5, 3, 5, 6, 1.2, K.re) + s('M-2 9 L-3 12 M2 9 L3 12 M-2.5 4 L-5 1 M2.5 4 L5 1', K.cr, 1.4),
+    relojarena: () => F.arena(),
+    seisdeseis: () => F.dado(6, K.go, K.dk) + B(8.5, -8.5, 0.32, estrella(8, 10, 4, K.re)),
+    nigromante: () => F.calavera(K.gr) + c(-3.3, -2, 1, K.wh) + c(3.3, -2, 1, K.wh),
+    caballerotiempo: () => g(-1.5, 0, 0.88, F.casco()) + B(7, 7, 0.4, F.reloj()),
+    duelo: () => g(-1, -5, 0.78, F.revolver()) + `<g transform="translate(1 5) scale(-0.78 0.78)">${F.revolver(K.go)}</g>`,
+    hipnosiseterna: () => F.ojo(K.pu, g(0, 0, 0.42, F.espiral(K.wh))),
+    traicion: () => F.bomba() + B(-6.5, 7.5, 0.36, F.calavera()),
+    tormenta: () => g(0, -3, 1, F.nube()) + g(1, 7.5, 0.55, F.rayo()),
+    emperador: () => g(0, -2, 0.95, F.corona(K.go)) + B(0, 8.5, 0.42, F.llama()),
+    corona: () => g(0, 1, 0.92, F.corona(K.wh)) + g(-9, -9, 0.3, F.estrellita(K.ic)) + g(9, -8, 0.24, F.estrellita(K.ic)) + g(0, -11, 0.2, F.estrellita(K.ic)),
+    reyvacio: () => g(0, 2, 0.85, F.agujero()) + B(0, -9, 0.42, F.corona()),
+    jackpot: () => F.tragaperras(K.go, K.re) + g(-2, -2, 0.3, F.estrellita(K.wh)),
+    cortespejos: () => p('-10,-6 -3,-11 -1,8 -8,10', K.ic) + p('1,-9 9,-11 10,9 3,7', K.wh) + s('M-7 -5 L-5 3 M4 -6 L6 2', K.ib, 1.2),
+    resurreccion: () => F.llama(K.ye, K.wh) + s('M0 -4 V7 M-3.5 0 H3.5', K.go, 2),
+    supernova: () => estrella(12, 11.5, 4.5, K.ye) + estrella(12, 7, 3, K.wh) + c(0, 0, 3, K.wh),
+    avefortuna: () => d('M-11 -2 C-6 -9 -1 -6 0 -2 C2 -8 8 -10 11 -7 C7 -6 5 -2 4 1 C6 1 8 2 9 4 C5 5 2 5 0 4 C-4 6 -8 4 -9 2 C-6 2 -4 1 -3 0 C-6 0 -9 -1 -11 -2Z', K.go) + B(0, 8, 0.38, F.moneda()),
+    reflejo: () => g(0, 1, 1, F.escudo(K.st)) + g(0, 2, 0.62, F.llama(K.re, K.or)),
+    cieloabismo: () => d('M0 -10 A10 10 0 0 0 0 10Z', K.cr) + d('M0 -10 A10 10 0 0 1 0 10Z', '#2a0a4a') + c(5, 0, 3, '#08020e') + g(-4.5, 0, 0.32, F.estrellita(K.go)) + g(0, -12, 0.6, F.aureola()),
+    milagro: () => F.tragaperras(K.cr, K.go) + g(-9, -9, 0.32, F.estrellita(K.ye)) + g(9.5, 8, 0.26, F.estrellita(K.ye)),
+    gemelo: () => [[-4, K.ic], [4, K.cr]].map(([x, col]) => c(x, -5, 3.6, col) + d(`M${x - 5} 11 C${x - 5} 2 ${x - 3} 0 ${x} 0 C${x + 3} 0 ${x + 5} 2 ${x + 5} 11Z`, col)).join('') + g(0, -11, 0.5, F.aureola()),
+    casinoabismo: () => g(0, 0, 0.9, F.agujero()) + B(7.5, 7.5, 0.38, F.ficha(K.re)),
+    horizonte: () => g(-5, -4, 0.55, F.agujero()) + g(5, 4, 0.55, F.agujero()) + s('M-1 -1 C1 -2 2 0 1 1', K.or, 1.4),
+    doblenada: () => g(0, -3, 0.62, F.ficha(K.re)) + g(0, 7, 0.55, F.infinito()),
+    negra: () => r(-7.5, -11, 15, 22, 2, '#2a0606') + r(-5.5, -9, 11, 18, 1, '#120202') + c(3, 0, 1.4, K.re) + s('M-4 -4 L0 0 L-4 4', K.re, 2)
+  };
+  // Estilo elegido por el dueño (18-oct-2026): «Ficha de póker». Ficha del color propio de la bala, 8 rayas blancas en el borde,
+  // círculo oscuro con anillo blanco punteado y el símbolo en el centro; el borde es del color del rango.
+  // Pasiva = placa cuadrada arriba · activa = anillo blanco fino por fuera. (Las de una misma familia comparten tono.)
+  const CHIP = {
+    oro: '#e8b420', cinturon: '#9a6430', polvora: '#5a5a62', pluma: '#d8cfb8', cantimplora: '#6f8a4a', apuesta: '#c8282c',
+    robot: '#4a9a9a', caramelo: '#e85aa8', tahur: '#2a2a3a', escarcha: '#5ab8ff', relampago: '#e8c020', bumeran: '#e07a20',
+    suerte: '#3aa84a', dadocargado: '#b82c2c', invocacion: '#8a3ae0', hipnotica: '#c84aa8', reloj: '#c8962a', ruleta: '#a02020',
+    rey: '#d8a020', fenix: '#ff6a20', angel: '#f0e6c8', agujero: '#5a2a9a', tragamonedas: '#d83a3a', espejo: '#7ac8e0',
+    iman: '#d84a3a', alcancia: '#f08ac0', usurero: '#8a6a20', mercenaria: '#7a7a8a', dado: '#e8e0d0', racimo: '#8a8a9a',
+    junior: '#4ab85a', espuelas: '#a87a40', bolsa: '#7a4ab8', taladro: '#6a7a8a', vampira: '#8a1a2a', frita: '#ff8a20',
+    segundoaire: '#5ac8c8', punteria: '#c83a3a', trago: '#c8701a', chicles: '#ff6ab8', crupier: '#2a8a6a', congelador: '#8ad8ff',
+    tesla: '#3a6ad8', dron: '#5a7a6a', golosina: '#ff8ad0', helado: '#ffb0d8', chicleelec: '#d85ad8', pinata: '#ffa030',
+    pokerhielo: '#3a8ac8', carta: '#1a3a7a', truco: '#5a2a7a', ventisca: '#a8e0ff', carambano: '#4ac0e8', rayobum: '#d8a818',
+    trebol: '#2a9a3a', angelguardian: '#e8dcc0', encantador: '#e05a9a', asespadas: '#1a1a2a', ruletadorada: '#c89a20', legion: '#5a6a7a',
+    titiritero: '#8a4a2a', relojarena: '#b88a3a', seisdeseis: '#d8b030', nigromante: '#2a6a3a', caballerotiempo: '#6a8aa8', duelo: '#8a5a2a',
+    hipnosiseterna: '#9a3ac8', traicion: '#4a4a4a', tormenta: '#3a4a8a', emperador: '#c8a020', corona: '#f0f0ff', reyvacio: '#3a1a6a',
+    jackpot: '#ffc020', cortespejos: '#9ad8f0', resurreccion: '#ffd84a', supernova: '#ffe070', avefortuna: '#e8a020', reflejo: '#d8401a',
+    cieloabismo: '#6a5ab8', milagro: '#f8f0d8', gemelo: '#a8d8f0', casinoabismo: '#4a1a5a', horizonte: '#2a1a4a', doblenada: '#b82030', negra: '#141414'
+  };
+  return { I, CHIP };
+})();
+
+// ---------- Reglas nuevas del dueño (19-oct-2026) ----------
+// Sin fusiones: las 85 balas son individuales. 4 rarezas: común (gris), poco común (verde), rara (azul), legendaria (dorado).
+const RAREZA = { C: '#a9adb3', B: '#4cc46a', A: '#4f95ff', S: '#ffc43a' };
+const RNOM = { C: 'Común', B: 'Poco común', A: 'Rara', S: 'Legendaria' };
+const RORD = { C: 0, B: 1, A: 2, S: 3 };
+const NIVEL_MAX = 4;
+const LISTA85 = Object.keys(DATOS);
+// Compatibilidad con los bocetos: [nombre, color de la ficha, rareza, forma (c = pasiva, d = activa), nombre corto]
+const BALAS = {};
+for (const k of LISTA85) { const D = DATOS[k]; BALAS[k] = [D[0], BAL_ICO_SRC.CHIP[k] || '#888888', D[1], D[2] ? 'd' : 'c', D[0].slice(0, 3)]; }
+const nombre = id => (BALAS[id] || BALAS.oro)[0];
+const rareza = id => (BALAS[id] || BALAS.oro)[2];
+// Ficha de póker igual que en el juego: color propio, 8 rayas, centro oscuro con el dibujo, borde del color de la rareza.
+// Pasiva = placa cuadrada arriba · activa = anillo blanco fino por fuera.
+const _fcache = {};
+function fichaSVG(id) {
+  if (_fcache[id]) return _fcache[id];
+  const D = DATOS[id] || DATOS.oro, borde = id === 'negra' ? '#ff2a2a' : RAREZA[D[1]], col = BAL_ICO_SRC.CHIP[id] || '#888888';
+  const rayas = [0, 45, 90, 135, 180, 225, 270, 315].map(a => `<rect x="14.4" y="2.3" width="3.2" height="4.4" fill="#ffffff" transform="rotate(${a} 16 16)"/>`).join('');
+  const leg = D[1] === 'S' ? `<circle cx="16" cy="16" r="15.6" fill="none" stroke="${borde}" stroke-width="2.6" opacity=".45"/>` : '';
+  return (_fcache[id] = `<svg viewBox="-1.5 -1.5 35 35" aria-label="${D[0]}">${leg}`
+    + `<circle cx="16" cy="16" r="14.2" fill="${col}" stroke="${borde}" stroke-width="2.4"/>${rayas}`
+    + `<circle cx="16" cy="16" r="9.6" fill="#1c140c" stroke="#ffffff" stroke-width="0.8" stroke-dasharray="1.6 1.2"/>`
+    + `<g stroke="#140a04" stroke-width="1.3" stroke-linejoin="round" paint-order="stroke" transform="translate(16 16) scale(0.78)">${(BAL_ICO_SRC.I[id] || BAL_ICO_SRC.I.oro)()}</g>`
+    + (D[2] ? `<circle cx="16" cy="16" r="16.1" fill="none" stroke="#ffffff" stroke-width="0.9"/>` : `<rect x="11.5" y="-0.6" width="9" height="4.4" rx="1" fill="${borde}" stroke="#ffffff" stroke-width="0.8"/>`)
+    + `</svg>`);
 }
 function ficha(id, nv, extra = {}) {
-  const n = nv ? `<span class="nv${nv >= 5 ? ' max' : ''}">${nv}</span>` : '';
-  const p = extra.pair ? `<span class="pair">&#8645;</span>` : '';
-  return `<span class="f${extra.cls ? ' ' + extra.cls : ''}" ${extra.style ? `style="${extra.style}"` : ''}>${fichaSVG(id, extra)}${n}${p}</span>`;
+  const n = nv ? `<span class="nv${nv >= NIVEL_MAX ? ' max' : ''}">${nv}</span>` : '';
+  const p = extra.pair ? `<span class="pair" aria-label="Tiene pareja">2</span>` : '';
+  return `<span class="f r${rareza(id)}${extra.cls ? ' ' + extra.cls : ''}" ${extra.style ? `style="${extra.style}"` : ''}>${fichaSVG(id)}${n}${p}</span>`;
 }
-function nombre(id) { return (BALAS[id] || BALAS.mojada)[0]; }
-function rareza(id) { return (BALAS[id] || BALAS.mojada)[2]; }
 // Rellena <x-f b="id" nv="2" pair cls="glow"></x-f>
 function pintar(root = document) {
   root.querySelectorAll('x-f').forEach(e => {
-    e.outerHTML = ficha(e.getAttribute('b'), +e.getAttribute('nv') || 0, { pair: e.hasAttribute('pair'), cls: e.getAttribute('cls') || '', style: e.getAttribute('style') || '', rareza: e.getAttribute('r') || '' });
+    e.outerHTML = ficha(e.getAttribute('b'), +e.getAttribute('nv') || 0, { pair: e.hasAttribute('pair'), cls: e.getAttribute('cls') || '', style: e.getAttribute('style') || '' });
   });
 }
 document.addEventListener('DOMContentLoaded', () => pintar());
