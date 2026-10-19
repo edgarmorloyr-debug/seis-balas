@@ -3234,6 +3234,8 @@ const Sfx = (() => {
     ring(pan = 0, vol = 1) { for (const d of [0, 0.42]) for (let i = 0; i < 9; i++) { tone({ type: 'square', f0: 1180, dur: 0.035, vol: 0.05 * vol, pan, delay: d + i * 0.04, wet: 0.35 }); tone({ type: 'triangle', f0: 1760, dur: 0.03, vol: 0.04 * vol, pan, delay: d + i * 0.04 + 0.02, wet: 0.35 }); } },
     // G1 · golpe con el bate en la escena de la derrota y el clic de las cadenas al caer
     golpe(k = 1) { burst({ ftype: 'lowpass', f0: 220, f1: 60, dur: 0.35, vol: 0.9 * k, wet: 0.2 }); tone({ f0: 90, f1: 40, dur: 0.3, vol: 0.6 * k, wet: 0.1 }); burst({ f0: 1800, f1: 400, q: 1.2, dur: 0.12, vol: 0.25 * k, wet: 0.3 }); },
+    // G1b · el chirrido de una puerta vieja de madera al abrirse
+    chirrido() { for (let i = 0; i < 7; i++) tone({ type: 'sawtooth', f0: 150 + Math.random() * 90, f1: 260 + Math.random() * 120, dur: 0.11 + Math.random() * 0.06, vol: 0.035, delay: i * 0.1 + Math.random() * 0.03, wet: 0.35 }); burst({ ftype: 'lowpass', f0: 300, f1: 120, dur: 0.25, vol: 0.18, delay: 0.75, wet: 0.3 }); },
     cadena() { for (let i = 0; i < 6; i++) burst({ f0: rand(2600, 4200), q: 6, dur: 0.07, vol: 0.12, delay: i * 0.06 + Math.random() * 0.03, wet: 0.4 }); },
     // el calíope de la feria: una frase de vals con sus tubos (cuadrada y triangular) y el bajo
     calliope(pan, vol = 1) { const N = [392, 523, 659, 784, 659, 523, 587, 494, 392, 440, 494, 523]; N.forEach((f, i) => { tone({ type: 'square', f0: f, dur: 0.17, vol: 0.03 * vol, pan, delay: i * 0.2, wet: 0.45 }); tone({ type: 'triangle', f0: f * 2, dur: 0.14, vol: 0.025 * vol, pan, delay: i * 0.2, wet: 0.45 }); if (i % 3 === 0) tone({ type: 'triangle', f0: [131, 98, 147, 131][i / 3], dur: 0.5, vol: 0.06 * vol, pan, delay: i * 0.2, wet: 0.3 }); }); },
@@ -25501,7 +25503,7 @@ const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 
 //   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
 //   'sala'   en la Trastienda (al entrar y tras cada compra): las máquinas, las ofertas y lo comprado quedan igual
 // Salir al menú fuera de pelea guarda en ese mismo punto; salir en plena pelea vuelve al inicio de la oleada. Así no se puede repetir ni volver a tirar nada.
-const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed'];
+const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb'];
 function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -31486,7 +31488,7 @@ function prepRoom() {
   game.roomEspiral = rr() < BAL.trastienda.espiral; game.roomArmeria = rr() < BAL.trastienda.armeria;
   // G1: tras un jefe, en la sala de los dados siempre hay juegos de azar (para juntar lo que falta de la deuda)
   if (game.deuda && game.deuda.w === game.wave && !(game.roomSlot || game.roomWheel || game.roomBj || game.roomDad || game.roomCar)) game.roomSlot = true;
-  game.roomRoute = null;
+  game.roomRoute = null; game.puertasAb = {};   // las 3 puertas del frente empiezan cerradas en cada visita
 }
 function enterRoom() {
   if (player.down) revive();
@@ -33043,10 +33045,9 @@ function trSimbolo(k, col) {
   return canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#140c08'; g.fillRect(0, 0, w, h); g.strokeStyle = col; g.lineWidth = 12; g.strokeRect(10, 10, w - 20, h - 20);
     g.shadowColor = col; g.shadowBlur = 18; g.lineCap = 'round'; g.lineJoin = 'round';
-    if (k === 'inter') {
-      g.strokeStyle = col; g.lineWidth = 20;
-      g.beginPath(); g.moveTo(52, 96); g.lineTo(196, 96); g.moveTo(160, 62); g.lineTo(198, 96); g.lineTo(160, 130); g.stroke();
-      g.beginPath(); g.moveTo(204, 164); g.lineTo(60, 164); g.moveTo(96, 130); g.lineTo(58, 164); g.lineTo(96, 198); g.stroke();
+    if (k === 'inter') {   // misterio: un «?» grande (pedido del dueño, 19-oct-2026)
+      g.fillStyle = col; g.font = '900 190px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', w / 2, h / 2 + 10);
+      g.shadowBlur = 0; g.fillStyle = '#fff4ff'; g.globalAlpha = 0.35; g.fillText('?', w / 2 - 4, h / 2 + 6); g.globalAlpha = 1;
     } else if (k === 'dados') {
       g.fillStyle = '#f6f0e2'; g.beginPath(); if (g.roundRect) g.roundRect(56, 56, 144, 144, 24); else g.rect(56, 56, 144, 144); g.fill(); g.shadowBlur = 0; g.fillStyle = '#1a1010';
       for (const [x, y] of [[88, 88], [168, 88], [128, 128], [88, 168], [168, 168]]) { g.beginPath(); g.arc(x, y, 14, 0, TAU); g.fill(); }
@@ -33133,6 +33134,39 @@ function buildArmeriaVacia(x, z) {
   const c = trCartel('VOLVEMOS PRONTO', '', '#c8a878', 2.2, 0.5); c.position.set(0, 3.0, -0.45); P.add(c);
   addBox(x, z + 0.15, 1.8, 0.75);
 }
+/* Las puertas de las 3 salas (pedido del dueño, 19-oct-2026): puertas dobles de madera con tiradores de latón, cerradas hasta que las abres
+   (no se ve lo que hay dentro). Se abren con la tecla de usar, con su animación y su chirrido; tras un jefe, las cadenas van encima.
+   Abrir una puerta vale para todo el grupo y queda guardado en la visita (game.puertasAb). */
+function trPuerta(S_, abierta) {
+  const { sep: SEP, hueco: HU, H } = TR, w = HU / 2, alto = 2.85;
+  const madera = lam(0x5a3418), oscura = lam(0x3a2010), laton = lam(0xd8a838, { emissive: 0x2a1c04 });
+  const hojas = [-1, 1].map(s => {
+    const hinge = new THREE.Group(); hinge.position.set(S_.px + s * -w, 0, SEP); world.group.add(hinge);
+    const L = new THREE.Group(); L.position.x = s * w / 2; hinge.add(L);
+    const tabla = M(bx(w - 0.03, alto, 0.09), madera, 0, alto / 2, 0, { p: L }); solids.push(tabla);
+    for (let i = 1; i < 4; i++) M(bx(0.02, alto - 0.1, 0.1), oscura, -w / 2 + i * w / 4, alto / 2, 0, { p: L, cast: false });   // tablones
+    for (const y of [0.55, 1.45, 2.35]) M(bx(w - 0.1, 0.09, 0.11), oscura, 0, y, 0, { p: L, cast: false });   // travesaños
+    for (const z of [0.07, -0.07]) { M(cyl(0.03, 0.03, 0.06, 10), laton, s * (w / 2 - 0.12), 1.2, z, { p: L, rx: Math.PI / 2, cast: false }); M(new THREE.TorusGeometry(0.07, 0.016, 6, 14), laton, s * (w / 2 - 0.12), 1.13, z * 1.2, { p: L, cast: false }); }   // tirador de anilla de latón
+    M(bx(w - 0.12, 0.22, 0.1), laton, 0, 0.15, 0, { p: L, cast: false });   // chapa de latón abajo
+    for (const y of [0.4, alto - 0.4]) M(bx(0.16, 0.08, 0.11), lam(0x2a2a2e), -s * (w / 2 - 0.06), y, 0, { p: L, cast: false });   // bisagras
+    hinge.rotation.y = abierta ? s * 1.7 : 0; return { hinge, s, tabla };
+  });
+  addBox(S_.px, SEP, HU / 2, 0.3); const col = colliders[colliders.length - 1];
+  const P = { hojas, col, abierta: false };
+  P.quitar = () => { const i = colliders.indexOf(col); if (i >= 0) colliders.splice(i, 1); for (const h of hojas) { const j = solids.indexOf(h.tabla); if (j >= 0) solids.splice(j, 1); } };
+  if (abierta) { P.abierta = true; P.quitar(); }
+  P.abrir = () => {
+    if (P.abierta) return; P.abierta = true; P.quitar();
+    const t0 = performance.now(); Sfx.chirrido(); world.anims.push(() => { const k = Math.min(1, (performance.now() - t0) / 900), e = 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.05; for (const h of hojas) h.hinge.rotation.y = h.s * 1.7 * e; });
+  };
+  return P;
+}
+function trAbrirPuerta(k, remoto) {
+  if (!game || world.idx !== ROOM_IDX || !world.room) return;
+  game.puertasAb = game.puertasAb || {}; if (game.puertasAb[k] && !remoto) return; game.puertasAb[k] = 1;
+  const o = world.room.objs.find(o => o.kind === 'puerta' && o.sala.k === k); if (o) { o.used = true; o.door.abrir(); }
+  if (!remoto) { if (Net.on) Net.ev(['trp', game.wave, k]); saveGame({ punto: 'sala' }); }
+}
 function buildShopRoom() {
   const { hx: HX, hz: HZ, H, sep: SEP, atras: AT, fin: FIN, pasX: PX, hueco: HU } = TR;
   world.arena = { t: 'r', hx: HX - 0.4, hz: HZ - 0.4 }; world.start = { x: 0, z: AT - 2.8 }; world.indoor = true;
@@ -33170,14 +33204,14 @@ function buildShopRoom() {
     for (const s of [-1, 1]) M(bx(0.2, 3.0, T + 0.12), lam(0x3a2414), S_.px + s * (HU / 2 + 0.1), 1.5, SEP, { cast: false });
     M(bx(HU + 0.4, 0.25, T + 0.12), lam(0x3a2414), S_.px, 3.0, SEP, { cast: false });
     const deDentro = trCartel(S_.name, '', S_.col, 2.6, 0.45); deDentro.position.set(S_.px, 3.4, SEP - T / 2 - 0.02); deDentro.rotation.y = Math.PI; world.group.add(deDentro);
+    const abierta = !!(game && game.puertasAb && game.puertasAb[S_.k]), door = trPuerta(S_, abierta);
     if (!salaAbierta(S_.k)) {
-      for (const y of [0.6, 1.4, 2.2]) M(bx(HU, 0.2, 0.08), lam(0x5a3a20), S_.px, y, SEP + 0.26, { cast: false, rz: rand(-0.08, 0.08) });
       const cad = lam(0x9a9aa2, { emissive: 0x101010 });
       for (const s of [-1, 1]) M(bx(2.9, 0.07, 0.07), cad, S_.px, 1.5, SEP + 0.34, { rz: s * 0.78, cast: false });
       M(bx(0.32, 0.36, 0.14), lam(0xd8a838, { emissive: 0x2a1c04 }), S_.px, 1.42, SEP + 0.42, { cast: false }); M(new THREE.TorusGeometry(0.1, 0.03, 6, 12, Math.PI), cad, S_.px, 1.62, SEP + 0.42, { cast: false });
-      addBox(S_.px, SEP, HU / 2, T / 2 + 0.1);
       R.objs.push({ kind: 'cadena', sala: S_, x: S_.px, z: SEP + 1.1, r: 1.5 });
-    } else lampLight(S_.px, 2.6, SEP + 0.6, S_.hex, 0.35, 4, null, 0.3);
+    } else if (!abierta) R.objs.push({ kind: 'puerta', sala: S_, x: S_.px, z: SEP + 1.1, r: 1.6, door });
+    lampLight(S_.px, 2.6, SEP + 0.6, S_.hex, 0.35, 4, null, 0.3);
   }
   // ---- salón principal: teléfono, ramen (siempre), caja registradora y la gata
   R.objs.push(buildTelefono(0, 2.2));
@@ -33247,6 +33281,7 @@ function useLabel(o) {
     return { key: 'telc' + deudaHoy(), t: 'Teléfono negro', r: '', d: deudaHoy() ? 'Ya pagaste la deuda de este nivel. Está colgado.' : 'Está colgado. Suena después de cada jefe.', b: null }; }
   if (o.kind === 'cadena') return { key: 'cad' + o.sala.k, t: o.sala.name, r: '<span style="color:#ff8a7a">Cerrada con cadena</span>', d: 'Paga la deuda en el teléfono negro para abrirla.' + (o.sala.k === 'dados' ? ' Si te falta dinero, cuelga: esta sala se abre para que apuestes.' : ''), b: null };
   if (o.kind === 'sinPagar') return { key: 'sp', t: 'Salida', r: '<span style="color:#ff6a5a">Sin pagar</span>', d: Net.on ? 'Si salen sin pagar la deuda, todo el grupo pierde la partida.' : 'Si sales sin pagar la deuda, pierdes la partida.', b: 'Salir sin pagar', ok: true };
+  if (o.kind === 'puerta') return { key: 'pu' + o.sala.k, t: o.sala.name, r: `<span style="color:${o.sala.col}">Puerta cerrada</span>`, d: '¿Habrá algo dentro? Ábrela para saberlo.', b: 'Abrir la puerta', ok: true };
   if (o.kind === 'armeria') return { key: 'arm', t: 'Vendedor de armas', r: '<span style="color:#ffb060">Atiéndase usted mismo</span>', d: 'Escopetas, fusiles de asalto, Desert Eagle, ametralladoras, chalecos y dinamita. Elija y pague en la lata.', b: 'Ver el menú', ok: true };
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
   if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin', pagada = game.bjFichaW === game.wave && (game.bjFichaMesa | 0) === ((B && B.mesa) | 0); const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, la mesa se cierra; pueden abrir otra pagando otra ficha.`, b: game.gold < mn ? `Necesitas ${mn} $` : cerr ? ((game.poker | 0) > 0 ? 'Abrir otra mesa · 1 ficha' : 'Sin fichas de miembro') : pagada ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: game.gold >= mn && (pagada && !cerr || (game.poker | 0) > 0) }; }
@@ -33305,6 +33340,8 @@ function useObj(o) {
     useCur = null; showUse(null); deudaPerder();
   } else if (o.kind === 'armeria') {
     useCur = null; showUse(null); armeriaAbrir();
+  } else if (o.kind === 'puerta') {
+    useCur = null; showUse(null); trAbrirPuerta(o.sala.k);
   } else if (o.kind === 'slot') {
     if (o.busy || o.used) return;
     useCur = null; showUse(null); slotAbrir(o);   // la pantalla de la tragamonedas (paga 1 ficha al tirar de la palanca)
@@ -33951,6 +33988,7 @@ function avisoCaido(p) {
 function netEvent(p, e) {
   const t = e[0];
   if (t === 'dpA' || t === 'dpQ' || t === 'dpS' || t === 'dpX') { deudaRed(t, e); return; }   // G1: el bote de la deuda
+  if (t === 'trp') { if (game && e[1] === game.wave) trAbrirPuerta(e[2], true); return; }   // una puerta de sala que abrió un compañero
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
   if (t === 'mhint') { if (!Net.host && game && state === 'play') hint(String(e[1]).slice(0, 80), e[2] | 0 || 1500); return; }
@@ -36004,6 +36042,8 @@ const arbMax = A => (A && A.max) || ARBOL_MAX, arbCoste = (A, lv) => ((A && A.co
 const arb = k => Math.min(arbMax(ARBOL.find(x => x.k === k)), ((META.arbol || {})[k]) | 0);
 const arbAbierto = A => !A.req || arb(A.req) > 0;   // se puede comprar si su mejora anterior tiene al menos 1 nivel
 const arbP = k => { const A = ARBOL.find(x => x.k === k); return A ? arb(k) * A.paso : 0; };
+// G1b · el nodo «Puesto de ramen» pasó de 5 niveles a 1 («un plato extra»): se devuelven una sola vez las fichas de calavera de los niveles 2 a 5
+{ const A = META.arbol || {}, lv = A.ramen | 0; if (lv > 1 && !META.ramenDev) { let dev = 0; for (let i = 1; i < Math.min(lv, ARBOL_COSTO.length); i++) dev += ARBOL_COSTO[i]; META.fichas = (META.fichas | 0) + dev; A.ramen = 1; META.ramenDev = dev; saveMeta(); } }
 const arbEsp = () => Math.min(BAL.arbolEspacio.max, ((META.arbol || {}).espacio) | 0);   // espacios de slot comprados en la Tienda calavera
 const UNLOCKS = [
   { k: 't:maquinas', name: 'Casino de la Trastienda', what: 'La tragamonedas y la ruleta salen el doble de seguido', cost: 3 }
