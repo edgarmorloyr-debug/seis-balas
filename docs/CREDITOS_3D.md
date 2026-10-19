@@ -69,7 +69,22 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `angel.glb` | Angel Statue | Vixal | CC BY 4.0 | El Cielo | 50 KB | https://sketchfab.com/3d-models/angel-statue-424cc9de4bc145ce9435ce11c3f264b7 |
 | `helicoptero.glb` | Low Poly Helicopter | antonmoek | CC BY 4.0 | El Océano | 153 KB | https://sketchfab.com/3d-models/low-poly-helicopter-5bbed2de9baa4a13a7faa72653b78b64 |
 | `submarino.glb` | PSX Mini Submarine | Nana7mi | CC BY 4.0 | El Océano | 80 KB | https://sketchfab.com/3d-models/psx-mini-submarine-b127bf25336c4f8f962b4273f1d6eb93 |
+| `lanzadera.glb` | E_Transport | LaVADraGoN | CC BY 4.0 | La Estación Espacial | 141 KB | https://sketchfab.com/3d-models/e-transport-e5eab5753f43429a8a9bc7c21b75b7d9 |
+| `cohete.glb` | Sci-Fi Rocket Model | Marco Zakaria | CC BY 4.0 | La Luna | 53 KB | https://sketchfab.com/3d-models/sci-fi-rocket-model-7b030d81119b465c904ac2f006ff8d9c |
+| `armario.glb` | Metal Cabinet (Low Poly) | Berk Gedik | CC BY 4.0 | El Océano | 38 KB | https://sketchfab.com/3d-models/metal-cabinet-low-poly-1053729ad9d24d71a578622251f76deb |
+| `autobus.glb` | Bus Low Poly | byANG3L | CC BY 4.0 | La Comisaría | 106 KB | https://sketchfab.com/3d-models/bus-low-poly-08e508c5d17041f4a2c99d715771e2bd |
+| `furgoneta.glb` | White Van - PS1 Low Poly | Wersaus33 | CC BY 4.0 | La Comisaría | 14 KB | https://sketchfab.com/3d-models/white-van-ps1-low-poly-1cac40905d494bae8108a556d870e23e |
+| `barrera.glb` | Jersey Barrier | bilgehan.korkmaz | CC BY 4.0 | La Comisaría | 34 KB | https://sketchfab.com/3d-models/jersey-barrier-0c5443577a07489694fa295d01478388 |
+| `bici.glb` | Low poly Road bike | ATDG_YT | CC BY 4.0 | Tokio | 166 KB | https://sketchfab.com/3d-models/low-poly-road-bike-0a48fbbc492f420ba2eb59ddbf7a1959 |
+| `perro_estatua.glb` | Dog Statue | milanraymakers | CC BY 4.0 | Tokio | 43 KB | https://sketchfab.com/3d-models/dog-statue-b65b0406b3bd465fa4c355963df330b1 |
+| `kart.glb` | Go Kart | Samuel Thomas | CC BY 4.0 | El Arcade | 94 KB | https://sketchfab.com/3d-models/go-kart-2338810f0b1e444bace9bd7796b8c9e4 |
+| `anfora.glb` | Amphora | guillaume.biju-duval | CC BY 4.0 | La Atlántida | 27 KB | https://sketchfab.com/3d-models/amphora-7d1ed7c0786749cbb4c1ec034da36147 |
+| `coral.glb` | Spiked Red Coral | LightningBlock | CC BY 4.0 | La Atlántida | 9 KB | https://sketchfab.com/3d-models/spiked-red-coral-fcba57bb4dbb44f689d925e5d17fc65d |
+| `tragaperras.glb` | Slot_machine | morrrtu1o | CC BY 4.0 | El Casino | 84 KB | https://sketchfab.com/3d-models/slot-machine-d58181162e154af2ab73e8667db2e81d |
+| `generador.glb` | Generator | cdeeks | CC BY 4.0 | Los Backrooms: Nivel 3 | 93 KB | https://sketchfab.com/3d-models/generator-e8a5bcc23c43482e950cb316c6395aa7 |
+| `generador_p.glb` | Low poly generator | creosine | CC BY 4.0 | Los Backrooms: Nivel 3 | 82 KB | https://sketchfab.com/3d-models/low-poly-generator-146a0eac61174258a5e4409ad6533b6e |
+| `rack.glb` | Server Rack | Anaïs3Dcraft | CC BY 4.0 | Los Backrooms: Nivel 3 | 68 KB | https://sketchfab.com/3d-models/server-rack-1348f8c5313f4059b9a2b5b3f37c81f3 |
 
-Peso total: 1819 KB.
+Peso total: 2879 KB.
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.es
