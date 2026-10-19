@@ -12528,6 +12528,15 @@ const M3D_CRED = [
   ["rack", "Server Rack", "Anaïs3Dcraft", "CC BY 4.0", "https://sketchfab.com/3d-models/server-rack-1348f8c5313f4059b9a2b5b3f37c81f3"],
   ["contenedor_basura", "Old Dumpster Low Poly", "Michele.Passerino", "CC BY 4.0", "https://sketchfab.com/3d-models/old-dumpster-low-poly-f77c43a407244009ba49d16540a03515"],
   ["aire_ext", "air conditioner unit low-poly", "fumestic", "CC BY 4.0", "https://sketchfab.com/3d-models/air-conditioner-unit-low-poly-41cea2db9a7c4844b77d248fd322488d"],
+  // jefes y minijefes (modelos/jefes/)
+  ["jefe_flaco", "Possessed undead", "giantSwing", "CC BY 4.0", "https://sketchfab.com/3d-models/possessed-undead-7394bdf26d664810b42b83153411cf74"],
+  ["jefe_bruto", "Cyclops Rig", "DM-913", "CC BY 4.0", "https://sketchfab.com/3d-models/cyclops-rig-e5cc86878c314f5bae6d7268bb7541d9"],
+  ["jefe_gordo", "Mountain Orge", "SamThePie", "CC BY 4.0", "https://sketchfab.com/3d-models/mountain-orge-f18e6fb4a07b445095b5fcb5bec7fa7a"],
+  ["jefe_garras", "Ghoul", "DJMaesen", "CC BY 4.0", "https://sketchfab.com/3d-models/ghoul-f37f43b23fd541df8a2926571acfce70"],
+  ["jefe_mujer", "Zombie Woman", "samsikua", "CC BY 4.0", "https://sketchfab.com/3d-models/zombie-woman-4cd9c13dabcc4181b4546e976e444068"],
+  ["jefe_carne", "Living Flesh Blob - Free Organic Horror Asset", "Yury Misiyuk", "CC BY 4.0", "https://sketchfab.com/3d-models/living-flesh-blob-free-organic-horror-asset-6357bbc094d54cf5ba150ef2951b3750"],
+  ["jefe_caballo", "Horse Rigged(Game Ready)", "abhayexe", "CC BY 4.0", "https://sketchfab.com/3d-models/horse-riggedgame-ready-bc64f4ff7966474ca9bacd42fa73a754"],
+  ["zombi_perro", "Grimhound Rig", "DM-913", "CC BY 4.0", "https://sketchfab.com/3d-models/grimhound-rig-417f6ff2d90043a7ab061d560801be93"],
 ];
 function m3dArchivo(n) {
   if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
@@ -25269,6 +25278,7 @@ function startWave(n) {
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
   game.toSpawn += game.bossQ.length;
   game.miniAt = null; if (wavePos(n) === 1 && !casN(n) && !Net.client && MINIS[world.idx]) { game.miniAt = Math.max(1, Math.floor(game.toSpawn * 0.55)); game.toSpawn++; }
+  j3dPrecargarOla();   // los modelos 3D del jefe y del minijefe de esta oleada se bajan ahora
   if (!isMapEnd(n)) sub = `${wavePos(n) === 0 ? 'Oleada chica' : 'Oleada grande'} · ${sub}`;
   if (game.waveMod) sub = game.waveMod.name ? `¡${game.waveMod.name}! ${game.waveMod.sub}` : game.waveMod.gold ? `¡Oleada maldita! Oro x${game.waveMod.gold}` : '¡Algo despertó en las tumbas!';
   if (needsRescue(n + 1)) setTimeout(() => { if (game && game.wave === n && state === 'play') { banner('Aviso del rescate', `Tras el jefe de la próxima oleada, el helicóptero cobra ${rescueFee(n + 1)} $. Tú tienes ${game.gold} $.`, 4200, 'heli'); Sfx.bell(); } }, 3400);
@@ -27976,7 +27986,7 @@ function bossHpFor(B) { return B.hp * 0.38 * 3 * DF().hp *   // jefes con el tri
    (sk(1) ? 1.25 : 1) * zoneHp(zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
 function applyBoss(z, idx, opt = {}) {
   const B = BOSSES[idx]; if (!B) return;
-  z3dQuitar(z); z.boss = idx; z.B = B; z.bt = 0; z.bst = z.bst | 0; z.gait = null; z.look = null;   // los jefes siguen de bloques por ahora
+  z3dQuitar(z); z.boss = idx; z.B = B; z.bt = 0; z.bst = z.bst | 0; z.gait = null; z.look = null;   // el modelo 3D se pone al final (j3dPedir)
   let sc = B.sc; if (B.id === 'mass') { z.gen = opt.gen | 0; sc = B.sc * Math.pow(0.78, z.gen); }
   z.s = sc; z.body.scale.setScalar(sc); z.r = (z.def.quad ? 0.32 : 0.33) * sc;
   if (!opt.net) {
@@ -27985,6 +27995,7 @@ function applyBoss(z, idx, opt = {}) {
     if (B.id === 'mass') z.bst = z.gen;
   } else { z.maxHp = z.hp = 100; }
   B.look(z);
+  j3dPedir(z);   // su modelo 3D (sigue de bloques mientras baja o si no carga)
 }
 
 
@@ -28363,7 +28374,7 @@ function makeElite(z, k, net) {
     if (k === 'giant') { z.maxHp *= 2; z.hp = z.maxHp; z.dmg *= 1.4; }
     feed(`¡Zombi élite: ${ELITE[k].name}!`, 'red');
   }
-  if (k === 'giant') { z.s *= 1.4; z.body.scale.setScalar(z.s); z.r *= 1.4; if (z.z3d) z.z3d.I.m.scale.multiplyScalar(1.4); }
+  if (k === 'giant') { z.s *= 1.4; z.body.scale.setScalar(z.s); z.r *= 1.4; if (z.z3d && !z.z3d.enCuerpo) z.z3d.I.m.scale.multiplyScalar(1.4); }
 }
 /* ---- Minijefes: uno propio por cada lugar. Sale una vez, en la segunda oleada del lugar ---- */
 // ab = su habilidad · base = cuerpo de zombi que usa · sc = tamaño · tint = color de la ropa · glow = color de su aura · hat = lo que lleva en la cabeza
@@ -28445,12 +28456,13 @@ function miniHat(z, k) {
 // Convierte un zombi recién nacido en el minijefe del lugar
 function applyMini(z, idx, net) {
   const M = MINIS[idx]; if (!M) return;
-  z3dQuitar(z);   // los minijefes siguen de bloques por ahora
+  z3dQuitar(z);
   z.mini = M; z.miniIdx = idx; z.mt = 0; z.mT2 = 0;
   z.s *= M.sc; z.body.scale.setScalar(z.s); z.r *= M.sc;
   if (z.mats && z.mats[1]) { z.mats[1].color.setHex(M.tint); z.mats[1].map = null; z.mats[1].needsUpdate = true; }
   miniHat(z, M.hat);
   if (M.ab === 'shield') { const sh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(...M.glow), transparent: true, opacity: 0.28, depthWrite: false })); sh.position.y = 1.0; sh.visible = false; z.body.add(sh); z.mShieldM = sh; }
+  j3dPedir(z);   // su modelo 3D
   if (!net) {
     z.maxHp = z.hp = MINI_HP * DF().hp * zoneHp(zoneOf(game.wave)) * (sk(1) ? 1.25 : 1) * (1 + 0.6 * (Net.host ? Net.peers.size : 0));
     z.dmg *= 1.4; z.speed *= M.ab === 'charge' || M.base === 'brute' ? 1.15 : 1.05;
@@ -29868,6 +29880,7 @@ function retarget(z, canAttack) {
 const _zp = new THREE.Vector3();
 function updateZombies(dt, canAttack) {
   if (Z3D.list.length || Z3D.on) z3dPaso(dt);
+  if (J3D.list.length || J3D.espera.length) j3dPaso(dt);
   for (let k = zombies.length - 1; k >= 0; k--) {
     const z = zombies[k]; z.t += dt;
     if (z.flash > 0) z.flash -= dt;
@@ -33335,6 +33348,8 @@ function setAvGun(av, p) {
 const P3D = { cache: {}, esperan: {}, v: 5 };
 // modelos 3D de los zombis (modelos/zombis/): cada tipo usa uno de estos cuerpos (PENDIENTES 43)
 const ZOMBI_FILES = new Set(['zombi_h', 'zombi_m', 'zombi_perro', 'zombi_esq']);   // v2: personajes de Mixamo con dedos
+// modelos 3D de los jefes y minijefes (modelos/jefes/): ver «Jefes y minijefes en 3D»
+const JEFE_FILES = new Set(['jefe_flaco', 'jefe_bruto', 'jefe_gordo', 'jefe_garras', 'jefe_mujer', 'jefe_carne', 'jefe_caballo']);
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
 const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante', maid_rubia: 'maid_rubia', maid_rosa: 'maid_rosa', maid_plata: 'maid_plata',
   pistolero: 'pistolero', pandillero: 'pandillero', carlos: 'granjero', rebeca: 'rebeca', ursula: 'ursula', contador: 'contador', recargador: 'recargador', franco: 'franco', dinamitero: 'dinamitero', carnicero: 'carnicero' };
@@ -33382,24 +33397,30 @@ const esSombra = ch => ch === 'ludo';
 function p3dSombra(obj) { obj.traverse(o => { if (o.isMesh) o.material = o.isSkinnedMesh ? SOMBRA.sk : SOMBRA.rig; }); }
 function p3dCargar(ch, cb) {
   ch = P3D_ALIAS[ch] || ch;
-  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : ZOMBI_FILES.has(ch) ? 'zombis' : null;
+  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : ZOMBI_FILES.has(ch) ? 'zombis' : JEFE_FILES.has(ch) ? 'jefes' : null;
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !dir) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
-    const m = g.scene, b = new THREE.Box3().setFromObject(m);
-    m.updateMatrixWorld(true); if (!ZOMBI_FILES.has(ch)) p3dSanear(m);
+    const m = g.scene, b = JEFE_FILES.has(ch) ? p3dCaja(m) : new THREE.Box3().setFromObject(m);
+    m.updateMatrixWorld(true); if (!ZOMBI_FILES.has(ch) && !JEFE_FILES.has(ch)) p3dSanear(m);
     m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; const mt = o.material; o.material = new THREE.MeshLambertMaterial({ map: mt.map, color: mt.color, skinning: !!o.isSkinnedMesh, transparent: mt.transparent, opacity: mt.opacity, alphaTest: mt.alphaTest, side: mt.side }); } });   // con su color y su transparencia (pelo con recorte)   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
     const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
-    fetch(`modelos/${dir}/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : []).then(list => {
+    (JEFE_FILES.has(ch) ? Promise.resolve([]) : fetch(`modelos/${dir}/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : [])).then(list => {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {})
       // animaciones de combate de Mixamo (compartidas por todos los modelos); si no llegan, quedan las de antes
-      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' || ZOMBI_FILES.has(ch) ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
+      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' || ZOMBI_FILES.has(ch) || JEFE_FILES.has(ch) ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
       .finally(listo);
   }, undefined, () => {});
+}
+// la caja de un modelo con piel según sus huesos (la de la malla sola no cuenta la escala ni el lugar de los huesos)
+function p3dCaja(m) {
+  m.updateMatrixWorld(true); const b = new THREE.Box3(), v = new THREE.Vector3();
+  m.traverse(o => { if (!o.isMesh) return; const P = o.geometry.attributes.position; if (o.isSkinnedMesh) o.skeleton.update(); for (let i = 0; i < P.count; i += 3) { if (o.isSkinnedMesh) o.boneTransform(i, v); else v.fromBufferAttribute(P, i); b.expandByPoint(v.applyMatrix4(o.matrixWorld)); } });
+  return b;
 }
 // una copia del personaje, de «alto» metros, con sus animaciones
 function p3dCopia(C, alto) {
@@ -33931,7 +33952,7 @@ function z3dPerroPaso(z, A) {
   gira('jaw', 'x', z.windup > 0 || z.eating || z.lunge > 0 ? 0.55 : 0.12 + Math.sin(z.t * 3) * 0.05);   // abre la boca al atacar
   gira('tail1', 'y', z.tail ? z.tail.rotation.y : 0); gira('tail2', 'y', z.tail ? z.tail.rotation.y * 0.6 : 0);
 }
-// vuelve a ser de bloques (los jefes y minijefes siguen de bloques por ahora)
+// vuelve a ser de bloques
 function z3dQuitar(z) {
   const A = z.z3d; if (!A) return;
   for (const [o, par, pos, sc] of A.movidos) { par.add(o); o.position.copy(pos); o.scale.copy(sc); }
@@ -34015,6 +34036,294 @@ function z3dPaso(dt) {
 }
 // heridas, costillas y muñones: en un zombi 3D van en el marco del modelo (si no, quedarían en el cuerpo invisible)
 const z3dDe = (z, mesh) => z.z3d && z.z3d.marco ? (mesh === z.head ? z.z3d.marco.head : mesh === z.torso || mesh === z.torsoG ? z.z3d.marco.torso : null) || mesh : mesh;
+/* ===== Jefes y minijefes en 3D (decisión del dueño, 19-oct-2026: el 3D queda solo para los jefes) =====
+   Cada jefe y cada minijefe se ve con un modelo 3D (modelos/jefes/), animado según lo que hace: caminar, embestir, atacar,
+   sus golpes especiales, recibir golpes, aturdirse, levantarse y morir. Lo de siempre sigue igual: el cuerpo de bloques queda
+   invisible y es el que recibe los tiros, choca y se sincroniza en grupo; sus adornos (sombreros, armas, armaduras, la tragamonedas…)
+   pasan a los huesos del modelo, y la ropa del modelo se pinta con los colores de la ropa de bloques (no hay dos listas de colores).
+   El modelo se baja solo cuando el jefe está por salir (al empezar su oleada) y, si no carga, el jefe sigue de bloques.
+   Ludo Cheng sigue siendo una silueta negra total (decisión del dueño): usa el modelo del Pistolero pintado de negro, como el personaje.
+   Con ?jefes3d=0 en la dirección se ven de bloques (para comparar). */
+const J3D = { on: !/[?&]jefes3d=0\b/.test(location.search), list: [], espera: [], ropa: {}, tex: new Map(), giroCaballo: 0 };
+// cada modelo base: tamaño de los adornos de cabeza y pecho, si su textura se viste (mapa de ropa) y cuánto se respeta su sangre
+const J3D_BASE = {
+  jefe_flaco: { k: { head: 0.78, torso: 0.86 }, ropa: 1, sangre: 0.55, luz: 1.4 },
+  jefe_bruto: { k: { head: 0.9, torso: 0.95 }, ropa: 1, sangre: 0.45, luz: 1.5, alto: 0.8, dy: 0.14 },
+  jefe_gordo: { k: { head: 0.85, torso: 1 }, ropa: 1, sangre: 0.4, luz: 1.1, alto: 1.2 },
+  jefe_garras: { k: { head: 0.78, torso: 0.86 }, ropa: 1, sangre: 0.45, luz: 1.35 },
+  jefe_mujer: { k: { head: 0.75, torso: 0.82 }, ropa: 1, sangre: 0.45, luz: 1.15 }
+};
+// cada jefe: modelo (c), alto relativo, forma (pecho y brazos), tinte de piel, animaciones especiales…
+//   esp: { reloj: animación } → cuando el reloj de su ataque especial vuelve a cero, hace esa animación
+//   corre: el jefe embiste (correr), ataca: está atacando (golpe), aturde: aturdido (golpe recibido), grita: grita mientras…
+//   apunta: el brazo del arma sigue al brazo de bloques al apuntar
+const J3D_JEFE = {
+  digger: { c: 'jefe_bruto', esp: { bt: 'z_attack2' } },
+  bride: { c: 'jefe_mujer', grita: z => z.bst === 1 },
+  saw: { c: 'jefe_gordo', corre: z => z.chg > 0, esp: { bt: 'z_scream' } },
+  hive: { c: 'jefe_gordo', forma: { pecho: [1.35, 1.1, 1.45], brazos: 1.2 }, piel: 0xb0a860, esp: { next10: 'z_scream' } },
+  tamer: { c: 'jefe_flaco', ataca: z => z.wh > 0 },
+  clown: { c: 'jefe_flaco' },
+  proj: { c: 'jefe_flaco', cabeza: 0.55 },
+  shark: { c: 'jefe_garras', piel: 0x8aa0b4, ataca: z => z.bst === 1 && z.bt < 0.9 },
+  fire: { c: 'jefe_flaco', esp: { ft: 'z_attack1' }, brasa: 1 },
+  colossus: { c: 'jefe_bruto', ataca: z => z.wh > 0 },
+  plague: { c: 'jefe_flaco', esp: { bt: 'z_attack1' } },
+  rider: { c: 'jefe_flaco', sinCabeza: 1, jinete: 1 },
+  twins: { c: 'jefe_bruto', esp: { gt: 'z_scream' }, cabeza2: 1 },
+  twin: { c: 'jefe_bruto', esp: { gt: 'z_scream' } },
+  butcher: { c: 'jefe_bruto', ataca: z => z.wh > 0 || !!z.hk },
+  spider: { c: 'jefe_garras', piel: 0xc08880, esp: { bt: 'z_scream' } },
+  rats: { c: 'jefe_gordo', esp: { bt: 'z_scream' } },
+  grandpa: { c: 'jefe_flaco', esp: { bt: 'z_scream' } },
+  sniper: { c: 'jefe_flaco', apunta: 1 },
+  mirror: { c: 'jefe_flaco', piel: 0xc8ccd8, apunta: 1 },
+  crupier: { c: 'jefe_flaco', apunta: 1 },
+  ludo: { c: 'pistolero', humano: 1, sombra: 1 },
+  mayor: { c: 'jefe_gordo', esp: { bt: 'z_scream', ct: 'z_attack1' } },
+  escolta: { c: 'jefe_bruto', corre: z => z.chg > 0, grita: z => z.w > 0, aturde: z => z.aturd > 0 },
+  slot: { c: 'jefe_bruto', aturde: z => z.llora > 0 },   // su gabinete de tragamonedas (con la pantalla que gira) va en el pecho del modelo
+  zero: { c: 'jefe_flaco', corre: z => !!z.zdash, alto: 1.02 },
+  lion: { perro: 1, tinte: 0xd8a050 },
+  mass: { c: 'jefe_carne', carne: 1 },   // una masa de carne que late (al dividirse, cada pedazo también)
+  zheart: { c: 'jefe_carne', carne: 1, corazon: 1 }
+};
+// minijefes: por el tipo de zombi en que se basan, y algunos con su propio modelo
+const J3D_MINI_BASE = { brute: 'jefe_bruto', walker: 'jefe_flaco', runner: 'jefe_flaco', screamer: 'jefe_mujer', bloater: 'jefe_gordo', armored: 'jefe_bruto', copz: 'jefe_flaco' };
+const J3D_MINI = { 3: { c: 'jefe_gordo' }, 4: { c: 'jefe_gordo' }, 6: { c: 'jefe_gordo', piel: 0x8aa8bc }, 12: { c: 'jefe_garras' }, 14: { c: 'jefe_bruto', piel: 0x5a5a5a }, 16: { c: 'jefe_gordo', piel: 0xe8eef4 }, 21: { c: 'jefe_gordo' }, 22: { c: 'jefe_garras', piel: 0x6a9aa8 }, 25: { c: 'jefe_gordo', piel: 0xe8d0b0 }, 28: { c: 'jefe_gordo' } };
+function j3dTipo(z) {
+  if (z.boss != null && z.B) return J3D_JEFE[z.B.id] || null;
+  if (z.mini) { const o = J3D_MINI[z.miniIdx] || {}; return Object.assign({ c: J3D_MINI_BASE[z.mini.base] || 'jefe_flaco', mini: 1 }, o); }
+  return null;
+}
+// el mapa de ropa de cada modelo (rojo: arriba, verde: abajo, azul: pies)
+function j3dRopa(f) {
+  if (f in J3D.ropa) return J3D.ropa[f];
+  J3D.ropa[f] = null; const im = new Image();
+  im.onload = () => { J3D.ropa[f] = im; }; im.onerror = () => { J3D.ropa[f] = false; };
+  im.src = `modelos/jefes/${f}_ropa.webp?v=${P3D.v}`; return null;
+}
+// baja el modelo (y lo que necesita) antes de que salga el jefe
+function j3dPrecargar(T) {
+  if (!J3D.on || !T) return;
+  if (T.perro) { p3dCargar('zombi_perro'); return; }
+  p3dCargar(T.c); if (JEFE_FILES.has(T.c) && (J3D_BASE[T.c] || {}).ropa) j3dRopa(T.c);
+  if (T.jinete) p3dCargar('jefe_caballo');
+}
+function j3dPrecargarOla() {
+  if (!J3D.on || !game) return;
+  if (game.bossQ && game.bossQ.includes('boss') && BOSSES[game.bossPick]) {
+    const B = BOSSES[game.bossPick]; j3dPrecargar(J3D_JEFE[B.id]);
+    if (B.id === 'tamer') j3dPrecargar(J3D_JEFE.lion); if (B.id === 'twins') j3dPrecargar(J3D_JEFE.twin); if (B.id === 'zero') j3dPrecargar(J3D_JEFE.zheart);
+  }
+  if (game.miniAt != null && MINIS[world.idx]) { const M = MINIS[world.idx]; j3dPrecargar(Object.assign({ c: J3D_MINI_BASE[M.base] || 'jefe_flaco' }, J3D_MINI[M.id] || {})); }
+}
+// la ropa del modelo con los colores (y dibujos: cuadros, camuflaje, traje…) de la ropa de bloques; la sangre se respeta.
+// El mapa de ropa de cada modelo marca sus zonas (gris × 50): 1 pecho, 2 brazos, 3 piernas, 4 pies; lo negro es piel.
+const _jc = new THREE.Color();
+const j3dDibujo = m => m && m.map && m.map !== zClothTex && m.map !== zSkinTex && m.map.image ? m.map : null;
+// la ropa de bloques del jefe: camisa, pantalón y lo que lleva puesto encima del pecho (chaleco, saco, delantal, bata…)
+function j3dVestido(z, T) {
+  const m1 = z.mats[1], m2 = z.mats[2], R = { pecho: { c: m1.color.getHex(), p: j3dDibujo(m1) }, brazos: { c: m1.color.getHex(), p: j3dDibujo(m1) }, piernas: { c: m2.color.getHex(), p: j3dDibujo(m2) }, piel: T.piel, puestas: new Set() };
+  // una caja grande pegada al pecho es ropa: se pinta en el pecho del modelo (y la caja no se ve)
+  for (const o of z.torso ? z.torso.children : []) {
+    if (!o.isMesh || o.userData.zombie || !o.geometry || Z3D_BASE.has(o.geometry) || !o.material || !o.material.color || o.material.transparent) continue;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox, sx = (b.max.x - b.min.x) * o.scale.x, sy = (b.max.y - b.min.y) * o.scale.y;
+    const em = o.material.emissive ? o.material.emissive.r + o.material.emissive.g + o.material.emissive.b : 0;
+    if (sx >= 0.36 && sy >= 0.28 && em < 0.3 && Math.abs(o.rotation.x) + Math.abs(o.rotation.z) < 0.2) { R.pecho = { c: o.material.color.getHex(), p: j3dDibujo(o.material) }; R.puestas.add(o); }
+  }
+  return R;
+}
+function j3dPintar(C, base, R, T) {
+  const mk = J3D.ropa[C.ch]; if (!mk) return null;
+  let mesh = null, nm = 0; C.m.traverse(o => { const n = o.isSkinnedMesh && o.material.map && o.geometry.index ? o.geometry.index.count : 0; if (n > nm) { nm = n; mesh = o; } }); if (!mesh) return null;
+  const img = mesh.material.map.image; if (!img) return null;
+  const Z = [null, R.pecho, R.brazos, R.piernas, R.pies];
+  const key = [C.ch].concat(Z.slice(1).map(v => v ? v.c + '/' + (v.p ? v.p.uuid : '') : '-'), R.piel || '', T.brasa ? 1 : 0).join('|');
+  if (J3D.tex.has(key)) return J3D.tex.get(key);
+  const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S; const x = cv.getContext('2d');
+  x.drawImage(img, 0, 0, S, S); const d = x.getImageData(0, 0, S, S), q = d.data;
+  const cm = document.createElement('canvas'); cm.width = cm.height = S; const xm = cm.getContext('2d'); xm.imageSmoothingEnabled = false; xm.drawImage(mk, 0, 0, S, S); const mq = xm.getImageData(0, 0, S, S).data;
+  const pd = new Map(), patD = p => { if (!p) return null; if (pd.has(p)) return pd.get(p); const c = document.createElement('canvas'), n = 128; c.width = c.height = n; c.getContext('2d').drawImage(p.image, 0, 0, n, n); const v = c.getContext('2d').getImageData(0, 0, n, n).data; pd.set(p, v); return v; };
+  const ZC = Z.map(v => v && { c: _jc.setHex(v.c).clone(), P: patD(v.p) }), sang = base.sangre || 0;
+  const piel = R.piel != null ? _jc.setHex(R.piel).clone() : null;
+  for (let i = 0, k = 0; i < q.length; i += 4, k++) {
+    const zn = Math.min(4, Math.round(mq[i] / 50)), Q = ZC[zn]; if (!Q && !piel) continue;
+    const r0 = q[i], g0 = q[i + 1], b0 = q[i + 2], L = (0.3 * r0 + 0.59 * g0 + 0.11 * b0) / 255, bl = Math.min(1, Math.max(0, (r0 - g0 * 1.3 - 20) / 110)) * sang;   // cuánta sangre hay en ese punto
+    if (Q) {
+      let cr = Q.c.r, cg = Q.c.g, cb = Q.c.b;
+      if (Q.P) { const px = (k % S) * 3 % 128, py = ((k / S | 0) * 3) % 128, j = (py * 128 + px) * 4; cr *= Q.P[j] / 255; cg *= Q.P[j + 1] / 255; cb *= Q.P[j + 2] / 255; }
+      const sh = (0.62 + 0.7 * L) * 255;   // los pliegues y sombras del modelo; las manchas de sangre quedan encima de la ropa
+      q[i] = cr * sh * (1 - bl) + 110 * bl; q[i + 1] = cg * sh * (1 - bl) + 14 * bl; q[i + 2] = cb * sh * (1 - bl) + 12 * bl;
+    } else { const w = 0.55 * (1 - bl); q[i] = r0 * (1 - w + Math.sqrt(piel.r) * 1.15 * w); q[i + 1] = g0 * (1 - w + Math.sqrt(piel.g) * 1.15 * w); q[i + 2] = b0 * (1 - w + Math.sqrt(piel.b) * 1.15 * w); }
+    if (T.brasa && ((k * 2654435761) >>> 0) % 61 === 0) { q[i] = 255; q[i + 1] = 140; q[i + 2] = 40; }   // brasas encendidas
+  }
+  x.putImageData(d, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.flipY = false; t.encoding = mesh.material.map.encoding; t.jSrc = img; J3D.tex.set(key, t); return t;
+}
+// pone el modelo 3D a un jefe o minijefe (si ya está bajado; si no, lo pide y espera)
+function j3dPedir(z) {
+  if (!J3D.on || z.z3d || z.dead) return;
+  const T = j3dTipo(z); if (!T) return;
+  if (T.perro) { const C = P3D.cache.zombi_perro; if (C) { z3dPerro(z, C, 'zombi_perro', Z3D_TIPO.dog.perro); j3dLeon(z, T); } else { p3dCargar('zombi_perro'); if (!J3D.espera.includes(z)) J3D.espera.push(z); } return; }
+  const C = P3D.cache[P3D_ALIAS[T.c] || T.c], base = J3D_BASE[T.c] || {};
+  const ropaOk = !base.ropa || J3D.ropa[T.c] != null;
+  if (!C || !(C.mx || T.humano || T.carne) || !ropaOk || (T.jinete && !P3D.cache.jefe_caballo)) { j3dPrecargar(T); if (!J3D.espera.includes(z)) J3D.espera.push(z); return; }
+  if (T.carne) j3dCarne(z, T, C); else j3dPoner(z, T, C, base);
+}
+function j3dPoner(z, T, C, base) {
+  const I = p3dCopia(C, 1.78 * (T.alto || 1) * (base.alto || 1)); I.m.rotation.y = P3D.giro; I.m.position.y += base.dy || 0; z.body.add(I.m); I.cu = C.ch;
+  const vest = base.ropa ? j3dVestido(z, T) : null, tex = vest ? j3dPintar(C, base, vest, T) : null;
+  I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.frustumCulled = false; o.material = o.material.clone(); if (tex && o.material.map && o.material.map.image === tex.jSrc) o.material.map = tex; o.material.color.multiplyScalar(base.luz || 1); if (T.tinte) o.material.color.multiply(_jc.setHex(T.tinte)); if (T.brasa) o.material.emissive = new THREE.Color(0x301000); z.mats.push(o.material); I.mallas.push(o); });
+  if (T.sombra) p3dSombra(I.m);
+  const F = T.forma; if (F && F.pecho && I.B.Spine01) { const [a, b, c] = F.pecho; I.B.Spine01.scale.set(a, b, c); for (const n of ['NeckTwist01', 'L_Clavicle', 'R_Clavicle']) if (I.B[n]) I.B[n].scale.set(1 / a, 1 / b, 1 / c); }
+  if (F && F.brazos) for (const n of ['L_Upperarm', 'R_Upperarm']) if (I.B[n]) I.B[n].scale.set(F.brazos, 1, F.brazos);
+  if (T.cabeza && I.B.Head) I.B.Head.scale.setScalar(T.cabeza);
+  if (T.sinCabeza && I.B.Head) I.B.Head.scale.setScalar(0.001);
+  z.root.updateMatrixWorld(true);
+  const lado = n => { if (!I.B[n]) return -1; I.B[n].getWorldPosition(_zv); z.root.worldToLocal(_zv); return _zv.x; };
+  const brazo = lado('L_Upperarm') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' }, pierna = lado('L_Thigh') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' };
+  const K = base.k || { head: 0.75, torso: 0.85 }, marco = {};
+  if (z.head && I.B.Head) { marco.head = z3dMarco(I.B.Head, z.head, z.root, K.head); marco.head.position.y -= 0.03 / (I.B.Head.getWorldScale(_zs).y || 1); }
+  if (z.torso && I.B.Spine02) marco.torso = z3dMarco(I.B.Spine02, z.torso, z.root, K.torso);
+  if (I.B.Hip) marco.body = z3dMarco(I.B.Hip, z.body, z.root);
+  if (z.armL) marco.armL = z3dMarcoMano(I, brazo.L.slice(0, 1), z.armL, z.root);
+  if (z.armR) marco.armR = z3dMarcoMano(I, brazo.R.slice(0, 1), z.armR, z.root);
+  for (const [k, s] of [['legL', pierna.L], ['legR', pierna.R]]) if (z[k] && I.B[s + 'Thigh']) marco[k] = z3dMarco(I.B[s + 'Thigh'], z[k], z.root);
+  // lo que lleva encima pasa a los marcos (las piezas del cuerpo de bloques no)
+  const movidos = [], quedan = new Set([z.jaw].concat(vest ? [...vest.puestas] : [])), mueve = (par, m, dy) => { if (!par || !m) return; for (const o of par.children.slice()) { if (quedan.has(o)) continue; if (o.isMesh && Z3D_BASE.has(o.geometry) && !(o.geometry === ZG.head && o !== z.head)) continue; if (o.geometry === ZG.foot || o.geometry === ZG.belly && T.forma) continue; movidos.push([o, par, o.position.clone(), o.scale.clone()]); m.add(o); if (dy) o.position.y += dy; if (o.geometry === ZG.eye) { o.scale.multiplyScalar(0.55); o.position.z += 0.01; } } };
+  mueve(z.head, marco.head); mueve(z.torso, marco.torso);
+  { const fijos = new Set([z.legL, z.legR, z.torsoG, z.headG, z.tail, z.horse, I.m].filter(Boolean)); for (const o of z.body.children.slice()) if (!fijos.has(o) && !(o.isMesh && Z3D_BASE.has(o.geometry))) { movidos.push([o, z.body, o.position.clone(), o.scale.clone()]); marco.body.add(o); } }   // falda, capa…
+  mueve(z.armL, marco.armL, 0.68); mueve(z.armR, marco.armR, 0.68); mueve(z.armLG, marco.armL, 0.68); mueve(z.armRG, marco.armR, 0.68);
+  mueve(z.legL, marco.legL); mueve(z.legR, marco.legR);
+  // el cuerpo de bloques se vuelve invisible (sigue recibiendo los tiros); los adornos movidos se siguen viendo
+  const mat0 = new Map(), deModelo = new Set(); I.m.traverse(o => deModelo.add(o));
+  z.body.traverse(o => { if (o.isMesh && !deModelo.has(o) && !o.userData.z3dProp) { mat0.set(o, o.material); o.material = P3D.invisible; } });
+  for (const k in marco) if (marco[k]) marco[k].traverse(o => { if (o.isMesh && mat0.has(o)) { o.material = mat0.get(o); mat0.delete(o); } });
+  if (T.sombra) for (const k of ['armL', 'armR']) if (marco[k]) p3dSombra(marco[k]);
+  z.det = null;
+  const A = { I, T, brazo, pierna, marco, mat0, movidos, partes: { armL: z.armLG, armR: z.armRG, legL: z.legL, legR: z.legR, head: z.head }, vistas: {}, enCuerpo: true, jefe: true,
+    walk: pick(['z_walk1', 'z_walk2', 'z_walk4']), run: pick(['z_run1', 'z_run2']), atk: pick(['z_attack1', 'z_attack2', 'z_punch']), hit: pick(['z_hit1', 'z_hit2']), px: z.root.position.x, pz: z.root.position.z, v: 0, rel: {} };
+  if (T.humano) A.humano = true;
+  if (T.cabeza2) j3dCabeza2(z, A);
+  if (T.jinete) j3dJinete(z, A);
+  z.z3d = A; J3D.list.push(z);
+}
+// los Gemelos: la segunda cabeza es una copia de la cabeza del modelo (la de bloques queda invisible y sigue recibiendo tiros)
+function j3dCabeza2(z, A) {
+  const h2 = z.torso.children.find(o => o.geometry === ZG.head && o !== z.head) || (A.marco.torso && A.marco.torso.children.find(o => o.geometry === ZG.head)); if (!h2 || !A.I.B.Head) return;
+  const I = A.I, sub = ['Head'];
+  for (const ms of I.mallas) {
+    if (!ms.isSkinnedMesh) continue; const geo = z3dPiezaGeo(I, ms, sub); if (!geo) continue;
+    const bi = ms.skeleton.bones.indexOf(I.B.Head); if (bi < 0) continue;
+    I.B.Head.updateMatrixWorld(true); h2.updateMatrixWorld(true);
+    const mw = new THREE.Matrix4().multiplyMatrices(I.B.Head.matrixWorld, ms.skeleton.boneInverses[bi]).multiply(ms.bindMatrix);
+    const p = new THREE.Mesh(geo, ms.material.clone()); p.material.skinning = false; z.mats.push(p.material);
+    // la copia va centrada en la cabeza de bloques, del mismo tamaño que la cabeza del modelo
+    mw.premultiply(new THREE.Matrix4().copy(h2.matrixWorld).invert()); mw.decompose(p.position, p.quaternion, p.scale);
+    I.B.Head.getWorldPosition(_zv); h2.worldToLocal(_zv); p.position.sub(_zv); p.position.y -= 0.02 / (h2.getWorldScale(_zs).y || 1); p.userData.z3dProp = true; h2.add(p);
+  }
+  h2.material = P3D.invisible;
+}
+// El León: el perro del juego, dorado y con melena
+function j3dLeon(z, T) {
+  const A = z.z3d; if (!A) return; A.jefe = true;
+  for (const m of A.I.mallas) m.material.color.multiply(_jc.setHex(T.tinte || 0xd8a050));
+  const H = A.I.B.Head || A.I.B.Neck; if (!H) return;
+  const g = new THREE.Group(); H.add(g); const s = 1 / (H.getWorldScale(_zs).x || 1); g.scale.setScalar(s * z.s * 0.5);
+  const mm = new THREE.MeshLambertMaterial({ color: 0x5a3010 }); z.mats.push(mm);
+  for (let i = 0; i < 14; i++) { const a = i / 14 * TAU, m = new THREE.Mesh(LG.cone(0.09, 0.42), mm); m.position.set(Math.cos(a) * 0.2, Math.sin(a) * 0.2, -0.05); m.rotation.set(0, 0, a - Math.PI / 2); m.rotateX(-0.5); g.add(m); }
+}
+// La Masa y los corazones de la colmena: una masa de carne viva que late (su propia animación)
+function j3dCarne(z, T, C) {
+  const I = p3dCopia(C, T.corazon ? 2.3 : 1.75); I.cu = C.ch; const par = T.corazon ? z.zhg : z.body; if (!par) return;
+  par.add(I.m); I.m.rotation.y = tirada(z.id, 3) * TAU;
+  I.mallas = []; I.m.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material = o.material.clone(); o.material.color.multiplyScalar(1.25); z.mats.push(o.material); I.mallas.push(o); } });
+  const mat0 = new Map(), deModelo = new Set(); I.m.traverse(o => deModelo.add(o));
+  par.traverse(o => { if (o.isMesh && !deModelo.has(o)) { mat0.set(o, o.material); o.material = P3D.invisible; } });
+  const clip = C.clips[0]; if (clip) { const a = I.acts[clip.name]; a.setLoop(THREE.LoopRepeat, Infinity); a.play(); I.cur = clip.name; }
+  z.z3d = { I, T, mat0, movidos: [], marco: {}, partes: {}, vistas: {}, enCuerpo: true, jefe: true, carne: true, px: z.root.position.x, pz: z.root.position.z, v: 0, rel: {} };
+  J3D.list.push(z);
+}
+function j3dQuitar(z) { z3dQuitar(z); const i = J3D.list.indexOf(z); if (i >= 0) J3D.list.splice(i, 1); }
+// cada cuadro: animación según lo que hace el jefe
+function j3dPaso(dt) {
+  if (J3D.espera.length) for (let i = J3D.espera.length - 1; i >= 0; i--) { const z = J3D.espera[i]; if (!z.root.parent || z.dead || z.z3d) { J3D.espera.splice(i, 1); continue; } const T = j3dTipo(z), C = T && (T.perro ? P3D.cache.zombi_perro : P3D.cache[P3D_ALIAS[T.c] || T.c]); if (C && (C.mx || T.humano || T.perro || T.carne) && (!(J3D_BASE[T.c] || {}).ropa || J3D.ropa[T.c] != null) && (!T.jinete || P3D.cache.jefe_caballo)) { J3D.espera.splice(i, 1); j3dPedir(z); } }
+  for (let i = J3D.list.length - 1; i >= 0; i--) {
+    const z = J3D.list[i], A = z.z3d; if (!A || !z.root.parent) { J3D.list.splice(i, 1); continue; }
+    const I = A.I, T = A.T, p = z.root.position;
+    const v = Math.hypot(p.x - A.px, p.z - A.pz) / Math.max(dt, 1e-3); A.px = p.x; A.pz = p.z; A.v = damp(A.v, Math.min(v, 30), 8, dt);
+    const vr = A.v / Math.max(0.6, z.s);   // velocidad en pasos del modelo (los grandes dan pasos más largos)
+    if (A.carne) {   // late más rápido si se mueve; al morir se encoge y revienta
+      const ac = I.cur && I.acts[I.cur]; if (ac) ac.timeScale = z.dead ? 0.3 : 1 + Math.min(2, vr);
+      if (T.corazon && z.zsac) I.m.scale.setScalar(I.m.userData.k0 || (I.m.userData.k0 = I.m.scale.x)).multiplyScalar(z.zsac.scale.y / 0.85);
+      if (z.dead) I.m.scale.multiplyScalar(Math.max(0.01, 1 - dt * 2.5));
+      I.mix.update(dt); continue;
+    }
+    if (A.humano) {   // Ludo: camina, apunta y dispara como un pistolero
+      const vx = (p.x - (A.hx == null ? p.x : A.hx)) / Math.max(dt, 1e-3), vz = (p.z - (A.hz == null ? p.z : A.hz)) / Math.max(dt, 1e-3); A.hx = p.x; A.hz = p.z; A.mvx = damp(A.mvx || 0, vx, 10, dt); A.mvz = damp(A.mvz || 0, vz, 10, dt);
+      I.tiro = (I.tiro == null ? 9 : I.tiro) + dt; const turno = z.B && z.B.id === 'ludo' && !(z.bst & 1); if (turno && Math.random() < dt * 8) I.tiro = 0;
+      p3dCombate(I, { set: 'p', vx: A.mvx / z.s, vz: A.mvz / z.s, apunta: turno, tiro: I.tiro, muerto: z.dead }, dt);
+      if (!z.dead) { p3dDedos(I, 'R', 1); p3dDedos(I, 'L', 1); }
+      j3dGore(z, A); continue;
+    }
+    I.unaR = (I.unaR || 0) - dt;
+    // golpes especiales: el reloj del ataque vuelve a cero
+    let esp = null; if (T.esp) for (const k in T.esp) { const r = z[k]; if (typeof r !== 'number') continue; if (A.rel[k] != null && r < A.rel[k] - 0.3) esp = T.esp[k]; A.rel[k] = r; }
+    if (z.mini) { const r = z.mA; if (typeof r === 'number') { if (A.rel.mA != null && r > A.rel.mA + 0.5) esp = 'z_scream'; A.rel.mA = r; } }
+    const sinPierna = (z.lost && (z.lost.legL || z.lost.legR)) || z.crawlMode;
+    if (z.dead) { if (!A.muerto) { A.muerto = sinPierna ? 'z_die2' : pick(['z_die1', 'z_die2']); p3dUna(I, A.muerto, 0.12, 1.1); } }
+    else if (z.state === 'rise') { if (I.cur !== 'z_standup') { p3dUna(I, 'z_standup', 0.05, 3.1 * 0.5 / (z.riseDur || 1.3)); if (I.acts.z_standup) I.acts.z_standup.time = 3.1 * 0.5; } }
+    else if (T.grita && T.grita(z)) { if (I.una !== 'z_scream' || I.unaR <= 0.2) p3dUna(I, 'z_scream', 0.1, 1.4); }
+    else if (T.aturde && T.aturde(z)) { if (!(I.una && I.unaR > 0)) p3dUna(I, A.hit, 0.08, 0.9); }
+    else if (esp) p3dUna(I, esp, 0.08, esp === 'z_scream' ? 1.6 : 1.5);
+    else if (T.ataca && T.ataca(z)) { if (!A.ataca) { A.ataca = true; p3dUna(I, A.atk, 0.06, 1.8); } }
+    else if (z.windup > 0) { if (!A.ataca) { A.ataca = true; p3dUna(I, sinPierna ? 'z_punch' : A.atk, 0.06, A.atk === 'z_punch' ? 1.5 : 2.2); } }
+    else if (z.stagger > 0.25 && !(I.una && I.unaR > 0)) p3dUna(I, A.hit, 0.06, 1.8);
+    else if (!(I.una && I.unaR > 0)) {
+      A.ataca = false; I.una = null;
+      const corre = (T.corre && T.corre(z)) || z.lp || vr > 2.4;
+      const n = sinPierna ? (vr > 1.2 ? 'z_crawlrun' : 'z_crawl') : vr < 0.15 && !corre ? 'z_idle' : corre ? A.run : A.walk;
+      p3dAnim(I, n, 0.2); const ac = I.acts[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c && c.v ? clamp(vr / c.v, 0.7, 2) : 1;
+    }
+    if (!z.windup && !(T.ataca && T.ataca(z))) A.ataca = false;
+    I.mix.update(dt);
+    if (T.apunta && !z.dead && z.armRG) { const w = clamp((Math.abs(z.armRG.rotation.x) - 0.5) / 0.6, 0, 1); if (w > 0.01) { p3dApunta(I, A.brazo.R + 'Upperarm', z.armR, -1, w); p3dApunta(I, A.brazo.R + 'Forearm', z.armR, -1, w); } }
+    if (A.jinete) j3dJinetePaso(z, A, dt);
+    j3dGore(z, A);
+  }
+}
+// partes arrancadas: en el modelo desaparecen y el pedazo del modelo sale volando con la pieza de bloques
+function j3dGore(z, A) {
+  const I = A.I, esconde = (k, n) => { const b = I.B[n]; if (!b) return; if (!A.vistas[k]) { A.vistas[k] = 1; z3dPieza(z, k, b); } b.scale.setScalar(0.001); };
+  if (z.head && z.head.parent !== z.neck && !A.T.sinCabeza) esconde('head', 'Head');
+  if (z.lost) { if (z.lost.armL) esconde('armL', A.brazo.L + 'Upperarm'); if (z.lost.armR) esconde('armR', A.brazo.R + 'Upperarm'); if (z.lost.legL) esconde('legL', A.pierna.L + 'Thigh'); if (z.lost.legR) esconde('legR', A.pierna.R + 'Thigh'); }
+}
+// gira un hueso para que su eje (hacia su hijo) apunte en una dirección del mundo
+function j3dHueso(b, dir, w = 1) {
+  if (!b) return; b.updateMatrixWorld(true); b.getWorldQuaternion(_pq2); _pv.copy(_py).applyQuaternion(_pq2);
+  _pq.setFromUnitVectors(_pv, _pd.copy(dir).normalize()).multiply(_pq2); b.parent.getWorldQuaternion(_pq2); _pq.premultiply(_pq2.invert());
+  if (w >= 0.999) b.quaternion.copy(_pq); else b.quaternion.slerp(_pq, w); b.updateMatrixWorld(true);
+}
+// El Jinete sin Cabeza: monta un caballo negro y podrido (el de bloques queda invisible); las patas galopan como las de bloques
+function j3dJinete(z, A) {
+  const C = P3D.cache.jefe_caballo; if (!C) return;
+  const H = p3dCopia(C, 1.95); H.m.rotation.y = J3D.giroCaballo; z.body.add(H.m);
+  H.m.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material = o.material.clone(); z.mats.push(o.material); A.I.mallas.push(o); } });
+  A.I.m.position.y += 0.74; A.jinete = { H, ejes: null };
+  // ojos rojos que brillan
+  const cab = Object.keys(H.B).find(n => /Head_/.test(n)); if (cab) { const hb = H.B[cab], k = 1 / (hb.getWorldScale(_zs).x || 1); for (const sx of [-1, 1]) { const e = new THREE.Mesh(LG.sph(0.035), eyeMats.boss); e.position.set(sx * 0.09 * k, 0.06 * k, 0.12 * k); e.scale.setScalar(k); hb.add(e); } }
+}
+function j3dJinetePaso(z, A, dt) {
+  const J = A.jinete, B = A.I.B, H = J.H;
+  // sentado: muslos hacia adelante y abiertos, piernas colgando a los lados del caballo
+  z.root.getWorldQuaternion(_zq); const fw = _zv.set(0, 0, 1).applyQuaternion(_zq).clone(), rt = _zv2.set(1, 0, 0).applyQuaternion(_zq).clone();
+  for (const [s, sx] of [[A.pierna.L, -1], [A.pierna.R, 1]]) { j3dHueso(B[s + 'Thigh'], fw.clone().multiplyScalar(0.75).addScaledVector(rt, sx * 0.55).add(_zv.set(0, -0.35, 0))); j3dHueso(B[s + 'Calf'], _zv.set(0, -1, 0).addScaledVector(rt, sx * 0.25).addScaledVector(fw, -0.15)); }
+  // galope: muslos y hombros del caballo van y vienen
+  if (!J.ejes) { J.ejes = []; for (const n in H.B) { const m = n.match(/^Bip01_([LR])_(Thigh|UpperArm)_/); if (!m) continue; const b = H.B[n]; b.parent.getWorldQuaternion(_zq2); J.ejes.push({ b, r: H.rest.get(b), ax: rt.clone().applyQuaternion(_zq2.clone().invert()), f: (m[2] === 'Thigh') === (m[1] === 'L') ? 1 : -1 }); } }
+  const sw = z.dead ? 0 : Math.sin(z.t * 12) * (A.v > 0.5 ? 0.6 : 0.12);
+  for (const e of J.ejes) { e.b.quaternion.copy(e.r).premultiply(_zqa.setFromAxisAngle(e.ax, sw * e.f)); }
+}
 // policía, SWAT, soldado y ayudante del sheriff con su modelo 3D: el muñeco de bloques se vuelve invisible y el arma pasa a la mano del modelo
 function ally3d(c) {
   const f = NPC3D[c.kind]; if (!f) return;
