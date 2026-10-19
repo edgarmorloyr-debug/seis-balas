@@ -41,6 +41,7 @@ const Z = {
   // Qué sale al juntar a con b (b es la que se queda en su lugar)
   combinar(a, b) {
     if (!a || !b) return { err: 'Faltan balas' };
+    if (a.sobre || b.sobre) return { err: 'Los sobres no se juntan' };
     if (a.id !== b.id) return { err: 'Solo se juntan 2 balas iguales' };
     if (a.nv !== b.nv) return { err: `Distinto nivel (Nv ${a.nv} y Nv ${b.nv}): no se juntan` };
     if (b.nv >= NIVEL_MAX) return { err: nombre(b.id) + ' ya está en Nv 4, el máximo' };
@@ -194,7 +195,8 @@ const foto = () => ({ oro: Z.e.oro });
 
 // ---------- HTML comunes ----------
 // Hueco con su ficha; si tiene pareja lista, brilla en verde (clase «par»)
-function hueco(l, cls = 'slot') { const x = Z.get(l), par = x && Z.pareja(l); return `<span class="${cls}${x ? '' : ' vacio'}${par ? ' par' : ''}" data-loc="${l}">${x ? ficha(x.id, x.nv) : ''}</span>`; }
+// (un sobre azul guardado en la reserva se dibuja como sobre: ver sobre_azul.js)
+function hueco(l, cls = 'slot') { const x = Z.get(l), par = x && Z.pareja(l); return `<span class="${cls}${x ? '' : ' vacio'}${par ? ' par' : ''}" data-loc="${l}">${x ? (x.sobre ? `<span class="f sobreA">${sobreAzulSVG()}</span>` : ficha(x.id, x.nv)) : ''}</span>`; }
 function escalera(id, nv) {
   const D = DATOS[id]; if (!D) return '';
   return `<div class="ladder">${D[4].map((x, i) => `${i + 1 === nv ? '<b class="on">' : '<span>'}Nv ${i + 1}${i + 1 === nv ? '</b>' : '</span>'}<span>${x}${i === 3 && D[5] ? ' <i class="desp">+ ' + D[5].split(':')[0] + '</i>' : ''}</span>`).join('')}</div>`;
