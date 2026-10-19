@@ -33240,7 +33240,8 @@ function z3dPoner(z) {
   if (!C || !C.mx) { p3dCargar(cu); return; }
   const I = p3dCopia(C, 1.78 * (z.s || 1)); I.m.rotation.y = P3D.giro; z.root.add(I.m); I.cu = cu;
   // materiales propios: el destello del golpe, el fuego, el hielo y el veneno se ven en el modelo (z.mats)
-  const ropa = T.ropa ? T.ropa[Math.floor(tirada(z.id, 8) * T.ropa.length)] : null;
+  let ropa = T.ropa ? T.ropa[Math.floor(tirada(z.id, 8) * T.ropa.length)] : null;
+  if (z.look || T.ropaBloques) ropa = [z.mats[1].color.getHex(), z.mats[2].color.getHex()];   // disfraz del mapa: la ropa del modelo toma sus colores
   I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (ropa && o.name === 'material') o.material.color.setHex(ropa[0]); if (ropa && o.name === 'Bottom') o.material.color.setHex(ropa[1]); if (!/Hair/.test(o.name)) o.material.color.multiplyScalar(Z3D.luz); z.mats.push(o.material); I.mallas.push(o); });
   if (T.forma && T.forma.pecho && I.B.Spine01) { I.B.Spine01.scale.set(...T.forma.pecho); if (I.B.NeckTwist01) I.B.NeckTwist01.scale.set(1 / T.forma.pecho[0], 1 / T.forma.pecho[1], 1 / T.forma.pecho[2]); }
   z.root.updateMatrixWorld(true);
@@ -33250,11 +33251,12 @@ function z3dPoner(z) {
   const marco = {};
   if (z.head && I.B.Head) { marco.head = z3dMarco(I.B.Head, z.head, z.root, 0.74); marco.head.position.y -= 0.03 / (I.B.Head.getWorldScale(_zs).y || 1); }   // la cabeza del modelo es más chica que la de bloques
   if (z.torso && I.B.Spine02) marco.torso = z3dMarco(I.B.Spine02, z.torso, z.root, 0.82);
+  if (I.B.Hip) marco.body = z3dMarco(I.B.Hip, z.body, z.root);
   if (z.armL) marco.armL = z3dMarcoMano(I, brazo.L.slice(0, 1), z.armL, z.root);
   if (z.armR) marco.armR = z3dMarcoMano(I, brazo.R.slice(0, 1), z.armR, z.root);
   // lo que lleva encima pasa a los marcos
   const movidos = [], mueve = (par, m, dy) => { if (!par || !m) return; for (const o of par.children.slice()) { if (o.isMesh && Z3D_BASE.has(o.geometry)) continue; if (o === z.jaw) continue; movidos.push([o, par, o.position.clone(), o.scale.clone()]); m.add(o); if (dy) o.position.y += dy; if (o.geometry === ZG.eye) { o.scale.multiplyScalar(0.5); o.position.z += 0.012; } } };   // los ojos brillan con el color de su tipo
-  mueve(z.head, marco.head); mueve(z.torso, marco.torso); mueve(z.armL, marco.armL, 0.68); mueve(z.armR, marco.armR, 0.68);
+  mueve(z.head, marco.head); mueve(z.torso, marco.torso); { const base = new Set([z.legL, z.legR, z.torsoG, z.headG, z.tail].filter(Boolean)); for (const o of z.body.children.slice()) if (!base.has(o) && !(o.isMesh && Z3D_BASE.has(o.geometry))) { movidos.push([o, z.body, o.position.clone(), o.scale.clone()]); marco.body.add(o); } }   // falda, capa… mueve(z.armL, marco.armL, 0.68); mueve(z.armR, marco.armR, 0.68);
   // el cuerpo de bloques se vuelve invisible (sigue recibiendo tiros y sus hijos de adorno se siguen viendo)
   const mat0 = new Map(); z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id) && !o.userData.z3dProp) { mat0.set(o, o.material); o.material = P3D.invisible; } });
   for (const k in marco) if (marco[k]) marco[k].traverse(o => { if (o.isMesh && mat0.has(o)) { o.material = mat0.get(o); mat0.delete(o); } });
