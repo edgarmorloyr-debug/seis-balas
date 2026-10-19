@@ -14815,6 +14815,12 @@ function marketInst(geo, mat, mats, cast = true) {
   const im = new THREE.InstancedMesh(geo, mat, mats.length);
   mats.forEach((mt, i) => im.setMatrixAt(i, mt)); im.castShadow = cast; im.receiveShadow = true; world.group.add(im); return im;
 }
+// el súper: coches del estacionamiento (pintados por copia) y carritos
+const S3 = {
+  coche: { f: 'coche', por: 'largo', giro: Math.PI / 2, pinta: '^Rough' },
+  camioneta: { f: 'camioneta', por: 'largo', giro: Math.PI / 2, pinta: '.' },
+  carrito: { f: 'carrito' }
+};
 function buildMarket() {
   const _gc = new Map(); // geometrías repetidas: se crean una sola vez
   const bx = (w, h, d) => { const k = 'b' + w + ',' + h + ',' + d; let g = _gc.get(k); if (!g) _gc.set(k, g = new THREE.BoxGeometry(w, h, d)); return g; };
@@ -15090,7 +15096,7 @@ function buildMarket() {
   for (let k = 0; k < 6; k++) addCart(-37 + k * 0.7, 39.5, 0, false);
   addBox(-35.25, 39.5, 2.2, 0.6);
   [[-4, 6], [9, 4], [-17, 2], [19, 16], [-3.5, -20], [36, -16], [-9, 33], [5, 37], [-38, 22], [-15, 17], [26, -21]].forEach(([x, z], i) => { addCart(x, z, sr(0, TAU), i % 3 === 0); addCircle(x, z, 0.55); });
-  marketInst(cartBasket, cartM, cMats, false); marketInst(cartFrame, cartFM, cMats);
+  if (world.m3dL.on) cMats.forEach(m => world.m3dL.pon(S3.carrito, 0, 0, 0, 1.1, 0, null, m)); else { marketInst(cartBasket, cartM, cMats, false); marketInst(cartFrame, cartFM, cMats); }   // modelo 3D del carrito
   { // carrito fantasma: rueda solo por la zona de entrada
     const g = new THREE.Group(); world.group.add(g);
     M(cartBasket.clone(), cartM, 0, 0, 0, { p: g, cast: false }); M(cartFrame.clone(), cartFM, 0, 0, 0, { p: g });
@@ -15868,7 +15874,7 @@ function superGrande(K) {
     const tr = [], cp = [], arbol = (x, z, s) => { const ry = sr(0, TAU); tr.push({ m: TRS(x, 1.6 * s, z, ry, 0, 0, s, s, s) }); cp.push({ m: TRS(x, 4.2 * s, z, ry, 0, 0, s * sr(0.9, 1.2), s, s * sr(0.9, 1.2)), c: sk([0x1a2a1c, 0x20301e, 0x263420, 0x18241a]) }); };
     for (let a = -96; a < 96; a += 4.6) { arbol(a + sr(-1, 1), -sr(87, 95), sr(1.1, 1.7)); arbol(-sr(87, 95), a + sr(-1, 1), sr(1.1, 1.7)); arbol(sr(87, 95), a + sr(-1, 1), sr(1.1, 1.7)); arbol(a + sr(-1, 1), sr(89, 97), sr(1.1, 1.7)); }
     for (let i = 0, n = 0; i < 200 && n < 12; i++) { const x = sr(-81, -64), z = sr(-40, 40); if (pointBlocked(x, z, 2)) continue; arbol(x, z, sr(0.9, 1.3)); addCircle(x, z, 0.4); n++; }
-    inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp);
+    if (world.m3dL.on) m3dLista(tr, M3G.roble, 6.4, 1.6); else { inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp); }   // modelo 3D
   }
   // cajas sueltas del callejón (fardos de cartón)
   inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), cajasL2, { solid: true });
@@ -15881,7 +15887,8 @@ function superGrande(K) {
   if (PZ.L.length) M(marketGeo(PZ.L), bsc(0xffffff, { vertexColors: true }), 0, 0, 0, { cast: false });
   if (PZ.T.length) M(marketGeo(PZ.T), lam(0xffffff, { vertexColors: true, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, { cast: false, solid: true });
   if (PZ.A.length) M(marketGeo(PZ.A), bsc(0xffffff, { vertexColors: true, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, { cast: false, recv: false });
-  inst(CARS[0].geo, lam(0xffffff, { vertexColors: true }), carL[0], { solid: true }); inst(CARS[1].geo, lam(0xffffff, { vertexColors: true }), carL[1], { solid: true });
+  if (world.m3dL.on) carL.forEach((L, t) => L.forEach(o => world.m3dL.pon(t ? S3.camioneta : S3.coche, 0, 0, 0, t ? 4.7 : 4.4, 0, null, o.m, o.c)));   // modelos 3D de coches (cada uno con su color)
+  else { inst(CARS[0].geo, lam(0xffffff, { vertexColors: true }), carL[0], { solid: true }); inst(CARS[1].geo, lam(0xffffff, { vertexColors: true }), carL[1], { solid: true }); }
 
   // ningún punto de aparición puede quedar encima de un coche, un muro o una estantería: se corre al hueco libre más cercano
   for (const sp of world.spawns) {
