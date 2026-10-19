@@ -1,6 +1,6 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Expendedora y cinturón · Elegido por el dueño</title><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="vivo.css">
-<script src="fichas.js"></script><script src="sobres.js"></script><script src="vivo.js"></script><script src="apertura.js"></script>
+<script src="fichas.js"></script><script src="sobres.js"></script><script src="vivo.js"></script><script src="apertura.js"></script><script src="sobre_azul.js"></script>
 <style>
 /* Elegido por el dueño (19-oct-2026): a la izquierda (60 %) la expendedora del juego, a la derecha (40 %) el cinturón, como la tienda de Balatro */
 .top h1{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -60,7 +60,14 @@
 #bJuntar:not([disabled]){border-color:#5bd17a;color:#d8ffe4;background:#0d3a1e;box-shadow:0 0 14px #5bd17a77;animation:par 1.3s ease-in-out infinite}
 .solo-alta{display:none}
 @media (min-height:560px) and (orientation:landscape){.solo-alta{display:block}.ficha-info{align-items:flex-start}}
+/* Botones de prueba del sobre azul (en el juego lo suelta un zombi con 3 %) */
+.prueba{display:flex;gap:6px}
+.btn.dos{flex-direction:column;gap:0;line-height:1.05;padding:0 10px}
+.btn.dos small{font-size:14px;color:#9cc8ff}
+.pill .miembro{width:18px;height:18px;border-radius:50%;background:#6a2fb0;box-shadow:inset 0 0 0 3px #f6ead7,inset 0 0 0 5px #6a2fb0;display:inline-block}
+#bAbrirAzul{border-color:#6fb0ff;color:#e4f0ff;background:#163f8f;box-shadow:0 0 14px #6fb0ff77}
 @media (orientation:portrait){
+  .prueba{order:2;flex:1 1 220px}.prueba .btn{flex:1;min-width:0}#bReiniciar{order:3}
   .top{flex-wrap:wrap;row-gap:6px;gap:6px}.top h1{flex-basis:100%;order:-1;font-size:20px}.top .sp{display:none}.top .pill{padding:0 8px}.top .btn{padding:0 12px}
   .lay{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
   .vm{grid-template-columns:1fr;grid-template-rows:auto 1fr auto auto;grid-template-areas:"let" "vid" "pan" "ban";padding:6px}
@@ -71,11 +78,12 @@
   .panel2{display:none}.ficha-info{flex:none;height:48px;min-height:0}.ficha-info .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ficha-info .f{--ch:36px}
 }
 </style></head><body><div class="frame">
-<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora y cinturón</h1><span class="sp"></span><span id="pills"></span><span class="pill" title="Balas normales en tu caja"><i class="bala"></i><b id="pNor">24</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
+<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora y cinturón</h1><span class="sp"></span><span id="pills"></span><span class="pill" title="Balas normales en tu caja"><i class="bala"></i><b id="pNor">24</b></span><span class="pill" title="Fichas de miembro"><i class="miembro"></i><b id="pMie">0</b></span><span class="prueba"><button class="btn dos" id="bZombi" title="Matar zombi (3 % sobre azul)"><span>Matar zombi</span><small>(3 % sobre azul)</small></button><button class="btn dos" id="bAzul" title="Recibir sobre azul"><span>Recibir</span><small>sobre azul</small></button></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="lay">
  <div class="vm" id="vm">
   <div class="letrero">APOCALIPSIS</div>
   <div class="vidrio" id="vid"></div>
+  <div class="esc escvid" id="escvid" hidden><div class="caja"></div></div>
   <div class="panel2"><div class="pantalla" id="pan"></div><div class="teclas"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="ranura"><i></i></div></div>
   <div class="bajo"><div class="bandeja" id="ban"></div><button class="btn main" id="bComprar">Comprar</button></div>
  </div>
@@ -85,7 +93,7 @@
   <div class="lbl">Reserva <b id="cRes"></b><span class="sp"></span><small>no dan efecto</small></div>
   <div class="reserva" id="res"></div>
   <div class="ficha-info" id="info"></div>
-  <div class="acc"><button class="btn" id="bVender" data-drop="vender" disabled>Vender</button><button class="btn" id="bJuntar" disabled>Juntar pareja</button></div>
+  <div class="acc"><button class="btn" id="bVender" data-drop="vender" disabled>Vender</button><button class="btn" id="bJuntar" disabled>Juntar pareja</button><button class="btn" id="bAbrirAzul" hidden>Abrir</button></div>
  </div>
 </div></div>
 <script>
@@ -94,7 +102,7 @@ const SOB = [{ n: SOBRE_DE.Standard, k: 'Standard', p: 50, d: '3 balas, casi tod
 const CAJ = [{ n: 12, p: 10 }, { n: 30, p: 22 }, { n: 60, p: 40 }];
 const OFERTA0 = ['relampago', 'apuesta', 'hipnotica'];
 let T, S = [];
-function tienda() { T = { f: 0, c: 0, oferta: OFERTA0.map(id => ({ id, vendida: false })), nor: 24, ocupado: false }; Z.e.ban = []; }
+function tienda() { T = { f: 0, c: 0, oferta: OFERTA0.map(id => ({ id, vendida: false })), nor: 24, ocupado: false, esc: null, recibidos: [], zombis: 0 }; Z.e.ban = []; }
 tienda();
 const precioB = id => PRECIO[rareza(id)];
 function caja(n) { let b = ''; const rows = n > 30 ? 2 : 1; for (let r = 0; r < rows; r++) for (let i = 0; i < 5; i++) b += `<rect x="${38 + i * 26 + r * 13}" y="${44 - r * 16}" width="14" height="40" rx="7" fill="#d9a441" stroke="#7a5a18" stroke-width="2"/>`;
@@ -118,8 +126,11 @@ function render() {
   if (P.t === 'sobre') pan += `<span>${P.s.d}</span>`;
   else if (P.t === 'caja') pan += `<span>Tu caja: ${T.nor}</span>`;
   else { const id = P.o.id, gem = Z.gemela(id, 1); pan += `<span style="color:${rcol(id)}">${RNOM[rareza(id)]}</span><span>${queHace(id, 1)}</span>${gem ? '<span style="color:#ffd27a">Tienes otra Nv 1: hará pareja</span>' : ''}`; }
-  $('#pan').innerHTML = pan;
-  const b = $('#bComprar'); b.textContent = gone ? 'Vendida' : 'Comprar · ' + P.p; b.disabled = gone || T.ocupado;
+  const b = $('#bComprar');
+  if (T.esc) { $('#pan').innerHTML = T.esc.txt; b.textContent = T.esc.btn; b.disabled = !T.esc.listo; }
+  else { $('#pan').innerHTML = pan; b.textContent = gone ? 'Vendida' : 'Comprar · ' + P.p; b.disabled = gone || T.ocupado; }
+  $('#pMie').textContent = Z.e.fichas;
+  ['#bZombi', '#bAzul', '#bReiniciar'].forEach(k => $(k).disabled = T.ocupado);
   // bandeja
   $('#ban').innerHTML = Z.e.ban.length ? Z.e.ban.map((x, i) => hueco('ban:' + i)).join('') : '<span class="vac">Bandeja</span>';
   // cinturón y reserva
@@ -132,8 +143,14 @@ function render() {
   info(ps);
 }
 function info(ps) {
-  const I = $('#info'), bJ = $('#bJuntar'), bV = $('#bVender');
+  const I = $('#info'), bJ = $('#bJuntar'), bV = $('#bVender'), bA = $('#bAbrirAzul');
   let h = '', jun = null;
+  const azul = S.length === 1 && Z.get(S[0])?.sobre;
+  bA.hidden = !azul; bJ.hidden = !!azul; bA.disabled = T.ocupado;
+  if (azul) {
+    I.innerHTML = `<span class="f sobreA">${sobreAzulSVG()}</span><div class="t"><h2 style="color:#9cc8ff">Sobre azul de cartas</h2><div class="d">3 cartas: en blanco o con premio. <b>Toca Abrir.</b></div></div>`;
+    bV.disabled = true; bV.textContent = 'Vender'; return;
+  }
   if (S.length === 2) {
     const r = Z.combinar(Z.get(S[0]), Z.get(S[1]));
     h = `${ficha(r.id, r.nv, { cls: 'glow', style: '--gc:' + brillo(r.id) })}<div class="t"><h2>${nombre(r.id)} · Nv ${r.nv - 1} + Nv ${r.nv - 1} = Nv ${r.nv}</h2><div class="d">${queHace(r.id, r.nv)}${r.nv === NIVEL_MAX && DATOS[r.id][5] ? ' <b>Despierta: ' + DATOS[r.id][5] + '</b>' : ''}</div></div>`;
@@ -143,7 +160,8 @@ function info(ps) {
     h = `${ficha(x.id, x.nv)}<div class="t"><h2 style="color:${brillo(x.id)}">${nombre(x.id)} · Nv ${x.nv}</h2><div class="d"><span style="color:${rcol(x.id)}">${RNOM[rareza(x.id)]}</span> · ${DATOS[x.id][3]}. ${queHace(x.id, x.nv)}${comp ? ' <b>Tiene pareja: toca Juntar.</b>' : x.nv >= NIVEL_MAX ? ' <b>Nivel máximo.</b>' : ''}${l.startsWith('inv') ? ' En la reserva no da efecto.' : ''}</div><div class="solo-alta">${escalera(x.id, x.nv)}</div></div>`;
     if (comp) jun = [comp, l];
   } else {
-    h = `<div class="t"><h2>${ps.length ? 'Las que brillan en verde tienen pareja' : 'Toca una bala para verla'}</h2><div class="d">2 balas iguales del mismo nivel = 1 del nivel siguiente (hasta Nv 4). Arrastra para mover, cambiar o juntar.</div></div>`;
+    const rec = T.recibidos.length ? `<div class="d">Recibiste: <b>${T.recibidos.slice(-3).join(', ')}</b></div>` : '';
+    h = `<div class="t"><h2>${ps.length ? 'Las que brillan en verde tienen pareja' : 'Toca una bala para verla'}</h2>${rec || '<div class="d">2 balas iguales del mismo nivel = 1 del nivel siguiente (hasta Nv 4). Arrastra para mover, cambiar o juntar.</div>'}</div>`;
     if (ps.length) jun = [ps[0].a, ps[0].b];
   }
   I.innerHTML = h; bJ._par = jun; bJ.disabled = !jun || T.ocupado;
@@ -153,7 +171,7 @@ function info(ps) {
 // ---------- Acomodar (tocar y arrastrar) ----------
 function tocar(k) {
   if (T.ocupado) return;
-  if (!Z.get(k)) { if (S.length === 1 && !k.startsWith('ban')) { const a = S[0]; Z.mover(a, k); S = [k]; Son.clic(); render(); FX.rebote(fichaEl(k), 1.2); } return; }
+  if (!Z.get(k)) { if (S.length === 1 && !k.startsWith('ban')) { const a = S[0]; if (!sobreBien(a, k)) return; Z.mover(a, k); S = [k]; Son.clic(); render(); FX.rebote(fichaEl(k), 1.2); } return; }
   if (S.includes(k)) S = S.filter(x => x !== k);
   else if (S.length === 1 && !Z.combinar(Z.get(S[0]), Z.get(k)).err) S = [S[0], k];
   else S = [k];
@@ -182,12 +200,14 @@ arrastre($('.lay'), {
   puede: () => !T.ocupado,
   alTocar(k) { if (k.startsWith('drop:')) return; tocar(k); },
   alPasar(a, b) {
+    if (!sobreBien(a, b, true)) return Z.get(a).sobre && b === 'drop:vender' ? 'No se vende' : 'Solo en la reserva';
     if (b === 'drop:vender') return 'Vender +' + venta(Z.get(a));
     if (b.startsWith('drop:') || b.startsWith('ban')) return '';
     const A = Z.get(a), B = Z.get(b); if (!B) return 'Mover';
     const r = Z.combinar(A, B); return r.err ? 'Cambiar' : 'Juntar · Nv ' + r.nv;
   },
   async alSoltar(a, b) {
+    if (!sobreBien(a, b)) return;
     if (b === 'drop:vender') return venderAnim(a);
     if (b.startsWith('drop:') || b.startsWith('ban')) return;
     const A = Z.get(a), B = Z.get(b);
@@ -197,8 +217,85 @@ arrastre($('.lay'), {
     if (A && a.startsWith('ban') && Z.pareja(b)) FX.flotar(fichaEl(b), '¡Pareja lista!', '#8dffaa');
   },
 });
+// El sobre azul solo vive en la reserva y no se vende
+function sobreBien(a, b, callado) {
+  const A = Z.get(a), B = Z.get(b) || null;
+  let m = '';
+  if (A?.sobre && b === 'drop:vender') m = 'El sobre azul no se vende: ábrelo';
+  else if (A?.sobre && b.startsWith('cin')) m = 'El sobre azul va solo en la reserva';
+  else if (B?.sobre && a.startsWith('cin')) m = 'El sobre azul va solo en la reserva';
+  if (m && !callado) FX.toast(m, true);
+  return !m;
+}
 $('#bJuntar').onclick = () => { const p = $('#bJuntar')._par; if (p) juntarAnim(p[0], p[1]); };
 $('#bVender').onclick = () => { if (S.length === 1) venderAnim(S[0]); };
+// ---------- Apertura de cartas dentro de la ventana de productos (pedido del dueño, 19-oct-2026) ----------
+// Mientras se abre, la rejilla A1–C3 se esconde y las cartas ocupan la ventana; al guardar, vuelve la rejilla.
+function medirEscena() { const E = $('#escvid'), c = E.firstChild, r = E.getBoundingClientRect(); c.style.setProperty('--u', Math.max(.3, Math.min(r.width / 360, r.height / 200)) + 'px'); c._H = 200; }
+async function escena(cartas, o) {
+  const E = $('#escvid'), c = E.firstChild; c.innerHTML = ''; E.hidden = false; $('#vm').classList.add('abriendo'); medirEscena();
+  const lin = [];
+  T.esc = { txt: `<b>${o.titulo}</b><span>Abriendo…</span>`, btn: 'Abriendo…', listo: false }; render();
+  const nodos = await animarCartas(c, cartas, { packSVG: o.packSVG, dorso: o.dorso, alVoltear(i, k) {
+    lin.push(`<span style="color:${k.k === 'nada' ? '#a9adb3' : k.col}">${k.k === 'nada' ? 'Carta en blanco' : k.nom}</span>`);
+    T.esc.txt = `<b>${o.titulo}</b>${lin.join('')}`; render();
+  } });
+  T.esc.btn = o.boton; T.esc.listo = true; render();
+  await new Promise(r => T.esc.ok = r);
+  const des = nodos.map(n => FX.centro(n.querySelector('.cara') || n));
+  E.hidden = true; c.innerHTML = ''; $('#vm').classList.remove('abriendo'); T.esc = null; render();
+  return des;
+}
+// Una bala que sale de una carta vuela a su lugar (cinturón, luego reserva; si no hay lugar, a la bandeja)
+async function guardarBala(desde, it) {
+  const dest = Z.libre('cin') || Z.libre('inv');
+  if (!dest) { Z.e.ban.push(it); render(); await FX.volar(desde, $('#ban'), ficha(it.id, it.nv), { color: brillo(it.id), w: 44 }); return; }
+  Z.set(dest, it); render(); const el = fichaEl(dest); el.style.visibility = 'hidden';
+  await FX.volar(desde, el, ficha(it.id, it.nv), { color: brillo(it.id), arco: -90, ms: 600, w: 52 });
+  el.style.visibility = ''; Son.clac(); FX.rebote(el, 1.3); FX.estallido(el, brillo(it.id), 10, rareza(it.id) === 'S');
+  FX.flotar(el, Z.pareja(dest) ? '¡Pareja lista!' : nombre(it.id), Z.pareja(dest) ? '#8dffaa' : brillo(it.id));
+}
+// Cada premio del sobre azul va a su lugar: balas al cinturón o la reserva, fichas y oro a sus contadores, arma y plato a «Recibiste»
+async function cobrarCarta(de, k) {
+  const c = k.carta;
+  if (c.k === 'nada') return;
+  if (c.k === 'bala') return guardarBala(de, nueva(c.id, 1));
+  const ico = `<span class="f" style="display:flex">${iconoCarta(c)}</span>`;
+  if (c.n) { const p = $('#pNor').parentNode; await FX.volar(de, p, ico, { w: 44, color: c.col }); const a = T.nor; T.nor += c.n; FX.flotar(p, `+${c.n} balas`, '#ffd27a'); await FX.contar($('#pNor'), a, T.nor, 500, true); return; }
+  if (c.k === 'miembro') { const p = $('#pMie').parentNode; await FX.volar(de, p, ico, { w: 40, color: c.col }); const a = Z.e.fichas; Z.e.fichas++; FX.flotar(p, '+1 ficha de miembro', c.col); Son.ficha(); await FX.contar($('#pMie'), a, Z.e.fichas, 300, true); return; }
+  if (c.oro) { const p = $('#pOro').parentNode; await FX.volar(de, p, ico, { w: 40, color: c.col }); const a = Z.e.oro; Z.e.oro += c.oro; FX.flotar(p, `+${c.oro} $`, '#ffd27a'); Son.moneda(); await FX.contar($('#pOro'), a, Z.e.oro, 400, true); return; }
+  // arma y plato: se muestran como objetos recibidos
+  await FX.volar(de, $('#info'), ico, { w: 52, color: c.col }); T.recibidos.push(c.nom); render(); Son.campana(); FX.flotar($('#info'), 'Recibiste: ' + c.nom, c.col);
+}
+// Abrir el sobre azul: solo aquí, en la tienda de balas
+async function abrirAzul(l) {
+  if (T.ocupado || !Z.get(l)?.sobre) return;
+  T.ocupado = true; const de = FX.centro(fichaEl(l)); Z.set(l, null); S = []; render();
+  await FX.volar(de, $('#vid'), sobreAzulSVG(), { w: 60, color: '#6fb0ff', arco: -80, ms: 520 });
+  const cartas = sortearSobreAzul(), ks = cartas.map(cartaAzul);
+  const des = await escena(ks, { titulo: 'Sobre azul', packSVG: sobreAzulSVG(), dorso: 'azul', boton: 'Guardar premios' });
+  for (let i = 0; i < 3; i++) { await cobrarCarta(des[i], ks[i]); await espera(120); }
+  const buenas = cartas.filter(c => c.k !== 'nada');
+  FX.toast(buenas.length ? 'Del sobre azul: ' + buenas.map(c => c.nom).join(', ') : 'Las 3 cartas salieron en blanco');
+  if (Z.e.ban.length) await guardarBandeja();
+  T.ocupado = false; render();
+}
+$('#bAbrirAzul').onclick = () => { if (S.length === 1) abrirAzul(S[0]); };
+// Recibir un sobre azul: ocupa un espacio libre de la reserva de 6
+function recibirAzul(desde, deZombi) {
+  const l = Z.libre('inv');
+  if (!l) { FX.toast(deZombi ? '¡El zombi soltó un sobre azul! Pero tu reserva está llena: libera un espacio.' : 'Tu reserva está llena: libera un espacio para el sobre azul.', true); return; }
+  Z.set(l, { sobre: 'azul', u: ++_uid }); render();
+  const el = fichaEl(l); el.style.visibility = 'hidden'; Son.whoosh();
+  FX.volar(FX.centro(desde), el, sobreAzulSVG(), { w: 44, color: '#6fb0ff', arco: -70, ms: 560 }).then(() => { el.style.visibility = ''; Son.campana(); FX.rebote(el, 1.3); FX.estallido(el, '#6fb0ff', 12); FX.flotar(el, 'Sobre azul', '#9cc8ff'); });
+}
+$('#bAzul').onclick = () => { if (!T.ocupado) recibirAzul($('#bAzul')); };
+// En el juego cada zombi tiene 3 % de soltar un sobre azul; aquí se simula con este botón
+$('#bZombi').onclick = () => {
+  if (T.ocupado) return; T.zombis++; Son.bang();
+  if (Math.random() < PROB_SOBRE_AZUL) { FX.flotar($('#bZombi'), '¡Soltó un sobre azul!', '#9cc8ff'); recibirAzul($('#bZombi'), true); }
+  else FX.flotar($('#bZombi'), `Zombi ${T.zombis}: sin sobre`, '#cfc2a8');
+};
 // ---------- Comprar: la espiral gira, el producto cae a la bandeja ----------
 $('#vid').onclick = e => { const p = e.target.closest('[data-p]'); if (!p || T.ocupado) return; T.f = +p.dataset.p[0]; T.c = +p.dataset.p[1]; Son.tic(1500, .06); render(); FX.rebote(p.querySelector('.img'), 1.1); };
 function pagar(p) { if (Z.e.oro < p) { FX.toast('No te alcanza el oro', true); return false; } const a = Z.e.oro; Z.e.oro -= p; FX.contar($('#pOro'), a, Z.e.oro, 500, true); Son.moneda(); return true; }
@@ -231,6 +328,7 @@ async function guardarBandeja() {
   render();
 }
 $('#bComprar').onclick = async () => {
+  if (T.esc) { if (T.esc.listo) T.esc.ok(); return; }
   if (T.ocupado) return; const P = prod(T.f, T.c), cell = $(`#vid [data-p="${T.f}${T.c}"]`);
   if (P.t === 'bala' && P.o.vendida) return;
   if (!pagar(P.p)) return;
@@ -245,12 +343,15 @@ $('#bComprar').onclick = async () => {
     P.o.vendida = true; d.remove(); Z.e.ban.push(nueva(P.o.id, 1)); render(); FX.rebote(fichaEl('ban:0'), 1.3);
     await espera(250); await guardarBandeja(); T.ocupado = false; render(); return;
   }
-  // sobre: cae, y se abre con la Tragamonedas
-  await espera(350); d.remove();
-  abrirVentanaSobre({ anim: 5, sobre: P.s.n, titulo: 'Sobre ' + P.s.k, unaVez: true, alCerrar: async lista => {
-    lista.forEach(id => Z.e.ban.push(nueva(id, 1))); render();
-    await espera(200); await guardarBandeja(); T.ocupado = false; render();
-  } });
+  // sobre: cae a la bandeja, sube a la ventana y se abre con cartas boca abajo (ya no con la tragamonedas)
+  await espera(250);
+  const de = FX.centro(d); d.remove();
+  await FX.volar(de, $('#vid'), P.img, { w: 60, arco: -60, ms: 480, estela: false });
+  const balas = sortear(P.s.k);
+  const des = await escena(balas.map(cartaBala), { titulo: 'Sobre ' + P.s.k, packSVG: P.img, dorso: 'rojo', boton: 'Guardar las balas' });
+  for (let i = 0; i < 3; i++) { await guardarBala(des[i], nueva(balas[i], 1)); await espera(120); }
+  if (Z.e.ban.length) await guardarBandeja();
+  T.ocupado = false; render();
 };
 botonReiniciar(() => { tienda(); S = []; $('#pNor').textContent = T.nor; render(); });
 // Tamaño de las fichas: el más grande que quepa sin desplazar la pantalla
@@ -265,5 +366,5 @@ function ajustar() {
   const vm = $('#vm'); vm.style.setProperty('--bf', Math.max(32, Math.min(46, $('#ban').clientHeight - 8)) + 'px');
   const r = $('#vid .prod .img'); if (r) $('#vid').style.setProperty('--pf', Math.max(28, Math.min(96, r.clientHeight * .85)) + 'px');
 }
-render(); ajustar(); addEventListener('resize', () => { ajustar(); });
+render(); ajustar(); addEventListener('resize', () => { ajustar(); if (T.esc) medirEscena(); });
 </script></body></html>

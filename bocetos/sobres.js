@@ -59,6 +59,8 @@ const APERTURAS = [
     f: [['El sobre se vacía en el tambor', 'cyl0'], ['El tambor gira', 'cyl1'], ['Disparo: sale la 1.ª', 'cyl2'], ['Las 3 en fila', 'cyl3']] },
   { n: 5, name: 'Tragamonedas', d: 'El sobre entra en una tragamonedas; 3 rodillos se detienen en tus balas y la rara enciende las luces.',
     f: [['El sobre entra por la ranura', 'slot0'], ['Giran 3 rodillos', 'slot1'], ['Paran uno por uno', 'slot2'], ['Luces: salió una rara', 'slot3']] },
+  { n: 6, name: 'Cartas boca abajo', d: 'Se rasga el sobre, salen 3 cartas boca abajo y se dan vuelta una por una; las raras brillan y suena la campana.',
+    f: [['Tocas el sobre', 'pack'], ['3 cartas boca abajo', 'fan'], ['Se dan vuelta', 'flip'], ['La rara brilla', 'flip']] },
 ];
 const PREMIO = ['oro', 'escarcha', 'hipnotica']; // la tercera es la rara
 function cuadro(kind, n) {
