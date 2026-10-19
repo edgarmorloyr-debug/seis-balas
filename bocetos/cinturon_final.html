@@ -45,6 +45,7 @@
 .cnt{font:700 14px/1 var(--hud);padding:3px 7px;border-radius:8px;background:#0d3a1e;color:#8dffaa;border:1px solid #5bd17a;text-transform:none;letter-spacing:0}
 .cnt.no{background:#0006;color:var(--bone-dim);border-color:#ffffff33}
 .belt{display:grid;grid-template-columns:repeat(4,calc(var(--ch) + 4px));gap:6px 10px;justify-content:center;padding:6px 8px;border-radius:12px}
+.belt.una{grid-template-columns:repeat(8,calc(var(--ch) + 4px));gap:6px}
 .reserva{display:grid;grid-template-columns:repeat(6,calc(var(--ch) + 4px));gap:6px;justify-content:center;padding:4px 6px;border-radius:12px;background:#0004;border:1px dashed #e0b07a55}
 .inv .slot{width:calc(var(--ch) + 4px);height:calc(var(--ch) + 4px)}
 .ficha-info{flex:1;min-height:46px;display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;background:#0b1f15cc;border:1px solid #ffffff22;overflow:hidden}
@@ -61,10 +62,13 @@
 @media (min-height:560px) and (orientation:landscape){.solo-alta{display:block}.ficha-info{align-items:flex-start}}
 @media (orientation:portrait){
   .top{flex-wrap:wrap;row-gap:6px;gap:6px}.top h1{flex-basis:100%;order:-1;font-size:20px}.top .sp{display:none}.top .pill{padding:0 8px}.top .btn{padding:0 12px}
-  .lay{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+  .lay{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
   .vm{grid-template-columns:1fr;grid-template-rows:auto 1fr auto auto;grid-template-areas:"let" "vid" "pan" "ban";padding:6px}
   .panel2{flex-direction:row}.pantalla{flex:1;min-height:48px;max-height:64px}.teclas{display:none}.ranura{height:auto;width:56px;flex-direction:column;justify-content:center}
   .bajo .main{min-width:130px}
+}
+@media (orientation:portrait) and (max-height:700px){
+  .panel2{display:none}.ficha-info{flex:none;height:48px;min-height:0}.ficha-info .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ficha-info .f{--ch:36px}
 }
 </style></head><body><div class="frame">
 <div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora y cinturón</h1><span class="sp"></span><span id="pills"></span><span class="pill" title="Balas normales en tu caja"><i class="bala"></i><b id="pNor">24</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
@@ -252,7 +256,12 @@ botonReiniciar(() => { tienda(); S = []; $('#pNor').textContent = T.nor; render(
 // Tamaño de las fichas: el más grande que quepa sin desplazar la pantalla
 function ajustar() {
   const inv = $('#inv'); let ch = 76;
-  for (; ch > 30; ch -= 2) { inv.style.setProperty('--ch', ch + 'px'); if (inv.scrollHeight <= inv.clientHeight + 1 && inv.scrollWidth <= inv.clientWidth + 1) break; }
+  const lay = $('.lay'), vert = matchMedia('(orientation:portrait)').matches;
+  const vm0 = $('#vm'), fijo = vm0.offsetHeight - $('#vid').clientHeight + 6;
+  // prueba el cinturón en 2 filas de 4 y en 1 fila de 8; se queda con el que deja las fichas más grandes
+  const cabe = () => inv.scrollWidth <= inv.clientWidth + 1 && (vert ? inv.offsetHeight <= Math.min(lay.clientHeight * .55, lay.clientHeight - fijo - 150) : inv.scrollHeight <= inv.clientHeight + 1);
+  const mejor = una => { $('#cin').classList.toggle('una', una); let c = 76; for (; c > 30; c -= 2) { inv.style.setProperty('--ch', c + 'px'); if (cabe()) break; } return c; };
+  const c8 = mejor(true); ch = mejor(false); if (c8 > ch) ch = mejor(true);
   const vm = $('#vm'); vm.style.setProperty('--bf', Math.max(32, Math.min(46, $('#ban').clientHeight - 8)) + 'px');
   const r = $('#vid .prod .img'); if (r) $('#vid').style.setProperty('--pf', Math.max(28, Math.min(96, r.clientHeight * .85)) + 'px');
 }
