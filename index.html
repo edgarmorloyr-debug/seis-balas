@@ -16273,7 +16273,7 @@ function buildCircus() {
     addBox(0, -29, 1.4, 0.85, 0.5);
     world.anims.push((dt, t) => { if (Math.random() < dt * (FAST() ? 1.5 : 4)) P.add(-0.9, 1.2, -29.6, rand(-0.2, 0.2), rand(0.6, 1.1), rand(-0.2, 0.2), 2.2, 0.3, 0.25, 0.24, 0.26, 0.35, -0.1, 0.4, 0.5, 0); }); }
   // Barriles y cajas sueltos
-  for (let i = 0; i < 12; i++) for (let k = 0; k < 30; k++) { const a = sr(0, TAU), r = sr(17, 39), x = Math.cos(a) * r, z = Math.sin(a) * r; if (freeSpot(x, z, 0.9) && !cirHueco(x, z)) { if (srand() < 0.5) crate(x, z, sr(0.8, 1.2), wood); else { M(cyl(0.45, 0.45, 1.1, 12), lam(pick([0xb02a2a, 0x2a4ab0, 0x2a2a2a])), x, 0.55, z, { solid: true }); addCircle(x, z, 0.5); } break; } }
+  for (let i = 0; i < 12; i++) for (let k = 0; k < 30; k++) { const a = sr(0, TAU), r = sr(17, 39), x = Math.cos(a) * r, z = Math.sin(a) * r; if (freeSpot(x, z, 0.9) && !cirHueco(x, z)) { if (srand() < 0.5) crate(x, z, sr(0.8, 1.2), wood); else { const c = pick([0xb02a2a, 0x2a4ab0, 0x2a2a2a]); if (world.m3dL.on) world.m3dL.pon(M3G.barrilP, x, z, x * 3 + z, 1.15, 0, null, null, c); else M(cyl(0.45, 0.45, 1.1, 12), lam(c), x, 0.55, z, { solid: true }); addCircle(x, z, 0.5); } break; } }
   mistField(16, 0xb8a0c8, 76);   // la valla redonda (ahora con huecos) la pone circoGrande
   for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.9; const x = Math.cos(a) * 40.5, z = Math.sin(a) * 40.5; if (!pointBlocked(x, z, 1)) world.spawns.push({ x, z, rise: true }); }
   world.spawns.push({ x: 0, z: 40.5, rise: false });
@@ -16918,10 +16918,11 @@ function circoGrande(K) {
   inst(remGeo, vcM, remL, { solid: true });
   inst(marketGeo([...jauBase, ...barras(false)]), vcM, jau.cer, { solid: true }); inst(marketGeo([...jauBase, ...barras(true)]), vcM, jau.rot, { solid: true });
   inst(camGeo, vcM, camL, { solid: true });
-  inst(B_(1.2, 0.82, 0.8), lam(0xffffff), heno); inst(gk('saco', () => { const g = new THREE.SphereGeometry(0.5, 7, 5); g.scale(1, 0.55, 0.75); return g; }), lam(0xffffff, { flatShading: true }), sacos);
-  inst(C_(0.45, 0.45, 1.1, 10), lam(0xffffff), barr, { solid: true }); inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), cajas, { solid: true });
+  if (world.m3dL.on) m3dLista(heno, M3G.heno, 0.82, 0.41); else inst(B_(1.2, 0.82, 0.8), lam(0xffffff), heno); inst(gk('saco', () => { const g = new THREE.SphereGeometry(0.5, 7, 5); g.scale(1, 0.55, 0.75); return g; }), lam(0xffffff, { flatShading: true }), sacos);
+  if (world.m3dL.on) { m3dLista(barr, M3G.barrilP, 1.15, 0.55, true); m3dLista(cajas, M3G.caja, 1, 0.5); }   // modelos 3D
+  else { inst(C_(0.45, 0.45, 1.1, 10), lam(0xffffff), barr, { solid: true }); inst(new THREE.BoxGeometry(1, 1, 1), lam(0xffffff), cajas, { solid: true }); }
   inst(gk('piedra', () => new THREE.DodecahedronGeometry(1, 0)), lam(0x5a5650, { flatShading: true }), piedras);
-  inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp);
+  if (world.m3dL.on) m3dLista(tr, M3G.roble, 6.4, 1.6); else { inst(C_(0.16, 0.28, 3.2, 6), lam(0x2e241b), tr); inst(gk('copa', () => { const g = new THREE.IcosahedronGeometry(2.2, 0); g.scale(1, 1.25, 1); return g; }), lam(0xffffff, { flatShading: true }), cp); }   // modelo 3D
 
   // ---- Todas las piezas quietas, juntas: pocas llamadas de dibujo
   if (PZ.s.length) M(marketGeo(PZ.s), lam(0xffffff, { vertexColors: true }), 0, 0, 0, { solid: true });
@@ -22366,6 +22367,7 @@ function bulbString(pts, colors) {
 function hangLine(a, b, y, sag, n) { const o = []; for (let i = 0; i <= n; i++) { const t = i / n; o.push([a[0] + (b[0] - a[0]) * t, y - Math.sin(t * Math.PI) * sag, a[1] + (b[1] - a[1]) * t]); } return o; }
 function crate(x, z, s = 1, mat) {
   const m = M(bx(s, s, s), mat, x, s / 2, z, { solid: true, ry: sr(0, 1) }); addCircle(x, z, s * 0.62);
+  m3dHijo(m, world.m3dCaja || M3G.caja, s, Math.round(x * 3 + z) & 1);   // modelo 3D (la caja se sigue rompiendo a tiros)
   // objeto rompible (PENDIENTES 47): a tiros se hace astillas; en grupo se rompe para todos y el oro es solo de quien la rompe
   const col = colliders[colliders.length - 1]; let golpes = BAL.rompibles.golpes; m.userData.vivo = 1;
   shootable(m, (pt) => {
