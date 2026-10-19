@@ -2318,7 +2318,6 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
         <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
-        <label for="z3d">Zombis en 3D</label><select id="z3d"><option value="si">Sí (los más cercanos)</option><option value="no">No (más fluido)</option></select>
         <span id="animp-lb">Animaciones 3D</span><button class="btn2" id="btn-animp" type="button">Probar animaciones</button>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select>
         <label for="vvol">Volumen de la voz</label><input type="range" id="vvol" min="0" max="1.5" step="0.05">
@@ -33512,7 +33511,8 @@ function animpCopiar() {
    Lo que lleva encima (casco, gorra, motosierra, hacha, cuchillos, placas, escudo…) pasa a los huesos del modelo.
    Si arrancan la cabeza o un brazo o una pierna, ese pedazo del modelo sale volando y en el modelo desaparece.
    Con muchos zombis a la vez (o con «Zombis en 3D: no» en Gráficos), los demás quedan de bloques, como antes. */
-const Z3D = { luz: 1.6, vivos: 0, on: /[?&]zombi3d\b/.test(location.search) || settings.z3d !== 'no', list: [], max: IS_TOUCH ? 14 : 26, ms: 0, piezas: {} };
+// decisión del dueño (19-oct-2026): los zombis vuelven a los modelos de antes; el 3D queda solo para los jefes. Se puede ver con ?zombi3d
+const Z3D = { luz: 1.6, vivos: 0, on: /[?&]zombi3d\b/.test(location.search), list: [], max: IS_TOUCH ? 14 : 26, ms: 0, piezas: {} };
 // por tipo: cuerpos posibles, ropa [camisa, pantalón] y forma (escala del pecho y de los brazos)
 const Z3D_TIPO = {
   walker: { c: ['zombi_h', 'zombi_h', 'zombi_m'], ropa: [[0x8a8a78, 0x4a4a52], [0x9a5a4a, 0x3a4a62], [0x5a6a7a, 0x4a3a30], [0xa8a898, 0x50503a], [0x7a3434, 0x3a3a40], [0x5a6a4a, 0x40362c]] },
@@ -35246,7 +35246,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -35330,7 +35330,7 @@ async function toggleFullscreen() {
 $('#btn-fs').addEventListener('click', toggleFullscreen); setTimeout(fsLabel);
 document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
 $('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
-$('#z3d').addEventListener('change', e => { settings.z3d = e.target.value; store.set('sb_z3d', settings.z3d); Z3D.on = settings.z3d !== 'no'; if (Z3D.on) for (const f of ZOMBI_FILES) p3dCargar(f); $('#pause-note').textContent = 'Los zombis nuevos ya salen así.'; });
+$('#z3d') && $('#z3d').addEventListener('change', e => { settings.z3d = e.target.value; store.set('sb_z3d', settings.z3d); Z3D.on = settings.z3d !== 'no'; if (Z3D.on) for (const f of ZOMBI_FILES) p3dCargar(f); $('#pause-note').textContent = 'Los zombis nuevos ya salen así.'; });
 $('#gfx').addEventListener('change', e => { settings.gfx = e.target.value; store.set('sb_gfx', settings.gfx); renderer.shadowMap.enabled = !FAST(); scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); }); $('#pause-note').textContent = 'Las luces de los faroles cambian al pasar al siguiente mapa.'; });
 
 /* ===================== CONTROLES ===================== */
@@ -35598,7 +35598,7 @@ function cfgRepartir() {
   set.hidden = true;
 }
 function cfgEn(dest) { cfgRepartir(); const b = $('#cfg-body'); if (b && b.parentNode !== dest) dest.prepend(b); }
-function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; $('#z3d').value = settings.z3d; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
+function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
 function cfgCerrar() { micTest(false); teclaEspera = null; show('inicio'); }
 // prueba de micrófono: una barra que sube con tu voz (no se envía a nadie)
 const MT = { st: null, ac: null, raf: 0 };
