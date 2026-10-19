@@ -12423,7 +12423,12 @@ function d3Piezas(scene, claveDe) {
   const grupos = new Map();
   scene.traverse(o => {
     if (!o.isMesh) return; const k = claveDe(o); if (k == null) return;
-    const geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld);
+    let geo = o.geometry.clone(); geo.applyMatrix4(o.matrixWorld);
+    for (const k in geo.attributes) { const a = geo.attributes[k]; if (!a.isInterleavedBufferAttribute) continue;   // (los .glb guardan los vértices entrelazados: se separan)
+      const n = a.count, z = a.itemSize, arr = new Float32Array(n * z), get = ['getX', 'getY', 'getZ', 'getW'];
+      for (let i = 0; i < n; i++) for (let j = 0; j < z; j++) arr[i * z + j] = a[get[j]](i);
+      geo.setAttribute(k, new THREE.BufferAttribute(arr, z)); }
+    if (!geo.attributes.normal) { if (geo.index) geo = geo.toNonIndexed(); geo.computeVertexNormals(); }   // modelos sin normales (más livianos): caras planas
     let g = grupos.get(k); if (!g) grupos.set(k, g = []); g.push({ geo, src: o.material });
   });
   const out = {};
@@ -13783,7 +13788,7 @@ const G3 = {
   manzano: { f: 'manzano' },
   calabaza: { f: 'calabaza' },
   tallada: { f: 'calabaza_tallada' },
-  pino: { f: 'pino' }
+  pino: { f: 'pino', color: 0x9fb3a6 }
 };
 function buildFarm() {
   world.arena = { t: 'r', hx: 82, hz: 82 }; world.start = { x: 2, z: 6 };   // la granja de siempre en el centro y tres zonas alrededor (granjaGrande)
