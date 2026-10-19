@@ -63,6 +63,9 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Probar la mecánica de «pool» roguelike: inventario finito, más combinaciones para subir de nivel.
 
 ### G3 · Expendedora, sobres y fichas
+- **Sobre azul de cartas (dueño, 19-oct-2026):** cada zombi tiene 3 % de soltar un sobre azul. Trae 3 cartas; cada carta sale así: 50 % nada (carta blanca), 10 % ficha de miembro, 5 % bala al azar, 3 % caja de balas normales, 5 % 3 balas, 10 % 12 balas, 7 % ficha de 25 $, 5 % una pistola de la tienda, 5 % un plato de comida. Solo se abre desde la interfaz de la tienda de balas y ocupa un espacio de la reserva de 6.
+
+
 - La expendedora vende: Sobres de balas especiales, Cajas de balas y «Oferta de hoy» (las balas disponibles, 1 por compra). Que se vea claro con imágenes cada producto del menú.
 - Animación cuando eliges las balas y salen de la máquina. Animación después de comprar un sobre.
 - Diseños de sobre y de animación de apertura: encuesta con 5 de cada uno.
@@ -70,6 +73,8 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Animaciones y sonidos para cada tipo de ficha según su función: jackpot, canje de oro, daño, destrucción de ficha, invocación, control.
 
 ### G4 · Contenido y presentación
+- **Perfil con indicadores de poder (dueño, 19-oct-2026):** en el perfil también salen los indicadores de poder que se ven al elegir personaje, más 3 nuevos: movimiento, crítico y suerte. Cada uno con una descripción corta al pasar el cursor o tocarlo.
+
 - Mapa nuevo: SUPER CUTE MALL.
 - Música de jefes («battle theme 1») y de minijefes («battle 2»).
 - Animaciones comiendo cada cosa.
