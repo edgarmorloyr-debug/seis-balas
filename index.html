@@ -25328,7 +25328,8 @@ function loadChamber(h, i) {
 }
 function resetHand(h, id) { const m = MODELS[id]; h.loaded = new Array(m.cap).fill(0); h.idx = 0; h.ammo = 0; if (h.active) for (let i = 0; i < m.cap; i++) if (h.loaded[i] === 0) loadChamber(h, i); h.full = true; h.cShots = h.cKills = 0; h.cd = 0; h.streak = 0; }
 function equip(id, quiet) {
-  if (game.equip) game.mag[game.equip] = hands.map(h => ({ loaded: h.loaded.slice(), idx: h.idx, ammo: h.ammo }));
+  if (game.equip && ARMERIA_IDS.includes(game.equip) && !game.habMini) { for (const h of hands) if (h.active) for (const b of h.loaded || []) if (isLoaded(b) && !String(b).endsWith('*')) game.box.push(b); game.mag[game.equip] = undefined; }   // G1b: al soltar un arma comprada, sus balas vuelven a la caja (nunca quedan atrapadas en un cargador de 150)
+  else if (game.equip) game.mag[game.equip] = hands.map(h => ({ loaded: h.loaded.slice(), idx: h.idx, ammo: h.ammo }));
   game.equip = id; game.dual = (game.owned[id] || 0) >= 2; if (MODEL_ORDER.includes(id)) game.rev = id;
   hands.forEach((h, i) => {
     buildGun(h, id); h.active = i === 0 || game.dual;
@@ -31296,7 +31297,7 @@ function palizaVer(fin) {
     g.strokeStyle = '#222'; g.lineWidth = 2; g.beginPath(); g.moveTo(W / 2, -10); g.lineTo(lx, ly); g.stroke(); g.fillStyle = '#ffe6a8'; g.beginPath(); g.arc(lx, ly + k * 0.02, k * 0.018, 0, TAU); g.fill();
     // el matón: silueta con el bate, se acerca y se echa atrás antes de cada golpe
     const ac = Math.min(1, s / 1.2), ciclo = golpes < P.golpes ? ((s - 1.2) % P.entre) / P.entre : 1, prep = s < 1.2 ? 0 : ciclo < 0.7 ? ciclo / 0.7 : 1 - (ciclo - 0.7) / 0.3;
-    const mx = W * (0.52 + sw * 0.03), my = H * (0.95 - ac * 0.12), ms = k * (0.55 + ac * 0.25);
+    const mx = W * (0.52 + sw * 0.03), my = H * (0.95 - ac * 0.12), ms = k * (0.42 + ac * 0.2);
     g.fillStyle = '#060404'; g.beginPath(); g.ellipse(mx, my - ms * 0.95, ms * 0.17, ms * 0.2, 0, 0, TAU); g.fill();
     g.beginPath(); g.moveTo(mx - ms * 0.42, my + ms * 0.2); g.quadraticCurveTo(mx - ms * 0.45, my - ms * 0.72, mx, my - ms * 0.75); g.quadraticCurveTo(mx + ms * 0.45, my - ms * 0.72, mx + ms * 0.42, my + ms * 0.2); g.fill();
     g.save(); g.translate(mx + ms * 0.3, my - ms * 0.5); g.rotate(-0.4 - prep * 1.1); g.fillStyle = '#6a3a1a'; g.fillRect(-ms * 0.03, -ms * 0.7, ms * 0.07, ms * 0.72); g.fillStyle = '#7a4520'; g.fillRect(-ms * 0.045, -ms * 0.72, ms * 0.09, ms * 0.3); g.restore();
@@ -31320,6 +31321,7 @@ function palizaVer(fin) {
     if (s >= tot || salta) { cancelAnimationFrame(raf); box.hidden = true; removeEventListener('resize', fit); box.onpointerdown = null; fin(); return; }
     raf = requestAnimationFrame(paso);
   };
+  palizaVer.foto = s => { fit(); golpes = s < 1.2 ? 0 : Math.min(P.golpes, 1 + Math.floor((s - 1.2) / P.entre)); dib(s); };   // para las fotos de prueba
   addEventListener('resize', fit);
   box.onpointerdown = () => { if ((performance.now() - t0) / 1000 > 2) salta = true; };   // un toque la acelera al final (no se salta del todo el primer golpe)
   raf = requestAnimationFrame(paso);
