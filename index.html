@@ -24938,7 +24938,7 @@ function newGame(sv, run) {
   game.prog0 = progresoFoto();
   if (!sv && !tuto) {   // Etapa 3: cuántos mapas tiene esta partida y con qué mapa empieza (al azar entre los abiertos)
     game.visita = run && run.visita != null ? run.visita : PRUEBA_CASINO ? PRUEBA_CASINO.v : visitaDe(game.diff); game.nMap = VISITA_MAPAS[game.visita];
-    game.route = [run && run.mapa0 != null ? run.mapa0 : pick(mapasAbiertos())];
+    game.route = [run && run.mapa0 != null && Net.on ? run.mapa0 : primerMapa()];   // G0-1: el Cementerio siempre es el mapa 1 (lo que se anuncia es lo que se carga)
   }
   sigApply();
   for (const k in game.owned) if (!MODELS[k]) delete game.owned[k];
@@ -28747,6 +28747,8 @@ function routeGift(k) {
 const MAP_QUITADOS = [2, 4, 5, 6, 7, 9, 10, 13, 14, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026; Circo 4, Rascacielos 9 y Zoológico 14, el 19-oct-2026)
 const MAP_EN_OBRA = [];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
 const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
+const MAPA_PRIMERO = 0;   // el Cementerio abre todas las partidas (pedido del dueño, 19-oct-2026)
+const primerMapa = () => MAP_WIP.has(MAPA_PRIMERO) ? mapasAbiertos()[0] : MAPA_PRIMERO;
 function routeOptions() {
   if (!runN()) {   // partidas viejas guardadas: el camino de antes (10 lugares y el rascacielos al final)
     const z = zoneOf(game.wave), last = !game.endless && z + 1 === MAP_COUNT - 1;
@@ -35217,7 +35219,7 @@ $('#btn-tu-menu').addEventListener('click', () => toMenu());
 // (antes el menú se quedaba congelado uno o dos segundos mientras se armaba). En grupo se arma enseguida, como antes, y solo se aclara con un fundido.
 let arrancando = false;
 function fundidoAntes(sv) {
-  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[mapForWave(w0, sv && sv.route)] || MAPS[0];
+  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])] || MAPS[0];
   $('#fade-s').textContent = sv && sv.wave ? `Oleada ${w0}` : 'Nivel 1'; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc || '';
   el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = '';
 }
@@ -35292,7 +35294,7 @@ $('#salas-list').addEventListener('click', e => { const b = e.target.closest('.s
 $('#room-code').addEventListener('keydown', e => { if (e.key === 'Enter') lobbyJoin(); });
 $('#btn-rs-pay').addEventListener('click', () => rescuePay(false));
 $('#btn-rs-cancel').addEventListener('click', () => { if (state === 'rescue') startHorde(false); });
-$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; { const d = Net.diffSel || META.diff; Net.run0 = { visita: visitaDe(d), mapa0: pick(mapasAbiertos()) }; Net.ev(['start', 0, DIFF_KEYS.indexOf(d), Net.run0.visita, Net.run0.mapa0]); } Net.flush(); startGame(); });
+$('#btn-go').addEventListener('click', () => { if (!Net.host || Net.started) return; Net.started = true; { const d = Net.diffSel || META.diff; Net.run0 = { visita: visitaDe(d), mapa0: primerMapa() }; Net.ev(['start', 0, DIFF_KEYS.indexOf(d), Net.run0.visita, Net.run0.mapa0]); } Net.flush(); startGame(); });
 $('#lobby-chars').addEventListener('click', e => { const b = e.target.closest('[data-ch]'); if (!b || b.disabled) return; Net.myChar = b.dataset.ch; Sfx.reel(); Net.flush(); renderLobby(); });
 $('#lobby-diff').addEventListener('click', e => { const b = e.target.closest('[data-ld]'); if (!b || !Net.host || !diffAbierta(b.dataset.ld)) return; Net.diffSel = b.dataset.ld; Net.flush(); renderLobby(); });
 $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause' && !tuto) saveBest(); toMenu(); });
