@@ -63,6 +63,7 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Probar la mecánica de «pool» roguelike: inventario finito, más combinaciones para subir de nivel.
 
 ### G3 · Expendedora, sobres y fichas
+- **Elegir cartas del sobre (dueño, 19-oct-2026):** al abrir cualquier sobre se ven las 3 cartas, pero solo te llevas algunas, al azar: 70 % eliges 1, 20 % eliges 2 y 10 % te llevas las 3. Al tocar o pasar el cursor por una carta se ve su efecto arriba, en la ventana de la máquina.
 - **Sobre azul de cartas (dueño, 19-oct-2026):** cada zombi tiene 3 % de soltar un sobre azul. Trae 3 cartas; cada carta sale así: 50 % nada (carta blanca), 10 % ficha de miembro, 5 % bala al azar, 3 % caja de balas normales, 5 % 3 balas, 10 % 12 balas, 7 % ficha de 25 $, 5 % una pistola de la tienda, 5 % un plato de comida. Solo se abre desde la interfaz de la tienda de balas y ocupa un espacio de la reserva de 6.
 
 
