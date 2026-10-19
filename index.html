@@ -24905,9 +24905,11 @@ function addGold(n, silent) {
   if (n > 0 && game.waveMod && game.waveMod.gold && game.phase === 'fight') n = Math.round(n * game.waveMod.gold);
   if (n > 0 && game.phase === 'fight' && zmodOn('gold')) n = Math.round(n * zmodOn('gold'));
   game.gold += n; game.goldTotal += n; if (n > 0 && !tuto) META.st.gold += n;
-  el.goldPop.textContent = '+' + n + ' $'; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on');
+  // G0-7: el «+N $» se pinta una vez por cuadro con la suma (antes cada moneda obligaba al navegador a recalcular la página: una explosión que mata a muchos daba tirones)
+  goldPop.n += n; if (!goldPop.raf) goldPop.raf = requestAnimationFrame(() => { goldPop.raf = 0; el.goldPop.textContent = '+' + goldPop.n + ' $'; goldPop.n = 0; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on'); });
   if (!silent && n >= 5) Sfx.coin();
 }
+const goldPop = { n: 0, raf: 0 };
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
@@ -25410,7 +25412,18 @@ const HAB_ARMAS = { johnny: DADO_ARMAS, carlos: ['minigun'], lilith: ['mp5'], lu
 const oroArmaMat = new THREE.MeshLambertMaterial({ color: 0xf2c440, emissive: 0x5a3a00 });
 function armaDorada() { for (const h of hands) if (h.active && h.k) h.k.traverse(o => { if (o.isMesh && o.material && !o.material.transparent) o.material = oroArmaMat; }); }
 const turnoOro = () => game && game.habK === 'turno' && game.habT > 0 && !!game.habMini;
+// G0-7: los premios y los charcos se preparan en la tarjeta gráfica al entrar al mapa (antes se preparaban en plena explosión y daban un tirón)
+function precalentarFx() {
+  const g = new THREE.Group(); g.position.set(0, 0, -3); camera.add(g); let ch = null;
+  try {
+    for (const t of Object.keys(PK)) { if (t === 'bag') continue; const a = t === 'moneda' ? MONEDAS[0][0] : 0, k = t + ':' + (t === 'bala' || t === 'moneda' ? a : ''); let pr = PK_PROTO.get(k); if (!pr) { pr = pkModelo(t, a); PK_PROTO.set(k, pr); } g.add(pr.clone()); }
+    ch = charcosLibres.pop() || new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 })); g.add(ch);
+    g.updateMatrixWorld(true); renderer.compile(scene, camera);
+  } catch (e) {}
+  camera.remove(g); if (ch) { g.remove(ch); charcosLibres.push(ch); }
+}
 function precalentarHab() {
+  precalentarFx();
   const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
   const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
   try {
