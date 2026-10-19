@@ -3153,7 +3153,8 @@ const PERSONAL_RX = /player\.hp|makePickup|addGold|game\.box|balGanar|heal|ammo|
 const fxShared = fn => { try { return !PERSONAL_RX.test(String(fn)); } catch (e) { return false; } };
 let mapFx = 0;
 const _mfx = new THREE.Vector3();
-function fxRun(shared, fn, args, remote) { const vis = Net.client && shared, g0 = game ? game.gold : 0; if (vis) mapFx++; try { return fn(...args); } finally { if (vis) mapFx--; if (remote && game) game.gold = g0; } }   // lo que hace un compañero nunca toca tu oro
+let fxRemoto = false;   // mientras se repite el efecto que hizo un compañero
+function fxRun(shared, fn, args, remote) { const vis = Net.client && shared, g0 = game ? game.gold : 0; if (vis) mapFx++; fxRemoto = !!remote; try { return fn(...args); } finally { fxRemoto = false; if (vis) mapFx--; if (remote && game) game.gold = g0; } }   // lo que hace un compañero nunca toca tu oro
 function shootable(mesh, fn) {
   const shared = fxShared(fn);
   mesh.userData.fxRun = (...a) => fxRun(shared, fn, a);
@@ -21998,7 +21999,22 @@ function bulbString(pts, colors) {
   return m;
 }
 function hangLine(a, b, y, sag, n) { const o = []; for (let i = 0; i <= n; i++) { const t = i / n; o.push([a[0] + (b[0] - a[0]) * t, y - Math.sin(t * Math.PI) * sag, a[1] + (b[1] - a[1]) * t]); } return o; }
-function crate(x, z, s = 1, mat) { const m = M(bx(s, s, s), mat, x, s / 2, z, { solid: true, ry: sr(0, 1) }); addCircle(x, z, s * 0.62); return m; }
+function crate(x, z, s = 1, mat) {
+  const m = M(bx(s, s, s), mat, x, s / 2, z, { solid: true, ry: sr(0, 1) }); addCircle(x, z, s * 0.62);
+  // objeto rompible (PENDIENTES 47): a tiros se hace astillas; en grupo se rompe para todos y el oro es solo de quien la rompe
+  const col = colliders[colliders.length - 1]; let golpes = BAL.rompibles.golpes; m.userData.vivo = 1;
+  shootable(m, (pt) => {
+    if (!m.parent) return; sparks(pt || m.position, 5, null); Sfx.thud && Sfx.thud(panOf(m.position)); if (--golpes > 0) return;
+    m.parent.remove(m); for (const L of [solids, world.shoots, colliders]) { const i = L.indexOf(L === colliders ? col : m); if (i >= 0) L.splice(i, 1); }
+    const c = m.material.color || { r: 0.6, g: 0.5, b: 0.3 };
+    for (let i = 0; i < 18; i++) P.add(x + rand(-0.3, 0.3), s * 0.5, z + rand(-0.3, 0.3), rand(-3, 3), rand(1, 4), rand(-3, 3), rand(0.6, 1.2), rand(0.06, 0.14), c.r, c.g, c.b, 1, 9.8, 0.4, 0, 1);
+    // lo que estaba apoyado encima se cae al suelo
+    for (const o of world.group.children) { if (!o.isMesh || o === m || Math.hypot(o.position.x - x, o.position.z - z) > s * 0.7) continue; if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox, base = o.position.y + bb.min.y * o.scale.y; if (Math.abs(base - s) > 0.15) continue; const y1 = o.position.y - s; let v = 0; world.anims.push((dt) => { if (o.position.y <= y1) return; v += 9.8 * dt; o.position.y = Math.max(y1, o.position.y - v * dt); }); }
+    cajaPremio(x, z);
+  });
+  return m;
+}
+function cajaPremio(x, z) { if (fxRemoto || !game || Math.random() >= BAL.rompibles.p) return; addGold(BAL.rompibles.oro); for (let i = 0; i < 8; i++) PA.add(x, 0.6, z, rand(-1.5, 1.5), rand(1.5, 3), rand(-1.5, 1.5), 0.8, 0.07, 1, 0.82, 0.25, 1, 4, 0, 0, 0); feed(`La caja tenía ${BAL.rompibles.oro} $`, 'gold'); }
 
 // ---- Lugar 5: el circo
 
@@ -22331,7 +22347,9 @@ const BAL = {
   // Máquinas de cartas de la Trastienda (pedido del dueño, 18-oct-2026). p = probabilidad de salir en cada visita (en la versión de prueba, 1 = siempre)
   // Trastienda (bocetos aprobados por el dueño, 19-oct-2026): carrera de caballos 6 % y duelo de dados 5 %; se apuestan fichas de miembro
   carrera: { p: 0.06, pagos: [2, 3, 4, 6], max: 5, dur: 8 },
-  dados: { p: 0.05, paga: 2, max: 5, porVisita: 3 },   // duelo de dados contra el crupier (empate: se vuelve a tirar)
+  dados: { p: 0.05, paga: 2, max: 5, porVisita: 3 },
+  empuje: { k: 6, max: 4, grandes: 0.25 },   // cada impacto empuja al zombi hacia atrás: velocidad = k × (daño / vida máxima), hasta max; los grandes ×grandes; los jefes no (PENDIENTES 47)
+  rompibles: { golpes: 2, p: 0.4, oro: 6 },   // las cajas se rompen a tiros (golpes) y a veces (p) dan oro al que la rompe (PENDIENTES 47)   // duelo de dados contra el crupier (empate: se vuelve a tirar)
   maquinas: {
     madame: { p: 0.5, fichas: 1, cartas: 3,   // sale como salía la puerta de Madame: 1 de cada 2 visitas   // cada carta: un premio y un castigo
       premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 80, zona: 30 } },
@@ -25797,6 +25815,7 @@ function damageZombie(z, amount, info) {
     info.part = 'body';
   }
   z.hp -= amount; z.flash = 0.1;
+  if (info.bullet && info.dir && !armorHit && z.boss == null && !Net.client && amount > 0) { const v = Math.min(BAL.empuje.max, BAL.empuje.k * amount / Math.max(1, z.maxHp)) * (z.def.big ? BAL.empuje.grandes : 1); z.kbx = (z.kbx || 0) + info.dir.x * v; z.kbz = (z.kbz || 0) + info.dir.z * v; }   // golpes que empujan (PENDIENTES 47)
   const head = info.part === 'head';
   if (info.bullet && info.point) {
     if (!armorHit && Math.random() < (head ? 0.6 : 0.3)) addSplat(z.root.position.x + (info.dir ? info.dir.x * 0.8 : 0), z.root.position.z + (info.dir ? info.dir.z * 0.8 : 0), rand(0.2, 0.42));
