@@ -207,8 +207,9 @@ body{font-family:var(--hud);font-size:16px}
 #animp .ap-nums .sel{background:rgba(214,165,75,.3);border-color:var(--brass);color:#ffd27a;box-shadow:inset 0 0 0 2px var(--brass)}
 #animp .note{flex:1 1 100%;margin:0;text-align:center;font-size:14px}
 #animp .ap-ft{flex:1 1 100%;max-width:640px;justify-content:center}
-#animp .ap-ft>*{flex:1;min-height:48px;font-size:15px;padding:0 8px}
+#animp .ap-ft>*{flex:1;min-height:48px;font-size:14px;padding:0 6px;letter-spacing:.02em}
 @media (min-width:900px) and (min-height:500px){#animp .ap-ft{flex:1 1 auto}#animp .note{flex:1 1 auto}}
+@media (max-height:420px){#animp{gap:4px 10px;padding-top:4px}#animp .note{display:none}#animp .ap-ft{flex:1 1 auto;max-width:none}#animp .ap-nums{flex:1 1 auto}}
 #tuto.ok{border-color:var(--toxic);border-left-color:var(--toxic)}
 #tuto.ok #tu-t{color:var(--toxic)}
 .tu-top{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center}
@@ -2106,7 +2107,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
     <div class="ap-fila"><button class="btn2" id="animp-ac-a" type="button" aria-label="Acción anterior">‹</button><b id="animp-ac"></b><button class="btn2" id="animp-ac-s" type="button" aria-label="Acción siguiente">›</button></div>
     <div class="ap-nums" id="animp-nums"></div>
     <p class="note" id="animp-msg" aria-live="polite"></p>
-    <div class="ap-fila ap-ft"><button class="btn2" id="animp-salir" type="button">Salir</button><button class="btn2" id="animp-copiar" type="button">Copiar elecciones</button><button class="btn" id="animp-otra" type="button">Repetir</button></div>
+    <div class="ap-fila ap-ft"><button class="btn2" id="animp-salir" type="button">Salir</button><button class="btn2" id="animp-copiar" type="button" aria-label="Copiar elecciones">Copiar</button><button class="btn" id="animp-otra" type="button">Repetir</button></div>
   </div>
   <div id="tuto" hidden aria-live="polite">
     <div class="tu-top"><span id="tu-step">Paso 1</span><h3 id="tu-t"></h3><button class="btn2" id="btn-tuto-skip" type="button" aria-label="Saltar tutorial">Saltar<span class="tu-lg"> tutorial</span></button></div>
@@ -33097,10 +33098,10 @@ function animpEntrar() {
   if (world.idx !== 0) buildMap(0);   // el Cementerio, sin zombis y sin tiempo
   state = 'animp'; ANIMP.on = true; show(null); el.hud.hidden = true; $('#touch').hidden = true; hands.forEach(h => h.root.visible = false);
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#animp').hidden = false; animpPoner();
+  $('#animp').hidden = false; $('#xh').style.visibility = 'hidden'; animpPoner();
 }
 function animpSalir() {
-  animpQuitar(); ANIMP.on = false; $('#animp').hidden = true; camera.clearViewOffset();
+  animpQuitar(); ANIMP.on = false; $('#animp').hidden = true; $('#xh').style.visibility = ''; camera.clearViewOffset();
   if (ANIMP_URL) history.replaceState(null, '', location.pathname);
   state = 'menu'; show('inicio');
 }
@@ -33124,7 +33125,7 @@ function animpArmar() {
   V.forEach((nom, i) => {
     const fi = Math.floor(i / cols), co = i % cols, enFila = Math.min(cols, n - fi * cols);
     const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); I.ch = P.f;
-    g.position.set((co - (enFila - 1) / 2) * ANIMP.sep, 0, -fi * ANIMP.fondo); scene.add(g);
+    g.position.set((co - (enFila - 1) / 2 + (fi % 2 ? 0.5 : 0)) * ANIMP.sep, 0, -fi * ANIMP.fondo); scene.add(g);   // las filas de atrás van corridas medio lugar: no quedan tapadas
     // el número encima de cada copia (el mismo que el botón para elegirla)
     const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
     x.fillStyle = 'rgba(14,11,9,.85)'; x.beginPath(); x.arc(32, 32, 30, 0, TAU); x.fill(); x.font = 'bold 36px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffd27a'; x.fillText(String(i + 1), 32, 34);
@@ -33149,11 +33150,11 @@ function animpPaso(dt) {
   }
   // la cámara mira a todas las copias; el panel de abajo no las tapa
   const ui = $('#animp'), ph = ui ? ui.offsetHeight : 0, W = innerWidth, H = Math.max(1, innerHeight - ph);
-  const ancho = (ANIMP.cols - 1) * ANIMP.sep + 1.4, hondo = (ANIMP.filas - 1) * ANIMP.fondo;
-  const fov = THREE.MathUtils.degToRad(camera.fov), asp = W / H, tv = Math.tan(fov / 2);
-  const d = Math.max(ancho / 2 / (tv * asp), (2.4 + hondo * 0.35) / 2 / tv) + 1.2;
-  camera.setViewOffset(W, innerHeight + ph, 0, ph, W, innerHeight);
-  camera.position.set(0, 1.5 + hondo * 0.45, d); camera.lookAt(0, 0.95, -hondo / 2);
+  const ancho = (ANIMP.cols - 1 + (ANIMP.filas > 1 ? 0.5 : 0)) * ANIMP.sep + 1.4, hondo = (ANIMP.filas - 1) * ANIMP.fondo;
+  const Hf = innerHeight + ph, tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), th = tv * W / Hf, tvv = tv * H / Hf;   // la parte libre (sobre el panel) de la vista
+  const d = Math.max(ancho / 2 / th, 2.6 / 2 / tvv) + 1.2;
+  camera.setViewOffset(W, Hf, 0, ph, W, innerHeight);
+  camera.position.set(ANIMP.filas > 1 ? ANIMP.sep / 4 : 0, 1.6 + hondo * 0.8, d); camera.lookAt(ANIMP.filas > 1 ? ANIMP.sep / 4 : 0, 0.9, -hondo / 2);
 }
 // el panel: personaje, acción y los números para elegir
 function animpUi() {
