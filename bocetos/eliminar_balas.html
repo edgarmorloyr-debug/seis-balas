@@ -1,0 +1,53 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Encuesta: qué balas se quedan</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1a120c;color:#f3e6cf;font:15px system-ui,sans-serif}
+.app{display:flex;flex-direction:column;height:100%;padding:6px;gap:6px}
+.top{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#fil{display:flex;gap:4px;flex-wrap:wrap}
+@media (max-width:560px){.top h1{width:100%}.bot .pg{display:none}#fil button{padding:0 7px}}
+.top h1{font-size:16px;margin:0 6px 0 2px;white-space:nowrap;color:#ffd98a}
+.top .sp{flex:1}
+button{min-height:48px;border-radius:10px;border:1px solid #6b4a2a;background:#2a1c12;color:#f3e6cf;font:600 14px system-ui;padding:0 10px;cursor:pointer}
+button.on{border-color:#e9b25a;background:#5a3a1c;color:#ffd98a}
+.main{background:#f08a24;border:0;color:#1a0f05;font-weight:700}
+.cnt{font-size:14px;white-space:nowrap}
+.grid{flex:1;display:grid;gap:6px;min-height:0}
+.c{display:flex;gap:8px;align-items:center;border:2px solid #4a3320;border-radius:10px;background:#24180f;padding:6px;min-height:0;overflow:hidden;cursor:pointer;position:relative}
+.c.fuera{opacity:.45;border-color:#8a2b2b;background:#1c0f0f}
+.c.fuera::after{content:"SE VA";position:absolute;right:6px;top:6px;background:#a32626;color:#fff;font:700 14px system-ui;padding:2px 6px;border-radius:6px}
+.c svg{width:44px;height:44px;flex:none}
+.c .t{min-width:0;display:flex;flex-direction:column;gap:2px}
+.c b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c .r{font-size:14px}
+.c .d{font-size:14px;line-height:1.2;color:#d9c6a6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bot{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.bot .pg{flex:1;text-align:center;font-size:14px}
+.msg{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#0d2b14;border:1px solid #4cc46a;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%}
+</style></head><body><div class="app">
+<div class="top"><h1>¿Qué balas se quedan?</h1><span id="fil"></span><span class="sp"></span><span class="cnt" id="cnt"></span></div>
+<div class="grid" id="g"></div>
+<div class="bot"><button id="ant">Anterior</button><span class="pg" id="pg"></span><button id="sig">Siguiente</button><button id="res">Reiniciar</button><button class="main" id="cop">Copiar mi lista</button></div>
+</div><div class="msg" id="msg"></div>
+<script src="fichas.js"></script>
+<script>
+const K='enc_eliminar_balas';let fuera={};try{fuera=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
+let filtro='todas',pag=0;
+const ids=()=>LISTA85.filter(k=>filtro==='todas'||DATOS[k][1]===filtro).sort((a,b)=>RORD[DATOS[a][1]]-RORD[DATOS[b][1]]||DATOS[a][0].localeCompare(DATOS[b][0]));
+function porPag(){const w=innerWidth,h=innerHeight;const cols=w>=1000?4:w>=700?3:w>=560?2:1;const fila=w<560?78:70;const top=document.querySelector(".top").offsetHeight+document.querySelector(".bot").offsetHeight+24;const rows=Math.max(2,Math.floor((h-top)/fila));return{cols,rows,n:cols*rows}}
+function guarda(){try{localStorage.setItem(K,JSON.stringify(fuera))}catch(e){}}
+function pinta(){const L=ids(),P=porPag(),tot=Math.max(1,Math.ceil(L.length/P.n));if(pag>=tot)pag=tot-1;
+const g=document.getElementById('g');g.style.gridTemplateColumns=`repeat(${P.cols},1fr)`;g.style.gridTemplateRows=`repeat(${P.rows},1fr)`;g.innerHTML='';
+L.slice(pag*P.n,pag*P.n+P.n).forEach(k=>{const D=DATOS[k],c=document.createElement('div');c.className='c'+(fuera[k]?' fuera':'');c.title=D[0]+' · Nv 1: '+D[4][0]+' · Nv 4: '+D[4][3];
+c.innerHTML=fichaSVG(k)+`<div class="t"><b>${D[0]}</b><span class="r" style="color:${RAREZA[D[1]]}">${RNOM[D[1]]} · ${D[2]?'Activa':'Pasiva'}</span><span class="d">${D[4][0]}</span></div>`;
+c.onclick=()=>{fuera[k]=!fuera[k];if(!fuera[k])delete fuera[k];guarda();pinta()};g.appendChild(c)});
+document.getElementById('pg').textContent=`Página ${pag+1} de ${tot} · toca una bala para quitarla`;
+const n=Object.keys(fuera).length;document.getElementById('cnt').textContent=`Se van ${n} · se quedan ${LISTA85.length-n}`;
+const f=document.getElementById('fil');f.innerHTML='';[['todas','Todas'],['C','Común'],['B','Poco común'],['A','Rara'],['S','Legendaria']].forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.className=filtro===v?'on':'';b.onclick=()=>{filtro=v;pag=0;pinta()};f.appendChild(b)})}
+document.getElementById('ant').onclick=()=>{if(pag>0){pag--;pinta()}};
+document.getElementById('sig').onclick=()=>{pag++;const P=porPag();if(pag*P.n>=ids().length)pag=0;pinta()};
+document.getElementById('res').onclick=()=>{fuera={};guarda();pinta()};
+document.getElementById('cop').onclick=()=>{const q=Object.keys(fuera).map(k=>DATOS[k][0]);const txt='Balas que se van ('+q.length+'): '+(q.join(', ')||'ninguna');
+const ok=()=>{const m=document.getElementById('msg');m.textContent='Copiado. Pégalo en el chat.';m.style.display='block';setTimeout(()=>m.style.display='none',2500)};
+if(navigator.clipboard)navigator.clipboard.writeText(txt).then(ok,()=>prompt('Copia este texto:',txt));else prompt('Copia este texto:',txt)};
+addEventListener('resize',pinta);pinta();
+</script></body></html>
