@@ -8470,9 +8470,10 @@ function tokyoTaxi(x, z, ry, col, mats, wheels, hz, o = {}) {
   M(bx(0.5, 0.26, 0.28), mats.lamp, -0.1, 1.82, 0, { p: g, cast: false });
   M(bx(0.06, 0.18, 1.5), mats.head, 2.21, 0.72, 0, { p: g, cast: false });
   M(bx(0.06, 0.16, 1.5), mats.tail, -2.21, 0.75, 0, { p: g, cast: false });
-  for (const sx of [-1.4, 1.4]) for (const sz of [-0.85, 0.85]) { const p = lw(g, sx, sz); wheels.push([p.x, 0.36, p.z, ry]); }
+  if (!M3D.on) for (const sx of [-1.4, 1.4]) for (const sz of [-0.85, 0.85]) { const p = lw(g, sx, sz); wheels.push([p.x, 0.36, p.z, ry]); }
   for (const sz of [-0.7, 0.7]) { const a = lw(g, 2.2, sz), b = lw(g, -2.2, sz); hz.push(a.x, 0.75, a.z, b.x, 0.75, b.z); }
-  if (o.door) { const d = new THREE.Group(); const p = lw(g, 0.2, 0.88); d.position.set(p.x, 0, p.z); d.rotation.y = ry + 0.9; world.group.add(d); M(bx(1.1, 0.95, 0.06), body, -0.55, 0.85, 0, { p: d, cast: false }); }
+  m3dHijo(g, M3G.cocheX, 4.4, 0, { ocultar: g.children.slice(), color: body.color.getHex() });   // modelo 3D: el taxi (coche de verdad pintado del color del taxi)
+  if (o.door && !M3D.on) { const d = new THREE.Group(); const p = lw(g, 0.2, 0.88); d.position.set(p.x, 0, p.z); d.rotation.y = ry + 0.9; world.group.add(d); M(bx(1.1, 0.95, 0.06), body, -0.55, 0.85, 0, { p: d, cast: false }); }
   addBox(x, z, 2.25, 0.95, ry);
   return g;
 }
@@ -8804,6 +8805,7 @@ function buildTokyo() {
     M(bx(0.26, 0.25, 0.4), br, 0, 2.18, 1.15, { p: g });
     for (const s of [-1, 1]) M(bx(0.1, 0.26, 0.16), br, s * 0.18, 2.66, 0.66, { p: g });
     for (const s of [-1, 1]) M(bx(0.16, 0.6, 0.16), br, s * 0.22, 1.5, 0.55, { p: g });
+    m3dHijo(g, M3G.perroEstatua, 2.9, 0, { ocultar: g.children.slice(), color: 0x6a7a58 });   // modelo 3D: el perro fiel de bronce en su pedestal
     // flores y velas que alguien dejó
     const fl = []; for (let i = 0; i < 10; i++) { const p = lw(g, sr(-1.1, 1.1), 1.35 + sr(0, 0.3)); fl.push([p.x, 0.08, p.z, sr(0, 3), 1, 1, 1]); }
     const fIM = inst(new THREE.SphereGeometry(0.12, 6, 4), lam(0xffffff), fl); fl.forEach((f, i) => fIM.setColorAt(i, cc.setHex(pick([0xff6080, 0xffe040, 0xffffff, 0xff8020])))); fIM.instanceColor.needsUpdate = true;
@@ -8819,12 +8821,14 @@ function buildTokyo() {
     const wh = [], fr = [], sd = [];
     bikes.forEach(([x, z, r, fallen]) => {
       const c = Math.cos(r), s = Math.sin(r);
+      const k = !fallen && world.m3dL.on ? 0 : 1;   // modelo 3D: las aparcadas son bicis de verdad (las piezas de antes quedan a tamaño 0: mismo azar)
+      if (!k) world.m3dL.pon(M3G.bici, x, z, r, 1.75, 0, 0, null, [0xc02020, 0x2a5aa0, 0xe8e8e8, 0x3a8a4a, 0xd8b020][Math.abs(Math.round(x)) % 5]);
       for (const d of [-0.52, 0.52]) {
         if (fallen) wh.push([x + c * d, 0.04, z - s * d, r, 1, 1, 1, -Math.PI / 2]);
-        else wh.push([x + c * d, 0.34, z - s * d, r]);
+        else wh.push([x + c * d, 0.34, z - s * d, r, k, k, k]);
       }
       if (fallen) { fr.push([x, 0.08, z, r, 1, 1, 1, -Math.PI / 2]); }
-      else { fr.push([x, 0.55, z, r]); sd.push([x - c * 0.25, 0.92, z + s * 0.25, r]); sd.push([x + c * 0.45, 1.0, z - s * 0.45, r + Math.PI / 2]); }
+      else { fr.push([x, 0.55, z, r, k, k, k]); sd.push([x - c * 0.25, 0.92, z + s * 0.25, r, k, k, k]); sd.push([x + c * 0.45, 1.0, z - s * 0.45, r + Math.PI / 2, k, k, k]); }
     });
     inst(new THREE.TorusGeometry(0.33, 0.03, 4, 14), lam(0x1a1a1a), wh);
     const frIM = inst(bx(1.0, 0.06, 0.05), lam(0xffffff), fr); fr.forEach((f, i) => frIM.setColorAt(i, cc.setHex(pick([0xc02020, 0x2a5aa0, 0xe8e8e8, 0x3a8a4a, 0xd8b020])))); frIM.instanceColor.needsUpdate = true;
@@ -9083,8 +9087,9 @@ function buildTokyo() {
     M(bx(11.4, 0.9, 2.52), lam(0x10161e), 0, 2.3, 0, { p: g, cast: false });
     M(bx(12, 0.3, 2.52), lam(0x2a8a5a), 0, 1.15, 0, { p: g, cast: false });
     M(bx(0.05, 0.4, 2.0), bsc(0xffa020), 6.02, 2.95, 0, { p: g, cast: false });
-    for (const sx of [-4.2, 4.2]) for (const sz of [-1.2, 1.2]) { const p = lw(g, sx, sz); wheels.push([p.x, 0.5, p.z, 0.06, 1.35, 1.35, 1.35]); }
+    if (!M3D.on) for (const sx of [-4.2, 4.2]) for (const sz of [-1.2, 1.2]) { const p = lw(g, sx, sz); wheels.push([p.x, 0.5, p.z, 0.06, 1.35, 1.35, 1.35]); }
     addBox(0, 38.6, 6.1, 1.35, 0.06);
+    m3dHijo(g, M3G.autobus, 12, 0, { ocultar: g.children.slice(), color: 0xe8e4d8 });   // modelo 3D: el autobús atravesado
   }
   inst(cyl(0.36, 0.36, 0.26, 10), lam(0x111111), wheels.map(w => [w[0], w[1], w[2], w[3], w[4] || 1, w[6] || 1, w[5] || 1, Math.PI / 2]));
   const hzPts = pts(hzP, 0xffa020, 1.4, 0.9);
