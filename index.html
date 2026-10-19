@@ -5004,10 +5004,12 @@ function buildMap(i) {
   colliders.length = 0; solids.length = 0;
   world.spawns = []; world.anims = []; world.mists = []; world.mix = {}; world.indoor = false; world.hat = null; world.hatP = 0; world.shirts = SHIRTS;
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null; world.zonas = null;
-  world.idx = i; world.maidSpots = null; world.d3 = null; srand = mulberry32(1866 + i * 977);
+  world.idx = i; world.maidSpots = null; world.m3d = null; srand = mulberry32(1866 + i * 977);
+  const L3 = world.m3dL = m3dLote();   // modelos 3D del mapa: cada constructor anota dónde va cada uno
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
   ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
   moonMesh.visible = moonHalo.visible = !world.noMoon;
+  L3.fin();
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
   buildNav();
@@ -12345,11 +12347,44 @@ function buildOcean() {
 
 // DESC: Donde empezó todo. Las tumbas se abren y la campana de la capilla todavía suena.
 // Junta en mallas instanciadas todas las piezas de un grupo temporal (mismas geometría y material = una sola malla)
-/* ===== Prueba rápida «?demo3d=1»: modelos 3D de verdad (Sketchfab, licencia CC BY; autores en docs/CREDITOS_3D.md)
-   en el cementerio: lápidas, cruces, árboles secos, faroles y mausoleos. Sin la bandera en la dirección, nada cambia.
-   Cada modelo se dibuja con UNA malla instanciada por pieza (todas las lápidas iguales salen en una sola llamada). */
-const DEMO3D = { on: /[?&]demo3d=1\b/.test(location.search), P: null, esperan: [], cargando: false };
+/* ===== Modelos 3D de verdad en los mapas (Sketchfab / BlendSwap, licencias CC0 y CC BY; autores en docs/CREDITOS_3D.md
+   y en Configuración → Gráficos). Cada mapa anota dónde va cada modelo mientras se construye («lote»); los archivos de
+   ESE mapa se bajan solo al entrar (y quedan guardados) y cada pieza se dibuja con UNA malla instanciada.
+   Lo que se reemplaza se quita del dibujo pero sus choques, caminos, apariciones y escondites quedan igual.
+   Con «?sin3d=1» en la dirección se ve el mapa de antes (para comparar). */
+const M3D = { on: !/[?&]sin3d\b/.test(location.search), gltf: {}, piezas: {} };
+// [archivo, modelo, autor, licencia, dirección]: la lista de créditos que se muestra en el juego
+const M3D_CRED = [
+  ["lapidas", "Stylized Tombstones", "George Hager", "CC BY 4.0", "https://sketchfab.com/3d-models/stylized-tombstones-44b8e3ce8d0842b395d80c5b76bd5d7e"],
+  ["cruces", "Haunted Cemetery Low Poly: Game Asset Pack", "ronildo.facanha", "CC BY 4.0", "https://sketchfab.com/3d-models/haunted-cemetery-low-poly-game-asset-pack-da41bb9f2ffe42fb8a69438e92dd2936"],
+  ["mausoleo", "Mausoleum stylized", "Arhokis", "CC BY 4.0", "https://sketchfab.com/3d-models/mausoleum-stylized-5d7521e81fd149ba9ecd6d241849b2a6"],
+  ["arbol_seco", "Low Poly: Dead Tree", "ClintonAbbott.Art", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-dead-tree-addc2aef9e534a93a8798320fea440ef"],
+  ["farol", "Stylized Street Light", "WillowBoxArt", "CC BY 4.0", "https://sketchfab.com/3d-models/stylized-street-light-877c0ac0ad414ac1a9c9f7689add01c4"],
+  ["calabaza", "Pumpkin", "SleepyPineapple", "CC BY 4.0", "https://sketchfab.com/3d-models/pumpkin-79f906eceb3640bf8729b903cdd47f9b"],
+  ["calabaza_tallada", "Pumpkin Lowpoly", "Yumy Cubillos", "CC BY 4.0", "https://sketchfab.com/3d-models/pumpkin-lowpoly-4ba264c53df944efbd977072a2637d91"],
+  ["manzano", "Apple tree Low-poly 3D model", "Gunther", "CC BY 4.0", "https://sketchfab.com/3d-models/apple-tree-low-poly-3d-model-956713eaab454decb4081fa38dfdb84b"],
+  ["pino", "Low Poly Pine", "Afloat Above the World", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-pine-107e3eab9dcb4e29a282c6709178752f"],
+  ["fardos", "Free Pack - Stylized Hay Bale", "PolyOne Studio", "CC BY 4.0", "https://sketchfab.com/3d-models/free-pack-stylized-hay-bale-036289580a6a467b9705cd9a311747c1"],
+  ["arboles", "Low Poly Trees", "reymarch", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-trees-2e70c34af8994852acd4b9ffce596336"],
+  ["coche", "Low-poly Car", "BUKKBEEK", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-car-8e500541f5e341b3a7ad86b08a5aaeab"],
+  ["camioneta", "Low Poly Pickup Truck 2", "Aditya Voxel", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-pickup-truck-2-4d29173e76624021b80630db2cf089df"],
+  ["carrito", "Shopping Cart", "AdrianXY", "CC BY 4.0", "https://sketchfab.com/3d-models/shopping-cart-b96f896453b240ae804d0399f1faf027"],
+  ["cajas_barril", "Stylized Low Poly Wooden Boxes And Barrel", "sdvtljkrgv", "CC BY 4.0", "https://sketchfab.com/3d-models/stylized-low-poly-wooden-boxes-and-barrel-1c5dabaacc6949da8bf809b3e463bcf3"],
+  ["banco", "Wooden Park Bench", "TheMadraver", "CC BY 4.0", "https://sketchfab.com/3d-models/wooden-park-bench-e53ad46c604c44e59a98bad27041cb19"],
+  ["papelera", "Trash can", "Tiago Lopes", "CC BY 4.0", "https://sketchfab.com/3d-models/trash-can-269cc79ce7ca4dcf88030e7b7151dc36"],
+  ["bidon", "Oil Drum", "Heisenberg", "CC BY 4.0", "https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca"],
+  ["tumbona", "Sun Lounger", "GeniusPilot2016", "CC BY 4.0", "https://sketchfab.com/3d-models/sun-lounger-5f05a3c301e5426cbc33a257d706d4cf"],
+  ["tanque_agua", "Wooden Water Tower", "BytesCrafter", "CC BY 4.0", "https://sketchfab.com/3d-models/wooden-water-tower-ce4de11b50164c3abf65de2d6c51b872"],
+  ["linterna_piedra", "Old Japanese Lamp", "MarcHoogkamp", "CC BY 4.0", "https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db"],
+  ["cerezo", "Low- Poly Cherry Blossom Tree 3D Models", "lsclarke", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cherry-blossom-tree-3d-models-4b76fd63c81e4d489cc06ec66c12a866"],
+  ["palmera", "Coconut Tree", "sujirour", "CC BY 4.0", "https://sketchfab.com/3d-models/coconut-tree-d141941578044b0f861ca83b36d4c411"],
+];
+function m3dArchivo(n) {
+  if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
+  return M3D.gltf[n];
+}
 // junta las mallas de un modelo en «piezas» (una por objeto), con el pie en el suelo y centradas en x/z
+// clave: 'una' = todo el modelo es una pieza · 'nodo' = una por objeto (padre de la malla) · número n = se separan por su x (cada n unidades)
 function d3Piezas(scene, claveDe) {
   scene.updateMatrixWorld(true);
   const grupos = new Map();
@@ -12363,70 +12398,156 @@ function d3Piezas(scene, claveDe) {
     const b = new THREE.Box3(); parts.forEach(p => { p.geo.computeBoundingBox(); b.union(p.geo.boundingBox); });
     const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
     parts.forEach(p => { p.geo.translate(-c.x, -b.min.y, -c.z); p.geo.computeBoundingSphere(); });
-    out[k] = { parts, w: s.x, h: s.y, d: s.z };
+    out[k] = { k, parts, w: s.x, h: s.y, d: s.z };
   }
   return out;
 }
-function demo3dCargar() {
-  if (!DEMO3D.on || DEMO3D.cargando || !THREE.GLTFLoader) return; DEMO3D.cargando = true;
-  const bajar = n => new Promise(ok => new THREE.GLTFLoader().load(`modelos/demo3d/${n}.glb`, ok, undefined, () => ok(null)));
-  Promise.all(['lapidas', 'cruces', 'mausoleo', 'arbol_seco', 'farol'].map(bajar)).then(([lap, cru, mau, arb, far]) => {
-    const P = { tumbas: [] };
-    // «Stylized Tombstones»: tres lápidas puestas en fila (se separan por su posición)
-    if (lap) { const q = d3Piezas(lap.scene, o => { const b = new THREE.Box3().setFromObject(o); return Math.round((b.min.x + b.max.x) / 2 / 50); }); for (const k in q) { const v = q[k]; v.alto = +k === 1 ? [1.9, 2.3] : [1.15, 1.5]; P.tumbas.push(v); } }   // la del medio es la cruz celta
-    // «Haunted Cemetery Low Poly»: solo las cruces, obeliscos y lápidas (sin textura: se pintan de piedra)
-    if (cru) { const usar = /^(Cross[123]|Obelisk1|Tombstone[123])_/; const q = d3Piezas(cru.scene, o => o.parent && usar.test(o.parent.name) ? o.parent.name : null); for (const k in q) { const v = q[k]; v.piedra = true; v.alto = /Cross3|Obelisk/.test(k) ? [1.7, 2.1] : /Cross/.test(k) ? [1.3, 1.7] : [1.1, 1.4]; P.tumbas.push(v); } }
-    if (mau) P.mausoleo = Object.values(d3Piezas(mau.scene, () => 0))[0];
-    if (arb) P.arbol = Object.values(d3Piezas(arb.scene, () => 0))[0];
-    if (far) { P.farol = Object.values(d3Piezas(far.scene, () => 0))[0]; const luz = P.farol.parts.find(p => /Emission/i.test(p.src.name)); if (luz) { luz.geo.computeBoundingBox(); const c = luz.geo.boundingBox.getCenter(new THREE.Vector3()); P.farol.cabeza = c; } }
-    DEMO3D.P = P;
-    for (const f of DEMO3D.esperan.splice(0)) f();
+// las piezas de un archivo (se calculan una vez): spec = { f, clave, usar (expresión con los nombres que sirven) }
+function m3dPiezas(S) {
+  const id = S.f + '|' + (S.clave || 'una') + '|' + (S.usar || '');
+  if (!M3D.piezas[id]) M3D.piezas[id] = m3dArchivo(S.f).then(g => {
+    if (!g) return [];
+    const cl = S.clave || 'una', usar = S.usar ? new RegExp(S.usar) : null;
+    const nombre = o => (o.parent && o.parent.name && !o.parent.isScene ? o.parent.name : o.name) || '';
+    const q = d3Piezas(g.scene, o => {
+      const nm = nombre(o); if (usar && !usar.test(o.name + '|' + nm)) return null;
+      if (cl === 'una') return 0; if (cl === 'nodo') return nm;
+      const b = new THREE.Box3().setFromObject(o); return Math.round((b.min.x + b.max.x) / 2 / cl);
+    });
+    return Object.keys(q).sort().map(k => q[k]);
   });
+  return M3D.piezas[id];
 }
-demo3dCargar();
 // material del juego (Lambert, sin brillos) a partir del material del modelo
-function d3Mat(p, piedra) {
+function d3Mat(p, S) {
   const m = p.src;
-  if (/Emission/i.test(m.name)) return bsc(0xffd890);
-  if (piedra) return lam(/Wood/i.test(m.name) ? 0x4a3626 : 0x8a8880, { flatShading: true });
+  if (/Emission|Emissive|Glow|Light_?Bulb/i.test(m.name) || S.brilla && S.brilla.test(m.name)) return bsc(S.luz || 0xffd890);
+  if (S.tinte != null) return lam(S.tinte, { flatShading: true });
   const map = m.map || null; if (map) { map.encoding = THREE.LinearEncoding; map.needsUpdate = true; }
-  return lam(map ? 0xffffff : m.color.getHex(), { map });
+  const o = { map, flatShading: !!m.flatShading || !p.geo.attributes.normal }; if (m.vertexColors) o.vertexColors = true; if (m.transparent || m.alphaTest) { o.alphaTest = 0.5; o.side = THREE.DoubleSide; }
+  const c = new THREE.Color(map ? 0xffffff : m.color.getHex()); if (S.color != null) c.multiply(new THREE.Color(S.color));
+  return lam(c, o);
 }
-// pone copias de una pieza: lista de [x, z, giro, escala]
-function d3Poner(v, lista, sombra = true, solido = true) {
+// pone copias de una pieza: lista de [x, z, giro, escala, y, matriz (opcional, manda sobre x/z/giro), color (opcional)]
+// spec.pinta: expresión con los materiales que se tiñen con el color de cada copia (la carrocería de un coche)
+const _d3S = new THREE.Matrix4(), _d3C = new THREE.Color(), _d3W = new THREE.Color(0xffffff);
+function d3Poner(v, lista, S) {
   if (!v || !lista.length) return;
-  const O = new THREE.Object3D();
+  const O = new THREE.Object3D(), pinta = S.pinta ? new RegExp(S.pinta) : null;
   for (const p of v.parts) {
-    const im = new THREE.InstancedMesh(p.geo, d3Mat(p, v.piedra), lista.length);
-    lista.forEach(([x, z, ry, s, y = 0], i) => { O.position.set(x, y, z); O.rotation.set(0, ry, 0); O.scale.setScalar(s); O.updateMatrix(); im.setMatrixAt(i, O.matrix); });
-    im.frustumCulled = false; im.castShadow = sombra; im.receiveShadow = true; world.group.add(im);
-    if (solido) solids.push(im);
+    const im = new THREE.InstancedMesh(p.geo, d3Mat(p, S), lista.length);
+    lista.forEach(([x, z, ry, s, y = 0, m, c], i) => {
+      if (m) { O.matrix.multiplyMatrices(m, _d3S.makeScale(s, s, s)); } else { O.position.set(x, y, z); O.rotation.set(0, ry, 0); O.scale.setScalar(s); O.updateMatrix(); }
+      im.setMatrixAt(i, O.matrix);
+      if (pinta && pinta.test(p.src.name)) { _d3C.setHex(c != null ? c : 0xffffff); if (S.aclara) _d3C.lerp(_d3W, S.aclara); im.setColorAt(i, _d3C); }
+    });
+    im.frustumCulled = false; im.castShadow = S.sombra !== false; im.receiveShadow = true; world.group.add(im);
+    if (S.solido !== false) solids.push(im);
   }
 }
-// coloca en el mapa lo anotado al construir el cementerio (si los modelos aún no llegan, en cuanto lleguen)
-function demo3dPoner(D) {
-  const ir = () => {
-    if (world.d3 !== D || !DEMO3D.P) return;
-    const P = DEMO3D.P;
-    if (P.tumbas.length) {
-      const porVar = P.tumbas.map(() => []);
-      D.tumbas.forEach(([x, z, ry], i) => { const k = (i * 7 + Math.floor(Math.abs(x * 13 + z * 7))) % P.tumbas.length, v = P.tumbas[k], f = ((i * 37) % 100) / 100, alto = v.alto[0] + (v.alto[1] - v.alto[0]) * f; porVar[k].push([x, z, ry, alto / v.h]); });
-      P.tumbas.forEach((v, k) => d3Poner(v, porVar[k]));
-    }
-    if (P.arbol) d3Poner(P.arbol, D.arboles.map(([x, z, ry, s]) => [x, z, ry, 5.2 * s / P.arbol.h]));
-    if (P.mausoleo) d3Poner(P.mausoleo, D.criptas.map(([x, z, ry]) => [x, z, ry, 5 / P.mausoleo.w]));
-    if (P.farol && P.farol.cabeza) {
-      const c = P.farol.cabeza, k = 4.3 / c.y;
-      d3Poner(P.farol, D.faroles.map(([x, z, ry]) => { const a = ry + Math.PI / 2, ox = c.x * k, oz = c.z * k; return [x - (ox * Math.cos(a) + oz * Math.sin(a)), z - (-ox * Math.sin(a) + oz * Math.cos(a)), a, k]; }), true, false);
-    }
+// lote de un mapa: L.pon(spec, x, z, giro, tamaño, y, variante) anota; L.fin() baja los archivos y lo pone
+// tamaño: alto en metros (o ancho si spec.por === 'ancho'); spec.alto = [mín, máx] por pieza si no se da tamaño
+function m3dLote() {
+  const tok = {}; world.m3d = tok;   // (lo abre buildMap: world.m3dL es el lote del mapa que se está armando)
+  const L = { lista: new Map(), on: M3D.on };
+  L.pon = (S, x, z, ry = 0, tam = null, y = 0, vi = null, m = null, c = null) => { let a = L.lista.get(S); if (!a) L.lista.set(S, a = []); a.push([x, z, ry, tam, y, vi, m, c]); };
+  L.fin = () => {
+    if (!M3D.on) return;
+    for (const [S, a] of L.lista) m3dPiezas(S).then(vs => {
+      if (world.m3d !== tok || !vs.length) return;
+      const por = vs.map(() => []);
+      a.forEach(([x, z, ry, tam, y, vi, m, c], i) => {
+        const k = vi != null ? vi % vs.length : (i * 7 + Math.floor(Math.abs(x * 13 + z * 7))) % vs.length, v = vs[k];
+        const al = (S.altoDe && S.altoDe(v)) || S.alto, t = tam != null ? tam : al ? al[0] + (al[1] - al[0]) * (((i * 37) % 100) / 100) : v.h;
+        const base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, s = t / base, a = ry + (S.giro || 0);
+        let px = x, pz = z;
+        if (S.ancla) {   // un punto del modelo (p. ej. la luz del farol) queda justo en x, z
+          if (!v.ancla) v.ancla = S.ancla(v) || new THREE.Vector3();
+          const ox = v.ancla.x * s, oz = v.ancla.z * s; px -= ox * Math.cos(a) + oz * Math.sin(a); pz -= -ox * Math.sin(a) + oz * Math.cos(a);
+        }
+        if (m && (S.giro || S.anclaLocal)) {   // con matriz: el giro del modelo y (farolas) su luz en un punto de la pieza vieja
+          m = m.clone(); if (S.anclaLocal) m.multiply(new THREE.Matrix4().makeTranslation(S.anclaLocal[0], 0, S.anclaLocal[1]));
+          if (S.giro) m.multiply(new THREE.Matrix4().makeRotationY(S.giro));
+          if (S.ancla) { if (!v.ancla) v.ancla = S.ancla(v) || new THREE.Vector3(); m.multiply(new THREE.Matrix4().makeTranslation(-v.ancla.x * s, 0, -v.ancla.z * s)); }
+        }
+        por[k].push([px, pz, a, s, y, m, c]);
+      });
+      vs.forEach((v, k) => d3Poner(v, por[k], S));
+    });
   };
-  if (DEMO3D.P) ir(); else DEMO3D.esperan.push(ir);
+  return L;
 }
-// créditos de los modelos (CC BY pide nombrar a los autores): en Configuración → Gráficos, solo con la bandera
-if (DEMO3D.on) {
+// para lo que se rompe, se mueve o se dispara (cajas rompibles…): el objeto de siempre se queda (choques, disparos, animación)
+// pero se vuelve invisible y el modelo va colgado de él; hasta que llega el modelo se ve el de antes
+const M3D_INV = new THREE.MeshBasicMaterial({ visible: false });
+function m3dHijo(obj, S, tam, vi = 0) {
+  if (!M3D.on) return;
+  const tok = world.m3d;
+  m3dPiezas(S).then(vs => {
+    if (world.m3d !== tok || !vs.length || !obj.parent) return;
+    const v = vs[vi % vs.length], base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, k = tam / base;
+    let y0 = 0; if (obj.geometry) { if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox(); y0 = obj.geometry.boundingBox.min.y; }
+    if (obj.isMesh) obj.material = M3D_INV;
+    for (const p of v.parts) {
+      const m = new THREE.Mesh(p.geo, p.mat3 || (p.mat3 = d3Mat(p, S))); m.scale.setScalar(k / (obj.scale.x || 1)); m.position.y = y0; if (S.giro) m.rotation.y = S.giro;
+      m.castShadow = true; m.receiveShadow = true; m.raycast = () => {}; obj.add(m);
+    }
+  });
+}
+// las listas {m, c} de piezas instanciadas de los mapas grandes: cada copia pasa a ser el modelo
+// (tam en las unidades de la pieza, yc = altura del centro de la pieza vieja; con conColor, cada copia guarda su color)
+function m3dLista(list, S, tam, yc = 0, conColor = false) {
+  const L = world.m3dL, T = new THREE.Matrix4().makeTranslation(0, -yc, 0);
+  for (const o of list) L.pon(S, 0, 0, 0, tam, 0, null, o.m.clone().multiply(T), conColor ? o.c : null);
+}
+// quita un objeto del dibujo (sus choques quedan)
+function m3dQuitarObj(o) { if (o.parent) o.parent.remove(o); o.traverse(c => { if (c.isMesh) solidOff(c); }); }
+// piezas que usan varios mapas (los ayudantes de siempre: árbol seco, roble y farola)
+const M3G = {
+  arbolSeco: { f: 'arbol_seco' },
+  caja: { f: 'cajas_barril', clave: 'nodo', usar: '\\|Box_0[12]' },
+  barril: { f: 'cajas_barril', clave: 'nodo', usar: '\\|Barrel_01' },
+  barrilP: { f: 'cajas_barril', clave: 'nodo', usar: '\\|Barrel_01', pinta: '.', aclara: 0.45 },   // barril pintado (cada copia con su color)
+  heno: { f: 'fardos', clave: 'nodo', usar: '\\|Cube_Straw0' },
+  roble: { f: 'arboles', clave: 8, usar: '^(Icosphere|Cylinder)', alto: [4.6, 5.6] },
+  robleLejos: { f: 'arboles', clave: 8, usar: '^(Icosphere|Cylinder)', sombra: false, solido: false },   // los del borde, sin sombra
+  banco: { f: 'banco', por: 'ancho' },
+  bidon: { f: 'bidon' },
+  tumbona: { f: 'tumbona', por: 'largo' },
+  tanqueAgua: { f: 'tanque_agua' },
+  cocheZ: { f: 'coche', por: 'largo', pinta: '^Rough' },   // coche con el largo en z
+  farolPie: { f: 'farol', solido: false, luz: 0xffe2a8 },
+  toro: { f: 'linterna_piedra' },
+  cerezo: { f: 'cerezo' },
+  cedro: { f: 'pino', color: 0x6a8a6e, sombra: false },
+  bidonP: { f: 'bidon', pinta: '.', aclara: 0.4 },
+  palmera: { f: 'palmera' },
+  pinoHada: { f: 'pino', color: 0x5a6a8a, sombra: false },   // el bosque oscuro de los duendes
+  farolaBrazo(col, dx) { const k = 'b' + col + dx; return this.farolas[k] || (this.farolas[k] = Object.assign({}, this.farola(col), { anclaLocal: [dx, 0] })); },
+  papelera: { f: 'papelera' },
+  farolas: {},
+  farola(col) { return this.farolas[col] || (this.farolas[col] = { f: 'farol', solido: false, giro: Math.PI / 2, luz: col, alto: [4.6, 4.6], ancla: v => { const p = v.parts.find(q => /Emission/i.test(q.src.name)); if (!p) return null; p.geo.computeBoundingBox(); return p.geo.boundingBox.getCenter(new THREE.Vector3()); } }); }
+};
+// quita del dibujo lo que se añadió a «padre» desde el índice n0 (sus choques quedan); devuelve lo quitado
+function m3dQuitar(n0, padre = world.group) {
+  const q = padre.children.splice(n0);
+  for (const o of q) { o.parent = null; o.traverse(c => { if (c.isMesh) solidOff(c); }); }
+  return q;
+}
+// créditos de los modelos (CC BY pide nombrar a los autores): en Configuración → Gráficos
+if (M3D.on) {
   const sec = document.querySelector('.cfg-sec[data-s="graficos"]');
-  if (sec) { const d = document.createElement('div'); d.className = 'note'; d.style.cssText = 'grid-column:1/-1;font-size:14px;line-height:1.45;margin-top:10px'; d.innerHTML = '<b>Modelos 3D de prueba (licencia CC BY 4.0)</b><br>«Stylized Tombstones» de George Hager · «Haunted Cemetery Low Poly» de ronildo.facanha · «Mausoleum stylized» de Arhokis · «Low Poly: Dead Tree» de ClintonAbbott.Art · «Stylized Street Light» de WillowBoxArt. Todos en Sketchfab; cambiados de tamaño y simplificados para el juego.'; sec.appendChild(d); }
+  if (sec) { const d = document.createElement('div'); d.className = 'note m3d-cred'; d.style.cssText = 'grid-column:1/-1;font-size:14px;line-height:1.45;margin-top:10px'; d.innerHTML = '<b>Modelos 3D</b> (Sketchfab y BlendSwap; cambiados de tamaño y simplificados para el juego)<br>' + M3D_CRED.map(c => `«${c[1]}» de ${c[2]} · ${c[3]}`).join('<br>'); sec.appendChild(d); }
 }
+// el cementerio: lápidas, cruces, mausoleos (en lugar de las criptas), árboles secos y faroles
+const C3 = {
+  lapida: { f: 'lapidas', clave: 50, altoDe: v => +v.k === 1 ? [1.9, 2.3] : [1.15, 1.5] },   // la del medio es la cruz celta
+  cruz: { f: 'cruces', clave: 'nodo', usar: '\\|(Cross[123]|Obelisk1|Tombstone[123])_', tinte: 0x8a8880, altoDe: v => /Cross3|Obelisk/.test(v.k) ? [1.7, 2.1] : /Cross/.test(v.k) ? [1.3, 1.7] : [1.1, 1.4] },
+  mausoleo: { f: 'mausoleo', por: 'ancho' },
+  arbol: { f: 'arbol_seco' },
+  pino: { f: 'pino', color: 0x4a5a52 },
+  farol: { f: 'farol', solido: false, giro: Math.PI / 2, alto: [5.08, 5.08], ancla: v => { const p = v.parts.find(q => /Emission/i.test(q.src.name)); if (!p) return null; p.geo.computeBoundingBox(); return p.geo.boundingBox.getCenter(new THREE.Vector3()); } }
+};
 function cemBake(root, solidMats) {
   root.updateMatrixWorld(true);
   const groups = new Map();
@@ -12490,7 +12611,7 @@ function cemFence(R, gateA, gateHalf, curbM, ironM, signM, collide) {
 }
 function buildCemetery() {
   world.arena = { t: 'c', r: 84.5 }; world.start = { x: 0, z: 2 };
-  const D3 = DEMO3D.on ? (world.d3 = { tumbas: [], arboles: [], criptas: [], faroles: [] }) : null;   // prueba ?demo3d=1: dónde van los modelos 3D
+  const L3 = world.m3dL, D3 = L3.on;   // modelos 3D: dónde va cada uno (ver M3D)
   env({ fog: 0x111822, dens: 0.03, top: 0x020309, hemiS: 0x7088ad, hemiG: 0x1d1710, hemiI: 0.62, moonC: 0xa9bde0, moonI: 0.75 });
   addGround(260, canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = '#2b2b20'; g.fillRect(0, 0, w, h);
@@ -12591,8 +12712,8 @@ function buildCemetery() {
   }
   for (const [x, z, r] of [[0, 24.2, Math.PI], [21, -16, -0.9]]) {
     const g = crypt(x, z, r);
-    // prueba 3D: la cripta se cambia por el mausoleo del modelo (más hondo: su choque también)
-    if (D3) { g.traverse(o => solidOff(o)); world.group.remove(g); colliders.pop(); addBox(x, z, 2.5, 4.3, r); D3.criptas.push([x, z, r]); }
+    // modelo 3D: la cripta se cambia por el mausoleo (más hondo: su choque también)
+    if (D3) { g.traverse(o => solidOff(o)); world.group.remove(g); colliders.pop(); addBox(x, z, 2.5, 4.3, r); L3.pon(C3.mausoleo, x, z, r, 5); }
   }
   // Mausoleo de los Robles: verja con cadena y candado dorado
   const mz = crypt(-22, -12, 1.2, doorM);
@@ -12636,7 +12757,7 @@ function buildCemetery() {
     M(new THREE.ConeGeometry(0.34, 0.32, 4), iron, 0, 4.71, 0, { p: pole, ry: Math.PI / 4 }); M(bx(0.44, 0.05, 0.44), iron, 0, 4.03, 0, { p: pole });
     const l = lampLight(0, 4.3, 0, 0xffa850, 1.4, 17, pole, 0.6), halo = pole.children[pole.children.length - 1];
     addCircle(x, z, 0.3);
-    if (D3 && !explosive) { pole.children.forEach(o => { if (o.isMesh) { o.visible = false; solidOff(o); } }); D3.faroles.push([x, z, ry]); }   // prueba 3D: el farol del modelo (la luz se queda)
+    if (D3 && !explosive) { pole.children.forEach(o => { if (o.isMesh) { o.visible = false; solidOff(o); } }); L3.pon(C3.farol, x, z, ry); }   // modelo 3D: el farol (la luz se queda)
     if (!explosive) return;
     const tankM = lam(0xb02018, { emissive: 0x2a0000 }), bandM = bsc(0xffd23a);
     const tank = M(cyl(0.3, 0.3, 1.05, 12), tankM, 0.6, 0.53, 0, { p: g });
@@ -12678,6 +12799,7 @@ function buildCemetery() {
     if (graves.length % 3 === 1) UB(wood, g, -0.95, 0.32, 0.1, 0.62, 0.06, 2.0, { rz: 1.15, cast: true });
     graves.push(g); world.spawns.push({ x, z, rise: true });
   }
+  let nTumba = 0;
   function tombstone(x, z) {
     const g = Grp(x, z, sr(-0.4, 0.4) + (srand() < 0.5 ? 0 : Math.PI), tmp);
     const t = new THREE.Group(); t.rotation.z = sr(-0.12, 0.12); t.rotation.x = sr(-0.08, 0.08); g.add(t);
@@ -12690,7 +12812,7 @@ function buildCemetery() {
     if (srand() < 0.16) { M(WRE, wreathM, 0, 0.22, 0.2, { p: g, rx: -1.3, cast: false }); M(WRE, flowerM, 0, 0.26, 0.24, { p: g, rx: -1.3, cast: false }).scale.setScalar(0.55); }
     if (srand() < 0.24) { const c = lw(g, sr(-0.3, 0.3), 0.45); candles.push([c.x, c.z]); }
     addCircle(x, z, 0.55);
-    if (D3) { tmp.remove(g); D3.tumbas.push([x, z, g.rotation.y]); }   // prueba 3D: la lápida del modelo va en su lugar
+    if (D3) { tmp.remove(g); L3.pon(nTumba++ % 3 === 2 ? C3.cruz : C3.lapida, x, z, g.rotation.y); }   // modelo 3D: la lápida va en su lugar
   }
   function tree(x, z, s, collide) {
     const g = Grp(x, z, sr(0, TAU), tmp);
@@ -12703,8 +12825,8 @@ function buildCemetery() {
     }
     if (collide) addCircle(x, z, 0.45 * s);
   }
-  // prueba 3D: el árbol seco del modelo en lugar del de palitos (mismo choque)
-  const treeD = (x, z, s, collide) => { tree(x, z, s, collide); if (D3) { const g = tmp.children[tmp.children.length - 1]; tmp.remove(g); D3.arboles.push([x, z, g.rotation.y, s]); } };
+  // modelo 3D: el árbol seco en lugar del de palitos (mismo choque)
+  const treeD = (x, z, s, collide) => { tree(x, z, s, collide); if (D3) { const g = tmp.children[tmp.children.length - 1]; tmp.remove(g); L3.pon(C3.arbol, x, z, g.rotation.y, 5.2 * s); } };
   const spot = (r, m) => { for (let k = 0; k < 60; k++) { const a = sr(0, TAU), d = sr(m[0], m[1]), x = Math.cos(a) * d, z = Math.sin(a) * d; if (!onPath(x, z, r) && freeSpot(x, z, r)) return [x, z]; } return null; };
   for (let i = 0; i < 8; i++) { const p = spot(1.2, [12, 34]); if (p) grave(p[0], p[1]); }
   for (let i = 0; i < 52; i++) { const p = spot(0.6, [6, 39]); if (p) tombstone(p[0], p[1]); }
@@ -12712,7 +12834,6 @@ function buildCemetery() {
   for (let i = 0; i < 10; i++) { const p = spot(1, [9, 40]); if (!p) continue; const rr = sr(0.5, 1.1), m = M(ROCK, darkStone, p[0], rr * 0.35, p[1], { p: tmp }); m.scale.set(rr, rr * sr(0.5, 0.8), rr); m.rotation.set(sr(0, 3), sr(0, 3), 0); addCircle(p[0], p[1], rr * 0.9); }
   cemGrande({ stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree, treeD, tombstone, grave });
   cemBake(tmp, [stoneMat, darkStone, bark]);
-  if (D3) demo3dPoner(D3);
 
   // ---- El enterrador huyó: pala clavada, carretilla y su farol en el suelo
   if (graves.length) {
@@ -12820,6 +12941,7 @@ function fundirEstatico(desde) {
 }
 function cemGrande(K) {
   const { stoneMat, darkStone, bark, wood, iron, signTex, tmp, tree, treeD } = K;
+  const L3 = world.m3dL;   // modelos 3D (ver M3D)
   world.big = true; world.llaves = true; world.llvSpots = [];
   // las zonas de llave del lugar: ahí se esconden las fichas de miembro, salen los cofres y te emboscan al entrar
   world.zonas = [{ k: 'cat', nombre: 'en las catacumbas', en: enCatacumbas }, { k: 'cas', nombre: 'en el castillo', en: enCastillo }, { k: 'bos', nombre: 'en el bosque', en: enBosque }];
@@ -13113,9 +13235,10 @@ function cemGrande(K) {
   const pineM = lam(0x121c16, { flatShading: true }), pineM2 = lam(0x18241a, { flatShading: true });
   const pino = (x, z, s, coll) => {
     const g = Grp(x, z, sr(0, TAU), tmp);
+    if (coll) addCircle(x, z, 0.32 * s);
+    if (L3.on) { tmp.remove(g); L3.pon(C3.pino, x, z, g.rotation.y, 6.8 * s); return; }   // modelo 3D: pino negro
     M(PTRUNK, bark, 0, 1.7 * s, 0, { p: g }).scale.setScalar(s);
     PCONE.forEach((geo, i) => { const m = M(geo, i % 2 ? pineM : pineM2, 0, (2.6 + i * 1.5) * s, 0, { p: g }); m.scale.setScalar(s); });
-    if (coll) addCircle(x, z, 0.32 * s);
   };
   const arboles = [];
   for (let n = 0; n < 1400 && arboles.length < 230; n++) {
