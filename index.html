@@ -152,7 +152,9 @@ body{font-family:var(--hud);font-size:16px}
 #gold{font-family:var(--display);font-size:clamp(20px,2.8vw,26px);color:var(--gold);font-variant-numeric:tabular-nums}
 #gold-pop{position:absolute;left:10px;top:calc(100% + 6px);font-weight:700;font-size:18px;color:var(--gold);opacity:0;white-space:nowrap}
 #gold-pop.on{animation:gpop .9s ease-out}
+#gold-pop.on2{animation:gpop2 .9s ease-out}
 @keyframes gpop{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-22px)}}
+@keyframes gpop2{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-22px)}}
 #mult{font-size:18px;font-weight:700;color:var(--brass);letter-spacing:.05em;min-height:22px}
 #map{width:130px;height:130px;border-radius:50%;border:2px solid rgba(214,165,75,.55);background:rgba(5,8,10,.55);margin-top:6px}
 .touch #map{width:92px;height:92px}
@@ -388,7 +390,9 @@ a.link{color:#ffd060}
 #combo i{display:block;width:100%;height:5px;border-radius:3px;background:rgba(0,0,0,.55);overflow:hidden}
 #combo u{display:block;height:100%;width:100%;background:#7ab8ff;transform-origin:left;text-decoration:none}
 #combo.pop b{animation:cbpop .22s ease-out}
+#combo.pop2 b{animation:cbpop2 .22s ease-out}
 @keyframes cbpop{0%{transform:scale(1.5)}100%{transform:scale(1)}}
+@keyframes cbpop2{0%{transform:scale(1.5)}100%{transform:scale(1)}}
 .touch #combo{top:32%}
 #hud-tl{width:auto!important}
 #vit{display:flex;align-items:stretch;gap:8px;padding:6px;background:rgba(12,8,4,.58);border:1px solid rgba(214,165,75,.38);border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
@@ -2809,10 +2813,18 @@ const Sfx = (() => {
     earO = ctx.createOscillator(); earO.type = 'sine'; earO.frequency.value = 3900; earG = ctx.createGain(); earG.gain.value = 0; earO.connect(earG); earG.connect(out); earO.start();
     ambient(); applyRoom(); loadSamples();
   }
+  // los sonidos al centro y sin filtro de «detrás» (los del propio jugador: disparo, tambor…) comparten una entrada fija por cada nivel
+  // de eco: suena exactamente igual (la mezcla es la misma) y cada disparo crea muchos menos nodos de sonido (menos trabajo en el tiro)
+  const busFijo = new Map();
   function bus(pan = 0, wet = 0.25) {
+    const bh = performance.now() - behindT < 3 ? behindNext : 0; behindNext = 0;
+    if (pan === 0 && !(bh > 0.08)) {
+      let g = busFijo.get(wet);
+      if (!g) { g = ctx.createGain(); let node = g; if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = 0; node.connect(p); node = p; } node.connect(lp); if (wet > 0) { const w = ctx.createGain(); w.gain.value = wet; node.connect(w); w.connect(revIn); } busFijo.set(wet, g); }
+      return g;
+    }
     const g = ctx.createGain();
     let node = g;
-    const bh = performance.now() - behindT < 3 ? behindNext : 0; behindNext = 0;
     if (bh > 0.08) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 16000 - 12500 * bh; f.Q.value = 0.5; const a = ctx.createGain(); a.gain.value = 1 - 0.3 * bh; node.connect(f); f.connect(a); node = a; }
     if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); node.connect(p); node = p; }
     node.connect(lp);
@@ -12694,7 +12706,7 @@ function d3Poner(v, lista, S) {
       if (pinta && pinta.test(p.src.name)) { _d3C.setHex(c != null ? c : 0xffffff); if (S.aclara) _d3C.lerp(_d3W, S.aclara); im.setColorAt(i, _d3C); }
     });
     im.frustumCulled = false; im.castShadow = S.sombra !== false; im.receiveShadow = true; world.group.add(im);
-    if (S.solido !== false) solids.push(im);
+    if (S.solido !== false) { solids.push(im); RAYBVH.preparar([im]); }   // el árbol de los rayos se arma al llegar el modelo, no en el primer tiro
   }
 }
 // lote de un mapa: L.pon(spec, x, z, giro, tamaño, y, variante) anota; L.fin() baja los archivos y lo pone
@@ -24580,10 +24592,14 @@ let state = 'loading';
 let game = null;
 const player = { pos: new THREE.Vector3(), vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, stLock: 0, bob: 0, lastHurt: -99, shake: 0, roll: 0 };
 const gs = { reloading: false, phase: '', pt: 0, wantStop: false, aim: 0, aiming: false, bloom: 0, swing: 0, pose: 0, fan: 0, fanT: 0, autoT: -1, swayX: 0, swayY: 0, next: 0, draw: 0 };
-const input = { keys: {}, jx: 0, jy: 0, fireHeld: false, jump: false, sprintTouch: false, scopeFire: false };
+const input = { keys: {}, jx: 0, jy: 0, fireHeld: false, jump: false, sprintTouch: false, scopeFire: false, tiro: 0 };
+// Traba al disparar (INP): el clic o el toque solo anota el tiro; el cuadro siguiente lo dispara (1 = ratón, 2 = pantalla táctil).
+// Así el manejador del clic termina en un instante y el navegador puede pintar enseguida.
+function pedirTiro(k) { input.tiro = k; }
+function hacerTiro() { const k = input.tiro; input.tiro = 0; if (!k || state !== 'play') return; if (k === 2) touchFire(); else tryFire(); }
 // Suelta todos los controles (al abrir una pantalla encima del juego el dedo o la tecla pueden quedar «pegados»)
 let resetJoy = () => {};
-function releaseInput() { for (const k in input.keys) input.keys[k] = false; input.jx = input.jy = 0; input.fireHeld = false; input.jump = false; input.sprintTouch = false; resetJoy(); }
+function releaseInput() { for (const k in input.keys) input.keys[k] = false; input.jx = input.jy = 0; input.fireHeld = false; input.tiro = 0; input.jump = false; input.sprintTouch = false; resetJoy(); }
 let locked = false, noLock = false, projScale = 600, lastFov = 75, menuT = 0, heartT = 0, dyingT = 0;
 const chase = new THREE.Vector3();
 const activeHands = () => game && game.dual ? hands : [hands[0]];
@@ -25174,7 +25190,7 @@ function addGold(n, silent) {
   if (n > 0 && game.phase === 'fight' && zmodOn('gold')) n = Math.round(n * zmodOn('gold'));
   game.gold += n; game.goldTotal += n; if (n > 0 && !tuto) META.st.gold += n;
   // G0-7: el «+N $» se pinta una vez por cuadro con la suma (antes cada moneda obligaba al navegador a recalcular la página: una explosión que mata a muchos daba tirones)
-  goldPop.n += n; if (!goldPop.raf) goldPop.raf = requestAnimationFrame(() => { goldPop.raf = 0; el.goldPop.textContent = '+' + goldPop.n + ' $'; goldPop.n = 0; el.goldPop.classList.remove('on'); void el.goldPop.offsetWidth; el.goldPop.classList.add('on'); });
+  goldPop.n += n; if (!goldPop.raf) goldPop.raf = requestAnimationFrame(() => { goldPop.raf = 0; el.goldPop.textContent = '+' + goldPop.n + ' $'; goldPop.n = 0; goldPop.k = goldPop.k === 'on' ? 'on2' : 'on'; el.goldPop.className = goldPop.k; });   // dos animaciones iguales que se turnan: vuelve a empezar sin obligar al navegador a medir la página
   if (!silent && n >= 5) Sfx.coin();
 }
 const goldPop = { n: 0, raf: 0 };
@@ -25531,6 +25547,137 @@ function lookDelta(dx, dy, k) {
 
 /* ---- Disparo ---- */
 const ray = new THREE.Raycaster();
+// Rayos rápidos (traba al disparar): three.js prueba el rayo contra TODOS los triángulos de cada malla que cruza; con los mapas
+// juntados en mallas grandes y los modelos 3D instanciados, un tiro de escopeta podía costar cientos de milisegundos en el teléfono.
+// Cada geometría grande guarda un árbol de cajas (BVH) de sus triángulos y el rayo solo prueba los de las cajas que cruza.
+// Los triángulos que se prueban usan la misma cuenta de three.js y se entregan en el mismo orden: el resultado es idéntico.
+const RAYBVH = (() => {
+  const MIN_TRI = 48, HOJA = 6, cache = new WeakMap(), orig = THREE.Mesh.prototype.raycast;
+  const _s = new THREE.Sphere(), _inv = new THREE.Matrix4(), _lr = new THREE.Ray(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _p = new THREE.Vector3(), _pw = new THREE.Vector3();
+  const _ua = new THREE.Vector2(), _ub = new THREE.Vector2(), _uc = new THREE.Vector2(), pila = new Int32Array(256), cand = [];
+  // ¿cambió la geometría desde que se armó su árbol? (versión y tamaño de posiciones e índices)
+  const igual = (B, g) => { const p = g.attributes.position, i = g.index; return B.pv === p.version && B.pc === p.count && B.ix === i && (!i || (B.iv === i.version && B.ic === i.count)); };
+  const marca = (B, g) => { const p = g.attributes.position, i = g.index; B.pv = p.version; B.pc = p.count; B.ix = i; B.iv = i ? i.version : 0; B.ic = i ? i.count : 0; return B; };
+  function construir(g) {
+    const pos = g.attributes.position, idx = g.index, n = Math.floor((idx ? idx.count : pos.count) / 3);
+    const tb = new Float32Array(n * 6), cen = new Float32Array(n * 3), orden = new Uint32Array(n);
+    for (let k = 0; k < n; k++) {
+      orden[k] = k; let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (let j = 0; j < 3; j++) { const v = idx ? idx.getX(k * 3 + j) : k * 3 + j, x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+      const o = k * 6; tb[o] = x0; tb[o + 1] = y0; tb[o + 2] = z0; tb[o + 3] = x1; tb[o + 4] = y1; tb[o + 5] = z1;
+      cen[k * 3] = (x0 + x1) / 2; cen[k * 3 + 1] = (y0 + y1) / 2; cen[k * 3 + 2] = (z0 + z1) / 2;
+    }
+    const caja = [], info = [];   // por nodo: 6 números de caja; info: [hijo izq | inicio, hijo der | -cuenta]
+    const nodo = (lo, hi) => {
+      const id = info.length / 2; info.push(0, 0); caja.push(0, 0, 0, 0, 0, 0);
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity, cx0 = Infinity, cy0 = Infinity, cz0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, cz1 = -Infinity;
+      for (let i = lo; i < hi; i++) {
+        const k = orden[i], o = k * 6, c = k * 3;
+        if (tb[o] < x0) x0 = tb[o]; if (tb[o + 1] < y0) y0 = tb[o + 1]; if (tb[o + 2] < z0) z0 = tb[o + 2]; if (tb[o + 3] > x1) x1 = tb[o + 3]; if (tb[o + 4] > y1) y1 = tb[o + 4]; if (tb[o + 5] > z1) z1 = tb[o + 5];
+        if (cen[c] < cx0) cx0 = cen[c]; if (cen[c] > cx1) cx1 = cen[c]; if (cen[c + 1] < cy0) cy0 = cen[c + 1]; if (cen[c + 1] > cy1) cy1 = cen[c + 1]; if (cen[c + 2] < cz0) cz0 = cen[c + 2]; if (cen[c + 2] > cz1) cz1 = cen[c + 2];
+      }
+      // margen: la caja se agranda un poco para que ningún redondeo deje fuera un triángulo que three.js sí probaría
+      const e = 1e-4 * Math.max(1e-3, x1 - x0, y1 - y0, z1 - z0) + 1e-6, b = id * 6;
+      caja[b] = x0 - e; caja[b + 1] = y0 - e; caja[b + 2] = z0 - e; caja[b + 3] = x1 + e; caja[b + 4] = y1 + e; caja[b + 5] = z1 + e;
+      const dx = cx1 - cx0, dy = cy1 - cy0, dz = cz1 - cz0;
+      if (hi - lo <= HOJA || Math.max(dx, dy, dz) <= 0) { info[id * 2] = lo; info[id * 2 + 1] = -(hi - lo); return id; }
+      const ax = dx >= dy && dx >= dz ? 0 : dy >= dz ? 1 : 2;
+      orden.subarray(lo, hi).sort((p, q) => cen[p * 3 + ax] - cen[q * 3 + ax]);
+      const mid = (lo + hi) >> 1;
+      const l = nodo(lo, mid), r = nodo(mid, hi); info[id * 2] = l; info[id * 2 + 1] = r; return id;
+    };
+    nodo(0, n);
+    return { n, orden, caja: new Float32Array(caja), info: new Int32Array(info), re: 0, ok: true };
+  }
+  function arbol(g) {
+    let B = cache.get(g);
+    if (B === undefined || !igual(B, g)) {
+      const pos = g.attributes.position, n = Math.floor((g.index ? g.index.count : pos.count) / 3), re = B ? B.re + 1 : 0;
+      B = n < MIN_TRI || re > 3 ? { ok: false, re } : construir(g); B.re = re;   // geometrías chicas o que cambian a cada rato: el camino de siempre
+      cache.set(g, marca(B, g));
+    }
+    return B.ok ? B : null;
+  }
+  // ¿el rayo local cruza la caja del nodo? (prueba de las tres franjas)
+  function cruza(C, b, ox, oy, oz, dx, dy, dz) {
+    let t0 = 0, t1 = Infinity;
+    for (let a = 0; a < 3; a++) {
+      const o = a === 0 ? ox : a === 1 ? oy : oz, d = a === 0 ? dx : a === 1 ? dy : dz, mn = C[b + a], mx = C[b + 3 + a];
+      if (d === 0) { if (o < mn || o > mx) return false; continue; }
+      let ta = (mn - o) / d, tb = (mx - o) / d; if (ta > tb) { const t = ta; ta = tb; tb = t; }
+      if (ta > t0) t0 = ta; if (tb < t1) t1 = tb; if (t0 > t1 * (1 + 1e-6) + 1e-6) return false;
+    }
+    return true;
+  }
+  function raycast(rc, out) {
+    const g = this.geometry, m = this.material;
+    if (m === undefined) return;
+    if (!g || !g.isBufferGeometry || Array.isArray(m) || this.isSkinnedMesh || (m.morphTargets && g.morphAttributes.position) || !g.attributes.position || g.drawRange.start !== 0) return orig.call(this, rc, out);
+    const B = arbol(g); if (!B) return orig.call(this, rc, out);
+    // lo mismo que hace three.js antes de mirar los triángulos
+    if (g.boundingSphere === null) g.computeBoundingSphere();
+    _s.copy(g.boundingSphere).applyMatrix4(this.matrixWorld); if (!rc.ray.intersectsSphere(_s)) return;
+    _inv.copy(this.matrixWorld).invert(); _lr.copy(rc.ray).applyMatrix4(_inv);
+    if (g.boundingBox !== null && !_lr.intersectsBox(g.boundingBox)) return;
+    const ox = _lr.origin.x, oy = _lr.origin.y, oz = _lr.origin.z, dx = _lr.direction.x, dy = _lr.direction.y, dz = _lr.direction.z, C = B.caja, I = B.info;
+    cand.length = 0; let sp = 0; pila[sp++] = 0;
+    while (sp) {
+      const id = pila[--sp]; if (!cruza(C, id * 6, ox, oy, oz, dx, dy, dz)) continue;
+      const a = I[id * 2], b = I[id * 2 + 1];
+      if (b <= 0) { for (let i = a, e = a - b; i < e; i++) cand.push(B.orden[i]); }
+      else if (sp < 254) { pila[sp++] = b; pila[sp++] = a; }
+      else return orig.call(this, rc, out);   // árbol demasiado hondo (no debería pasar): el camino de siempre
+    }
+    if (!cand.length) return;
+    if (cand.length > 1) cand.sort((p, q) => p - q);   // el mismo orden que three.js
+    const pos = g.attributes.position, idx = g.index, uv = g.attributes.uv, uv2 = g.attributes.uv2, end = Math.min(idx ? idx.count : pos.count, g.drawRange.count);
+    for (const k of cand) {
+      const n3 = k * 3; if (n3 >= end) continue;
+      const va = idx ? idx.getX(n3) : n3, vb = idx ? idx.getX(n3 + 1) : n3 + 1, vc = idx ? idx.getX(n3 + 2) : n3 + 2;
+      _a.fromBufferAttribute(pos, va); _b.fromBufferAttribute(pos, vb); _c.fromBufferAttribute(pos, vc);
+      const hit = m.side === THREE.BackSide ? _lr.intersectTriangle(_c, _b, _a, true, _p) : _lr.intersectTriangle(_a, _b, _c, m.side !== THREE.DoubleSide, _p);
+      if (hit === null) continue;
+      _pw.copy(_p).applyMatrix4(this.matrixWorld);
+      const distance = rc.ray.origin.distanceTo(_pw); if (distance < rc.near || distance > rc.far) continue;
+      const r = { distance, point: _pw.clone(), object: this };
+      if (uv) { _ua.fromBufferAttribute(uv, va); _ub.fromBufferAttribute(uv, vb); _uc.fromBufferAttribute(uv, vc); r.uv = THREE.Triangle.getUV(_p, _a, _b, _c, _ua, _ub, _uc, new THREE.Vector2()); }
+      if (uv2) { _ua.fromBufferAttribute(uv2, va); _ub.fromBufferAttribute(uv2, vb); _uc.fromBufferAttribute(uv2, vc); r.uv2 = THREE.Triangle.getUV(_p, _a, _b, _c, _ua, _ub, _uc, new THREE.Vector2()); }
+      const face = { a: va, b: vb, c: vc, normal: new THREE.Vector3(), materialIndex: 0 }; THREE.Triangle.getNormal(_a, _b, _c, face.normal); r.face = face;
+      r.faceIndex = k; out.push(r);
+    }
+  }
+  THREE.Mesh.prototype.raycast = raycast;
+  // Mallas instanciadas (cientos de copias): three.js arma la matriz de cada copia en cada rayo solo para ver si cruza su esfera.
+  // Las esferas de las copias se guardan (se rehacen si las copias se movieron) y solo se miran de cerca las que el rayo cruza.
+  const imOrig = THREE.InstancedMesh.prototype.raycast, _im = new THREE.Mesh(), _iL = new THREE.Matrix4(), _iW = new THREE.Matrix4(), _iR = [], _ic = new THREE.Vector3(), esf = new WeakMap();
+  function esferas(im) {
+    const g = im.geometry, mw = im.matrixWorld, n = im.count; if (g.boundingSphere === null) g.computeBoundingSphere();
+    const bs = g.boundingSphere, e = mw.elements; let S = esf.get(im);
+    if (!S || S.v !== im.instanceMatrix.version || S.n !== n || S.bx !== bs.center.x || S.by !== bs.center.y || S.bz !== bs.center.z || S.br !== bs.radius || S.mw.some((x, i) => x !== e[i])) {
+      S = { v: im.instanceMatrix.version, n, bx: bs.center.x, by: bs.center.y, bz: bs.center.z, br: bs.radius, mw: e.slice(), d: new Float64Array(n * 4) };
+      for (let r = 0; r < n; r++) { im.getMatrixAt(r, _iL); _iW.multiplyMatrices(mw, _iL); _s.copy(bs).applyMatrix4(_iW); S.d[r * 4] = _s.center.x; S.d[r * 4 + 1] = _s.center.y; S.d[r * 4 + 2] = _s.center.z; S.d[r * 4 + 3] = _s.radius; }
+      esf.set(im, S);
+    }
+    return S;
+  }
+  THREE.InstancedMesh.prototype.raycast = function (rc, out) {
+    const mw = this.matrixWorld, n = this.count, g = this.geometry;
+    if (this.material === undefined) return;
+    if (!g || n < 8) return imOrig.call(this, rc, out);
+    const S = esferas(this);
+    _im.geometry = g; _im.material = this.material; const D = S.d;
+    for (let r = 0; r < n; r++) {
+      const rad = D[r * 4 + 3]; _ic.set(D[r * 4], D[r * 4 + 1], D[r * 4 + 2]);
+      if (rc.ray.distanceSqToPoint(_ic) > rad * rad) continue;   // la misma prueba con la que three.js descarta la copia
+      this.getMatrixAt(r, _iL); _iW.multiplyMatrices(mw, _iL); _im.matrixWorld = _iW; _im.raycast(rc, _iR);
+      for (let t = 0; t < _iR.length; t++) { const x = _iR[t]; x.instanceId = r; x.object = this; out.push(x); }
+      _iR.length = 0;
+    }
+  };
+  // se arman al cargar el lugar (detrás de la pantalla negra), no en el primer tiro
+  const preparar = list => { for (const o of list) if (o && o.isMesh && o.geometry && o.geometry.isBufferGeometry && o.geometry.attributes.position && !Array.isArray(o.material)) { arbol(o.geometry); if (o.isInstancedMesh && o.count >= 8) { o.updateMatrixWorld(true); esferas(o); } } };
+  return { preparar, orig, raycast, imOrig, imRaycast: THREE.InstancedMesh.prototype.raycast };
+})();
 const _cp = new THREE.Vector3(), _dir = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _mp = new THREE.Vector3(), _n = new THREE.Vector3(), _tmp = new THREE.Vector3(), _t2 = new THREE.Vector3();
 const targets = [], zTargets = [];
 function spread() {
@@ -25690,10 +25837,12 @@ function precalentarFx() {
     g.updateMatrixWorld(true); renderer.compile(scene, camera);
   } catch (e) {}
   camera.remove(g); if (ch) { g.remove(ch); charcosLibres.push(ch); }
+  try { RAYBVH.preparar(solids); if (world.ground) RAYBVH.preparar([world.ground]); } catch (e) {}   // los árboles de los rayos del lugar
 }
 function precalentarHab() {
   precalentarFx();
-  const ids = game && HAB_ARMAS[game.char]; if (!ids) return;
+  // también las armas que ya tienes: cambiar de arma (rueda del ratón o botón) no prepara sus materiales en plena pelea
+  const ids = game ? [...new Set([...(HAB_ARMAS[game.char] || []), ...MODEL_ORDER.filter(k => game.owned && game.owned[k] && k !== game.equip)])] : null; if (!ids || !ids.length) return;
   const holder = new THREE.Group(); holder.position.set(0, 0, -2); camera.add(holder);
   try {
     for (const id of ids) { if (!MODELS[id]) continue; const h = { k: new THREE.Group(), flash: new THREE.Object3D(), flashLight: new THREE.Object3D() }; buildGun(h, id); holder.add(h.k); }
@@ -28374,7 +28523,7 @@ function bossFx(dt) {
   if (!bossAlive && mname) { bossAlive = true; hp = mhp; mx = mmx; name = 'Minijefe · ' + mname; arm = armMax = 0; }
   if (bossAlive && state !== 'menu') {
     if (bb.hidden) bb.hidden = false;
-    { const tc = $('#hud-tc'), bb = $('#bossbar'), y = Math.round(tc.getBoundingClientRect().bottom + 8); if (bb._y !== y) { bb._y = y; bb.style.top = y + 'px'; } }   // la barra del jefe va justo debajo de la oleada, la llave y la misión (sin taparlas)
+    { const bb = $('#bossbar'), ahora = performance.now(); if (!(ahora - (bb._yT || 0) < 500)) { bb._yT = ahora; const y = Math.round($('#hud-tc').getBoundingClientRect().bottom + 8); if (bb._y !== y) { bb._y = y; bb.style.top = y + 'px'; } } }   // medir la página cada medio segundo, no en cada cuadro   // la barra del jefe va justo debajo de la oleada, la llave y la misión (sin taparlas)
     setText($('#boss-n'), 'bossn', name + ZF.tag + CF.tag); $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
   } else if (!bb.hidden) bb.hidden = true;
   // el Proyeccionista apaga las luces: solo se ve con el destello de los disparos
@@ -30848,7 +30997,7 @@ function comboKill() {
   const c = $('#combo');
   if (game.combo < 2) { c.classList.remove('on'); return; }
   $('#cb-w').textContent = `COMBO ×${game.combo}`;
-  c.classList.add('on'); c.classList.toggle('hot', game.combo >= 10); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  c.classList.add('on'); c.classList.toggle('hot', game.combo >= 10); { const k = c.classList.contains('pop') ? 'pop2' : 'pop'; c.classList.remove('pop', 'pop2'); c.classList.add(k); }   // dos animaciones iguales que se turnan: sin medir la página en medio del disparo
   Sfx.combo(Math.min(game.combo, 10));
   const pz = COMBO_PRIZE[game.combo]; if (pz) { addGold(pz, true); feed(`¡Combo ×${game.combo}! +${pz} $`, 'gold'); if (game.combo >= 10) banner(`¡COMBO ×${game.combo}!`, `+${pz} $`, 1800); }
 }
@@ -36274,7 +36423,7 @@ canvas.addEventListener('auxclick', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (IS_TOUCH || state !== 'play') return;
   if (!locked && !noLock) { requestLock(true); return; }
-  if (e.button === 0) { input.fireHeld = true; tryFire(); }
+  if (e.button === 0) { input.fireHeld = true; pedirTiro(1); }   // el tiro se hace en el cuadro, no dentro del clic (así el clic nunca traba la pantalla)
   if (e.button === 1) { e.preventDefault(); twirl(); }
   if (e.button === 2) gs.aiming = true;
 });
@@ -36311,7 +36460,7 @@ window.addEventListener('mousemove', e => {
   });
   const end = e => {
     const l = lookIds.get(e.pointerId);
-    if (l && e.type === 'pointerup' && state === 'play' && performance.now() - l.t < 260 && Math.hypot(e.clientX - l.sx, e.clientY - l.sy) < 14) touchFire();
+    if (l && e.type === 'pointerup' && state === 'play' && performance.now() - l.t < 260 && Math.hypot(e.clientX - l.sx, e.clientY - l.sy) < 14) pedirTiro(2);
     if (e.pointerId === joyId) { joyId = null; input.jx = input.jy = 0; input.sprintTouch = false; stick.classList.remove('on'); knob.style.transform = ''; } lookIds.delete(e.pointerId); };
   look.addEventListener('pointerup', end); look.addEventListener('pointercancel', end);
   function btn(id, down, opts = {}) {
@@ -36322,7 +36471,7 @@ window.addEventListener('mousemove', e => {
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
     b.addEventListener('click', e => e.preventDefault());
   }
-  btn('#b-fire', () => { input.fireHeld = true; touchFire(); }, { look: true, up: () => { input.fireHeld = false; } });
+  btn('#b-fire', () => { input.fireHeld = true; pedirTiro(2); }, { look: true, up: () => { input.fireHeld = false; } });
   btn('#b-aim', () => { gs.scopeAuto = false; gs.scopePend = false; gs.aiming = !gs.aiming; });
   btn('#b-scope', () => { input.scopeFire = !input.scopeFire; const b = $('#b-scope'); b.classList.toggle('lit', input.scopeFire); b.setAttribute('aria-pressed', input.scopeFire); hint(input.scopeFire ? 'Mira prendida: cada disparo sale con la mirilla' : 'Mira apagada: disparas normal', 1800); });
   btn('#b-reload', () => startReload());
@@ -36357,6 +36506,7 @@ function frame() {
   if (hitStop > 0) { hitStop -= Math.min(rawDt, 0.05); dt *= 0.12; }
   autoRes(Math.min(rawDt, 0.25));
   tAll += dt;
+  if (input.tiro) hacerTiro();   // el tiro que pidió el clic o el toque (antes de mover nada: como si fuera dentro del clic)
   if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (state === 'animp') animpPaso(dt);
