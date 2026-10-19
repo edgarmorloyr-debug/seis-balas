@@ -30,6 +30,8 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
   2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo; +5 % a las probabilidades de todos los juegos que salgan.
   3. Símbolo de balas: la expendedora de balas (40 %) y el vendedor de armas nuevo (25 %), que se atiende solo: escopetas, fusiles de asalto, Desert Eagle, 3 tipos de ametralladora, chalecos y dinamita (se equipan del 1 al 9 y se lanzan).
 
+**Deuda (dueño, 19-oct-2026):** cada oleada que pasa, la deuda sin pagar sube 30 % de interés. El teléfono se puede usar en cada visita para ver la deuda, abonar o pagar todo.
+
 **Prueba del dueño (19-oct-2026), manda sobre lo de abajo:** cada una de las 3 puertas tiene 50 % de estar abierta o cerrada en cada visita; todo lo que hay dentro de cada sala sale siempre. Sin carteles ni adornos de «no salió nada»; símbolos pequeños sobre puertas de verdad (intercambio pasa a ser «?» de misterio); sin cartel en la caja del gato.
 
 **Decisiones del dueño sobre los bocetos de la Trastienda y la deuda (19-oct-2026):**
