@@ -120,7 +120,13 @@ const Son = (() => {
     acorde() { [523, 659, 784, 1047, 1319].forEach((f, i) => { tono(f, 1.6, { t: i * .09, vol: .14, tipo: 'triangle' }); }); tono(2093, 1.2, { t: .5, vol: .06 }); },
     jackpot() { for (let i = 0; i < 12; i++) tono(i % 2 ? 1568 : 2093, .16, { t: i * .085, vol: .12, tipo: 'square' }); this.campana(1); },
     rasgar() { ruido(.38, { f: 2200, f2: 6000, q: .9, vol: .55 }); ruido(.2, { f: 900, q: 1, vol: .25, t: .05 }); },
-    moneda() { tono(988, .08, { tipo: 'square', vol: .08 }); tono(1319, .32, { t: .07, tipo: 'square', vol: .08 }); },
+    // Dinero (dueño, 19-oct-2026: «el sonido de cambio debe ser el de dinero»): monedas que caen y la caja registradora «ka-ching»
+    moneda() {
+      [0, .05, .11, .16].forEach((t, i) => { tono(3400 + i * 380 + Math.random() * 200, .09, { t, tipo: 'triangle', vol: .07 }); ruido(.03, { f: 7000, q: 6, vol: .18, t }); });
+      ruido(.06, { f: 1300, q: 3, vol: .55, t: .2 }); tono(150, .05, { tipo: 'square', vol: .08, t: .2 });   // «ka»: el cajón se abre
+      [2637, 3520, 4186].forEach((f, i) => tono(f, .9 - i * .2, { t: .25, vol: .13 - i * .03 }));           // «ching»: la campanita
+      tono(5274, .4, { t: .27, vol: .03, tipo: 'triangle' });
+    },
     error() { tono(190, .16, { tipo: 'sawtooth', vol: .1 }); tono(140, .22, { t: .12, tipo: 'sawtooth', vol: .1 }); },
     bang() { ruido(.45, { tipo: 'lowpass', f: 3500, f2: 150, vol: 1 }); tono(160, .22, { f2: 50, vol: .45 }); },
     tic(f = 1200, v = .05) { tono(f, .03, { tipo: 'square', vol: v }); },
@@ -189,7 +195,8 @@ async function celebrar(el, r) {
 }
 
 // Pastilla de oro que cuenta sola (juntar ya no cuesta fichas)
-function pastillas() { return `<span class="pill"><i></i><b id="pOro">${Z.e.oro}</b></span>`; }
+// El oro se muestra con el símbolo de dólar, igual que los precios («210 $»)
+function pastillas() { return `<span class="pill" title="Oro"><b id="pOro">${Z.e.oro}</b><span class="dolar">$</span></span>`; }
 function contarPastillas(antes) { if ($('#pOro') && antes.oro !== Z.e.oro) FX.contar($('#pOro'), antes.oro, Z.e.oro, 500, true); }
 const foto = () => ({ oro: Z.e.oro });
 
@@ -197,10 +204,13 @@ const foto = () => ({ oro: Z.e.oro });
 // Hueco con su ficha; si tiene pareja lista, brilla en verde (clase «par»)
 // (un sobre azul guardado en la reserva se dibuja como sobre: ver sobre_azul.js)
 function hueco(l, cls = 'slot') { const x = Z.get(l), par = x && Z.pareja(l); return `<span class="${cls}${x ? '' : ' vacio'}${par ? ' par' : ''}" data-loc="${l}">${x ? (x.sobre ? `<span class="f sobreA">${sobreAzulSVG()}</span>` : ficha(x.id, x.nv)) : ''}</span>`; }
+// Solo el nivel siguiente (dueño, 19-oct-2026: no hace falta ver lo que hacía en los niveles de abajo)
 function escalera(id, nv) {
   const D = DATOS[id]; if (!D) return '';
-  return `<div class="ladder">${D[4].map((x, i) => `${i + 1 === nv ? '<b class="on">' : '<span>'}Nv ${i + 1}${i + 1 === nv ? '</b>' : '</span>'}<span>${x}${i === 3 && D[5] ? ' <i class="desp">+ ' + D[5].split(':')[0] + '</i>' : ''}</span>`).join('')}</div>`;
+  if (nv < NIVEL_MAX) return `<div class="ladder"><b class="on">Nv ${nv + 1}</b><span>${D[4][nv]}</span></div>`;
+  return `<div class="ladder"><b class="on">Nv máx.</b><span>${D[5] ? '<i class="desp">Despierta: ' + D[5] + '</i>' : 'Ya no sube más'}</span></div>`;
 }
+const siguienteNivel = (id, nv) => { const D = DATOS[id]; if (!D) return ''; return nv < NIVEL_MAX ? 'Siguiente nivel: ' + D[4][nv] : D[5] ? 'Despierta: ' + D[5] : 'Nivel máximo'; };
 function queHace(id, nv) { const D = DATOS[id]; return D ? (nv ? D[4][Math.min(NIVEL_MAX, nv) - 1] : D[3]) : ''; }
 const cuenta = z => Z.e[z].filter(Boolean).length + '/' + Z.e[z].length;
 function locEl(l) { return document.querySelector(`[data-loc="${l}"]`); }

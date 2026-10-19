@@ -42,7 +42,7 @@
   .match{font-size:14px}
 }
 </style></head><body><div class="frame">
-<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora</h1><span class="lbl">Compra y acomoda aquí mismo</span><span class="sp"></span><span class="pill"><i></i><b id="pOro">600</b></span><span class="pill" title="Balas normales"><i class="bala"></i><b id="pNor">0</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
+<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora</h1><span class="lbl">Compra y acomoda aquí mismo</span><span class="sp"></span><span class="pill" title="Oro"><b id="pOro">600</b><span class="dolar">$</span></span><span class="pill" title="Balas normales"><i class="bala"></i><b id="pNor">0</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="lay">
  <div class="vm">
   <div class="tabs" id="tabs"><span class="tab" data-t="sobres">Sobres</span><span class="tab" data-t="cajas">Cajas</span><span class="tab" data-t="oferta">Oferta de hoy</span></div>
@@ -61,7 +61,7 @@
  </div>
 </div></div>
 <script>
-const SOBRES_T = [{ n: SOBRE_DE.Standard, nom: 'Standard', p: 50 }, { n: SOBRE_DE.Terminator, nom: 'Terminator', p: 100 }, { n: SOBRE_DE.Especial, nom: 'Especial', p: 300 }];
+const SOBRES_T = [{ n: SOBRE_DE.Standard, nom: 'Standard', p: 50 }, { n: SOBRE_DE.Terminator, nom: 'Terminator', p: 100 }, { n: SOBRE_DE.Jackpot, nom: 'Jackpot', p: 300 }];
 const CAJAS = [{ n: 25, p: 15 }, { n: 50, p: 25 }];
 const OFERTA0 = ['escarcha', 'relampago', 'oro', 'espejo', 'apuesta', 'hipnotica'];
 let T; function tiendaNueva() { T = { tab: 'oferta', sel: 0, oferta: OFERTA0.map(id => ({ id, vendida: false })), nor: 0, mia: null, ocupado: false }; }
@@ -73,11 +73,11 @@ function render() {
   if (T.mia && !Z.get(T.mia)) T.mia = null;
   $$('#tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.t === T.tab));
   let g = '';
-  if (T.tab === 'oferta') g = T.oferta.map((o, i) => `<div class="prod${i === T.sel ? ' sel' : ''}${o.vendida ? ' gone' : ''}" data-p="${i}">${ficha(o.id, 1)}<span class="tag">${nombre(o.id)} · ${o.vendida ? 'Vendida' : precio(o.id)}</span><div class="coil"></div></div>`).join('');
-  if (T.tab === 'sobres') g = SOBRES_T.map((s, i) => `<div class="prod${i === T.sel ? ' sel' : ''}" data-p="${i}"><div class="img">${sobreSVG(s.n)}</div><span class="tag">${s.nom} · ${s.p}</span><div class="coil"></div></div>`).join('');
-  if (T.tab === 'cajas') g = CAJAS.map((c, i) => `<div class="prod${i === T.sel ? ' sel' : ''}" data-p="${i}"><div class="img">${caja(c.n)}</div><span class="tag">Caja de ${c.n} · ${c.p}</span><div class="coil"></div></div>`).join('');
+  if (T.tab === 'oferta') g = T.oferta.map((o, i) => `<div class="prod${i === T.sel ? ' sel' : ''}${o.vendida ? ' gone' : ''}" data-p="${i}">${ficha(o.id, 1)}<span class="tag">${nombre(o.id)} · ${o.vendida ? 'Vendida' : precio(o.id) + ' $'}</span><div class="coil"></div></div>`).join('');
+  if (T.tab === 'sobres') g = SOBRES_T.map((s, i) => `<div class="prod${i === T.sel ? ' sel' : ''}" data-p="${i}"><div class="img">${sobreSVG(s.n)}</div><span class="tag">${s.nom} · ${s.p} $</span><div class="coil"></div></div>`).join('');
+  if (T.tab === 'cajas') g = CAJAS.map((c, i) => `<div class="prod${i === T.sel ? ' sel' : ''}" data-p="${i}"><div class="img">${caja(c.n)}</div><span class="tag">Caja de ${c.n} · ${c.p} $</span><div class="coil"></div></div>`).join('');
   $('#glass').innerHTML = g; $('#glass').style.gridTemplateRows = T.tab === 'oferta' ? 'repeat(2,1fr)' : '1fr';
-  $('#note').innerHTML = T.tab === 'oferta' ? '1 bala por compra · la oferta cambia cada visita' : T.tab === 'sobres' ? '3 balas al azar · se abren con la Tragamonedas' : 'Balas normales para tu arma';
+  $('#note').innerHTML = T.tab === 'oferta' ? '1 bala por compra · la oferta cambia cada visita' : T.tab === 'sobres' ? '3 balas al azar · te llevas 1, 2 o las 3' : 'Balas normales para tu arma';
   $('#cin').innerHTML = Z.e.cin.map((_, i) => hueco('cin:' + i)).join('');
   $('#inv').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
   $('#cCin').textContent = cuenta('cin'); $('#cInv').textContent = cuenta('inv');
@@ -87,14 +87,14 @@ function render() {
   if (T.tab === 'oferta') {
     const o = T.oferta[T.sel], gem = Z.gemela(o.id, 1);
     if (o.vendida) { txt = 'Vendida'; dis = true; m.className = 'match off'; m.innerHTML = 'Ya compraste esta bala. Elige otra.'; }
-    else if (gem) { const G = Z.get(gem), r = Z.combinar(nueva(o.id, 1), G); txt = 'Comprar y juntar · ' + precio(o.id); m.className = 'match'; m.innerHTML = `${ficha(o.id, 1)}<span>+</span>${ficha(G.id, G.nv)}<span>= <b style="color:${brillo(r.id)}">${nombre(r.id)} Nv ${r.nv}</b> ${gem.startsWith('cin') ? 'en tu cinturón' : 'en tu inventario'}</span>`; }
-    else { txt = 'Comprar · ' + precio(o.id); m.className = 'match off'; m.innerHTML = `${ficha(o.id, 1)}<span>${nombre(o.id)}: ${queHace(o.id, 1)}. Va al primer lugar libre.</span>`; }
-  } else if (T.tab === 'sobres') { const s = SOBRES_T[T.sel]; txt = 'Comprar sobre · ' + s.p; m.className = 'match off'; m.innerHTML = `<span>Sobre ${s.nom}: 3 balas. Las gemelas de Nv 1 se juntan solas.</span>`; }
-  else { const c = CAJAS[T.sel]; txt = 'Comprar caja · ' + c.p; m.className = 'match off'; m.innerHTML = `<span>${c.n} balas normales para tu arma. Tienes ${T.nor}.</span>`; }
+    else if (gem) { const G = Z.get(gem), r = Z.combinar(nueva(o.id, 1), G); txt = 'Comprar y juntar · ' + precio(o.id) + ' $'; m.className = 'match'; m.innerHTML = `${ficha(o.id, 1)}<span>+</span>${ficha(G.id, G.nv)}<span>= <b style="color:${brillo(r.id)}">${nombre(r.id)} Nv ${r.nv}</b> ${gem.startsWith('cin') ? 'en tu cinturón' : 'en tu inventario'}</span>`; }
+    else { txt = 'Comprar · ' + precio(o.id) + ' $'; m.className = 'match off'; m.innerHTML = `${ficha(o.id, 1)}<span>${nombre(o.id)}: ${queHace(o.id, 1)}. Va al primer lugar libre.</span>`; }
+  } else if (T.tab === 'sobres') { const s = SOBRES_T[T.sel]; txt = 'Comprar sobre · ' + s.p + ' $'; m.className = 'match off'; m.innerHTML = `<span>Sobre ${s.nom}: 3 balas. Las gemelas de Nv 1 se juntan solas.</span>`; }
+  else { const c = CAJAS[T.sel]; txt = 'Comprar caja · ' + c.p + ' $'; m.className = 'match off'; m.innerHTML = `<span>${c.n} balas normales para tu arma. Tienes ${T.nor}.</span>`; }
   b.textContent = txt; b.disabled = dis;
-  const v = $('#bVender'); const mi = T.mia && Z.get(T.mia); v.disabled = !mi || T.ocupado; v.textContent = mi ? `Vender · +${venta(mi)}` : 'Vender';
+  const v = $('#bVender'); const mi = T.mia && Z.get(T.mia); v.disabled = !mi || T.ocupado; v.textContent = mi ? `Vender · +${venta(mi)} $` : 'Vender';
 }
-function pagar(p) { if (Z.e.oro < p) { FX.toast('No te alcanza el oro', true); return false; } const a = Z.e.oro; Z.e.oro -= p; FX.contar($('#pOro'), a, Z.e.oro, 500, true); Son.moneda(); return true; }
+function pagar(p) { if (Z.e.oro < p) { FX.toast('No te alcanza el dinero', true); return false; } const a = Z.e.oro; Z.e.oro -= p; FX.contar($('#pOro'), a, Z.e.oro, 500, true); Son.moneda(); return true; }
 // Una bala nueva cae en la bandeja y va a su gemela o a un lugar libre
 async function entrar(id, desde) {
   const tray = $('#tray');
@@ -103,7 +103,7 @@ async function entrar(id, desde) {
   await espera(450);
   const gem = Z.gemela(id, 1); const dest = gem || Z.libre('cin') || Z.libre('inv');
   const de = tray.firstChild;
-  if (!dest) { const p = Math.round(precio(id) / 2), a = Z.e.oro; Z.e.oro += p; FX.contar($('#pOro'), a, Z.e.oro); tray.innerHTML = 'Bandeja'; FX.toast(`Sin lugar: ${nombre(id)} se vendió por ${p}`); return; }
+  if (!dest) { const p = Math.round(precio(id) / 2), a = Z.e.oro; Z.e.oro += p; FX.contar($('#pOro'), a, Z.e.oro); Son.moneda(); tray.innerHTML = 'Bandeja'; FX.toast(`Sin lugar: ${nombre(id)} se vendió por ${p} $`); return; }
   await FX.volar(de, fichaEl(dest) || locEl(dest), ficha(id, 1), { color: brillo(id) }); tray.innerHTML = 'Bandeja';
   if (gem) {
     const G = Z.get(gem), r = Z.combinar(nueva(id, 1), G), it = nueva(r.id, r.nv); Z.set(gem, it);
@@ -130,12 +130,12 @@ async function comprar() {
     T.ocupado = false; render(); return;
   }
   const s = SOBRES_T[T.sel]; if (!pagar(s.p)) return; T.ocupado = true; render();
-  abrirVentanaSobre({ anim: 6, sobre: s.n, titulo: 'Sobre ' + s.nom, alOtro: () => pagar(s.p), alCerrar: async lista => { for (const id of lista) await entrar(id, null); T.ocupado = false; render(); } });
+  abrirVentanaSobre({ sobre: s.n, titulo: 'Sobre ' + s.nom, alOtro: () => pagar(s.p), alCerrar: async lista => { for (const id of lista) await entrar(id, null); T.ocupado = false; render(); } });
 }
 $('#bComprar').onclick = comprar;
 $('#tabs').onclick = e => { const t = e.target.closest('[data-t]'); if (!t || T.ocupado) return; T.tab = t.dataset.t; T.sel = T.tab === 'oferta' ? Math.max(0, T.oferta.findIndex(o => !o.vendida)) : T.tab === 'sobres' ? 1 : 0; Son.clic(); render(); };
 $('#glass').onclick = e => { const p = e.target.closest('[data-p]'); if (!p || T.ocupado) return; T.sel = +p.dataset.p; Son.clic(); render(); FX.rebote(p.querySelector('.f,.img'), 1.1); };
-$('#bVender').onclick = () => { const l = T.mia, it = l && Z.get(l); if (!it) return; const p = venta(it), a = Z.e.oro; Z.e.oro += p; FX.estallido(fichaEl(l), '#ffd27a', 12); Z.set(l, null); T.mia = null; Son.moneda(); render(); FX.contar($('#pOro'), a, Z.e.oro); FX.toast(`Vendiste ${nombre(it.id)} por ${p}`); };
+$('#bVender').onclick = () => { const l = T.mia, it = l && Z.get(l); if (!it) return; const p = venta(it), a = Z.e.oro; Z.e.oro += p; FX.estallido(fichaEl(l), '#ffd27a', 12); Z.set(l, null); T.mia = null; Son.moneda(); render(); FX.contar($('#pOro'), a, Z.e.oro); FX.toast(`Vendiste ${nombre(it.id)} por ${p} $`); };
 arrastre($('#side'), {
   puede: () => !T.ocupado,
   alTocar(k) { if (!Z.get(k)) return; T.mia = T.mia === k ? null : k; Son.clic(); render(); },

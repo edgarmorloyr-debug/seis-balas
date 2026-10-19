@@ -1,11 +1,11 @@
 // apertura.js · Las 5 aperturas de sobre animadas de verdad (JS + WebAudio).
 // Necesita fichas.js, sobres.js y vivo.js. El escenario usa coordenadas de 360×240 (como los bocetos).
-// Diseño de cada tipo de sobre (elegido por el dueño, 19-oct-2026): Naipe = Standard, Dinamita = Terminator, Neón = Especial.
+// Diseño de cada tipo de sobre (elegido por el dueño, 19-oct-2026): Naipe = Standard, Dinamita = Terminator, Neón = Jackpot (nombre nuevo del dueño, 19-oct-2026).
 // Los otros dos diseños (puros y botín) quedan como alternativas.
-const TIER = { 1: 'Standard', 2: 'Terminator', 3: 'Especial', 4: 'Standard', 5: 'Especial' };
-const SOBRE_DE = { Standard: 1, Terminator: 2, Especial: 5 };
+const TIER = { 1: 'Standard', 2: 'Terminator', 3: 'Jackpot', 4: 'Standard', 5: 'Jackpot' };
+const SOBRE_DE = { Standard: 1, Terminator: 2, Jackpot: 5 };
 // Sorteo con las 4 rarezas nuevas (C común, B poco común, A rara, S legendaria). Tomado de BAL.sobres del juego, con un poco de legendaria.
-const PESOS = { Standard: { C: 70, B: 24, A: 5, S: 1 }, Terminator: { C: 40, B: 42, A: 15, S: 3 }, Especial: { C: 10, B: 45, A: 37, S: 8 } };
+const PESOS = { Standard: { C: 70, B: 24, A: 5, S: 1 }, Terminator: { C: 40, B: 42, A: 15, S: 3 }, Jackpot: { C: 10, B: 45, A: 37, S: 8 } };
 function sortear(tier = 'Standard', n = 3) {
   const p = PESOS[tier] || PESOS.Standard, out = [];
   while (out.length < n) {
@@ -233,6 +233,79 @@ async function animarCartas(c, cartas, o = {}) {
   return nodos;
 }
 
+// ----- Elegir cartas (dueño, 19-oct-2026): se ven las 3, pero solo te llevas 1, 2 o las 3, al azar -----
+const ELEGIR_CARTAS = { 1: 70, 2: 20, 3: 10 };   // % de poder llevarte 1, 2 o las 3 cartas de un sobre
+function sortearCupo() { let x = Math.random() * 100; for (const n of [1, 2, 3]) { if (x < ELEGIR_CARTAS[n]) return n; x -= ELEGIR_CARTAS[n]; } return 1; }
+// Apertura de cada tipo de sobre (dueño, 19-oct-2026): Standard = Rasgado de naipe, Terminator = Mecha encendida,
+// Jackpot = Tragamonedas, sobre azul = Cartas boca abajo.
+const ANIM_DE = { Standard: 1, Terminator: 2, Jackpot: 5, azul: 6 };
+const animDe = n => ANIM_DE[TIER[n]] || 1;
+// Texto corto de una carta para la tira de arriba: qué bala es (rareza y lo que hace en su nivel) o qué premio es
+function efectoCarta(k) {
+  if (k.k === 'bala') return `<b style="color:${k.col}">${k.nom}</b> · ${k.corto} · Nv 1: ${queHace(k.id, 1)}`;
+  return `<b style="color:${k.k === 'nada' ? '#cfc2a8' : k.col}">${k.nom}</b> · ${k.que || ''}`;
+}
+// Abre un sobre dentro de host (la ventana de productos de la máquina o la ventana encima de la página).
+// host tiene .leyenda (tira de arriba) y .esc > .caja. o: { anim, sobre, packSVG, dorso, cartas, titulo, alBoton(texto, listo) }
+// Devuelve { fin: Promise<{ nodos, elegidas }>, llevar() }: la página llama a llevar() con su botón naranja.
+function abrirSobreEn(host, o) { const ses = { llevar() { } }; ses.fin = jugarSobre(host, o, ses); return ses; }
+async function jugarSobre(host, o, ses) {
+  const esc = host.querySelector('.esc'), c = esc.querySelector('.caja'), ley = host.querySelector('.leyenda');
+  const H = o.anim === 6 ? 200 : 240; c._H = H;
+  const medir = () => { const r = esc.getBoundingClientRect(); if (!r.width) return; const u = Math.max(.3, Math.min(r.width / 360, r.height / H)); c.style.setProperty('--u', u + 'px'); c.style.width = `calc(var(--u)*360)`; c.style.height = `calc(var(--u)*${H})`; };
+  medir(); const ro = new ResizeObserver(medir); ro.observe(esc);
+  c.innerHTML = ''; ley.innerHTML = `<span class="efecto"><b>${o.titulo}</b> · abriendo…</span>`;
+  o.alBoton?.('Abriendo…', false);
+  const cartas = o.cartas;
+  let nodos;
+  if (o.anim === 6) nodos = await animarCartas(c, cartas, { packSVG: o.packSVG, dorso: o.dorso });
+  else {
+    const pk = pon(c, o.packSVG, 180, 120, 139, 197, 'pack');
+    await an(pk, [{ transform: `translateY(${-160 * uu(c)}px) rotate(-10deg)`, opacity: 0 }, { transform: 'none', opacity: 1 }], 380, 'cubic-bezier(.2,.9,.3,1.2)');
+    Son.caida();
+    const balas = cartas.map(k => k.id);
+    nodos = await ANIMS[o.anim](c, { sobre: o.sobre, balas, pack: pk });
+    revelarFinal(nodos, balas, o.anim !== 5);
+  }
+  // cuántas te llevas: 1, 2 o las 3
+  const N = sortearCupo(), elegidas = new Set();
+  const txt = N === 3 ? '¡Te llevas las 3!' : `Elige ${N} carta${N > 1 ? 's' : ''}`;
+  const se = pon(c, `<b class="sello${N === 3 ? ' tres' : ''}">${txt}</b>`, 180, H / 2, 300, 70); se.style.zIndex = 9;
+  Son.campana(); if (N === 3) { Son.jackpot(); setTimeout(() => FX.estallido(se, '#ffd27a', 34, true), 200); }
+  await an(se, [{ transform: 'scale(2.2) rotate(-8deg)', opacity: 0 }, { transform: 'scale(1) rotate(-4deg)', opacity: 1 }], 380, 'cubic-bezier(.2,1.4,.4,1)');
+  await espera(N === 3 ? 1300 : 900);
+  an(se, [{ transform: 'rotate(-4deg)', opacity: 1 }, { transform: `translateY(${-90 * uu(c)}px) scale(.5)`, opacity: 0 }], 350, 'ease-in').then(() => se.remove());
+  const cupo = `<span class="cupo${N === 3 ? ' tres' : ''}">${txt}</span>`;
+  const pinta = i => { ley.innerHTML = cupo + `<span class="efecto">${i == null ? 'Toca una carta para ver su efecto' : efectoCarta(cartas[i])}</span>`; };
+  pinta(null);
+  const boton = () => o.alBoton?.(`Llevar (${elegidas.size}/${N})`, elegidas.size > 0, txt);
+  if (N === 3) nodos.forEach((n, i) => { elegidas.add(i); n.classList.add('tomada'); });
+  boton();
+  nodos.forEach((n, i) => {
+    n.classList.add('elegible');
+    n.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') pinta(i); });
+    n.addEventListener('click', e => {
+      e.stopPropagation(); pinta(i); if (N === 3 || !ses.abierta) return;
+      if (elegidas.has(i)) { elegidas.delete(i); n.classList.remove('tomada'); Son.clic(); }
+      else {
+        if (elegidas.size >= N) {
+          if (N > 1) { FX.toast(`Solo puedes llevar ${N}: quita una antes`, true); return; }
+          const j = [...elegidas][0]; elegidas.delete(j); nodos[j].classList.remove('tomada');
+        }
+        elegidas.add(i); n.classList.add('tomada'); Son.ficha(); FX.rebote(n, 1.08);
+      }
+      boton();
+    });
+  });
+  ses.abierta = true;
+  await new Promise(r => { ses.llevar = () => { if (elegidas.size) r(); }; });
+  ses.abierta = false; ses.llevar = () => { };
+  // las que no te llevas se van
+  nodos.forEach((n, i) => { if (!elegidas.has(i)) an(n, [{ opacity: 1 }, { opacity: 0, transform: 'scale(.7)' }], 280, 'ease-in'); });
+  Son.whoosh(); await espera(300); ro.disconnect();
+  return { nodos, elegidas: [...elegidas].sort((a, b) => a - b) };
+}
+
 // Brillo final por rareza (todas las aperturas)
 function revelarFinal(nodos, balas, etq = true) {
   let mejor = 'C';
@@ -281,17 +354,32 @@ function montarEscenario(host, o) {
   return { abrir, cambiar(anim, sobre) { o.anim = anim; o.sobre = sobre; if (st.estado !== 'abriendo') quieto(); }, get estado() { return st.estado; } };
 }
 
-// Ventana encima de la página (sobres, expendedora). Se abre sola.
+// Ventana encima de la página (sobres, expendedora). Se abre sola, cada sobre con su apertura,
+// y después eliges cuáles te llevas. o: { sobre, titulo, alOtro(): bool, alCerrar(lista) }
 function abrirVentanaSobre(o) {
+  const anim = animDe(o.sobre);
   const d = document.createElement('div'); d.className = 'ap frame';
-  d.innerHTML = `<div class="top"><h1>${o.titulo || 'Sobre de balas'}</h1><span class="sp"></span><span class="lbl">Apertura: <b>${nombreAp(o.anim)}</b></span></div>`;
+  d.innerHTML = `<div class="top"><h1>${o.titulo || 'Sobre de balas'}</h1><span class="sp"></span><span class="lbl">Apertura: <b>${nombreAp(anim)}</b></span></div>`
+    + `<div class="leyenda"></div><div class="esc"><div class="caja"></div></div><div class="barra"><div class="res"></div><button class="btn" data-ap="cerrar">Cerrar</button><button class="btn main" data-ap="otro">Abrir sobre</button></div>`;
   document.body.appendChild(d); document.body.classList.add('con-ap');
-  const e = montarEscenario(d, { ...o, cerrar: true, alCerrar: lista => { d.remove(); document.body.classList.remove('con-ap'); o.alCerrar?.(lista); } });
-  setTimeout(() => e.abrir(), 350);
-  return e;
+  const res = d.querySelector('.res'), bMain = d.querySelector('[data-ap=otro]'), bCerrar = d.querySelector('[data-ap=cerrar]');
+  const todas = []; let ses = null, abiertos = 0;
+  async function uno() {
+    bCerrar.disabled = true; res.innerHTML = ''; abiertos++;
+    const balas = sortear(TIER[o.sobre]);
+    ses = abrirSobreEn(d, { anim, sobre: o.sobre, packSVG: sobreSVG(o.sobre), cartas: balas.map(cartaBala), titulo: o.titulo, alBoton: (t, listo) => { bMain.textContent = t; bMain.disabled = !listo; } });
+    const r = await ses.fin; ses = null;
+    const lleva = r.elegidas.map(i => balas[i]); todas.push(...lleva);
+    res.innerHTML = 'Te llevas: ' + lleva.map(id => `<b style="color:${rcol(id)}">${nombre(id)}</b> (${RNOM[rareza(id)]})`).join(', ');
+    r.elegidas.forEach(i => FX.estallido(r.nodos[i], rcol(balas[i]), 10));
+    bMain.textContent = 'Abrir otro'; bMain.disabled = false; bCerrar.disabled = false;
+  }
+  bMain.onclick = () => { if (ses) return ses.llevar(); if (abiertos && o.alOtro && !o.alOtro()) return; uno(); };
+  bCerrar.onclick = () => { if (ses) return; d.remove(); document.body.classList.remove('con-ap'); o.alCerrar?.(todas); };
+  setTimeout(uno, 350);
+  return d;
 }
-// Todos los sobres se abren con cartas (6) por defecto (dueño, 19-oct-2026). La tragamonedas (5) ya no es la de por defecto:
-// se usa una clave nueva para que un 5 guardado antes no se quede pegado.
+// Apertura guardada (solo la usan las páginas de muestra). Cada sobre usa la suya: ver ANIM_DE.
 const apElegida = () => { const n = guardado('zg_apertura3', 6); return n === 5 ? 6 : n; };
 const sobreElegido = () => guardado('zg_sobre', 1);
 const elegirAp = n => guardar('zg_apertura3', n);
