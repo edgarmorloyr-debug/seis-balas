@@ -118,3 +118,34 @@ Desde el 19-oct-2026 el 3D es solo para los jefes y minijefes (decisión del due
 
 El León del Domador usa el perro de los zombis (`modelos/zombis/zombi_perro.glb`, Grimhound Rig de DM-913, arriba), pintado de dorado y con melena.
 
+## Armas del vendedor de armas y platos del puesto de ramen
+
+Las armas, los chalecos y la dinamita del vendedor de armas de la Trastienda (sala de las balas) y los platos del puesto de ramen.
+Las armas se ven en primera persona al llevarlas y en el estante; todo sale también en la foto de cada producto en el menú
+(la foto se saca en el juego, una vez, del mismo modelo). Se simplificaron a 4000 triángulos o menos (primera persona) y unos 1400 (estante),
+sin mapas de relieve ni de brillo, con texturas WebP de 256 px (128 px la Gatling). Cada archivo baja solo cuando hace falta;
+si no baja (o con `?sin3d=1`), se ve el dibujo de antes. Ningún modelo lleva marcas ni logotipos.
+
+| En el juego | Archivo(s) | Modelo | Autor | Licencia | Triángulos y peso | Dirección | Cambios |
+|---|---|---|---|---|---|---|---|
+| Escopeta de doble cañón | `armas/doble.glb`, `armas/doble_r.glb` | Low-Poly Fox Sterlingworth Philly | TastyTony | CC BY 4.0 | 2010 (25KB) · 1394 (19KB) | https://sketchfab.com/3d-models/low-poly-fox-sterlingworth-philly-74fe0453d43e4569a2f7e615fdaa99d7 | Sin los dos cartuchos sueltos. |
+| Escopeta de bombeo | `armas/escopeta.glb`, `armas/escopeta_r.glb` | Low-Poly Winchester Model 1897 | TastyTony | CC BY 4.0 | 3995 (44KB) · 1384 (18KB) | https://sketchfab.com/3d-models/low-poly-winchester-model-1897-555cc635573743e596f70414a31f298f |  |
+| AK-47 | `armas/ak47.glb`, `armas/ak47_r.glb` | Low-Poly AK-47 Type 2 | TastyTony | CC BY 4.0 | 4008 (48KB) · 1392 (22KB) | https://sketchfab.com/3d-models/low-poly-ak-47-type-2-a7260926fb0a40f8bba5f651b03d23f1 |  |
+| M16 | `armas/m16.glb`, `armas/m16_r.glb` | Low-Poly M16 | TastyTony | CC BY 4.0 | 3998 (45KB) · 1402 (19KB) | https://sketchfab.com/3d-models/low-poly-m16-f7eddeb852f84094a7ba26e293223d10 |  |
+| Desert Eagle | `armas/deagle.glb`, `armas/deagle_r.glb` | Low-Poly Desert Eagle | TastyTony | CC BY 4.0 | 3499 (40KB) · 1509 (20KB) | https://sketchfab.com/3d-models/low-poly-desert-eagle-b81da261345f4462b2c4412352162287 |  |
+| Thompson | `armas/tommy.glb`, `armas/tommy_r.glb` | Low-Poly Thompson M1928 | TastyTony | CC BY 4.0 | 4012 (47KB) · 1402 (21KB) | https://sketchfab.com/3d-models/low-poly-thompson-m1928-1e0f50d770ab4a2aa611a52f63e8d260 |  |
+| M60 de cinta | `armas/m60.glb`, `armas/m60_r.glb` | Low-Poly M60 | TastyTony | CC BY 4.0 | 3969 (51KB) · 1374 (23KB) | https://sketchfab.com/3d-models/low-poly-m60-e5a04ab236154243940aeee502f505e5 |  |
+| Gatling de manivela | `armas/gatling.glb` | Gatling Gun v1 | swordmanck | CC BY 4.0 | 990 (35KB) | https://sketchfab.com/3d-models/gatling-gun-v1-99c24beb943c4347894832aab45db60b | Reflejada para que la manivela quede a la derecha; los cañones giran al disparar. |
+| Chaleco de cuero | `armas/cuero.glb` | Vest | denj666 | CC BY 4.0 | 1633 (65KB) | https://sketchfab.com/3d-models/vest-f8c0b3b1ef054685a1631cef7791f2f8 |  |
+| Chaleco de acero | `armas/acero.glb` | Breastplate - metal | Multipainkiller Studio | CC BY 4.0 | 3000 (68KB) | https://sketchfab.com/3d-models/breastplate-metal-bac83c715d48430c812f154100908095 | Girado de frente. |
+| Dinamita | `armas/dinamita.glb` | Dynamite bundle | DJMaesen | CC BY 4.0 | 1304 (33KB) | https://sketchfab.com/3d-models/dynamite-bundle-6d333be39e454b458d48ad86f8a78df4 |  |
+| Ramen | `comida/ramen.glb` | Low Poly Stylized Ramen Bowl | Nazzareno | CC BY 4.0 | 1654 (51KB) | https://sketchfab.com/3d-models/low-poly-stylized-ramen-bowl-6b4ce426beed4e18bea2283973fc9949 |  |
+| Ramen de medianoche | `comida/medianoche.glb` | Anime Style Ramen | keatura | CC BY 4.0 | 616 (27KB) | https://sketchfab.com/3d-models/anime-style-ramen-f72892d920a34c34aaa4b70b0bd76829 |  |
+| Onigiri | `comida/onigiri.glb` | Onigiri - midpoly | Pierre.Bourdon | CC BY 4.0 | 992 (28KB) | https://sketchfab.com/3d-models/onigiri-midpoly-e7db392d6d3a4664becaea75c17e972a | De pie. |
+| Gyozas | `comida/gyoza.glb` | Free lonely lowpoly gyoza | KapetS | CC BY 4.0 | 876 (27KB) | https://sketchfab.com/3d-models/free-lonely-lowpoly-gyoza-209274dbc6224037a81c5555fe78f0e5 |  |
+| Takoyaki | `comida/takoyaki.glb` | Takoyaki | Ethan Buot | CC BY 4.0 | 486 (20KB) | https://sketchfab.com/3d-models/takoyaki-f069a071852f445fbacf5561fabf4052 |  |
+| Sushi del chef | `comida/sushi.glb` | Sushi - midpoly | Pierre.Bourdon | CC BY 4.0 | 704 (26KB) | https://sketchfab.com/3d-models/sushi-midpoly-5ee3c671e6014f04ba3971c243acdfb9 |  |
+| Lata de sardinas | `comida/sardinas.glb` | Rusty Can of Sardines | Coozy | CC BY 4.0 | 1586 (68KB) | https://sketchfab.com/3d-models/rusty-can-of-sardines-af964af1c58840c1baf3cc0dd8cd987d |  |
+| Frijoles del vaquero | `comida/frijoles.glb` | Can of beans | Urpo | CC BY 4.0 | 1220 (33KB) | https://sketchfab.com/3d-models/can-of-beans-566323fb276f4fa7ac2943b38bb4e98d |  |
+| Leche de almendras? | `comida/leche.glb` | Milk Carton | Chris | CC BY 4.0 | 278 (16KB) | https://sketchfab.com/3d-models/milk-carton-713643151cce41798f6dfb98bbff09cb | Se borraron del dibujo de la caja los sellos (ecológico, «BIO» y el de reciclaje). |
+| Brocheta yakitori | `comida/yakitori.glb` | Sate ayam | yoboseiyo | CC BY 4.0 | 1472 (21KB) | https://sketchfab.com/3d-models/sate-ayam-7064573dc9034e7996753b0fe8a489f6 |  |
