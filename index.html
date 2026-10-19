@@ -372,8 +372,11 @@ body.cofre-on #banner{opacity:0}
 .tel-k{font-size:14px;color:var(--bone-dim);text-transform:uppercase;letter-spacing:1px}
 .tel-big{font:400 clamp(30px,6vh,60px)/1 var(--display);color:var(--gold)}
 .tel-f{display:flex;justify-content:space-between;gap:8px;font-size:17px}
+.tel-int{font:600 15px var(--hud);color:#ffb0a0}
 .tel-f b{color:var(--gold)}.tel-f b.ok{color:#7ad87a}.tel-f b.no{color:#ff9a88}
-.tel-der .btn,.tel-der .btn2{width:100%}
+.tel-acc{display:flex;gap:8px}.tel-acc .btn2{flex:1;padding:0 10px}.tel-acc .btn{flex:2;padding:0 10px}
+.tel-rap{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.tel-rap .btn2{padding:0 4px;min-height:48px;font-size:15px;letter-spacing:.02em}
+@media (max-height:520px){.tel-big{font-size:30px}.tel-f{font-size:15px}.tel-caja{padding:6px 12px;gap:2px}.tel-der{gap:6px}.tel-nota{font-size:14px}.tel-voz{font-size:18px;padding:4px 12px}}
 .tel-nota{margin:0;font-size:15px;color:#ffb0a0;line-height:1.25}
 @media (orientation:portrait){.tel-m{flex-direction:column;height:min(760px,100%)}.tel-izq{flex:1}.tel-der{width:100%}}
 /* armería */
@@ -2573,7 +2576,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
   <div class="overlay g1o" id="tel-s" hidden>
     <div class="tel-m">
       <div class="tel-izq">
-        <div class="tel-voz"><small>Una voz al otro lado</small><b id="tel-frase">«¿Tienes mi dinero?»</b></div>
+        <div class="tel-voz"><small>Don Santino:</small><b id="tel-frase">«¿Tienes mi dinero?»</b></div>
         <svg class="tel-dib" viewBox="0 0 400 260" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <ellipse cx="200" cy="236" rx="170" ry="20" fill="#0008"/>
           <path d="M86 230 L120 120 H280 L314 230 Z" fill="#151515" stroke="#3a3a3a" stroke-width="3"/>
@@ -2589,12 +2592,13 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         <div class="tel-caja">
           <span class="tel-k" id="tel-k">Deuda del nivel 1</span>
           <span class="tel-big" id="tel-m">100 $</span>
-          <div class="tel-f" id="tel-bote" hidden><span>En el bote</span><b>0 / 100 $</b></div>
-          <div class="tel-f"><span>Tienes</span><b id="tel-g">0 $</b></div>
-          <div class="tel-f"><span id="tel-ql">Te quedan después de pagar</span><b id="tel-q">0 $</b></div>
+          <div class="tel-f" id="tel-bote"><span>Ya abonaste</span><b>0 $</b></div>
+          <div class="tel-f" id="tel-tot-f"><span>Deuda total de la partida</span><b>0 $</b></div>
+          <div class="tel-f" id="tel-g-f"><span>Tienes</span><b>0 $</b></div>
+          <div class="tel-int" id="tel-int"></div>
         </div>
-        <button class="btn" id="tel-pagar" type="button">Pagar · 100 $</button>
-        <button class="btn2" id="tel-colgar" type="button">Colgar</button>
+        <div class="tel-rap" id="tel-rap"><button class="btn2" type="button" data-v="10">+10</button><button class="btn2" type="button" data-v="50">+50</button><button class="btn2" type="button" data-v="100">+100</button><button class="btn2" type="button" data-v="todo">Pagar todo</button><button class="btn2" type="button" data-v="0">Borrar</button></div>
+        <div class="tel-acc"><button class="btn2" id="tel-colgar" type="button">Colgar</button><button class="btn" id="tel-pagar" type="button">Pagar · 100 $</button></div>
         <p class="tel-nota" id="tel-nota"></p>
       </div>
     </div>
@@ -3236,6 +3240,28 @@ const Sfx = (() => {
     golpe(k = 1) { burst({ ftype: 'lowpass', f0: 220, f1: 60, dur: 0.35, vol: 0.9 * k, wet: 0.2 }); tone({ f0: 90, f1: 40, dur: 0.3, vol: 0.6 * k, wet: 0.1 }); burst({ f0: 1800, f1: 400, q: 1.2, dur: 0.12, vol: 0.25 * k, wet: 0.3 }); },
     // G1b · el chirrido de una puerta vieja de madera al abrirse
     chirrido() { for (let i = 0; i < 7; i++) tone({ type: 'sawtooth', f0: 150 + Math.random() * 90, f1: 260 + Math.random() * 120, dur: 0.11 + Math.random() * 0.06, vol: 0.035, delay: i * 0.1 + Math.random() * 0.03, wet: 0.35 }); burst({ ftype: 'lowpass', f0: 300, f1: 120, dur: 0.25, vol: 0.18, delay: 0.75, wet: 0.3 }); },
+    /* Don Santino al teléfono (pedido del dueño, 19-oct-2026): un hombre grave, lento y amenazante que no se entiende,
+       como por el auricular de un teléfono viejo. Sílabas con una fuente grave (dientes de sierra 70-95 Hz) filtrada por dos formantes
+       de vocal al azar, golpes de ruido para las consonantes y pausas entre palabras; todo pasa por una banda de teléfono (350-3000 Hz)
+       con algo de saturación. Usa el volumen de efectos y el de la voz (settings.vvol). */
+    santino(dur = 1.5) {
+      if (!ctx) return; const t0 = ctx.currentTime + 0.05, vol = 0.32 * zVol * clamp(settings.vvol, 0, 1.5);
+      if (!(vol > 0)) return;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 350; const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 3000;
+      const sh = ctx.createWaveShaper(), cur = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cur[i] = Math.tanh(x * 2.2); } sh.curve = cur;
+      const sal = ctx.createGain(); sal.gain.value = vol; hp.connect(lp2); lp2.connect(sh); sh.connect(sal); sal.connect(bus(0, 0.08));
+      let t = t0, n = 0; const fin = t0 + dur;
+      while (t < fin - 0.12) {
+        const sil = rand(0.14, 0.26), f0 = rand(70, 95) * (n % 5 === 4 ? 0.88 : 1);   // más grave al final de cada «frase»
+        const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f0 * rand(1, 1.12), t); o.frequency.linearRampToValueAtTime(f0 * rand(0.85, 1), t + sil);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.03); g.gain.setValueAtTime(1, t + sil * 0.65); g.gain.exponentialRampToValueAtTime(0.0001, t + sil);
+        for (const [F, Q, k] of [[rand(300, 750), 6, 1], [rand(900, 1900), 9, 0.55]]) { const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = F; bp.Q.value = Q; const a = ctx.createGain(); a.gain.value = k * 3; o.connect(bp); bp.connect(a); a.connect(g); }
+        g.connect(hp); o.start(t); o.stop(t + sil + 0.05);
+        if (Math.random() < 0.5) { const s = ctx.createBufferSource(), bf = ctx.createBiquadFilter(), gg = ctx.createGain(); s.buffer = noise; bf.type = 'bandpass'; bf.frequency.value = rand(1800, 2800); bf.Q.value = 2; gg.gain.setValueAtTime(0.0001, t); gg.gain.exponentialRampToValueAtTime(0.35, t + 0.01); gg.gain.exponentialRampToValueAtTime(0.0001, t + 0.06); s.connect(bf); bf.connect(gg); gg.connect(hp); s.start(t, Math.random()); s.stop(t + 0.08); }   // consonante
+        t += sil + (++n % rand(3, 5) < 1 ? rand(0.18, 0.3) : rand(0.02, 0.06));   // pausa entre palabras
+      }
+    },
+    kaching() { tone({ type: 'triangle', f0: 1568, dur: 0.09, vol: 0.18, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.5, vol: 0.2, delay: 0.08, wet: 0.45 }); tone({ type: 'sine', f0: 3136, dur: 0.4, vol: 0.06, delay: 0.08, wet: 0.5 }); },
     cadena() { for (let i = 0; i < 6; i++) burst({ f0: rand(2600, 4200), q: 6, dur: 0.07, vol: 0.12, delay: i * 0.06 + Math.random() * 0.03, wet: 0.4 }); },
     // el calíope de la feria: una frase de vals con sus tubos (cuadrada y triangular) y el bajo
     calliope(pan, vol = 1) { const N = [392, 523, 659, 784, 659, 523, 587, 494, 392, 440, 494, 523]; N.forEach((f, i) => { tone({ type: 'square', f0: f, dur: 0.17, vol: 0.03 * vol, pan, delay: i * 0.2, wet: 0.45 }); tone({ type: 'triangle', f0: f * 2, dur: 0.14, vol: 0.025 * vol, pan, delay: i * 0.2, wet: 0.45 }); if (i % 3 === 0) tone({ type: 'triangle', f0: [131, 98, 147, 131][i / 3], dur: 0.5, vol: 0.06 * vol, pan, delay: i * 0.2, wet: 0.3 }); }); },
@@ -23277,13 +23303,14 @@ const BAL = {
   // Tienda calavera, rama Suerte (PENDIENTES 20, 19-oct-2026): lo que suma cada nivel (5 niveles; cuestan 1, 2, 3, 4 y 5 fichas)
   arbolSuerte: { balas: 0.03, cofre: 0.06, rango: 0.08 },
   // G1b · Trastienda nueva (bocetos aprobados por el dueño, 19-oct-2026): salón con ramen, teléfono y caja + 3 salas + pasillo de los caminos
-  //   dadosExtra: lo que se suma a la probabilidad de cada juego de azar en la sala de los dados · espiral: la expendedora de balas (antes salía siempre)
-  //   armeria: el vendedor de armas que se atiende solo · ramenExtra: platos que suma la mejora «Puesto de ramen» del árbol (1 nivel, coste en fichas de calavera)
-  trastienda: { dadosExtra: 0.05, espiral: 0.4, armeria: 0.25, ramenPlatos: 2, ramenExtra: { platos: 1, max: 1, coste: [4] } },
+  //   puertaAbierta: probabilidad de que cada una de las 3 puertas esté abierta en una visita (regla «para la prueba» del dueño, 19-oct-2026:
+  //   dentro de las salas sale siempre todo) · ramenExtra: platos que suma la mejora «Puesto de ramen» del árbol (1 nivel, coste en fichas de calavera)
+  trastienda: { puertaAbierta: 0.5, ramenPlatos: 2, ramenExtra: { platos: 1, max: 1, coste: [4] } },
   // G1 · Deuda con el casino (decisión del dueño, 19-oct-2026): 100 $ el primer nivel y 50 % más por cada nivel superado, sin volver a empezar.
+  //   interes: lo que crece el saldo sin pagar al terminar cada oleada (+30 %, decisión del dueño 19-oct-2026; ver deudaInteres)
   //   espera: segundos tras vencer al jefe antes de ir al teléfono · redondeo: múltiplo al que se redondea · intro: segundos del texto de entrada
   //   paliza: la escena de derrota (golpes, segundos entre golpes y segundos de la caída)
-  deuda: { base: 100, factor: 1.5, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
+  deuda: { base: 100, factor: 1.5, interes: 0.30, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
   // G1b · Vendedor de armas (25 %): precio en $, tipo (para la etiqueta) y barras (0 a 5) de daño, rapidez y cargador.
   //   Las armas van en el espacio 2 o 3 (teclas 2 y 3) el resto de la partida; el 1 es siempre el revólver.
   armeria: {
@@ -25497,13 +25524,13 @@ function armasHud() {
   if (box._h !== h) { box._h = h; box.innerHTML = h; }
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV', 'armas', 'rev', 'dina', 'blindaje', 'deuda', 'deudaN', 'pasillo'];
+const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV', 'armas', 'rev', 'dina', 'blindaje', 'deuda', 'deudaN', 'pasillo', 'abono', 'saldo', 'interesW'];
 // G0-2 · Puntos de guardado (pedido del dueño, 19-oct-2026). sv.punto dice dónde se retoma:
 //   'ola'    al empezar una oleada (y al cruzar la puerta hacia la siguiente): se vuelve a jugar desde su inicio, con el MISMO jefe y la misma regla especial
 //   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
 //   'sala'   en la Trastienda (al entrar y tras cada compra): las máquinas, las ofertas y lo comprado quedan igual
 // Salir al menú fuera de pelea guarda en ese mismo punto; salir en plena pelea vuelve al inicio de la oleada. Así no se puede repetir ni volver a tirar nada.
-const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb'];
+const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb', 'puertasRoll'];
 function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -29373,6 +29400,7 @@ function updateWave(dt) {
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]); casOlaFin(game.wave);
+      deudaInteres();   // G1: el saldo de la deuda crece un 30 % por oleada
       if (!(game.wave === lastWave() && !game.endless)) saveGame({ punto: 'limpia' });   // G0-2: oleada (o jefe) vencida: lo ganado queda guardado
       if (Net.host && relicTime()) rvPrep();
       if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
@@ -31470,25 +31498,23 @@ const CASINO_IDX = MAPS.findIndex(m => m.casino);   // el mapa del casino (BIG N
 function azarSala(txt) { let h = 2166136261; for (const ch of txt) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function prepRoom() {
   const rr = Net.on ? azarSala(String(Net.room || '') + ':sala:' + game.wave) : Math.random;
-  const X = BAL.trastienda.dadosExtra;   // sala de los dados: +5 puntos a cada juego de azar (decisión del dueño, 19-oct-2026)
   game.roomUsed = {};
-  // sala del intercambio: la de Madame y la del diablo o del ángel (igual para todo el grupo; lo que eliges es solo para ti)
-  { const MQ = BAL.maquinas; game.roomMadame = rr() < MQ.madame.p; game.roomDva = rr() < MQ.diabloAngel.p ? (rr() < MQ.diabloAngel.diablo ? 'diablo' : 'angel') : null; game.maqOf = {}; game.retoOf = {}; }
-  game.roomVendCap = rr() < VEND.capsulas.p; game.roomVendGarra = rr() < VEND.garra.p;
+  /* Regla «para la prueba» del dueño (19-oct-2026): dentro de las 3 salas sale SIEMPRE todo; lo único al azar es si cada puerta está
+     abierta o cerrada con llave (BAL.trastienda.puertaAbierta, 50 %). El azar sale de la sala y la oleada: igual para todo el grupo, y se guarda. */
+  game.puertasRoll = {}; for (const S_ of TR.salas) game.puertasRoll[S_.k] = rr() < BAL.trastienda.puertaAbierta;
+  // sala del misterio: Madame, el Diablo o el Ángel (mitad y mitad), Cápsulas y La Garra
+  game.roomMadame = true; game.roomDva = rr() < BAL.maquinas.diabloAngel.diablo ? 'diablo' : 'angel'; game.maqOf = {}; game.retoOf = {};
+  game.roomVendCap = true; game.roomVendGarra = true;
   rollOffers(); game.reroll = 5; game.sobre = null;   // las 3 balas sueltas de la expendedora: las mismas toda la visita (se ven dentro de la máquina)
-  const cas = unl('t:maquinas') ? 2 : 1;
-  game.lastDoor = null; game.roomSlot = rr() < 0.15 * cas + arbP('slot') + X; game.roomWheel = rr() < 0.10 * cas + arbP('ruleta') + X;
-  game.roomRamen = true; rr(); game.ramenOfertas = null;   // G1b: el puesto de ramen está siempre (se sigue tirando el dado para no mover el azar del grupo)
-  game.roomTiro = rr() < 0.05;   // la galería de tiro pasó a la sala de las balas con su misma probabilidad
-  game.roomDad = rr() < BAL.dados.p + X; game.dad = null;
-  game.roomCar = rr() < BAL.carrera.p + X; game.car = game.roomCar ? carNueva() : null; game.carPag = 0;
-  game.fuseN = 0;
-  game.roomBj = bjSale(); game.bj = game.roomBj && !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo, igual para todos
-  // sala de las balas: la expendedora (40 %) y el vendedor de armas (25 %)
-  game.roomEspiral = rr() < BAL.trastienda.espiral; game.roomArmeria = rr() < BAL.trastienda.armeria;
-  // G1: tras un jefe, en la sala de los dados siempre hay juegos de azar (para juntar lo que falta de la deuda)
-  if (game.deuda && game.deuda.w === game.wave && !(game.roomSlot || game.roomWheel || game.roomBj || game.roomDad || game.roomCar)) game.roomSlot = true;
-  game.roomRoute = null; game.puertasAb = {};   // las 3 puertas del frente empiezan cerradas en cada visita
+  game.lastDoor = null;
+  // sala de los dados: todos los juegos de azar
+  game.roomSlot = true; game.roomWheel = true; game.roomDad = true; game.dad = null;
+  game.roomCar = true; game.car = carNueva(); game.carPag = 0;
+  game.roomBj = true; game.bj = !Net.client ? bjNueva() : null; game.bjPag = {};   // blackjack en equipo, igual para todos
+  // sala de las balas: la expendedora, el vendedor de armas y el tiro al blanco
+  game.roomEspiral = true; game.roomArmeria = true; game.roomTiro = true;
+  game.roomRamen = true; game.ramenOfertas = null; game.fuseN = 0;   // el puesto de ramen del salón está siempre
+  game.roomRoute = null; game.puertasAb = {};   // las puertas sin llave empiezan cerradas: se abren con la tecla de usar
 }
 function enterRoom() {
   if (player.down) revive();
@@ -31496,8 +31522,9 @@ function enterRoom() {
   if (document.pointerLockElement && state !== 'play') document.exitPointerLock();
   show(null); travel(ROOM_IDX, game.wave, () => {
     state = 'play'; game.phase = 'room'; renderChips(); requestLock(); canvas.focus();
-    if (deudaPend()) { banner('¡Riiing!', 'El teléfono negro suena en el centro del salón. Contesta.', 3200, 'lock'); deudaHud(); if (Net.client) Net.ev(['dpQ', game.wave]); }
-    else hint('La Trastienda · tres salas al frente (intercambio, dados y balas) y la salida a tus espaldas', 4200);
+    if (deudaPend()) { banner('¡Riiing!', 'Llamada de Don Santino · el teléfono negro suena en el centro del salón', 3200, 'lock'); hint('Llamada de Don Santino', 3200); deudaHud(); if (Net.client) Net.ev(['dpQ', game.wave]); }
+    else if (deudaHoy() && game.deuda.prepago) { Sfx.ring(0, 0.8); setTimeout(() => Sfx.santino(2.2), 900); banner('«Ya me pagaste esta parte. Sigue así.»', 'Lo que abonaste cubrió la deuda de este nivel: las puertas no tienen cadenas', 3600, 'key'); }
+    else hint('La Trastienda · tres puertas al frente (misterio, dados y balas): hoy unas abren y otras no · la salida, a tus espaldas', 4200);
   });
 }
 /* ===== G1 · La deuda con el casino (decisión del dueño, 19-oct-2026) =====
@@ -31508,7 +31535,11 @@ const DEUDA_FRASES = ['¡Esta es solo la primera parte! ¡Págame o te rompo las
 function deudaNueva() {
   const conLlave = llvSalidas();
   if (conLlave && !conLlave.length) { llvSinLlaves(); return; }   // sin llaves no hay salida (la regla de siempre)
-  if (!game.deuda || game.deuda.w !== game.wave) { game.deudaN = (game.deudaN | 0) + 1; game.deuda = { w: game.wave, n: game.deudaN, monto: deudaMonto(game.deudaN), bote: 0, pagada: false }; }
+  if (!game.deuda || game.deuda.w !== game.wave) {
+    const monto = deudaSaldo(); game.deudaN = (game.deudaN | 0) + 1;   // lo que se debe hoy: el saldo con sus intereses, menos lo ya abonado
+    game.deuda = { w: game.wave, n: game.deudaN, monto, bote: 0, pagada: monto <= 0, prepago: monto <= 0, abonado: game.abono | 0 };
+    if (monto <= 0) deudaReinicia();
+  }
   if (Net.on) { if (Net.host && !(game.exitOpts && game.exitOpts.w === game.wave)) rvPrep(conLlave); }
   else game.pasillo = { w: game.wave, opts: rvOpts(conLlave) };
   enterRoom();
@@ -31519,17 +31550,49 @@ function deudaCuenta() {
   const b = $('#deuda-hud'); if (!b || !game) return;
   if (!relicTime()) return;
   const n = (game.deuda && game.deuda.w === game.wave ? game.deuda.n : (game.deudaN | 0) + 1), seg = Math.max(0, Math.ceil(game.countT));
-  b.hidden = false; const t = `Deuda del nivel ${n}: ${deudaMonto(n)} $ · el teléfono suena en ${seg} s`; if (b.textContent !== t) b.textContent = t;
+  b.hidden = false; const t = `Deuda del nivel ${n}: ${deudaSaldo()} $ · el teléfono suena en ${seg} s`; if (b.textContent !== t) b.textContent = t;
 }
 function deudaHud() { const b = $('#deuda-hud'); if (!b) return; const on = !!(game && deudaPend() && world.idx === ROOM_IDX); b.hidden = !on; if (on) b.textContent = `Deuda del nivel ${game.deuda.n}: ${deudaFalta()} $`; }
-function deudaPagar() {
-  if (!deudaPend()) return;
-  const falta = deudaFalta(), pon = Net.on ? Math.min(game.gold, falta) : (game.gold >= falta ? falta : 0);
-  if (pon <= 0) { Sfx.err(); return; }
-  game.gold -= pon; Sfx.cash(); renderChips();
-  if (Net.client) { Net.ev(['dpA', game.wave, pon]); game.deuda.bote = (game.deuda.bote | 0) + pon; telRender(); return; }   // el anfitrión lleva la cuenta del bote
-  deudaSuma(pon, myNick());
+// ---- Abonos (pedido del dueño, 19-oct-2026): el teléfono se usa en CUALQUIER visita. Lo que abonas se guarda (game.abono) y se descuenta
+// del pago del próximo jefe; si ya cubre todo, ese día no hay cadenas. En grupo, los abonos van al mismo bote (lo lleva el anfitrión).
+/* ---- Cómo crece la deuda (decisiones del dueño, 19-oct-2026). Hay dos crecimientos que se suman:
+   1) por nivel: el pago de cada jefe parte de 100 $ el primer nivel y 50 % más por cada nivel superado (deudaMonto, BAL.deuda.base y factor);
+   2) por oleada: al terminar CADA oleada, el saldo que aún no pagaste crece un 30 % (BAL.deuda.interes) y se redondea a 5 $.
+   game.saldo es lo que deberás al próximo jefe: empieza en deudaMonto(nivel) justo después de pagar el anterior, cada oleada le suma el interés
+   y cada abono en el teléfono lo baja ANTES del siguiente interés (por eso abonar pronto sale más barato). Lo calcula el anfitrión en grupo. */
+const deudaRed5 = v => Math.round(v / BAL.deuda.redondeo) * BAL.deuda.redondeo;
+function deudaSaldo() { if (!game) return 0; if (game.saldo == null) game.saldo = deudaMonto((game.deudaN | 0) + 1); return Math.max(0, game.saldo); }
+function deudaReinicia() { game.saldo = deudaMonto((game.deudaN | 0) + 1); game.abono = 0; }   // pagado el jefe: el próximo nivel empieza en su monto base
+function deudaInteres() {   // al terminar cada oleada (solo, o el anfitrión); una sola vez por oleada aunque salgas al menú
+  if (!game || tuto || Net.client || game.interesW === game.wave) return; game.interesW = game.wave;
+  const s0 = deudaSaldo(); if (s0 <= 0) return;
+  game.saldo = deudaRed5(s0 * (1 + BAL.deuda.interes));
+  feed(`La deuda creció a ${game.saldo} $ (+${Math.round(BAL.deuda.interes * 100)} %)`, 'red');
+  if (Net.host) Net.ev(['abS', game.saldo, game.abono | 0, game.wave]);
 }
+const deudaProxN = () => deudaPend() ? game.deuda.n : (game.deudaN | 0) + 1;
+const deudaProx = () => deudaPend() ? deudaFalta() : deudaSaldo();   // lo que falta para el próximo jefe
+function deudaTotal() {   // lo que queda por pagar en la partida sin contar intereses futuros (el saldo de hoy y los montos base de los jefes que faltan); null si es sin fin
+  const N = runN(); if (!N || game.endless) return null;
+  let t = deudaPend() ? deudaFalta() : deudaSaldo(); for (let n = deudaProxN() + 1; n <= N; n++) t += deudaMonto(n);
+  return Math.max(0, t);
+}
+const telTope = () => Math.max(0, Math.min(game.gold | 0, deudaProx()));
+let telSel = 0;
+function deudaPagar() {
+  const pon = Math.min(telSel, telTope());
+  if (pon <= 0) { Sfx.err(); return; }
+  game.gold -= pon; telSel = 0; Sfx.coin(); Sfx.cash(); Sfx.kaching(); renderChips();
+  if (deudaPend()) {
+    if (Net.client) { Net.ev(['dpA', game.wave, pon]); game.deuda.bote = (game.deuda.bote | 0) + pon; telRender(); return; }   // el anfitrión lleva la cuenta del bote
+    deudaSuma(pon, myNick()); saveGame({ punto: 'sala' }); return;
+  }
+  // abono en una visita normal: baja el saldo antes del próximo interés (en grupo, al bote común que lleva el anfitrión)
+  game.abono = (game.abono | 0) + pon; game.saldo = Math.max(0, deudaSaldo() - pon);
+  if (Net.client) Net.ev(['abA', pon]); else if (Net.host) Net.ev(['abS', game.saldo, game.abono]);
+  telFrase(pick(ABONO_FRASES)); feed(`Abonaste ${pon} $ a la deuda`, 'gold'); saveGame({ punto: 'sala' });
+}
+const ABONO_FRASES = ['Así me gusta. Te lo descuento del próximo pago.', 'Hmmm… dinero…', 'Un cliente puntual. Qué raro.'];
 function deudaSuma(pon, quien) {   // solo, o el anfitrión: suma al bote y avisa
   const D = game.deuda; if (!D || D.pagada) return;
   D.bote = Math.min(D.monto, (D.bote | 0) + pon);
@@ -31540,12 +31603,12 @@ function deudaSuma(pon, quien) {   // solo, o el anfitrión: suma al bote y avis
 // vuelve a dibujar la Trastienda tal cual (cadenas que caen, puertas del pasillo que llegan) sin mover al jugador
 function trRehacer() { if (world.idx !== ROOM_IDX) return; const p = player.pos.clone(), y = player.yaw; if (game) game.pasilloPend = false; buildMap(ROOM_IDX); player.pos.copy(p); player.yaw = y; for (const o of world.room.objs) if (o.auto) o.wait = true; }
 function deudaPagada() {
-  const D = game.deuda; if (!D) return; D.colgado = false;
+  const D = game.deuda; if (!D) return; D.colgado = false; deudaReinicia();
   telFrase(DEUDA_FRASES[D.frase | 0]);
   setTimeout(() => { if (!game || state !== 'tel') return; telCerrar(); }, 2600);
   Sfx.cadena(); deudaHud();
   trRehacer();
-  banner('Las puertas se abren', 'Pagaste la deuda: las 3 salas y el pasillo de los caminos están abiertos', 3000, 'key');
+  banner('Las puertas se abren', 'Pagaste la deuda: las salas sin llave y el pasillo de los caminos están abiertos', 3000, 'key');
   if (Net.client) Net.ev(['ready', game.wave]);
   saveGame({ punto: 'sala' });
 }
@@ -31559,6 +31622,8 @@ function deudaRed(t, e) {   // los avisos del bote en grupo
     if (game.deuda.pagada && !ya) deudaPagada(); else { telRender(); deudaHud(); }
     return;
   }
+  if (t === 'abA') { if (Net.host) { const pon = Math.max(0, e[1] | 0); game.abono = (game.abono | 0) + pon; game.saldo = Math.max(0, deudaSaldo() - pon); Net.ev(['abS', game.saldo, game.abono]); telRender(); } return; }
+  if (t === 'abS') { if (!Net.host) { const antes = game.saldo; game.saldo = Math.max(0, e[1] | 0); game.abono = Math.max(0, e[2] | 0); if (e[3] != null && game.interesW !== e[3]) { game.interesW = e[3]; if (game.saldo > (antes | 0)) feed(`La deuda creció a ${game.saldo} $ (+${Math.round(BAL.deuda.interes * 100)} %)`, 'red'); } telRender(); } return; }
   if (t === 'dpX') { if (e[1] === (game.deuda && game.deuda.w) && !game.sinPagar) { if (Net.host) Net.ev(['dpX', e[1]]); deudaPerder(true); } }
 }
 // salir sin pagar (o no poder pagar): se pierde la partida
@@ -31569,36 +31634,51 @@ function deudaPerder(remoto) {
   if (document.pointerLockElement) document.exitPointerLock();
   palizaVer(() => { if (game) gameOver(); });
 }
-// ---- El teléfono negro: pantalla de pago (boceto telefono_ui aprobado, 19-oct-2026)
+// ---- El teléfono negro: pantalla de pago y de abonos (boceto telefono_ui aprobado; abonos pedidos por el dueño, 19-oct-2026)
 function telAbrir() {
-  if (!game || !deudaPend()) return;
+  if (!game) return;
   state = 'tel'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
-  game.deuda.colgado = false; $('#tel-frase').textContent = '«¿Tienes mi dinero?»'; $('#tel-s').classList.remove('pagado');
+  const pend = deudaPend(); if (pend) game.deuda.colgado = false;
+  $('#tel-s').classList.toggle('pagado', !pend);
+  telDecir(pend ? (game.gold < deudaFalta() ? '¿Tienes mi dinero? No te alcanza. Ve a buscarlo.' : '¿Tienes mi dinero?') : '¿Vienes a abonar?', true);
+  telSel = pend ? telTope() : Math.min(50, telTope());
   show('tel-s'); telRender(); Sfx.holster();
-  setTimeout(() => { const b = $('#tel-pagar'); if (b && !b.hidden && !b.disabled) b.focus(); else { const c = $('#tel-colgar'); if (c) c.focus(); } }, 60);
+  setTimeout(() => { const b = $('#tel-pagar'); if (b && !b.disabled) b.focus(); else { const c = $('#tel-colgar'); if (c) c.focus(); } }, 60);
 }
 function telRender() {
-  if (!game || !game.deuda || $('#tel-s').hidden) return;
-  const D = game.deuda, falta = deudaFalta(), oro = game.gold | 0, grupo = Net.on && Net.peers.size > 0, alcanza = oro >= falta;
-  $('#tel-k').textContent = `Deuda del nivel ${D.n}`; $('#tel-m').textContent = `${D.monto} $`;
-  $('#tel-bote').hidden = !grupo; $('#tel-bote').querySelector('b').textContent = `${D.bote | 0} / ${D.monto} $`;
-  $('#tel-g').textContent = `${oro} $`;
-  const q = $('#tel-q'), ql = $('#tel-ql');
-  if (D.pagada) { ql.textContent = 'Deuda pagada'; q.textContent = 'Listo'; q.className = 'ok'; }
-  else if (alcanza) { ql.textContent = 'Te quedan después de pagar'; q.textContent = `${oro - falta} $`; q.className = 'ok'; }
-  else { ql.textContent = grupo ? 'Faltan en el bote' : 'Te faltan'; q.textContent = `${falta - (grupo ? 0 : oro)} $`; q.className = 'no'; }
-  const pagar = $('#tel-pagar'), colgar = $('#tel-colgar'), puede = !D.pagada && (alcanza || (grupo && oro > 0));
-  pagar.hidden = !puede; pagar.textContent = alcanza ? `Pagar · ${falta} $` : `Poner ${oro} $ en el bote`;
-  colgar.textContent = puede || D.pagada ? 'Colgar' : 'Colgar y buscar el dinero'; colgar.className = puede || D.pagada ? 'btn2' : 'btn';
-  $('#tel-nota').textContent = D.pagada ? '' : puede ? (grupo ? 'Un solo bote para todo el grupo: cualquiera puede poner. Las puertas se abren al completar la deuda. Si salen sin pagar, pierden.' : 'Las 3 puertas se abren al pagar. Si sales sin pagar, pierdes.')
+  if (!game || $('#tel-s').hidden) return;
+  const pend = deudaPend(), D = game.deuda, oro = game.gold | 0, grupo = Net.on && Net.peers.size > 0, tope = telTope(), tot = deudaTotal();
+  telSel = Math.max(0, Math.min(telSel, tope));
+  $('#tel-k').textContent = pend ? `Deuda del nivel ${D.n}` : `Para el próximo jefe · nivel ${deudaProxN()}`;
+  $('#tel-m').textContent = `${deudaProx()} $`;
+  const fila = (id, txt, val, cls) => { const f = $(id); f.hidden = val == null; if (val == null) return; f.querySelector('span').textContent = txt; const b = f.querySelector('b'); b.textContent = val; b.className = cls || ''; };
+  fila('#tel-bote', pend ? (grupo ? 'En el bote' : 'Ya pagaste de este nivel') : 'Ya abonaste', pend ? `${D.bote | 0} / ${D.monto} $` : `${game.abono | 0} $`);
+  fila('#tel-tot-f', 'Deuda total de la partida', tot == null ? null : `${tot} $`);
+  fila('#tel-g-f', 'Tienes', `${oro} $`, oro >= deudaProx() ? 'ok' : 'no');
+  const it = $('#tel-int'); it.hidden = pend || deudaSaldo() <= 0; if (!it.hidden) it.textContent = `Interés: +${Math.round(BAL.deuda.interes * 100)} % por oleada · la próxima oleada debes ${deudaRed5(deudaSaldo() * (1 + BAL.deuda.interes))} $`;
+  const pagar = $('#tel-pagar'), colgar = $('#tel-colgar'), sinNada = tope <= 0;
+  $('#tel-rap').hidden = sinNada || (pend && D.pagada);
+  pagar.hidden = sinNada || (pend && D.pagada); pagar.disabled = telSel <= 0;
+  pagar.textContent = pend ? (telSel >= deudaFalta() ? `Pagar · ${telSel} $` : `Abonar ${telSel} $`) : `Abonar ${telSel} $`;
+  colgar.textContent = pend && !D.pagada && sinNada ? 'Colgar y buscar el dinero' : 'Colgar'; colgar.className = pend && !D.pagada && sinNada ? 'btn' : 'btn2';
+  $('#tel-nota').textContent = !pend ? 'Lo que abones se descuenta del pago del próximo jefe. Si ya está cubierto, ese día las puertas no tienen cadenas.'
+    : D.pagada ? '' : !sinNada ? (grupo ? 'Un solo bote para todo el grupo: cualquiera puede poner. Las puertas se abren al completar la deuda. Si salen sin pagar, pierden.' : 'Las puertas se abren al completar el pago. Si sales sin pagar, pierdes.')
     : 'Vende balas en la caja o apuesta en la sala de los dados y vuelve al teléfono. Si sales sin pagar, pierdes.';
 }
-function telFrase(t) { const f = $('#tel-frase'); if (f) f.textContent = `«${t}»`; $('#tel-s').classList.add('pagado'); telRender(); }
+function telRapido(v) { const t = telTope(); telSel = v === 'todo' ? t : v === 0 ? 0 : Math.min(t, telSel + v); Sfx.clink && Sfx.clink(); telRender(); }
+function telFrase(t) { telDecir(t); $('#tel-s').classList.add('pagado'); telRender(); }
+// Don Santino habla: su voz de teléfono (Sfx.santino) dura lo mismo que tarda en escribirse la frase, letra por letra
+let telDecirT = 0;
+function telDecir(t, sinPagado) {
+  const f = $('#tel-frase'); if (!f) return; const full = tx(`«${t}»`), dur = clamp(full.length * 0.065, 0.9, 4.2);
+  clearInterval(telDecirT); if ($('#tel-s').hidden) { f.textContent = full; return; } f.textContent = ''; const t0 = performance.now(); Sfx.santino(dur);
+  telDecirT = setInterval(() => { const k = Math.min(1, (performance.now() - t0) / (dur * 1000)); f.textContent = full.slice(0, Math.ceil(full.length * k)); if (k >= 1) clearInterval(telDecirT); }, 40);
+}
 function telCerrar(silencio) {
   if (state !== 'tel') return;
   show(null); state = 'play'; releaseInput(); requestLock(); canvas.focus(); if (!silencio) Sfx.holster();
   const D = game && game.deuda;
-  if (D && !D.pagada && !silencio) {
+  if (D && deudaPend() && !silencio) {
     D.colgado = true;
     if (!D.dados && game.gold < deudaFalta()) { D.dados = true; Sfx.cadena(); trRehacer(); banner('La sala de los dados se abre', 'El casino te deja apostar para juntar lo que falta. Vuelve al teléfono cuando lo tengas.', 3400, 'dice'); }
     else hint('Vuelve al teléfono cuando tengas el dinero', 2200);
@@ -31782,9 +31862,9 @@ const bjJugadores = () => [bjYo()].concat(Net.on ? [...Net.peers.keys()] : []);
 const bjParte = a => Math.ceil(a / bjJugadores().length);   // lo que pone cada jugador: la apuesta se divide por igual entre los presentes
 const bjNombre = id => id === bjYo() ? 'Tú' : ((Net.peers.get(id) || {}).name || 'Vaquero');
 function bjSale(semilla) {   // la mesa sale igual para todo el grupo: depende de la sala y la oleada
-  if (!Net.on) return Math.random() < BJ.prob + arbP('bj') + BAL.trastienda.dadosExtra;
+  if (!Net.on) return Math.random() < BJ.prob + arbP('bj');
   let h = 7; for (const ch of String(Net.room || '') + ':' + game.wave) h = Math.imul(h ^ ch.charCodeAt(0), 0x5bd1e995) >>> 0;
-  return (h % 10000) / 10000 < BJ.prob + BAL.trastienda.dadosExtra + (Net.host ? arbP('bj') : 0);
+  return (h % 10000) / 10000 < BJ.prob + (Net.host ? arbP('bj') : 0);
 }
 const bjCarta = () => ({ r: Math.floor(Math.random() * 13), p: Math.floor(Math.random() * 4) });
 function bjValor(m) { let t = 0, a = 0; for (const c of m) { const v = c.r === 0 ? 11 : Math.min(10, c.r + 1); t += v; if (c.r === 0) a++; } while (t > 21 && a) { t -= 10; a--; } return t; }
@@ -33026,13 +33106,13 @@ const VEND_BUILD = { espiral: buildVendEspiral, capsulas: buildVendCapsulas, gar
      fondo: 3 salas, cada una con su puerta y su símbolo grande · 1 Intercambio (flechas) · 2 Dados · 3 Balas
      salón principal: el teléfono negro en el centro, el puesto de ramen (siempre) a la izquierda, la caja con la gata a la derecha
      atrás: la puerta de salida fija; tras un jefe lleva al pasillo de los caminos, con una puerta de color por cada llave
-   Cada cosa tiene su lugar fijo: si no sale, en su sitio queda su adorno de «vacío» (máquina tapada con una sábana, mesa con las sillas volteadas…). */
+   Cada cosa tiene su lugar fijo: si no sale, su sitio queda como suelo vacío (decisión del dueño, 19-oct-2026: nada de adornos de «vacío»). */
 const TR = {
   hx: 13, hz: 15, H: 4.6, sep: -3, atras: 8, fin: 14, pasX: 6, hueco: 2.4,
   salas: [
-    { k: 'inter', name: 'Sala del Intercambio', x0: -13, x1: -4.5, px: -8.75, col: '#b48cff', hex: 0xb48cff, vacio: 'Hoy no hay tratos' },
-    { k: 'dados', name: 'Sala de los Dados', x0: -4.5, x1: 4.5, px: 0, col: '#6ee08a', hex: 0x6ee08a, vacio: 'La casa descansa' },
-    { k: 'balas', name: 'Sala de las Balas', x0: 4.5, x1: 13, px: 8.75, col: '#ffb060', hex: 0xffb060, vacio: 'Volvemos pronto' }
+    { k: 'inter', name: 'Sala del Misterio', x0: -13, x1: -4.5, px: -8.75, col: '#b48cff', hex: 0xb48cff },
+    { k: 'dados', name: 'Sala de los Dados', x0: -4.5, x1: 4.5, px: 0, col: '#6ee08a', hex: 0x6ee08a },
+    { k: 'balas', name: 'Sala de las Balas', x0: 4.5, x1: 13, px: 8.75, col: '#ffb060', hex: 0xffb060 }
   ]
 };
 // la deuda de esta visita: sale tras vencer al jefe de un nivel y se paga en el teléfono
@@ -33040,6 +33120,8 @@ const deudaMonto = n => { const D = BAL.deuda; return Math.round(D.base * Math.p
 const deudaHoy = () => !!(game && game.deuda && game.deuda.w === game.routeWave);
 const deudaPend = () => deudaHoy() && !game.deuda.pagada;
 const salaAbierta = k => !deudaPend() || (k === 'dados' && game.deuda.dados);
+// la puerta salió cerrada con llave en esta visita (50 %); la de los dados se abre si colgaste sin el dinero de la deuda
+const salaConLlave = k => !!(game && game.puertasRoll && game.puertasRoll[k] === false) && !(k === 'dados' && deudaHoy() && game.deuda.dados);
 const tx = t => { if (LANG !== 'en' || !I18N.d || !t) return t; const r = i18nTxt(t); return r == null ? t : r; };   // textos de los lienzos en el idioma del jugador
 function trSimbolo(k, col) {
   return canvasTex(256, 256, (g, w, h) => {
@@ -33063,35 +33145,10 @@ function trCartel(txt, sub, col, w = 2.6, h = 0.6) {
     if (sub) { g.fillStyle = '#e8dcc0'; g.font = `${Math.round(Hh * 0.22)}px sans-serif`; g.fillText(tx(sub), W / 2, Hh * 0.74, W - 30); }
   }) }));
 }
-// adornos de «no salió»: una máquina tapada con una sábana y una mesa con las sillas volteadas
-function trSabana(x, z, label) {
-  const P = Grp(x, z, 0), q = { p: P, cast: false }, tela = lam(0xd8d2c4);
-  M(bx(1.15, 1.7, 0.8), tela, 0, 0.85, 0, q); M(new THREE.SphereGeometry(0.62, 12, 8, 0, TAU, 0, Math.PI / 2), tela, 0, 1.68, 0, q).scale.set(0.95, 0.5, 0.7);
-  for (const s of [-1, 1]) M(new THREE.ConeGeometry(0.16, 1.5, 6), tela, s * 0.56, 0.75, 0.3, { p: P, cast: false, rz: s * 0.06 });
-  addBox(x, z, 0.62, 0.45);
-  if (label) { const c = trCartel(label, '', '#a89878', 1.0, 0.24); c.position.set(0, 1.25, 0.41); P.add(c); }
-}
-function trMesaVacia(x, z) {
-  const P = Grp(x, z, 0), q = { p: P }, wood = lam(0x5a3a20), dk = lam(0x2a1a10);
-  M(cyl(0.7, 0.7, 0.06, 16), wood, 0, 0.78, 0, q); M(cyl(0.08, 0.14, 0.76, 8), dk, 0, 0.38, 0, q);
-  for (const [cx, cz] of [[0.25, 0.1], [-0.3, -0.2]]) {   // sillas volteadas sobre la mesa
-    const c = new THREE.Group(); c.position.set(cx, 1.25, cz); c.rotation.z = Math.PI; c.rotation.y = cx * 3; P.add(c);
-    M(bx(0.4, 0.05, 0.4), wood, 0, 0, 0, { p: c }); for (const [lx, lz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) M(bx(0.04, 0.45, 0.04), dk, lx, -0.24, lz, { p: c });
-  }
-  const s = trCartel('CERRADO', '', '#c86a4a', 0.8, 0.22); s.position.set(0, 0.62, 0.71); P.add(s);
-  addCircle(x, z, 0.75);
-}
-function trVela(x, z) {
-  const P = Grp(x, z, 0), q = { p: P };
-  M(cyl(0.3, 0.3, 0.05, 12), lam(0x5a3a20), 0, 0.72, 0, q); M(cyl(0.06, 0.12, 0.7, 8), lam(0x2a1a10), 0, 0.35, 0, q);
-  M(cyl(0.05, 0.05, 0.22, 8), lam(0xf0e8d0), 0, 0.86, 0, q); M(new THREE.SphereGeometry(0.035, 8, 6), bsc(0xffc860), 0, 1.0, 0, { p: P, cast: false });
-  lampLight(x, 1.05, z, 0xffa040, 0.5, 4, null, 2);
-  addCircle(x, z, 0.35);
-}
 // el teléfono negro de disco sobre su mesita, en el centro del salón
 function buildTelefono(x, z) {
   const P = Grp(x, z, 0), q = { p: P }, negro = lam(0x141210, { emissive: 0x050404 }), metal = lam(0xb8b0a0);
-  M(cyl(1.6, 1.6, 0.02, 32), lam(0x7a1414), 0, 0.012, 0, { p: P, cast: false });   // la alfombra redonda
+  M(cyl(1.6, 1.6, 0.02, 32), lam(0x7a1414, { polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), 0, 0.05, 0, { p: P, cast: false });   // la alfombra redonda, por encima de las capas de la alfombra del salón
   M(cyl(0.55, 0.55, 0.06, 20), lam(0x4a2a16), 0, 0.92, 0, q); M(cyl(0.08, 0.16, 0.9, 10), lam(0x2a1a10), 0, 0.45, 0, q); M(cyl(0.4, 0.4, 0.04, 16), lam(0x2a1a10), 0, 0.02, 0, q);
   const tel = new THREE.Group(); tel.position.y = 0.95; P.add(tel);
   M(bx(0.36, 0.14, 0.3), negro, 0, 0.07, 0, { p: tel }); M(bx(0.3, 0.06, 0.24), negro, 0, 0.17, -0.02, { p: tel, rx: -0.25 });
@@ -33106,7 +33163,7 @@ function buildTelefono(x, z) {
   world.anims.push((dt, t) => {
     const suena = deudaPend() && state !== 'tel' && !game.deuda.colgado;
     tubo.position.y = 0.25 + (suena && t % 2.6 < 1 ? Math.abs(Math.sin(t * 60)) * 0.025 : 0); tubo.rotation.z = suena && t % 2.6 < 1 ? Math.sin(t * 70) * 0.06 : 0;
-    halo.material.opacity = suena ? 0.35 + Math.sin(t * 8) * 0.2 : 0;
+    halo.material.opacity = suena ? 0.35 + Math.sin(t * 8) * 0.2 : 0.1 + Math.max(0, Math.sin(t * 1.6)) * 0.12;   // en las demás visitas, un brillo suave: se puede usar para abonar
     if (suena && t >= nextRing && state === 'play') { nextRing = t + 2.6; const dx = x - player.pos.x, dz = z - player.pos.z, d = Math.hypot(dx, dz); Sfx.ring(clamp(dx / 8, -1, 1) * 0.6, clamp(1.2 - d / 26, 0.25, 1)); }
   });
   return o;
@@ -33124,15 +33181,6 @@ function buildArmeria(x, z) {
   const c = trCartel('ATIÉNDASE USTED MISMO', 'Elija, pague en la lata y lléveselo', '#ffd060', 2.8, 0.6); c.position.set(0, 3.15, -0.45); P.add(c);
   addBox(x, z + 0.15, 1.8, 0.75);
   return { kind: 'armeria', x, z: z + 1.6, r: 1.6 };
-}
-function buildArmeriaVacia(x, z) {
-  const P = Grp(x, z, 0), q = { p: P }, wood = lam(0x5a3418), dk = lam(0x2a1a10);
-  M(bx(3.6, 2.4, 0.15), dk, 0, 1.6, -0.55, q); for (const y of [1.2, 1.75, 2.3]) M(bx(3.4, 0.05, 0.12), wood, 0, y, -0.45, q);
-  M(bx(3.4, 1.0, 0.7), wood, 0, 0.5, 0.45, q); M(bx(3.6, 0.07, 0.85), lam(0x8a5a30), 0, 1.03, 0.45, q);
-  for (let i = 0; i < 6; i++) M(cyl(0.012, 0.012, 0.045, 6), lam(0xc8a040), -1 + i * 0.37 + rand(-0.1, 0.1), 1.08, 0.3 + rand(-0.15, 0.15), { p: P, rz: Math.PI / 2, ry: rand(0, 3), cast: false });   // casquillos sueltos
-  M(bx(0.5, 0.25, 0.35), lam(0x6a4a2a), 0.9, 1.18, 0.45, q);   // la caja de balas abierta y vacía
-  const c = trCartel('VOLVEMOS PRONTO', '', '#c8a878', 2.2, 0.5); c.position.set(0, 3.0, -0.45); P.add(c);
-  addBox(x, z + 0.15, 1.8, 0.75);
 }
 /* Las puertas de las 3 salas (pedido del dueño, 19-oct-2026): puertas dobles de madera con tiradores de latón, cerradas hasta que las abres
    (no se ve lo que hay dentro). Se abren con la tecla de usar, con su animación y su chirrido; tras un jefe, las cadenas van encima.
@@ -33162,7 +33210,7 @@ function trPuerta(S_, abierta) {
   return P;
 }
 function trAbrirPuerta(k, remoto) {
-  if (!game || world.idx !== ROOM_IDX || !world.room) return;
+  if (!game || world.idx !== ROOM_IDX || !world.room || salaConLlave(k)) return;
   game.puertasAb = game.puertasAb || {}; if (game.puertasAb[k] && !remoto) return; game.puertasAb[k] = 1;
   const o = world.room.objs.find(o => o.kind === 'puerta' && o.sala.k === k); if (o) { o.used = true; o.door.abrir(); }
   if (!remoto) { if (Net.on) Net.ev(['trp', game.wave, k]); saveGame({ punto: 'sala' }); }
@@ -33184,8 +33232,9 @@ function buildShopRoom() {
   M(new THREE.PlaneGeometry(HX * 2, HZ * 2), lam(0x2a1a10, { side: THREE.DoubleSide }), 0, H, 0, { rx: Math.PI / 2, cast: false });
   for (let x = -HX + 1; x <= HX; x += 3) M(bx(0.22, 0.22, AT - SEP), trim, x, H - 0.14, (AT + SEP) / 2, { cast: false });
   // alfombras: roja en el salón, morada en el intercambio, verde de paño en los dados, oscura en las balas y en el pasillo
-  const rug = (x, z, w, d, c) => M(new THREE.PlaneGeometry(w, d), lam(c), x, 0.011, z, { rx: -Math.PI / 2, cast: false });
-  rug(0, (SEP + AT) / 2, 15, 7, 0x6a1414); rug(0, (SEP + AT) / 2, 14.4, 6.4, 0xb08a3a); rug(0, (SEP + AT) / 2, 14, 6, 0x5a1010);
+  // cada capa a su altura y con polygonOffset: así no parpadean (z-fighting) de lejos ni con la cámara baja
+  const rug = (x, z, w, d, c, k = 1) => M(new THREE.PlaneGeometry(w, d), lam(c, { polygonOffset: true, polygonOffsetFactor: -k, polygonOffsetUnits: -k }), x, 0.012 * k, z, { rx: -Math.PI / 2, cast: false });
+  rug(0, (SEP + AT) / 2, 15, 7, 0x6a1414, 1); rug(0, (SEP + AT) / 2, 14.4, 6.4, 0xb08a3a, 2); rug(0, (SEP + AT) / 2, 14, 6, 0x5a1010, 3);
   rug(-8.75, -9, 7.2, 10.5, 0x3a1c4a); rug(0, -9, 7.8, 10.5, 0x154a2a); rug(8.75, -9, 7.2, 10.5, 0x2a2420); rug(0, (AT + FIN) / 2, 11, 5.4, 0x1a120c);
   // luces: dos en el salón, una por sala y una en el pasillo
   [[-6, 2.5], [6, 2.5], [-8.75, -9], [0, -9], [8.75, -9], [0, (AT + FIN) / 2]].forEach(([x, z], i) => lampLight(x, H - 0.6, z, i === 5 ? 0xffb070 : 0xffc070, 0.95, 14, null, 0.5));
@@ -33197,55 +33246,56 @@ function buildShopRoom() {
   for (const s of [-1, 1]) { const sx = s * 9.5, sz = AT - 0.5; M(bx(2.4, 2.5, 0.5), lam(0x2a1a10), sx, 1.25, sz, { solid: true }); addBox(sx, sz, 1.2, 0.3);
     for (let lv = 0; lv < 3; lv++) { M(bx(2.3, 0.06, 0.46), lam(0x5a3a20), sx, 0.5 + lv * 0.75, sz - 0.04, { cast: false }); for (let i = 0; i < 5; i++) { const x = sx - 0.9 + i * 0.45; if ((i + lv) % 3 === 0) M(bx(0.32, 0.22, 0.22), lam(0x8a5a30), x, 0.65 + lv * 0.75, sz - 0.1, { cast: false }); else M(cyl(0.1, 0.1, 0.28, 8), lam(pick([0x4a8a3a, 0x8a3a2a, 0x3a5a8a, 0xc8a040, 0x8a5aa0]), { emissive: 0x1a1008 }), x, 0.67 + lv * 0.75, sz - 0.1, { cast: false }); } } }
   const R = world.room = { objs: [] };
-  // ---- las 3 puertas del frente: símbolo grande encima y, tras un jefe, cadenas hasta pagar
+  // ---- las 3 puertas del frente: un símbolo pequeño encima (sin carteles de texto) y, tras un jefe, cadenas hasta pagar
   for (const S_ of TR.salas) {
-    const sim = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ map: trSimbolo(S_.k, S_.col) })); sim.position.set(S_.px, H - 0.85, SEP + T / 2 + 0.02); world.group.add(sim);
-    const nom = trCartel(S_.name.replace('Sala de los ', '').replace('Sala de las ', '').replace('Sala del ', '').toUpperCase(), '', S_.col, 2.2, 0.4); nom.position.set(S_.px, H - 1.85, SEP + T / 2 + 0.02); world.group.add(nom);
+    const sim = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ map: trSimbolo(S_.k, S_.col) })); sim.position.set(S_.px, 3.68, SEP + T / 2 + 0.012); world.group.add(sim);   // el símbolo, pegado a la pared entre el marco de la puerta y el techo
     for (const s of [-1, 1]) M(bx(0.2, 3.0, T + 0.12), lam(0x3a2414), S_.px + s * (HU / 2 + 0.1), 1.5, SEP, { cast: false });
     M(bx(HU + 0.4, 0.25, T + 0.12), lam(0x3a2414), S_.px, 3.0, SEP, { cast: false });
-    const deDentro = trCartel(S_.name, '', S_.col, 2.6, 0.45); deDentro.position.set(S_.px, 3.4, SEP - T / 2 - 0.02); deDentro.rotation.y = Math.PI; world.group.add(deDentro);
     const abierta = !!(game && game.puertasAb && game.puertasAb[S_.k]), door = trPuerta(S_, abierta);
     if (!salaAbierta(S_.k)) {
       const cad = lam(0x9a9aa2, { emissive: 0x101010 });
       for (const s of [-1, 1]) M(bx(2.9, 0.07, 0.07), cad, S_.px, 1.5, SEP + 0.34, { rz: s * 0.78, cast: false });
       M(bx(0.32, 0.36, 0.14), lam(0xd8a838, { emissive: 0x2a1c04 }), S_.px, 1.42, SEP + 0.42, { cast: false }); M(new THREE.TorusGeometry(0.1, 0.03, 6, 12, Math.PI), cad, S_.px, 1.62, SEP + 0.42, { cast: false });
       R.objs.push({ kind: 'cadena', sala: S_, x: S_.px, z: SEP + 1.1, r: 1.5 });
+    } else if (salaConLlave(S_.k)) {   // cerrada con llave: barra de hierro, cerrojo y candado; no se abre ni se ve nada
+      const hierro = lam(0x3a3a40, { emissive: 0x080808 });
+      M(bx(HU + 0.3, 0.16, 0.08), hierro, S_.px, 1.35, SEP + 0.16, { cast: false }); for (const s of [-1, 1]) M(bx(0.12, 0.3, 0.1), hierro, S_.px + s * (HU / 2 + 0.05), 1.35, SEP + 0.17, { cast: false });
+      M(bx(0.34, 0.38, 0.14), lam(0xd8a838, { emissive: 0x2a1c04 }), S_.px, 1.12, SEP + 0.24, { cast: false }); M(new THREE.TorusGeometry(0.1, 0.03, 6, 12, Math.PI), hierro, S_.px, 1.32, SEP + 0.24, { cast: false });
+      M(cyl(0.035, 0.035, 0.02, 10), lam(0x1a1008), S_.px, 1.08, SEP + 0.32, { rx: Math.PI / 2, cast: false });
+      R.objs.push({ kind: 'cerrojo', sala: S_, x: S_.px, z: SEP + 1.1, r: 1.5 });
     } else if (!abierta) R.objs.push({ kind: 'puerta', sala: S_, x: S_.px, z: SEP + 1.1, r: 1.6, door });
     lampLight(S_.px, 2.6, SEP + 0.6, S_.hex, 0.35, 4, null, 0.3);
   }
   // ---- salón principal: teléfono, ramen (siempre), caja registradora y la gata
   R.objs.push(buildTelefono(0, 2.2));
   if (game) R.objs.push(buildRamen(-HX + 1.0, 2.6, true));
-  { const cx = 10.2, cz = 0.6;   // la caja: mostrador con caja registradora dorada y su cartel
+  { const cx = 10.2, cz = 0.6;   // la caja: mostrador con caja registradora dorada (sin cartel, decisión del dueño)
     M(bx(2.6, 1.05, 1), lam(0x4a2a16), cx, 0.52, cz, { solid: true }); addBox(cx, cz, 1.35, 0.55);
     M(bx(2.8, 0.08, 1.15), lam(0x7a4a24), cx, 1.08, cz, {}); for (const x of [-1, 0, 1]) M(bx(0.7, 0.75, 0.04), lam(0x5a3418), cx + x, 0.5, cz + 0.52, { cast: false });
     const reg = Grp(cx + 0.75, cz - 0.05, -0.3); reg.position.y = 1.12; const gm = lam(0xc8a040, { emissive: 0x2a1c04 }); M(bx(0.6, 0.32, 0.5), gm, 0, 0.16, 0, { p: reg }); M(bx(0.5, 0.18, 0.08), gm, 0, 0.42, -0.18, { p: reg, rx: -0.3 }); M(bx(0.44, 0.1, 0.12), lam(0x1a1008), 0, 0.34, 0.12, { p: reg });
-    const cs = trCartel('CAJA', 'fichas · balas normales · vender', '#ffd47a', 1.5, 0.5); cs.position.set(cx, 1.85, cz - 0.6); world.group.add(cs);
     R.objs.push(buildGata(cx - 0.75, cz)); R.objs.push({ kind: 'caja', x: cx + 0.95, z: cz + 1.1, r: 0.9 }); }
   // ---- sala 1 · Intercambio: Madame, el Diablo o el Ángel, Cápsulas y La Garra (cada una en su lugar)
-  { const zf = -HZ + T / 2; let n = 0;
+  { const zf = -HZ + T / 2;
     const lugares = [['madame', -11.9, game && game.roomMadame], ['dva', -9.8, game && game.roomDva], ['capsulas', -7.7, game && game.roomVendCap], ['garra', -5.6, game && game.roomVendGarra]];
     for (const [k, x, on] of lugares) {
-      if (!on) { trSabana(x, zf + 0.5, ''); continue; } n++;
+      if (!on) continue;
       if (k === 'madame') R.objs.push(buildMaqCartas(x, zf + 0.43, 'madame'));
       else if (k === 'dva') R.objs.push(buildMaqCartas(x, zf + 0.43, game.roomDva));
       else R.objs.push(VEND_BUILD[k](x, zf + (k === 'garra' ? 0.555 : 0.43)));
     }
-    if (!n) { trVela(-8.75, -9.5); const c = trCartel(TR.salas[0].vacio.toUpperCase(), '', '#b48cff', 2.4, 0.5); c.position.set(-8.75, 2.6, -HZ + T / 2 + 0.03); world.group.add(c); } }
-  // ---- sala 2 · Dados: cada juego en su lugar fijo; +5 % a todos los que salgan
-  { let n = 0;
-    if (game && game.roomSlot) { R.objs.push(buildSlot(3.95, -13.4)); n++; } else trSabana(3.6, -13.4, '');
-    if (game && game.roomWheel) { R.objs.push(buildWheel(3.95, -9.0)); n++; } else trMesaVacia(3.3, -9.0);
-    if (game && game.roomBj) { R.objs.push(buildBlackjack(2.4, -5.6)); n++; } else trMesaVacia(2.4, -5.6);
-    if (game && game.roomCar) { R.objs.push(buildCarrera(-3.6, -12.4)); n++; } else trMesaVacia(-3.2, -12.4);
-    if (game && game.roomDad) { R.objs.push(buildDados(-1.8, -8.2)); n++; } else trMesaVacia(-1.8, -7.8);
-    const c = trCartel(n ? `+${Math.round(BAL.trastienda.dadosExtra * 100)} % EN TODOS LOS JUEGOS DE HOY` : TR.salas[1].vacio.toUpperCase(), '', '#6ee08a', 3.4, 0.5); c.position.set(0, 3.0, -HZ + T / 2 + 0.03); world.group.add(c); }
-  // ---- sala 3 · Balas: la expendedora (40 %), el vendedor de armas (25 %) y el tiro al blanco
-  { const zf = -HZ + T / 2; let n = 0;
-    if (game && game.roomEspiral) { R.objs.push(VEND_BUILD.espiral(6.1, zf + 0.46)); n++; } else trSabana(6.1, zf + 0.5, '');
-    if (game && game.roomArmeria) { R.objs.push(buildArmeria(9.9, zf + 0.75)); n++; } else buildArmeriaVacia(9.9, zf + 0.75);
-    if (game && game.roomTiro) { R.objs.push(buildTiro(HX - 1.05, -7.4)); n++; } else trMesaVacia(HX - 1.4, -7.4);
-    if (!n) { const c = trCartel(TR.salas[2].vacio.toUpperCase(), 'Las balas normales siguen en la caja del salón', '#ffb060', 2.8, 0.7); c.position.set(8.75, 3.2, -HZ + T / 2 + 0.03); world.group.add(c); } }
+  }
+  // ---- sala 2 · Dados: todos los juegos de azar, cada uno en su lugar fijo
+  {
+    if (game && game.roomSlot) R.objs.push(buildSlot(3.95, -13.4));
+    if (game && game.roomWheel) R.objs.push(buildWheel(3.95, -9.0));
+    if (game && game.roomBj) R.objs.push(buildBlackjack(2.4, -5.6));
+    if (game && game.roomCar) R.objs.push(buildCarrera(-3.6, -12.4));
+    if (game && game.roomDad) R.objs.push(buildDados(-1.8, -8.2)); }
+  // ---- sala 3 · Balas: la expendedora, el vendedor de armas y el tiro al blanco
+  { const zf = -HZ + T / 2;
+    if (game && game.roomEspiral) R.objs.push(VEND_BUILD.espiral(6.1, zf + 0.46));
+    if (game && game.roomArmeria) R.objs.push(buildArmeria(9.9, zf + 0.75));
+    if (game && game.roomTiro) R.objs.push(buildTiro(HX - 1.05, -7.4)); }
   // ---- la salida fija de atrás y el pasillo de los caminos
   const conDeuda = deudaHoy();
   { const s = trCartel(conDeuda ? 'PASILLO DE LOS CAMINOS' : 'SALIDA', conDeuda ? 'Una puerta por cada llave' : `Oleada ${game ? game.wave + 1 : 1}`, '#ffd060', 2.6, 0.6); s.position.set(0, 3.5, AT - T / 2 - 0.02); s.rotation.y = Math.PI; world.group.add(s); }
@@ -33278,9 +33328,10 @@ function useLabel(o) {
   if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'tel') { if (deudaPend()) { const D = game.deuda; return { key: 'tel' + D.bote + !!D.colgado, t: 'Teléfono negro', r: `<span style="color:#ff8a7a">${D.colgado ? 'Esperando tu dinero' : '¡Suena!'}</span>`, d: `Alguien quiere su dinero: ${deudaFalta()} $ del nivel ${D.n}. Las puertas tienen cadenas hasta que pagues.`, b: D.colgado ? 'Volver a llamar' : 'Contestar', ok: true }; }
-    return { key: 'telc' + deudaHoy(), t: 'Teléfono negro', r: '', d: deudaHoy() ? 'Ya pagaste la deuda de este nivel. Está colgado.' : 'Está colgado. Suena después de cada jefe.', b: null }; }
+    return { key: 'telc' + (game.abono | 0) + '_' + deudaProx(), t: 'Teléfono negro', r: '', d: `Puedes abonar a la deuda cuando quieras: lo abonado se descuenta del próximo jefe (faltan ${deudaProx()} $ para el nivel ${deudaProxN()}).`, b: 'Llamar', ok: true }; }
   if (o.kind === 'cadena') return { key: 'cad' + o.sala.k, t: o.sala.name, r: '<span style="color:#ff8a7a">Cerrada con cadena</span>', d: 'Paga la deuda en el teléfono negro para abrirla.' + (o.sala.k === 'dados' ? ' Si te falta dinero, cuelga: esta sala se abre para que apuestes.' : ''), b: null };
   if (o.kind === 'sinPagar') return { key: 'sp', t: 'Salida', r: '<span style="color:#ff6a5a">Sin pagar</span>', d: Net.on ? 'Si salen sin pagar la deuda, todo el grupo pierde la partida.' : 'Si sales sin pagar la deuda, pierdes la partida.', b: 'Salir sin pagar', ok: true };
+  if (o.kind === 'cerrojo') return { key: 'cj' + o.sala.k, t: o.sala.name, r: '<span style="color:#ff8a7a">Cerrada con llave</span>', d: 'Hoy esta puerta no se abre. Vuelve en otra visita.', b: null };
   if (o.kind === 'puerta') return { key: 'pu' + o.sala.k, t: o.sala.name, r: `<span style="color:${o.sala.col}">Puerta cerrada</span>`, d: '¿Habrá algo dentro? Ábrela para saberlo.', b: 'Abrir la puerta', ok: true };
   if (o.kind === 'armeria') return { key: 'arm', t: 'Vendedor de armas', r: '<span style="color:#ffb060">Atiéndase usted mismo</span>', d: 'Escopetas, fusiles de asalto, Desert Eagle, ametralladoras, chalecos y dinamita. Elija y pague en la lata.', b: 'Ver el menú', ok: true };
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
@@ -33987,7 +34038,7 @@ function avisoCaido(p) {
 }
 function netEvent(p, e) {
   const t = e[0];
-  if (t === 'dpA' || t === 'dpQ' || t === 'dpS' || t === 'dpX') { deudaRed(t, e); return; }   // G1: el bote de la deuda
+  if (t === 'dpA' || t === 'dpQ' || t === 'dpS' || t === 'dpX' || t === 'abA' || t === 'abS') { deudaRed(t, e); return; }   // G1: el bote de la deuda
   if (t === 'trp') { if (game && e[1] === game.wave) trAbrirPuerta(e[2], true); return; }   // una puerta de sala que abrió un compañero
   if (t === 'horde') { startHorde(true); return; }
   if (t === 'wmod') { if (!Net.host && game) { clearWaveMod(); applyWaveMod(e[1]); const M = WAVE_MODS[e[1]]; if (M) banner(M.name, M.sub, 2800, M.ic); } return; }
@@ -37230,6 +37281,7 @@ window.addEventListener('mousemove', e => {
   btn('#b-tnt', () => lanzarDinamita());
   $('#tel-pagar').addEventListener('click', () => deudaPagar());
   $('#tel-colgar').addEventListener('click', () => telCerrar());
+  $('#tel-rap').querySelectorAll('button').forEach(b => b.addEventListener('click', () => telRapido(b.dataset.v === 'todo' ? 'todo' : +b.dataset.v)));
   $('#arm-salir').addEventListener('click', () => armeriaCerrar());
   $('#arm-comprar').addEventListener('click', () => armComprar());
   $('#slt-salir').addEventListener('click', () => slotCerrar());
