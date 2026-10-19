@@ -2,8 +2,8 @@
 const SOBRES = [
   { n: 1, name: 'Naipe del saloon', tier: 'Sobre Standard', d: 'Sobre con el dorso de un naipe, sello de cera y tira para rasgar.' },
   { n: 2, name: 'Cartucho de dinamita', tier: 'Sobre Terminator', d: 'Tres cartuchos atados con cuerda y una mecha que se enciende.' },
-  { n: 3, name: 'Caja de puros', tier: 'Sobre Especial', d: 'Caja de madera con etiqueta dorada, medallas y precinto.' },
-  { n: 4, name: 'Bolsa de botín', tier: 'Sobre Standard', d: 'Saco de tela con cordón y sello de la casa estampado.' },
+  { n: 3, name: 'Caja de puros', tier: 'Diseño de reserva (Especial)', d: 'Caja de madera con etiqueta dorada, medallas y precinto.' },
+  { n: 4, name: 'Bolsa de botín', tier: 'Diseño de reserva (Standard)', d: 'Saco de tela con cordón y sello de la casa estampado.' },
   { n: 5, name: 'Neón del casino', tier: 'Sobre Especial', d: 'Sobre metálico negro con letrero de neón y una mano de zombi.' },
 ];
 const TXT = 'font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700"';
@@ -58,9 +58,9 @@ const APERTURAS = [
   { n: 4, name: 'Tambor del revólver', d: 'Las 3 balas se cargan en un tambor, gira, y cada disparo lanza una ficha a la pantalla.',
     f: [['El sobre se vacía en el tambor', 'cyl0'], ['El tambor gira', 'cyl1'], ['Disparo: sale la 1.ª', 'cyl2'], ['Las 3 en fila', 'cyl3']] },
   { n: 5, name: 'Tragamonedas', d: 'El sobre entra en una tragamonedas; 3 rodillos se detienen en tus balas y la rara enciende las luces.',
-    f: [['El sobre entra por la ranura', 'slot0'], ['Giran 3 rodillos', 'slot1'], ['Paran uno por uno', 'slot2'], ['Luces: salió una A', 'slot3']] },
+    f: [['El sobre entra por la ranura', 'slot0'], ['Giran 3 rodillos', 'slot1'], ['Paran uno por uno', 'slot2'], ['Luces: salió una rara', 'slot3']] },
 ];
-const PREMIO = ['escarcha', 'oro', 'hipno']; // la tercera es la rara (A)
+const PREMIO = ['oro', 'escarcha', 'hipnotica']; // la tercera es la rara
 function cuadro(kind, n) {
   const ch = (id, x, y, s = 60, rot = 0, extra = '') => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s / 116})" ${extra}><g transform="translate(-58 -58)">${fichaSVG(id).replace('<svg viewBox="-8 -8 116 116"', '<svg width="116" height="116" viewBox="-8 -8 116 116"')}</g></g>`;
   const pk = (x, y, s, rot = 0, op = 1) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" opacity="${op}"><g transform="translate(-120 -170)">${sobreSVG(n).replace('<svg viewBox="0 0 240 340"', '<svg width="240" height="340" viewBox="0 0 240 340"')}</g></g>`;
@@ -78,11 +78,11 @@ function cuadro(kind, n) {
     case 'pack': s = pk(180, 120, .58) + `<circle cx="230" cy="170" r="16" fill="none" stroke="#fff" stroke-width="3"/><circle cx="230" cy="170" r="26" fill="none" stroke="#fff8" stroke-width="2"/>`; break;
     case 'tear': s = pk(180, 128, .58) + `<path d="M110 84 L250 84" stroke="#fff" stroke-width="4" stroke-dasharray="6 4"/><g transform="translate(210 50) rotate(22)"><rect x="-70" y="-10" width="140" height="18" fill="#8e1f16" stroke="#ffd27a" stroke-width="2"/></g>` + spark(118, 84) + spark(250, 84, 3); break;
     case 'fan': s = rays(180, 110) + pk(180, 190, .45, 0, .8) + card(120, 100, -18) + card(180, 86, 0) + card(240, 100, 18); break;
-    case 'flip': s = rays(240, 100, '#b67cff') + card(120, 110, -10, 1, PREMIO[0]) + card(180, 104, 0, 1, PREMIO[1]) + card(244, 100, 8, 1, PREMIO[2]) + spark(276, 54) + spark(212, 46, 3); break;
+    case 'flip': s = rays(240, 100, '#4f95ff') + card(120, 110, -10, 1, PREMIO[0]) + card(180, 104, 0, 1, PREMIO[1]) + card(244, 100, 8, 1, PREMIO[2]) + spark(276, 54) + spark(212, 46, 3); break;
     case 'fuse': s = pk(180, 130, .55) + spark(222, 42, 5); break;
     case 'fuse2': s = pk(180, 130, .55) + spark(190, 58, 6) + spark(200, 48, 3) + spark(176, 52, 3) + `<text x="300" y="70" text-anchor="middle" font-family="Rye" font-size="44" fill="#ffd27a">2</text>`; break;
     case 'boom': s = `<circle cx="180" cy="120" r="110" fill="#ff9a2a55"/><circle cx="180" cy="120" r="70" fill="#ffd27a"/><circle cx="180" cy="120" r="40" fill="#fff"/>` + [[80, 60], [270, 70], [110, 190], [260, 190]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="34" fill="#cfc2a8aa"/>`).join(''); break;
-    case 'land': s = [[80, 60], [270, 70]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="26" fill="#cfc2a855"/>`).join('') + ch(PREMIO[0], 100, 150, 66, -20) + ch(PREMIO[1], 180, 160, 66, 10) + rays(262, 150, '#b67cff') + ch(PREMIO[2], 262, 150, 80) + spark(300, 110); break;
+    case 'land': s = [[80, 60], [270, 70]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="26" fill="#cfc2a855"/>`).join('') + ch(PREMIO[0], 100, 150, 66, -20) + ch(PREMIO[1], 180, 160, 66, 10) + rays(262, 150, '#4f95ff') + ch(PREMIO[2], 262, 150, 80) + spark(300, 110); break;
     case 'wheel0': s = wheel(0) + pk(300, 70, .3, 20); break;
     case 'wheel1': s = wheel(40) + `<path d="M70 60 A120 120 0 0 1 120 20" stroke="#fff" stroke-width="3" fill="none"/><path d="M290 180 A120 120 0 0 1 240 220" stroke="#fff" stroke-width="3" fill="none"/>` + pk(180, 120, .18, 60); break;
     case 'wheel2': s = wheel(75, [242, 66]) + spark(242, 66, 3); break;
@@ -90,11 +90,11 @@ function cuadro(kind, n) {
     case 'cyl0': s = cyl(0, 0) + pk(70, 70, .28, -40) + ch(PREMIO[0], 130, 70, 30) + ch(PREMIO[1], 150, 90, 30); break;
     case 'cyl1': s = cyl(50, 3) + `<path d="M84 50 A110 110 0 0 1 150 18" stroke="#ffd27a" stroke-width="4" fill="none"/><path d="M276 200 A110 110 0 0 1 210 232" stroke="#ffd27a" stroke-width="4" fill="none"/>`; break;
     case 'cyl2': s = cyl(0, 2) + `<path d="M260 125 L330 125" stroke="#fff" stroke-width="6"/><circle cx="262" cy="125" r="20" fill="#ffd27a"/>` + ch(PREMIO[0], 320, 70, 60, 20); break;
-    case 'cyl3': s = rays(270, 120, '#b67cff') + ch(PREMIO[0], 90, 120, 70) + ch(PREMIO[1], 180, 120, 70) + ch(PREMIO[2], 270, 120, 84) + spark(310, 76); break;
+    case 'cyl3': s = rays(270, 120, '#4f95ff') + ch(PREMIO[0], 90, 120, 70) + ch(PREMIO[1], 180, 120, 70) + ch(PREMIO[2], 270, 120, 84) + spark(310, 76); break;
     case 'slot0': s = machine(['', '', ''], 0) + pk(180, 186, .16, 0); break;
     case 'slot1': s = machine(['spin', 'spin', 'spin'], 1); break;
     case 'slot2': s = machine([PREMIO[0], PREMIO[1], 'spin'], 1); break;
-    case 'slot3': s = rays(180, 110, '#b67cff') + machine(PREMIO, 1) + spark(230, 70) + spark(120, 200, 3) + `<rect x="100" y="196" width="160" height="30" rx="6" fill="#b67cff"/><text x="180" y="218" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="20" fill="#fff">¡RARA A!</text>`; break;
+    case 'slot3': s = rays(180, 110, '#4f95ff') + machine(PREMIO, 1) + spark(230, 70) + spark(120, 200, 3) + `<rect x="100" y="196" width="160" height="30" rx="6" fill="#4f95ff"/><text x="180" y="218" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="20" fill="#fff">¡RARA!</text>`; break;
   }
   return `<svg viewBox="0 0 360 240"><defs><radialGradient id="vig"><stop offset=".55" stop-color="#0000"/><stop offset="1" stop-color="#000a"/></radialGradient><pattern id="bl" width="46" height="16" patternUnits="userSpaceOnUse"><rect width="46" height="16" fill="#fff"/><rect y="8" width="46" height="6" fill="#6fd3f066"/></pattern></defs>${table}${s}</svg>`;
 }

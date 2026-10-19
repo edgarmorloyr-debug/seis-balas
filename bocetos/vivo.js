@@ -1,166 +1,83 @@
 // vivo.js · Estado de prueba, reglas, sonidos (WebAudio) y efectos que comparten los bocetos jugables.
-// Regla elegida por el dueño: el nivel sube SUMANDO COPIAS (Nv 2 + Nv 1 = Nv 3; 5 copias = Nv 5).
+// Reglas nuevas del dueño (19-oct-2026):
+//  · Sin fusiones: cada una de las 85 balas es individual.
+//  · Subir de nivel SOLO por parejas: 2 balas iguales del MISMO nivel = 1 bala del nivel siguiente (máximo Nv 4).
+//    Distinto nivel de la misma bala no se junta.
+//  · Cinturón de 8 espacios + reserva de 6 (el bolsillo y la reserva son lo mismo: ya no hay bolsillo aparte).
 
 // ---------- Datos ----------
-const LISTA40 = ['polvora', 'plomo', 'taladro', 'frita', 'perdigon', 'mira', 'seis', 'ruleta', 'doble', 'caliente', 'flecha',
-  'escarcha', 'rayo', 'chicle', 'lazo', 'agujero', 'hipno', 'reloj', 'oro', 'alcancia', 'usurero', 'pinata', 'casa', 'tahur', 'pagare',
-  'vampira', 'cantimplora', 'junior', 'angel', 'fenix', 'ronda', 'negra', 'robot', 'bolsa', 'canon', 'tambor', 'espejo', 'trebol', 'dado', 'rey'];
-// Las 10 fusiones de ejemplo (balas40.md)
-const FUS = {
-  ventisca: ['escarcha', 'rayo'], estrella: ['negra', 'canon'], jackpot: ['oro', 'ruleta'], bomba: ['vampira', 'frita'],
-  juicio: ['taladro', 'seis'], rodeo: ['lazo', 'agujero'], caramelo: ['pinata', 'chicle'], torreta: ['robot', 'junior'],
-  sheriff: ['hipno', 'rey'], banquero: ['usurero', 'pagare'],
-};
-const RNOM = { C: 'Común', B: 'Rara', A: 'Épica', S: 'Legendaria' };
-const RORD = { C: 0, B: 1, A: 2, S: 3 };
-const PRECIO = { C: 20, B: 40, A: 80, S: 150 };
-// [qué hace, Nv 1, Nv 2, Nv 3, Nv 4, Nv 5]
-const NIV = {
-  polvora: ['Todas tus balas hacen más daño', '+8 % de daño', '+12 % de daño', '+17 % de daño', '+23 % de daño', '+30 % y críticos +20 %'],
-  plomo: ['Balazo pesado que empuja', '+40 %, empuja 1 m', '+60 %, empuja 1,5 m', '+80 %, empuja 2 m', '+110 %, empuja 2,5 m', '+150 %, 3 m y tumba a otros'],
-  taladro: ['Atraviesa zombis en línea', 'Atraviesa 2', 'Atraviesa 3', 'Atraviesa 4', 'Atraviesa 6', 'Atraviesa a todos, +10 % cada uno'],
-  frita: ['Explota al impactar', '2 m, 30 de daño', '2,5 m, 45 de daño', '3 m, 60 de daño', '3,5 m, 80 de daño', '4,5 m, 110 y fuego 3 s'],
-  perdigon: ['Más perdigones (solo escopeta)', '+2 perdigones', '+3 perdigones', '+4 perdigones', '+5 perdigones', '+7 y menos dispersión'],
-  mira: ['Tiros a la cabeza (solo rifle)', 'Cabeza ×2', 'Cabeza ×2,3', 'Cabeza ×2,6', 'Cabeza ×3', '×4 y te devuelve la bala'],
-  seis: ['La 6.ª bala es la buena (revólver)', '6.ª bala ×3', '6.ª bala ×3,5', '6.ª bala ×4', '6.ª bala ×5', '×6 y atraviesa a todos'],
-  ruleta: ['Mata de un tiro o se traba', '1 de 6, se traba 0,8 s', '1 de 5, se traba 0,6 s', '1 de 4, se traba 0,4 s', '1 de 3, se traba 0,2 s', '1 de 2 y nunca se traba'],
-  doble: ['Cada tiro es una apuesta', 'Si gana, ×1,8', 'Si gana, ×2', 'Si gana, ×2,3', 'Si gana, ×2,6', '×3 y racha segura'],
-  caliente: ['Más daño sin parar (minigun)', '+2 % por s, tope 20 %', '+3 % por s, tope 30 %', '+4 % por s, tope 40 %', '+5 % por s, tope 50 %', '+6 % por s, tope 70 % y llamas'],
-  flecha: ['Flechas que incendian (ballesta)', 'Quema 6 por s', 'Quema 9 por s', 'Quema 12 por s', 'Quema 16 por s', '22 por s y el fuego salta'],
-  escarcha: ['Congela', 'Congela 1,2 s', '1,5 s y a todos en 1 m', '1,8 s y a todos en 2 m', '2,2 s y a todos en 3 m', '3 s, 4 m y doble daño'],
-  rayo: ['Rayo que salta y aturde', 'Salta a 2, 20 de daño', 'Salta a 3, 28 de daño', 'Salta a 4, 36 de daño', 'Salta a 5, 45 de daño', 'Salta a 7, 60 y repite'],
-  chicle: ['Pega al zombi al suelo', 'Frena 30 % por 2 s', 'Frena 35 % por 2,5 s', 'Frena 40 % por 3 s', 'Frena 50 % por 3,5 s', '60 %, 4 s y charco'],
-  lazo: ['Amarra al zombi', '1 zombi 1,5 s', '1 zombi 2 s', '2 zombis 2,5 s', '2 zombis 3 s', '3 zombis 4 s y los arrastra'],
-  agujero: ['Remolino que traga zombis', '4 m, 2 s, 15 por s', '5 m, 2,5 s, 20 por s', '6 m, 3 s, 25 por s', '7 m, 3,5 s, 30 por s', '9 m, 4 s, 40 y explota'],
-  hipno: ['El zombi pelea de tu lado', 'Por 5 s', 'Por 7 s', 'Por 9 s', 'Por 12 s', '16 s, pega doble y explota'],
-  reloj: ['El tiempo se frena solo', 'Cada 30 s, 1,5 s', 'Cada 27 s, 2 s', 'Cada 24 s, 2,5 s', 'Cada 20 s, 3 s', 'Cada 15 s, 3,5 s y balas gratis'],
-  oro: ['Los zombis sueltan monedas', '15 % de +2 de oro', '18 % de +2 de oro', '21 % de +3 de oro', '25 % de +3 de oro', '30 % de +5 y bolsas de 50'],
-  alcancia: ['Ahorro por oleada', '+7 de oro por oleada', '+10 de oro por oleada', '+14 de oro por oleada', '+19 de oro por oleada', '+25 y bono si no gastas'],
-  usurero: ['Interés por tu oro guardado', '1 % (máx. 10)', '1,5 % (máx. 15)', '2 % (máx. 20)', '2,5 % (máx. 30)', '3 % (máx. 45)'],
-  pinata: ['Revienta en premios', 'Suelta 8 de oro', 'Suelta 12 de oro', 'Suelta 16 de oro', '22 y a veces una bala C', '30 y a veces una C o B'],
-  casa: ['Descuento en la expendedora', 'Precios -5 %', 'Precios -8 %', 'Precios -11 %', 'Precios -15 %', '-20 % y 1 oferta más'],
-  tahur: ['Mejor suerte en los sobres', '5 % de subir rareza', '8 % de subir rareza', '12 % de subir rareza', '16 % de subir rareza', '22 % y menos mojadas'],
-  pagare: ['Le debes menos al casino', 'Pago -5 %', 'Pago -8 %', 'Pago -12 %', 'Pago -16 %', '-20 % y «una semana más»'],
-  vampira: ['Cada impacto te cura', 'Cura 4', 'Cura 6', 'Cura 8', 'Cura 11', 'Cura 15 y da escudo'],
-  cantimplora: ['Trago al empezar la oleada', 'Cura 10', 'Cura 15', 'Cura 20', 'Cura 27', 'Cura 35 y más velocidad'],
-  junior: ['Recarga al impactar', 'Recarga 2 balas', 'Recarga 3 balas', 'Recarga 4 balas', 'Recarga 5 balas', 'Todo el tambor y tiro gratis'],
-  angel: ['Si mata, sube tu vida máxima', '+2 de vida máxima', '+3 de vida máxima', '+4 de vida máxima', '+5 de vida máxima', '+7 y cura 10'],
-  fenix: ['Revives una vez', 'Revives con 30 %', 'Revives con 40 %', 'Revives con 50 %', 'Revives con 65 %', '80 % y explotas en fuego'],
-  ronda: ['Más daño para tu grupo', '+4 % al grupo', '+6 % al grupo', '+8 % al grupo', '+11 % al grupo', '+15 % y se levantan antes'],
-  negra: ['Disparas en 4 direcciones', 'Extras al 35 %', 'Extras al 50 %', 'Extras al 65 %', 'Extras al 80 %', '100 % y 8 direcciones'],
-  robot: ['Más espacios en el cinturón', '+1 espacio', '+1 espacio', '+2 espacios', '+2 espacios', '+3 espacios'],
-  bolsa: ['Inventario más grande', '+1 lugar', '+2 lugares', '+2 y vender da 60 %', '+3 y vender da 60 %', '+4 y cambio al azar'],
-  canon: ['Un proyectil extra por disparo', 'Extra al 40 %', 'Extra al 50 %', 'Extra al 60 %', 'Extra al 75 %', '2 extra al 100 %'],
-  tambor: ['Más balas en el tambor (revólver)', '7 balas', '7 y recarga +5 %', '8 balas', '8 y recarga +10 %', '9 y recarga +15 %'],
-  espejo: ['Copia la bala de su izquierda', 'Copia al 30 %', 'Copia al 40 %', 'Copia al 55 %', 'Copia al 70 %', 'Copia completa'],
-  trebol: ['Suerte en todo lo que sea azar', '+10 % de suerte', '+15 % de suerte', '+20 % de suerte', '+30 % de suerte', '+40 % y Ruleta segura'],
-  dado: ['Sube balas al azar cada oleada', '1 bala +1 nivel', '1 bala, nunca una Nv 5', '2 balas +1 nivel', '2 balas +1 nivel', '3 balas y «nivel 6»'],
-  rey: ['Tributo en balas', 'Cada 60 muertes, una C', 'Cada 50 muertes, una C', 'Cada 40 muertes, una B', 'Cada 35 muertes, una B', 'Cada 25 muertes, una A'],
-  ventisca: ['Tormenta que congela y aturde', '4 m por 3 s', '5 m por 3,5 s', '6 m por 4 s', '7 m por 4,5 s', '8 m, 5 s y suelta rayos'],
-  estrella: ['Disparas en 8 direcciones', 'Extras al 30 %', 'Extras al 40 %', 'Extras al 50 %', 'Extras al 65 %', '85 % y giran'],
-  jackpot: ['Si la ruleta mata, llueve oro', 'Mata 1 de 5 y da 20', 'Da 30 de oro', 'Da 40 de oro', 'Da 55 de oro', '80 y todos ganan 10'],
-  bomba: ['Explota y te cura', 'Cura 3 por zombi', 'Cura 4 por zombi', 'Cura 5 por zombi', 'Cura 7 por zombi', '10 y cura al grupo'],
-  juicio: ['La última bala atraviesa todo', '×3 y atraviesa', '×3,5 y atraviesa', '×4 y atraviesa', '×5 y atraviesa', '×6 y línea de fuego'],
-  rodeo: ['Lazo gigante que junta a todos', 'Junta en 5 m', 'Junta en 6 m', 'Junta en 7 m', 'Junta en 8 m', '10 m, 3 s, amontonados'],
-  caramelo: ['Pegado y suelta monedas', '1 de oro por golpe', '2 de oro por golpe', '2 de oro por golpe', '3 de oro por golpe', '4 y 20 al morir'],
-  torreta: ['Robotito que dispara y recarga', 'Un tiro cada 2 s', 'Un tiro cada 1,7 s', 'Un tiro cada 1,4 s', 'Un tiro cada 1,1 s', 'Cada 0,8 s con tu bala'],
-  sheriff: ['Zombis que se unen a tu banda', '1 aliado a la vez', '2 aliados a la vez', '2 aliados, +25 %', '3 aliados a la vez', '4 con sombrero, +50 %'],
-  banquero: ['Tú le cobras al casino', '2 % y pago -5 %', '2,5 % y pago -8 %', '3 % y pago -10 %', '3,5 % y pago -12 %', '4 % y pago -15 %'],
-};
-const color = id => (BALAS[id] || BALAS.mojada)[1];
-const rcol = id => RAREZA[rareza(id)];
-// Color de brillo legible: si la bala es muy oscura, se usa el color de su rareza.
-function brillo(id) { const c = color(id); const n = parseInt(c.slice(1), 16); const l = ((n >> 16) & 255) * .3 + ((n >> 8) & 255) * .59 + (n & 255) * .11; return l < 70 ? rcol(id) : c; }
-function recetaDe(a, b) { for (const k in FUS) { const [x, y] = FUS[k]; if ((a === x && b === y) || (a === y && b === x)) return k; } return null; }
+const LISTA40 = LISTA85;   // nombre viejo que usan algunos bocetos (rodillos al azar)
+const PRECIO = { C: 20, B: 40, A: 80, S: 300 };   // precios sueltos del juego (BAL.precio)
 const espera = ms => new Promise(r => setTimeout(r, ms));
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 function guardado(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
 function guardar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+const color = id => (BALAS[id] || BALAS.oro)[1];
+const rcol = id => RAREZA[rareza(id)];
+// Color de brillo legible: si la bala es muy oscura, se usa el color de su rareza.
+function brillo(id) { const c = color(id); const n = parseInt(c.slice(1), 16); const l = ((n >> 16) & 255) * .3 + ((n >> 8) & 255) * .59 + (n & 255) * .11; return l < 70 ? rcol(id) : c; }
+// Copias de nivel 1 que vale una bala (Nv 2 = 2, Nv 3 = 4, Nv 4 = 8) y su venta (la mitad del precio por copia)
+const copias = nv => 2 ** (nv - 1);
+const venta = it => Math.round(PRECIO[rareza(it.id)] / 2) * copias(it.nv);
 
 // ---------- Estado y reglas ----------
 let _uid = 0;
 const nueva = (id, nv = 1) => ({ id, nv, u: ++_uid });
+// Arranque con parejas listas en varios niveles, para poder llegar al Nv 4
 const INICIO = {
-  cin: [['polvora', 3], ['escarcha', 2], ['negra', 1], ['oro', 2], ['ruleta', 1], ['robot', 1], ['vampira', 2], null],
-  bol: ['chicle', 3],
-  inv: [['escarcha', 2], ['rayo', 1], ['frita', 1], ['oro', 1], ['chicle', 1], null],
-  fichas: 12, oro: 340,
+  cin: [['polvora', 3], ['oro', 1], ['oro', 1], ['escarcha', 2], ['escarcha', 2], ['relampago', 1], ['rey', 1], null],
+  inv: [['polvora', 3], ['oro', 2], ['robot', 2], ['robot', 2], ['apuesta', 1], null],
+  oro: 600,
 };
 const Z = {
   e: null,
-  reiniciar() {
-    const s = INICIO;
-    this.e = { cin: s.cin.map(x => x && nueva(...x)), bol: s.bol && nueva(...s.bol), inv: s.inv.map(x => x && nueva(...x)), fichas: s.fichas, oro: s.oro, desc: new Set() };
-  },
-  L(s) { if (s === 'bol') return { z: 'bol' }; const [z, i] = s.split(':'); return { z, i: +i }; },
-  S(l) { return l.z === 'bol' ? 'bol' : l.z + ':' + l.i; },
-  get(l) { if (typeof l === 'string') l = this.L(l); return l.z === 'bol' ? this.e.bol : this.e[l.z][l.i]; },
-  set(l, v) { if (typeof l === 'string') l = this.L(l); if (l.z === 'bol') this.e.bol = v; else this.e[l.z][l.i] = v; },
-  locs() { return [...this.e.cin.map((_, i) => 'cin:' + i), 'bol', ...this.e.inv.map((_, i) => 'inv:' + i)]; },
+  reiniciar() { const s = INICIO; this.e = { cin: s.cin.map(x => x && nueva(...x)), inv: s.inv.map(x => x && nueva(...x)), oro: s.oro, fichas: 0 }; },
+  L(s) { const [z, i] = s.split(':'); return { z, i: +i }; },
+  get(l) { if (typeof l === 'string') l = this.L(l); return (this.e[l.z] || [])[l.i] || null; },
+  set(l, v) { if (typeof l === 'string') l = this.L(l); this.e[l.z][l.i] = v; },
+  locs() { return [...this.e.cin.map((_, i) => 'cin:' + i), ...this.e.inv.map((_, i) => 'inv:' + i)]; },
   llenas() { return this.locs().filter(l => this.get(l)); },
   // Qué sale al juntar a con b (b es la que se queda en su lugar)
   combinar(a, b) {
     if (!a || !b) return { err: 'Faltan balas' };
-    if (a.id === b.id) {
-      if (b.nv >= 5) return { err: nombre(b.id) + ' ya está en nivel 5' };
-      const s = a.nv + b.nv; return { id: b.id, nv: Math.min(5, s), tipo: 'nivel', sobra: Math.max(0, s - 5) };
-    }
-    for (const [x, y] of [[a, b], [b, a]]) {
-      const f = FUS[x.id];
-      if (f && f.includes(y.id)) {
-        if (x.nv >= 5) return { err: nombre(x.id) + ' ya está en nivel 5' };
-        const s = x.nv + y.nv; return { id: x.id, nv: Math.min(5, s), tipo: 'nivel', sobra: Math.max(0, s - 5) };
-      }
-    }
-    const r = recetaDe(a.id, b.id);
-    if (r) return { id: r, nv: 1, tipo: 'fusion' };
-    return { err: nombre(a.id) + ' y ' + nombre(b.id) + ' no se juntan' };
+    if (a.id !== b.id) return { err: 'Solo se juntan 2 balas iguales' };
+    if (a.nv !== b.nv) return { err: `Distinto nivel (Nv ${a.nv} y Nv ${b.nv}): no se juntan` };
+    if (b.nv >= NIVEL_MAX) return { err: nombre(b.id) + ' ya está en Nv 4, el máximo' };
+    return { id: b.id, nv: b.nv + 1, tipo: 'nivel' };
   },
-  conocida(id) { return this.e.desc.has(id); },
-  // Todas las parejas posibles (cada par una vez). nivel primero.
+  // Todas las parejas listas (2 iguales del mismo nivel, menos de Nv 4). La que se queda: la del cinturón.
   parejas() {
-    const ls = this.llenas(), out = [];
+    const ls = this.llenas(), out = [], usadas = new Set();
     for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) {
-      const a = this.get(ls[i]), b = this.get(ls[j]);
-      // la que queda: la del cinturón si hay, si no la de nivel más alto
+      if (usadas.has(ls[i]) || usadas.has(ls[j])) continue;
       let src = ls[i], dst = ls[j];
-      if (dst === 'bol' || (src.startsWith('cin') && !dst.startsWith('cin'))) [src, dst] = [dst, src];
+      if (src.startsWith('cin') && !dst.startsWith('cin')) [src, dst] = [dst, src];
       const r = this.combinar(this.get(src), this.get(dst));
-      if (!r.err && !(r.sobra > 0)) out.push({ a: src, b: dst, r });
+      if (!r.err) { out.push({ a: src, b: dst, r }); usadas.add(src); usadas.add(dst); }
     }
-    return out.sort((x, y) => (x.r.tipo === 'nivel' ? 0 : 1) - (y.r.tipo === 'nivel' ? 0 : 1) || y.r.nv - x.r.nv);
+    return out.sort((x, y) => y.r.nv - x.r.nv);
   },
-  pareja(l) { return this.parejas().some(p => p.a === l || p.b === l); },
+  pareja(l) { const x = this.get(l); if (!x || x.nv >= NIVEL_MAX) return false; return this.llenas().some(m => m !== l && !this.combinar(this.get(m), x).err); },
+  companera(l) { const x = this.get(l); if (!x) return null; return this.llenas().find(m => m !== l && !this.combinar(this.get(m), x).err) || null; },
   juntar(la, lb) {
     const a = this.get(la), b = this.get(lb); const r = this.combinar(a, b);
     if (r.err) return r;
-    if (this.e.fichas < 1) return { err: 'No te quedan fichas. Toca «Reiniciar».' };
-    const it = nueva(r.id, r.nv); this.set(lb, it); this.set(la, null); this.e.fichas--;
-    if (r.tipo === 'fusion') { r.nueva = !this.e.desc.has(r.id); this.e.desc.add(r.id); }
-    return { ...r, antes: r.tipo === 'nivel' ? (b.id === r.id ? b.nv : a.nv) : 0, item: it, dest: lb };
+    const it = nueva(r.id, r.nv); this.set(lb, it); this.set(la, null);
+    return { ...r, antes: b.nv, item: it, dest: lb };
   },
-  // Mover a un lugar: vacío = mover; bolsillo = apilar copias; ocupado = cambiar de lugar.
+  // Mover a un lugar: vacío = mover; ocupado = cambiar de lugar.
   mover(la, lb) {
     if (la === lb) return { err: '' };
     const a = this.get(la), b = this.get(lb);
     if (!a) return { err: '' };
-    if (lb === 'bol') {
-      if (!b) { this.set(lb, a); this.set(la, null); return { ok: 'guardar', item: a }; }
-      if (b.id === a.id) {
-        if (a.nv + b.nv > 5) return { err: 'El bolsillo guarda hasta 5 copias' };
-        b.nv += a.nv; this.set(la, null); return { ok: 'apilar', item: b };
-      }
-      return { err: 'El bolsillo solo apila copias de una misma bala' };
-    }
-    if (la === 'bol' && b) return { err: 'Primero deja ese lugar vacío' };
     this.set(lb, a); this.set(la, b); return { ok: b ? 'cambiar' : 'mover', item: a };
   },
+  vender(l) { const it = this.get(l); if (!it) return 0; const p = venta(it); this.e.oro += p; this.set(l, null); return p; },
   libre(z) { const i = this.e[z].indexOf(null); return i < 0 ? null : z + ':' + i; },
-  gemela(id) { return this.llenas().find(l => l !== 'bol' && !this.combinar({ id, nv: 1 }, this.get(l)).err && this.combinar({ id, nv: 1 }, this.get(l)).tipo === 'nivel') || null; },
+  gemela(id, nv = 1) { return this.llenas().find(l => { const x = this.get(l); return x.id === id && x.nv === nv && nv < NIVEL_MAX; }) || null; },
 };
 Z.reiniciar();
-
 // ---------- Sonidos (WebAudio, sin archivos) ----------
 const Son = (() => {
   let ctx = null, master = null, buf = null;
@@ -209,6 +126,10 @@ const Son = (() => {
     palanca() { ruido(.3, { f: 700, q: 3, vol: .45 }); tono(300, .3, { tipo: 'sawtooth', vol: .05, f2: 110 }); },
     resorte() { for (let i = 0; i < 6; i++) tono(400 + i * 40, .06, { t: i * .07, tipo: 'square', vol: .04 }); },
     girar(n = 8, cada = 110) { for (let i = 0; i < n; i++) this.clac(i * cada / 1000); },
+    // la espiral de la expendedora girando (como en el juego) y el golpe al caer en la bandeja
+    motor(d = .9) { tono(70, d, { tipo: 'sawtooth', f2: 82, vol: .07, ataque: .05 }); ruido(d, { tipo: 'lowpass', f: 420, vol: .14, ataque: .05 }); for (let i = 0; i < 6; i++) ruido(.02, { f: 2600, q: 6, vol: .08, t: i * d / 6 }); },
+    caida() { ruido(.14, { tipo: 'lowpass', f: 900, vol: .7 }); tono(110, .22, { tipo: 'triangle', vol: .35, f2: 55 }); ruido(.05, { f: 1800, q: 5, vol: .3, t: .12 }); },
+    juntar(nv = 2) { [0, .08, .16].forEach((t, i) => tono(660 * (1 + i * .26) * (1 + nv * .12), .18, { t, vol: .1, tipo: 'triangle' })); ruido(.25, { f: 3000, f2: 7000, q: .8, vol: .2, t: .2 }); },
   };
 })();
 addEventListener('pointerdown', () => Son.activar(), { once: true, capture: true });
@@ -255,42 +176,35 @@ const FX = {
   },
 };
 
-// Festejo común al juntar: rebote, chispas del color de la bala, número que sube y sonido.
+// Festejo común al juntar una pareja: rebote, chispas del color de la bala, número que sube y sonido.
 async function celebrar(el, r) {
   if (!el) return; const it = r.item, col = brillo(it.id);
   const f = el.querySelector('.f') || el; f.classList.add('glow'); f.style.setProperty('--gc', col);
-  FX.rebote(f); FX.estallido(f, col, it.nv >= 5 ? 30 : 18, it.nv >= 5 || r.tipo === 'fusion');
-  if (r.tipo === 'fusion') { Son.campana(); FX.flotar(f, (r.nueva ? '¡Fusión nueva! ' : '') + nombre(it.id), RAREZA[rareza(it.id)]); }
-  else if (it.nv >= 5) { Son.acorde(); FX.flotar(f, '¡Nivel 5! ' + nombre(it.id), '#ffd27a'); }
+  FX.rebote(f); FX.estallido(f, col, it.nv >= NIVEL_MAX ? 30 : 18, it.nv >= NIVEL_MAX);
+  if (it.nv >= NIVEL_MAX) { Son.acorde(); FX.flotar(f, '¡Nivel 4! ' + nombre(it.id), '#ffd27a'); const d = DATOS[it.id][5]; if (d) setTimeout(() => FX.toast('Despierta: ' + d), 700); }
   else { Son.pop(it.nv); FX.flotar(f, nombre(it.id) + ' Nv ' + it.nv, col); }
-  const b = f.querySelector('.nv'); if (b && r.tipo === 'nivel') FX.contar(b, r.antes, it.nv, 360, false);
-  if (r.sobra) setTimeout(() => FX.toast('Tope de nivel 5: sobró ' + r.sobra + (r.sobra > 1 ? ' copias' : ' copia')), 600);
+  const b = f.querySelector('.nv'); if (b && r.antes) FX.contar(b, r.antes, it.nv, 360, false);
   setTimeout(() => f.classList.remove('glow'), 2600);
 }
 
-// Pastillas de oro y fichas que cuentan solas
-function pastillas(oro = false) {
-  return (oro ? `<span class="pill"><i></i><b id="pOro">${Z.e.oro}</b></span>` : '') + `<span class="pill"><i class="red"></i><b id="pFichas">${Z.e.fichas}</b>&nbsp;fichas</span>`;
-}
-function contarPastillas(antes) {
-  if (antes.fichas !== Z.e.fichas) FX.contar($('#pFichas'), antes.fichas, Z.e.fichas, 300, false);
-  if ($('#pOro') && antes.oro !== Z.e.oro) FX.contar($('#pOro'), antes.oro, Z.e.oro, 500, true);
-}
-const foto = () => ({ fichas: Z.e.fichas, oro: Z.e.oro });
+// Pastilla de oro que cuenta sola (juntar ya no cuesta fichas)
+function pastillas() { return `<span class="pill"><i></i><b id="pOro">${Z.e.oro}</b></span>`; }
+function contarPastillas(antes) { if ($('#pOro') && antes.oro !== Z.e.oro) FX.contar($('#pOro'), antes.oro, Z.e.oro, 500, true); }
+const foto = () => ({ oro: Z.e.oro });
 
 // ---------- HTML comunes ----------
-function hueco(l, cls = 'slot') { const x = Z.get(l); return `<span class="${cls}${x ? '' : ' vacio'}" data-loc="${l}">${x ? ficha(x.id, x.nv, { pair: Z.pareja(l) }) : ''}</span>`; }
-function bolsilloHTML(cls = 'pila') {
-  const b = Z.e.bol; if (!b) return `<span class="${cls} vacio" data-loc="bol"><span class="slot"></span></span>`;
-  let s = ''; for (let i = 0; i < b.nv; i++) s += ficha(b.id, i === b.nv - 1 ? b.nv : 0, { pair: i === b.nv - 1 && Z.pareja('bol') });
-  return `<span class="${cls}" data-loc="bol">${s}</span>`;
+// Hueco con su ficha; si tiene pareja lista, brilla en verde (clase «par»)
+function hueco(l, cls = 'slot') { const x = Z.get(l), par = x && Z.pareja(l); return `<span class="${cls}${x ? '' : ' vacio'}${par ? ' par' : ''}" data-loc="${l}">${x ? ficha(x.id, x.nv) : ''}</span>`; }
+function escalera(id, nv) {
+  const D = DATOS[id]; if (!D) return '';
+  return `<div class="ladder">${D[4].map((x, i) => `${i + 1 === nv ? '<b class="on">' : '<span>'}Nv ${i + 1}${i + 1 === nv ? '</b>' : '</span>'}<span>${x}${i === 3 && D[5] ? ' <i class="desp">+ ' + D[5].split(':')[0] + '</i>' : ''}</span>`).join('')}</div>`;
 }
-const bolTxt = () => Z.e.bol ? `${nombre(Z.e.bol.id)} ×${Z.e.bol.nv} · +${Z.e.bol.nv * 20} %` : 'Vacío · apila copias';
-function escalera(id, nv) { const t = NIV[id]; if (!t) return ''; return `<div class="ladder">${t.slice(1).map((x, i) => `${i + 1 === nv ? '<b class="on">' : '<span>'}Nv ${i + 1}${i + 1 === nv ? '</b>' : '</span>'}<span>${x}</span>`).join('')}</div>`; }
-function queHace(id, nv) { const t = NIV[id]; return t ? (nv ? t[nv] : t[0]) : ''; }
+function queHace(id, nv) { const D = DATOS[id]; return D ? (nv ? D[4][Math.min(NIVEL_MAX, nv) - 1] : D[3]) : ''; }
 const cuenta = z => Z.e[z].filter(Boolean).length + '/' + Z.e[z].length;
 function locEl(l) { return document.querySelector(`[data-loc="${l}"]`); }
 function fichaEl(l) { const e = locEl(l); if (!e) return null; const fs = e.querySelectorAll('.f'); return fs[fs.length - 1] || e; }
+// Texto de una pareja: «Oro Nv 1 + Nv 1 = Nv 2»
+const parTxt = p => `${nombre(p.r.id)} Nv ${p.r.nv - 1} + Nv ${p.r.nv - 1} = <b>Nv ${p.r.nv}</b>`;
 
 // ---------- Arrastrar y tocar (pointer events: dedo y ratón) ----------
 // o.alSoltar(origen, destino), o.alTocar(clave, el), o.alPasar(origen, destino) -> texto de vista previa

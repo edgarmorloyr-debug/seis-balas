@@ -34,27 +34,26 @@
   .ladder.pc-only{display:grid!important;font-size:16px}
 }
 </style></head><body><div class="frame">
-<div class="top"><a class="btn" href="index.html">Menú</a><h1>Mesa de fusión</h1><span class="sp"></span><span id="pills"></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
+<div class="top"><a class="btn" href="index.html">Menú</a><h1>Mesa de póker</h1><span class="sp"></span><span id="pills"></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="lay">
  <div class="left">
   <div class="belt leather"><div class="lbl">Cinturón <b id="cCin"></b> · dan efecto</div><div class="chips" id="cin"></div></div>
-  <div class="row panel"><div class="lbl">Bolsillo <b id="cBol"></b> · apila copias de una bala</div><div class="chips"><span id="bol"></span><span class="txt" id="tBol"></span></div></div>
-  <div class="row panel"><div class="lbl">Inventario <b id="cInv"></b> · guardadas</div><div class="chips" id="inv"></div></div>
+  <div class="row panel"><div class="lbl">Reserva <b id="cInv"></b> · guardadas, no dan efecto</div><div class="chips" id="inv"></div></div>
  </div>
  <div class="bote">
-  <div class="hint" id="hint">Arrastra o toca 2 balas para ponerlas en el bote</div>
+  <div class="hint" id="hint">Pon en el bote 2 balas iguales del mismo nivel</div>
   <div class="pot" id="pot" data-drop="bote"></div>
   <div class="eq" id="eq">&nbsp;</div>
   <div class="hint" id="desc">&nbsp;</div>
   <div class="pc-only" id="lad"></div>
-  <button class="btn main" id="bJuntar">Juntar · 1 ficha</button>
+  <button class="btn main" id="bJuntar">Juntar la pareja</button>
  </div>
 </div></div>
 <script>
 let bote = [], mostrar = null;
 const mesa = document.querySelector('.frame');
 function orden() { // [la que se va, la que se queda]
-  const [a, b] = bote; if (a === 'bol') return [a, b]; if (b === 'bol') return [b, a];
+  const [a, b] = bote;
   if (a.startsWith('cin') && !b.startsWith('cin')) return [b, a]; return [a, b];
 }
 function render() {
@@ -62,8 +61,7 @@ function render() {
   $('#pills').innerHTML = pastillas();
   $('#cin').innerHTML = Z.e.cin.map((_, i) => hueco('cin:' + i, 'slot' + (i % 2 ? '' : ' sq'))).join('');
   $('#inv').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
-  $('#bol').innerHTML = bolsilloHTML(); $('#tBol').textContent = bolTxt();
-  $('#cCin').textContent = cuenta('cin'); $('#cInv').textContent = cuenta('inv'); $('#cBol').textContent = (Z.e.bol ? Z.e.bol.nv : 0) + '/5';
+  $('#cCin').textContent = cuenta('cin'); $('#cInv').textContent = cuenta('inv');
   bote.forEach(l => locEl(l)?.classList.add('usada', 'elegida'));
   const pot = $('#pot'); let h = '<div class="rays"></div>';
   h += `<span class="spot a">${bote[0] ? ficha(Z.get(bote[0]).id, Z.get(bote[0]).nv) : ''}</span><span class="spot b">${bote[1] ? ficha(Z.get(bote[1]).id, Z.get(bote[1]).nv) : ''}</span>`;
@@ -72,9 +70,9 @@ function render() {
   else if (bote.length === 2) {
     const [s, d] = orden(), A = Z.get(s), B = Z.get(d), r = Z.combinar(A, B);
     if (r.err) eq = `<span class="no">${r.err}</span>`;
-    else if (r.tipo === 'nivel') { ok = true; h += `<span class="res prev">${ficha(r.id, r.nv)}</span>`; eq = A.id === B.id ? `${nombre(r.id)} <b>Nv ${B.nv} + Nv ${A.nv} = Nv ${r.nv}</b>` : `${nombre(A.id)} ${A.nv} + ${nombre(B.id)} ${B.nv} = <b>${nombre(r.id)} Nv ${r.nv}</b>`; desc = queHace(r.id, r.nv); lad = escalera(r.id, r.nv); }
-    else { ok = true; const c = Z.conocida(r.id); h += c ? `<span class="res prev">${ficha(r.id, 1)}</span>` : '<span class="res"><span class="q">?</span></span>'; eq = `${nombre(A.id)} + ${nombre(B.id)} = <b>${c ? nombre(r.id) : 'fusión nueva'}</b>`; desc = c ? queHace(r.id, 1) : 'Pruébala para descubrirla'; }
-  } else if (bote.length === 1) { const A = Z.get(bote[0]); eq = `${nombre(A.id)} <b>Nv ${A.nv}</b>`; desc = 'Falta 1 bala: una igual o una que se fusione'; lad = escalera(A.id, A.nv); }
+    else { ok = true; h += `<span class="res prev">${ficha(r.id, r.nv)}</span>`; eq = `${nombre(r.id)} <b>Nv ${B.nv} + Nv ${A.nv} = Nv ${r.nv}</b>`; desc = queHace(r.id, r.nv); lad = escalera(r.id, r.nv); }
+  } else if (bote.length === 1) { const A = Z.get(bote[0]); eq = `${nombre(A.id)} <b>Nv ${A.nv}</b>`; desc = A.nv >= NIVEL_MAX ? 'Ya está en Nv 4, el máximo' : `Falta su gemela: otra ${nombre(A.id)} Nv ${A.nv}`; lad = escalera(A.id, A.nv); }
+  else { const n = Z.parejas().length; desc = n ? `Tienes ${n} ${n > 1 ? 'parejas listas' : 'pareja lista'}: brillan en verde` : 'No tienes parejas listas'; }
   pot.innerHTML = h; if (!mostrar) pot.classList.remove('brilla'); $('#eq').innerHTML = eq; $('#desc').innerHTML = desc; $('#lad').innerHTML = lad;
   $('#bJuntar').disabled = !ok || mostrar;
 }
@@ -84,19 +82,19 @@ arrastre(mesa, {
     if (k === 'drop:bote') { const sp = t.closest('.spot'); if (sp) { const i = sp.classList.contains('a') ? 0 : 1; if (bote[i]) { bote.splice(i, 1); Son.clic(); render(); } } return; }
     if (Z.get(k)) alBote(k);
   },
-  alPasar(a, b) { if (b === 'drop:bote') return 'Al bote'; if (b === 'bol') return Z.e.bol && Z.e.bol.id === Z.get(a).id ? 'Apilar' : Z.e.bol ? '' : 'Guardar'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
+  alPasar(a, b) { if (b === 'drop:bote') return 'Al bote'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
   alSoltar(a, b) {
     if (b === 'drop:bote') { if (!bote.includes(a)) alBote(a); return; }
     const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; }
     bote = bote.map(x => x === a ? b : x === b ? a : x); render();
-    const el = fichaEl(b); FX.rebote(el, 1.2); if (r.ok === 'apilar') { Son.ficha(); FX.flotar(el, 'Bolsillo ×' + r.item.nv + ' · +' + r.item.nv * 20 + ' %', '#e86fae'); } else Son.clic();
+    FX.rebote(fichaEl(b), 1.2); Son.clic();
   },
 });
 $('#bJuntar').onclick = async () => {
   if (bote.length < 2) return; const [s, d] = orden(); const antes = foto();
   const ss = $$('#pot .spot .f'); $('#pot').classList.add('brilla');
   ss.forEach((f, i) => f.animate([{ transform: `rotate(${i ? 14 : -14}deg)` }, { transform: `rotate(${i ? 360 : -360}deg) scale(1.1)` }, { transform: `translateX(${(i ? -1 : 1) * 0.55 * f.offsetWidth}px) rotate(${i ? 720 : -720}deg) scale(.9)` }], { duration: 750, easing: 'ease-in', fill: 'forwards' }));
-  Son.ficha(); Son.ficha(.25); Son.ficha(.5); $('#bJuntar').disabled = true;
+  Son.ficha(); Son.ficha(.25); Son.ficha(.5); Son.juntar(Z.get(d).nv + 1); $('#bJuntar').disabled = true;
   await espera(760);
   const r = Z.juntar(s, d); if (r.err) { $('#pot').classList.remove('brilla'); FX.toast(r.err, true); render(); return; }
   bote = []; mostrar = r.item; render(); $('#pot').classList.add('brilla'); contarPastillas(antes);

@@ -1,5 +1,5 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Modelo 3 · Tragamonedas de fusión</title><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="vivo.css"><script src="fichas.js"></script><script src="vivo.js"></script>
+<title>Modelo 3 · Tragamonedas de parejas</title><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="vivo.css"><script src="fichas.js"></script><script src="vivo.js"></script>
 <style>
 .mach{flex:1;min-height:0;display:flex;gap:var(--gap)}
 .cab{flex:1.5;position:relative;border-radius:18px;background:linear-gradient(#7b1d14,#4a0f0a);border:3px solid var(--brass);box-shadow:inset 0 0 0 4px #2a0805,0 6px 20px #0009;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 64px 6px 14px;gap:4px;min-height:0;--rc:clamp(44px,13vh,96px)}
@@ -27,7 +27,7 @@
 .pila{display:flex;align-items:center;min-width:var(--ch);min-height:var(--ch);border-radius:50%}.pila .f{margin-right:calc(var(--ch)*-.7)}.pila .f:last-child{margin-right:0}
 .sep{width:2px;align-self:stretch;background:#e0b07a66}
 @media (orientation:portrait){
-  .top{flex-wrap:wrap;row-gap:6px}.top h1{flex-basis:100%;order:-1}
+  .top{flex-wrap:wrap;row-gap:6px}.top h1{flex-basis:100%;order:-1;font-size:20px}
   .mach{flex-direction:column}
   .cab{flex:none;padding:10px 60px 10px 10px;--rc:clamp(44px,13.5vw,64px)}
   .reels{flex:none;height:calc(var(--rc)*1.7)}
@@ -37,10 +37,10 @@
   .sep{display:none}
 }
 </style></head><body><div class="frame">
-<div class="top"><a class="btn" href="index.html">Menú</a><h1>Fusión de la casa</h1><span class="sp"></span><span id="pills"></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
+<div class="top"><a class="btn" href="index.html">Menú</a><h1>Tragamonedas de parejas</h1><span class="sp"></span><span id="pills"></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="mach">
  <div class="cab" id="cab">
-  <div class="marq"><span class="bulbs"><i></i><i></i><i></i></span>FUSIÓN<span class="bulbs"><i></i><i></i><i></i></span></div>
+  <div class="marq"><span class="bulbs"><i></i><i></i><i></i></span>PAREJAS<span class="bulbs"><i></i><i></i><i></i></span></div>
   <div class="reels"><div class="reel" id="r0" data-drop="r0"></div><span class="op">+</span><div class="reel" id="r1" data-drop="r1"></div><span class="op">=</span><div class="reel" id="r2"></div></div>
   <div class="lever" id="lever"><div class="bar"></div><div class="knob"></div></div>
  </div>
@@ -48,39 +48,36 @@
   <div><h2 id="h"></h2><div class="txt" id="d"></div></div>
   <div class="pc-only" id="lad"></div>
   <div class="txt"><small id="sub"></small></div>
-  <button class="btn main" id="bTirar">Tirar de la palanca · 1 ficha</button>
+  <button class="btn main" id="bTirar">Tirar de la palanca</button>
  </div>
 </div>
 <div class="tray leather" id="tray">
  <div class="grp"><div class="lbl">Cinturón <b id="cCin"></b></div><div class="chips" id="cin"></div></div>
  <span class="sep"></span>
- <div class="grp"><div class="lbl">Bolsillo</div><div class="chips"><span id="bol"></span><span class="txt" id="tBol"></span></div></div>
- <span class="sep"></span>
- <div class="grp"><div class="lbl">Inventario <b id="cInv"></b></div><div class="chips" id="inv"></div></div>
+ <div class="grp"><div class="lbl">Reserva <b id="cInv"></b></div><div class="chips" id="inv"></div></div>
 </div>
 </div>
 <script>
 let rod = [null, null], mostrar = null, girando = false;
 const mesa = document.querySelector('.frame');
-function orden() { const [a, b] = rod; if (a === 'bol') return [a, b]; if (b === 'bol') return [b, a]; if (a.startsWith('cin') && !b.startsWith('cin')) return [b, a]; return [a, b]; }
+function orden() { const [a, b] = rod; if (a.startsWith('cin') && !b.startsWith('cin')) return [b, a]; return [a, b]; }
 function render() {
   rod = rod.map(l => l && Z.get(l) ? l : null);
   $('#pills').innerHTML = pastillas();
   $('#cin').innerHTML = Z.e.cin.map((_, i) => hueco('cin:' + i)).join('');
   $('#inv').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
-  $('#bol').innerHTML = bolsilloHTML(); $('#tBol').textContent = Z.e.bol ? '×' + Z.e.bol.nv : '';
   $('#cCin').textContent = cuenta('cin'); $('#cInv').textContent = cuenta('inv');
   rod.forEach(l => l && locEl(l)?.classList.add('usada', 'elegida'));
   if (girando) return;
   [0, 1].forEach(i => { const x = rod[i] && Z.get(rod[i]); $('#r' + i).innerHTML = x ? ficha(x.id, x.nv) : `<span class="vac">Toca una bala</span>`; $('#r' + i).classList.toggle('win', !!x); });
-  let h = 'Elige 2 balas', d = 'Iguales suben de nivel. Distintas pueden dar una fusión.', lad = '', sub = 'Toca 2 balas de abajo o arrástralas a los rodillos', ok = false, r2 = '<span class="q">?</span>';
-  if (mostrar) { r2 = ficha(mostrar.id, mostrar.nv); h = `${nombre(mostrar.id)} · ${rareza(mostrar.id)}`; d = queHace(mostrar.id, mostrar.nv); lad = escalera(mostrar.id, mostrar.nv); }
+  const np = Z.parejas().length;
+  let h = 'Elige una pareja', d = '2 balas iguales del mismo nivel = 1 bala del nivel siguiente, hasta Nv 4.', lad = '', sub = np ? `Parejas listas: ${np}. Toca una bala que brille en verde.` : 'No tienes parejas listas', ok = false, r2 = '<span class="q">?</span>';
+  if (mostrar) { r2 = ficha(mostrar.id, mostrar.nv); h = `${nombre(mostrar.id)} · Nv ${mostrar.nv}`; d = queHace(mostrar.id, mostrar.nv); lad = escalera(mostrar.id, mostrar.nv); }
   else if (rod[0] && rod[1]) {
     const [s, t] = orden(), r = Z.combinar(Z.get(s), Z.get(t)); ok = true;
-    if (r.err) { h = 'Prueba suerte'; d = 'Esta pareja no está en el libro de fusiones'; sub = 'Si no se juntan, no pierdes nada'; }
-    else if (r.tipo === 'fusion' && !Z.conocida(r.id)) { h = 'Fusión nueva'; d = 'La primera vez sale un «?». Tira para descubrirla.'; }
-    else { r2 = `<span class="prev">${ficha(r.id, r.nv)}</span>`; h = `${nombre(r.id)} · ${rareza(r.id)}`; d = queHace(r.id, r.nv); lad = escalera(r.id, r.nv); const f = FUS[r.id]; sub = f ? `Sube de nivel con 1 ${nombre(f[0])} o 1 ${nombre(f[1])}` : `Nv ${r.nv}: ${r.nv >= 5 ? 'nivel máximo' : 'sigue sumando copias'}`; }
-  } else if (rod[0] || rod[1]) { const x = Z.get(rod[0] || rod[1]); h = `${nombre(x.id)} · Nv ${x.nv}`; d = queHace(x.id, x.nv); lad = escalera(x.id, x.nv); sub = 'Falta la segunda bala'; }
+    if (r.err) { h = 'No es pareja'; d = r.err; sub = 'Si no se juntan, no pierdes nada'; }
+    else { r2 = `<span class="prev">${ficha(r.id, r.nv)}</span>`; h = `${nombre(r.id)} · Nv ${r.nv - 1} + Nv ${r.nv - 1} = Nv ${r.nv}`; d = queHace(r.id, r.nv); lad = escalera(r.id, r.nv); sub = r.nv >= NIVEL_MAX ? '¡Nv 4: despierta!' : 'Tira de la palanca para juntarlas'; }
+  } else if (rod[0] || rod[1]) { const x = Z.get(rod[0] || rod[1]); h = `${nombre(x.id)} · Nv ${x.nv}`; d = queHace(x.id, x.nv); lad = escalera(x.id, x.nv); sub = x.nv >= NIVEL_MAX ? 'Ya está en Nv 4, el máximo' : `Falta su gemela: otra ${nombre(x.id)} Nv ${x.nv}`; }
   $('#r2').innerHTML = r2; $('#r2').classList.toggle('win', !!mostrar);
   $('#h').textContent = h; $('#h').style.color = mostrar ? brillo(mostrar.id) : '#6fd3f0'; $('#d').textContent = d; $('#lad').innerHTML = lad; $('#sub').textContent = sub;
   $('#bTirar').disabled = !ok || !!mostrar;
@@ -88,34 +85,37 @@ function render() {
 function poner(l, i) {
   if (girando || mostrar) return;
   if (rod.includes(l)) { rod[rod.indexOf(l)] = null; Son.clic(); render(); return; }
-  if (i == null) i = rod[0] ? (rod[1] ? 1 : 1) : 0; rod[i] = l; Son.ficha(); render(); FX.rebote($('#r' + i + ' .f'), 1.2);
+  // Al tocar una bala con pareja, su gemela va sola al otro rodillo
+  if (i == null) { const g = Z.companera(l); if (g && !rod.includes(g)) { rod = [l, g]; Son.ficha(); Son.ficha(.12); render(); FX.rebote($('#r0 .f'), 1.2); FX.rebote($('#r1 .f'), 1.2); return; } i = rod[0] ? 1 : 0; }
+  rod[i] = l; Son.ficha(); render(); FX.rebote($('#r' + i + ' .f'), 1.2);
 }
 arrastre(mesa, {
   puede: () => !girando,
   alTocar(k) { if (k === 'drop:r0' || k === 'drop:r1') { const i = +k.slice(-1); if (rod[i] && !girando && !mostrar) { rod[i] = null; Son.clic(); render(); } return; } if (Z.get(k)) poner(k); },
-  alPasar(a, b) { if (b.startsWith('drop:r')) return 'Al rodillo'; if (b === 'bol') return Z.e.bol && Z.e.bol.id === Z.get(a).id ? 'Apilar' : Z.e.bol ? '' : 'Guardar'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
+  alPasar(a, b) { if (b.startsWith('drop:r')) return 'Al rodillo'; return Z.get(b) ? 'Cambiar' : 'Mover'; },
   alSoltar(a, b) {
     if (b.startsWith('drop:r')) { const i = +b.slice(-1); if (rod[1 - i] === a) rod[1 - i] = null; poner(a, i); return; }
     const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; }
-    rod = rod.map(x => x === a ? b : x === b ? a : x); render(); FX.rebote(fichaEl(b), 1.2); r.ok === 'apilar' ? Son.ficha() : Son.clic();
+    rod = rod.map(x => x === a ? b : x === b ? a : x); render(); FX.rebote(fichaEl(b), 1.2); Son.clic();
   },
 });
-const tira = () => `<div class="tira">${Array.from({ length: 6 }, () => ficha(LISTA40[Math.floor(Math.random() * 40)])).join('')}</div>`;
+const tira = () => `<div class="tira">${Array.from({ length: 6 }, () => ficha(LISTA85[Math.floor(Math.random() * LISTA85.length)])).join('')}</div>`;
 async function tirar() {
   if (girando || mostrar || !rod[0] || !rod[1]) return;
   const [s, t] = orden(), A = Z.get(s), B = Z.get(t), r = Z.combinar(A, B), antes = foto();
-  if (!r.err && Z.e.fichas < 1) { FX.toast('No te quedan fichas. Toca «Reiniciar».', true); return; }
   girando = true; $('#bTirar').disabled = true; Son.palanca();
   $('#lever .knob').animate([{ transform: 'none' }, { transform: 'translateY(120px)', offset: .45 }, { transform: 'none' }], { duration: 650, easing: 'ease-in-out' });
   $('#lever .bar').animate([{ transform: 'scaleY(1)' }, { transform: 'scaleY(.3)', offset: .45 }, { transform: 'scaleY(1)' }], { duration: 650, easing: 'ease-in-out' });
   $('#cab').classList.add('loca'); ['#r0', '#r1', '#r2'].forEach(x => { $(x).innerHTML = tira(); $(x).classList.remove('win'); });
   const tk = setInterval(() => Son.tic(900 + Math.random() * 400, .03), 70);
   const parar = (i, html) => { const e = $('#r' + i); e.innerHTML = html; e.classList.add('win'); e.firstChild?.animate?.([{ transform: 'translateY(-60%)' }, { transform: 'translateY(12%)', offset: .7 }, { transform: 'none' }], { duration: 260, easing: 'ease-out' }); Son.clac(); };
-  await espera(800); parar(0, ficha(A.id, A.nv)); await espera(600); parar(1, ficha(B.id, B.nv)); await espera(900);
+  await espera(800); parar(0, ficha(A.id, A.nv)); await espera(600); parar(1, ficha(B.id, B.nv));
+  // el tercer rodillo tarda más: suspenso de casino
+  if (!r.err) { $('#r2').classList.add('win'); for (let k = 0; k < 4; k++) { await espera(260); Son.tic(1300 + k * 200, .08); } } else await espera(900);
   clearInterval(tk);
   if (r.err) { parar(2, '<span class="no">No se<br>juntan</span>'); $('#r2').classList.remove('win'); Son.error(); FX.toast(r.err + '. No perdiste nada.'); $('#cab').classList.remove('loca'); await espera(900); girando = false; render(); return; }
   const res = Z.juntar(s, t); rod = [null, null]; mostrar = res.item; parar(2, ficha(res.item.id, res.item.nv)); contarPastillas(antes);
-  if (RORD[rareza(res.item.id)] >= 2 || res.item.nv >= 5) Son.jackpot();
+  if (res.item.nv >= NIVEL_MAX) Son.jackpot(); else Son.juntar(res.item.nv);
   girando = false; render(); celebrar($('#r2'), res);
   await espera(1500); $('#cab').classList.remove('loca');
   const de = $('#r2 .f'); mostrar = null; girando = true; render();

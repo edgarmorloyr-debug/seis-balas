@@ -9,6 +9,7 @@
 .pocket{grid-column:5/7;grid-row:2/4;background:linear-gradient(#3d2a1a,#24170c);border:1px dashed #e0b07a88;flex-direction:column;gap:4px}
 .pocket .st{display:flex}.pocket .st .f{margin-right:calc(var(--ch)*-.6)}.pocket .st .f:last-child{margin-right:0}
 .pocket .txt{font-size:16px;text-align:center}
+.pocket b.n{font:400 clamp(26px,6vh,44px) var(--display);color:#8dffaa;text-shadow:0 0 12px #5bd17a}
 .side{flex:1;display:flex;flex-direction:column;gap:var(--gap);min-width:0}
 .steps{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;margin:4px 0}
 .steps .f{--ch:clamp(34px,7.6vh,58px)}
@@ -42,29 +43,28 @@ const mesa = document.querySelector('.frame');
 function render() {
   if (sel && !Z.get(sel)) sel = null; if (!Z.get(foco)) foco = Z.llenas()[0];
   $('#pills').innerHTML = pastillas();
-  const b = Z.e.bol;
-  $('#board').innerHTML = `<div class="lbl" style="grid-column:1/5">Cinturón <b>${cuenta('cin')}</b></div><div class="lbl" style="grid-column:5/7">Bolsillo <b>${b ? b.nv : 0}/5</b></div>`
+  const np = Z.parejas().length;
+  $('#board').innerHTML = `<div class="lbl" style="grid-column:1/5">Cinturón <b>${cuenta('cin')}</b></div><div class="lbl" style="grid-column:5/7">Parejas</div>`
     + Z.e.cin.slice(0, 4).map((_, i) => hueco('cin:' + i, 'tile belt')).join('')
-    + `<div class="tile pocket${b ? '' : ' vacio'}" data-loc="bol">${b ? `<span class="st">${Array.from({ length: b.nv }, (_, i) => ficha(b.id, i === b.nv - 1 ? b.nv : 0, { pair: i === b.nv - 1 && Z.pareja('bol') })).join('')}</span><span class="txt">×${b.nv} · +${b.nv * 20} %</span>` : '<span class="txt">Apila copias</span>'}</div>`
+    + `<div class="tile pocket"><b class="n">${np}</b><span class="txt">${np === 1 ? 'pareja lista' : 'parejas listas'}</span></div>`
     + Z.e.cin.slice(4).map((_, i) => hueco('cin:' + (i + 4), 'tile belt')).join('')
-    + `<div class="lbl" style="grid-column:1/7">Inventario <b>${cuenta('inv')}</b> · sin efecto</div>`
+    + `<div class="lbl" style="grid-column:1/7">Reserva <b>${cuenta('inv')}</b> · sin efecto</div>`
     + Z.e.inv.map((_, i) => hueco('inv:' + i, 'tile')).join('');
   if (sel) locEl(sel)?.classList.add('elegida');
   const it = Z.get(foco);
   if (it) {
     const id = it.id, nv = it.nv;
-    $('#esc').innerHTML = `<div class="lbl">Escalera de ${nombre(id)}</div><div class="steps">${[1, 2, 3, 4, 5].map(n => ficha(id, n, { cls: n > nv ? 'dim' : n === nv ? 'glow' : '', style: `--gc:${brillo(id)}` })).join('<span class="ar">&gt;</span>')}</div>
-      <div class="txt">Nv ${nv}: ${queHace(id, nv)}<br><small>${nv >= 5 ? 'Nivel máximo' : `Para Nv ${nv + 1} suma 1 copia más · juntar cuesta 1 ficha`}</small></div>`;
+    $('#esc').innerHTML = `<div class="lbl">Escalera de ${nombre(id)}</div><div class="steps">${[1, 2, 3, 4].map(n => ficha(id, n, { cls: n > nv ? 'dim' : n === nv ? 'glow' : '', style: `--gc:${brillo(id)}` })).join('<span class="ar">&gt;</span>')}</div>
+      <div class="txt">Nv ${nv}: ${queHace(id, nv)}<br><small>${nv >= NIVEL_MAX ? 'Nivel máximo' + (DATOS[id][5] ? '. Despierta: ' + DATOS[id][5] : '') : `Para Nv ${nv + 1} junta 2 ${nombre(id)} de Nv ${nv}`}</small></div>`;
   }
   const ps = Z.parejas();
-  $('#par').innerHTML = ps.length ? ps.slice(0, 3).map(p => { const A = Z.get(p.a), B = Z.get(p.b); return p.r.tipo === 'fusion' && !Z.conocida(p.r.id) ? `${nombre(A.id)} + ${nombre(B.id)} = ?` : `${nombre(A.id)} + ${nombre(B.id)} = ${nombre(p.r.id)} Nv ${p.r.nv}`; }).join('<br>') + '<br><small>Las fichas con flecha verde tienen gemela</small>' : 'No hay parejas ahora';
+  $('#par').innerHTML = ps.length ? ps.slice(0, 3).map(parTxt).join('<br>') + '<br><small>Las que brillan en verde tienen gemela</small>' : 'No hay parejas ahora';
 }
 async function juntar(a, b) {
   const A = Z.get(a), antes = foto();
   const r0 = Z.combinar(A, Z.get(b)); if (r0.err) { FX.toast(r0.err, true); return; }
-  if (Z.e.fichas < 1) { FX.toast('No te quedan fichas. Toca «Reiniciar».', true); return; }
   ocupado = true;
-  const r = Z.juntar(a, b); sel = null; foco = b; render(); contarPastillas(antes);
+  const r = Z.juntar(a, b); sel = null; foco = b; render(); contarPastillas(antes); Son.juntar(r.nv);
   const el = fichaEl(b); el.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1.55)', offset: .45 }, { transform: 'scale(.9)', offset: .75 }, { transform: 'scale(1)' }], { duration: 560, easing: 'ease-out' });
   await celebrar(el, r); ocupado = false;
 }
@@ -72,18 +72,16 @@ arrastre(mesa, {
   puede: () => !ocupado,
   alPasar(a, b) {
     const A = Z.get(a), B = Z.get(b);
-    if (b === 'bol') return B && B.id === A.id ? 'Apilar ×' + (A.nv + B.nv) : B ? '' : 'Guardar';
     if (!B) return 'Mover';
     const r = Z.combinar(A, B); if (r.err) return 'Cambiar';
-    return r.tipo === 'fusion' ? (Z.conocida(r.id) ? nombre(r.id) : 'Fusión ?') : 'Nv ' + r.nv;
+    return 'Nv ' + r.nv;
   },
   alSoltar(a, b) {
     if (ocupado || b.startsWith('drop:')) return;
     const A = Z.get(a), B = Z.get(b);
-    if (B && b !== 'bol' && !Z.combinar(A, B).err) return juntar(a, b);
+    if (B && !Z.combinar(A, B).err) return juntar(a, b);
     const r = Z.mover(a, b); if (r.err) { if (r.err) FX.toast(r.err, true); return; }
-    foco = b === 'bol' ? 'bol' : b; render(); FX.rebote(fichaEl(b), 1.2);
-    if (r.ok === 'apilar') { Son.pop(r.item.nv); FX.flotar(fichaEl(b), 'Bolsillo ×' + r.item.nv + ' · +' + r.item.nv * 20 + ' %', '#e86fae'); } else Son.clic();
+    foco = b; render(); FX.rebote(fichaEl(b), 1.2); Son.clic();
   },
   alTocar(k) {
     if (ocupado || !Z.get(k)) return;
@@ -93,7 +91,7 @@ arrastre(mesa, {
 });
 $('#bOrdenar').onclick = () => {
   const xs = Z.e.inv.filter(Boolean).sort((a, b) => RORD[rareza(b.id)] - RORD[rareza(a.id)] || a.id.localeCompare(b.id) || b.nv - a.nv);
-  Z.e.inv = [...xs, ...Array(6 - xs.length).fill(null)]; sel = null; render(); Son.ficha(); $$('#board .tile:not(.belt):not(.pocket) .f').forEach((f, i) => setTimeout(() => FX.rebote(f, 1.2), i * 60)); FX.toast('Inventario ordenado por rareza');
+  Z.e.inv = [...xs, ...Array(6 - xs.length).fill(null)]; sel = null; render(); Son.ficha(); $$('#board .tile:not(.belt):not(.pocket) .f').forEach((f, i) => setTimeout(() => FX.rebote(f, 1.2), i * 60)); FX.toast('Reserva ordenada por rareza');
 };
 $('#bListo').onclick = () => {
   const xs = Z.e.cin.filter(Boolean), tot = xs.reduce((s, x) => s + x.nv, 0);
