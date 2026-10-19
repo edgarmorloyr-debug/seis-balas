@@ -198,6 +198,17 @@ body{font-family:var(--hud);font-size:16px}
 /* Tutorial: cartel del instructor y calificación final */
 #tuto{position:absolute;z-index:6;left:calc(16px + env(safe-area-inset-left,0px));top:calc(150px + env(safe-area-inset-top,0px));width:min(390px,calc(100% - 32px));box-sizing:border-box;padding:10px 14px 12px;background:rgba(14,11,9,.93);border:1px solid rgba(214,165,75,.55);border-left:5px solid var(--brass);box-shadow:0 6px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:6px;pointer-events:none;color:var(--bone)}
 #tuto.imp{border-left-color:var(--blood)}
+#animp{position:fixed;z-index:30;left:0;right:0;bottom:0;padding:8px max(12px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));background:rgba(14,11,9,.92);border-top:1px solid rgba(214,165,75,.55);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:center;color:var(--bone);font-size:15px}
+#animp[hidden]{display:none}
+#animp .ap-fila{display:flex;align-items:center;gap:6px;flex:1 1 260px;max-width:420px;justify-content:space-between}
+#animp .ap-fila b{flex:1;text-align:center;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#animp .ap-fila .btn2,#animp .ap-nums .btn2{min-width:48px;min-height:48px;padding:0 10px;font-size:18px}
+#animp .ap-nums{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;flex:1 1 100%}
+#animp .ap-nums .sel{background:rgba(214,165,75,.3);border-color:var(--brass);color:#ffd27a;box-shadow:inset 0 0 0 2px var(--brass)}
+#animp .note{flex:1 1 100%;margin:0;text-align:center;font-size:14px}
+#animp .ap-ft{flex:1 1 100%;max-width:640px;justify-content:center}
+#animp .ap-ft>*{flex:1;min-height:48px;font-size:15px;padding:0 8px}
+@media (min-width:900px) and (min-height:500px){#animp .ap-ft{flex:1 1 auto}#animp .note{flex:1 1 auto}}
 #tuto.ok{border-color:var(--toxic);border-left-color:var(--toxic)}
 #tuto.ok #tu-t{color:var(--toxic)}
 .tu-top{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center}
@@ -2090,6 +2101,13 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
   <div id="use" hidden></div>
   <div id="spec" hidden><button class="spec-nav" id="spec-prev" aria-label="Ver al anterior">‹</button><div class="spec-txt"><b id="spec-name"></b><span id="spec-sub"></span></div><button class="spec-nav" id="spec-next" aria-label="Ver al siguiente">›</button></div>
 
+  <div id="animp" hidden>
+    <div class="ap-fila"><button class="btn2" id="animp-pj-a" type="button" aria-label="Personaje anterior">‹</button><b id="animp-pj"></b><button class="btn2" id="animp-pj-s" type="button" aria-label="Personaje siguiente">›</button></div>
+    <div class="ap-fila"><button class="btn2" id="animp-ac-a" type="button" aria-label="Acción anterior">‹</button><b id="animp-ac"></b><button class="btn2" id="animp-ac-s" type="button" aria-label="Acción siguiente">›</button></div>
+    <div class="ap-nums" id="animp-nums"></div>
+    <p class="note" id="animp-msg" aria-live="polite"></p>
+    <div class="ap-fila ap-ft"><button class="btn2" id="animp-salir" type="button">Salir</button><button class="btn2" id="animp-copiar" type="button">Copiar elecciones</button><button class="btn" id="animp-otra" type="button">Repetir</button></div>
+  </div>
   <div id="tuto" hidden aria-live="polite">
     <div class="tu-top"><span id="tu-step">Paso 1</span><h3 id="tu-t"></h3><button class="btn2" id="btn-tuto-skip" type="button" aria-label="Saltar tutorial">Saltar<span class="tu-lg"> tutorial</span></button></div>
     <b id="tu-imp" hidden>Importante</b>
@@ -2299,6 +2317,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
         <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
+        <span id="animp-lb">Animaciones 3D</span><button class="btn2" id="btn-animp" type="button">Probar animaciones</button>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select>
         <label for="vvol">Volumen de la voz</label><input type="range" id="vvol" min="0" max="1.5" step="0.05">
       </div>
@@ -24762,7 +24781,7 @@ function muerte3d() {
   p3dCargar(game.char, C => {
     if (state !== 'dying' || YO3.inst) return;
     const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); g.position.set(player.pos.x, 0, player.pos.z); g.rotation.y = player.yaw + Math.PI; scene.add(g);
-    I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall', 0.05); for (const h of hands) h.root.visible = false;
+    I.g = g; YO3.inst = I; YO3.t = 0; p3dUna(I, animElige(I, 'caer') || (I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'), 0.05); for (const h of hands) h.root.visible = false;
   });
 }
 function muerte3dFin() { if (YO3.inst) { scene.remove(YO3.inst.g); YO3.inst = null; } }
@@ -29521,7 +29540,7 @@ function updateCops(dt) {
     if (c.dead) {
       c.deadT += dt; c.eatT -= dt; eatenFx(c, dt);
       const ft = clamp(c.deadT / 0.6, 0, 1);
-      if (c.p3d) { const I = c.p3d; if (!I.muerto) { I.muerto = I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'; p3dUna(I, I.muerto, 0.15); } I.mix.update(dt); }   // el modelo 3D se cae con su animación (una de varias muertes)
+      if (c.p3d) { const I = c.p3d; if (!I.muerto) { I.muerto = animElige(I, 'caer') || (I.acts.die1 ? pick(ANIM_MUERTES.filter(n => I.acts[n])) : 'fall'); p3dUna(I, I.muerto, 0.15); } I.mix.update(dt); }   // el modelo 3D se cae con su animación (una de varias muertes)
       else { c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; }
       if (c.deadT < 6 && Math.random() < 0.15) P.add(pos.x + rand(-0.4, 0.4), 0.2, pos.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.05, 0.42, 0.02, 0.02, 1, 9.8, 0.3, 0, 1);
       if (c.deadT > 8.5) {
@@ -32741,14 +32760,14 @@ function p3dCargar(ch, cb) {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
     m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, skinning: !!o.isSkinnedMesh }); } });   // sin sombra y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
-    const C = { m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
+    const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
     fetch(`modelos/${dir}/${ch}_extra.json?v=${P3D.v}`).then(r => r.ok ? r.json() : []).then(list => {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {})
       // animaciones de combate de Mixamo (compartidas por todos los modelos); si no llegan, quedan las de antes
-      .then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
+      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
       .finally(listo);
   }, undefined, () => {});
 }
@@ -32758,7 +32777,7 @@ function p3dCopia(C, alto) {
   const mix = new THREE.AnimationMixer(m), acts = {}; for (const c of C.clips) acts[c.name] = mix.clipAction(c);
   const B = {}; m.traverse(o => { if (o.isBone) B[o.name] = o; });
   const rest = new Map(); for (const n in B) rest.set(B[n], B[n].quaternion.clone());
-  return { m, mix, acts, B, rest, cur: null, O: C.O };
+  return { m, mix, acts, B, rest, cur: null, O: C.O, ch: C.ch };
 }
 function p3dUna(I, name, fade = 0.15, vel = 1) {
   const a = I.acts[name]; if (!a) return false;
@@ -32933,7 +32952,7 @@ const animSet = id => ARMA_LARGA.has(id) ? 'r' : 'p';
 const _cf = new THREE.Vector3(), _cq = new THREE.Quaternion();
 function p3dCombate(I, o, dt) {
   const A = I.acts, S = o.set;
-  if (o.muerto) { if (!I.muerto) { I.muerto = I.muerte || (I.muerte = pick(ANIM_MUERTES.filter(n => A[n])) || 'fall'); p3dUna(I, I.muerto, 0.2); } I.mix.update(dt); return; }
+  if (o.muerto) { if (!I.muerto) { I.muerto = I.muerte || (I.muerte = animElige(I, 'caer') || pick(ANIM_MUERTES.filter(n => A[n])) || 'fall'); p3dUna(I, I.muerto, 0.2); } I.mix.update(dt); return; }
   if (I.muerto) { I.muerto = null; I.una = null; }   // lo levantaron
   I.unaR = (I.unaR || 0) - dt;
   const spd = Math.hypot(o.vx, o.vz); I.mueve = I.mueve ? spd > 0.3 : spd > 0.7;
@@ -32945,6 +32964,7 @@ function p3dCombate(I, o, dt) {
       n = S + (Math.abs(a) > 2.2 ? (corre ? '_runback' : '_back') : Math.abs(a) > 0.9 ? (a > 0 ? '_left' : '_right') : corre ? '_run' : '_walk');
     } else n = S + (o.apunta ? (S === 'r' && o.tiro < 0.3 ? '_fire' : '_aim') : '_idle');
     if (!A[n]) n = I.mueve && A[S + '_walk'] ? S + '_walk' : A[S + '_idle'] ? S + '_idle' : 'idle';
+    { const k = /_idle$/.test(n) ? 'quieto' : /_walk$/.test(n) ? 'caminar' : /_run$/.test(n) ? 'correr' : null, e = k ? animElige(I, k, S) : !I.mueve && o.apunta && o.tiro < 0.3 ? animElige(I, 'disparo', S) : null; if (e) n = e; }   // las que eligió el dueño (modo de prueba de animaciones)
     p3dAnim(I, n, 0.2);
     const ac = A[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(spd / c.v, 0.6, 1.6) : 1;   // los pies no patinan: el paso va a la velocidad real
   }
@@ -32952,6 +32972,7 @@ function p3dCombate(I, o, dt) {
 }
 // gestos de una vez: golpe, habilidad, festejo y recarga (con las animaciones de antes si el modelo no tiene las nuevas)
 function p3dGesto(I, k, set) {
+  const el = animElige(I, { golpe: 'golpe', hab: 'festejo', victoria: 'festejo', recarga: 'recarga' }[k], k === 'recarga' ? set || 'p' : null); if (el) return p3dUna(I, el, 0.15);   // las que eligió el dueño
   const L = ({ golpe: ['hit1', 'hit2', 'hit3'], hab: ['taunt'], victoria: ['victory'], recarga: [(set || 'p') + '_reload'] }[k] || [k]).filter(n => I.acts[n]);
   const viejo = { golpe: I.acts.hit_to_body_01 ? 'hit_to_body_01' : 'hurt', hab: 'cheer', victoria: I.acts.victory_celebration ? 'victory_celebration' : 'cheer' }[k];
   return p3dUna(I, L.length ? pick(L) : viejo || k, 0.15);
@@ -33027,6 +33048,127 @@ function p3dTorso(I, pitch, kick) {
   if (Math.abs(a) < 0.002) return;
   for (const n of ['Spine01', 'Spine02']) { const b = I.B[n]; if (b) b.rotateX(-a); }
   I.m.updateMatrixWorld(true);
+}
+/* ===== Animaciones elegidas por el dueño (PENDIENTES 48) =====
+   En el modo de prueba de animaciones el dueño marca, para cada personaje y cada acción, las variantes que más le gustan.
+   Se guardan en este aparato y, para que valgan para todos, se pasan a modelos/anim/elegidas.json. Si una acción no tiene
+   ninguna marcada, el juego hace lo de siempre (por ejemplo, una muerte al azar entre todas). */
+const ANIME = { arch: {}, loc: store.get('sbAnimElegidas', {}) || {} };
+ANIME.listo = fetch(`modelos/anim/elegidas.json?v=${ANIM.v}`).then(r => r.ok ? r.json() : {}).then(j => { ANIME.arch = j || {}; }).catch(() => {});
+const animElegidas = (ch, k) => { const L = ANIME.loc[ch] && ANIME.loc[ch][k]; return L && L.length ? L : (ANIME.arch[ch] && ANIME.arch[ch][k]) || []; };
+// con un arma de dos manos (rifle) o con el machete solo sirven las variantes de ese juego; con pistola o sin arma, cualquiera
+const animCabe = (n, set) => !set || !(set === 'r' || set === 'm') || n.startsWith(set + '_');
+function animElige(I, k, set) { const L = animElegidas(I && I.ch, k).filter(n => I.acts[n] && animCabe(n, set)); return L.length ? pick(L) : null; }
+// las acciones que se prueban: cada una con todas sus variantes (cada personaje muestra solo las que tiene)
+const ANIMP_ACC = [
+  { k: 'caer', n: 'Caídas', v: ['die1', 'die2', 'die3', 'die4', 'die5', 'die6', 'die7', 'fall'] },
+  { k: 'golpe', n: 'Golpes recibidos', v: ['hit1', 'hit2', 'hit3', 'hit_to_body_01', 'hurt'] },
+  { k: 'festejo', n: 'Festejos', v: ['victory', 'taunt', 'victory_idle', 'victory_celebration', 'cheer'] },
+  { k: 'disparo', n: 'Disparos', v: ['p_fire', 'r_fire', 'shoot'] },
+  { k: 'recarga', n: 'Recargas', v: ['p_reload', 'r_reload'] },
+  { k: 'quieto', n: 'Quieto', v: ['p_idle', 'r_idle', 'u_idle', 'm_idle', 'idle'] },
+  { k: 'caminar', n: 'Caminar', v: ['p_walk', 'r_walk', 'u_walk', 'm_walk', 'walk'] },
+  { k: 'correr', n: 'Correr', v: ['p_run', 'r_run', 'u_run', 'm_run', 'run'] }
+];
+const ANIMP_LOOP = new Set(['quieto', 'caminar', 'correr', 'disparo']);
+const ANIMP_ARMA = new Set(['quieto', 'caminar', 'correr', 'disparo', 'recarga']);
+// los personajes con modelo 3D (Ludo Cheng usa el del Pistolero hasta que tenga el suyo)
+function animpLista() {
+  const L = Object.keys(CHARS).filter(k => !P3D_ALIAS[k]).map(k => ({ f: k, n: CHARS[k].name }));
+  for (const f of NPC3D_FILES) { const k = Object.keys(NPC3D).find(a => NPC3D[a] === f); L.push({ f, n: (ALLY[k] && ALLY[k].name || f) + (Object.values(P3D_ALIAS).includes(f) ? ' (y ' + Object.keys(P3D_ALIAS).filter(a => P3D_ALIAS[a] === f).map(a => CHARS[a] ? CHARS[a].name : a).join(', ') + ')' : '') }); }
+  return L;
+}
+const ANIMP = { on: false, pj: 0, ac: 0, copias: [], t: 0, lista: null, C: null, sep: 1.5, fondo: 2.4, pausa: 1.2 };
+const ANIMP_URL = /[?&]animaciones\b/.test(location.search);
+function animpEntrar() {
+  if (typeof Net !== 'undefined' && Net.on) return;
+  ANIMP.lista = ANIMP.lista || animpLista();
+  const q = new URLSearchParams(location.search).get('animaciones'), iq = ANIMP.lista.findIndex(x => x.f === q || x.f === (P3D_ALIAS[q] || ''));
+  if (iq >= 0) ANIMP.pj = iq; else { const ic = ANIMP.lista.findIndex(x => x.f === (P3D_ALIAS[META.char] || META.char)); if (ic >= 0 && !ANIMP.on) ANIMP.pj = ic; }
+  Sfx.init(); clearActors();
+  if (world.idx !== 0) buildMap(0);   // el Cementerio, sin zombis y sin tiempo
+  state = 'animp'; ANIMP.on = true; show(null); el.hud.hidden = true; $('#touch').hidden = true; hands.forEach(h => h.root.visible = false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  $('#animp').hidden = false; animpPoner();
+}
+function animpSalir() {
+  animpQuitar(); ANIMP.on = false; $('#animp').hidden = true; camera.clearViewOffset();
+  if (ANIMP_URL) history.replaceState(null, '', location.pathname);
+  state = 'menu'; show('inicio');
+}
+function animpQuitar() { for (const c of ANIMP.copias) { scene.remove(c.g); c.lb.material.map.dispose(); c.lb.material.dispose(); } ANIMP.copias = []; }
+function animpVariantes() { const C = ANIMP.C, A = ANIMP_ACC[ANIMP.ac]; if (!C) return []; const tiene = new Set(C.clips.map(c => c.name)); return A.v.filter(n => tiene.has(n)); }
+// pone una copia del personaje por cada variante de la acción, en filas frente a la cámara
+function animpPoner() {
+  animpQuitar(); animpUi();
+  const P = ANIMP.lista[ANIMP.pj], pide = ANIMP.pj * 100 + ANIMP.ac; ANIMP.pide = pide;
+  p3dCargar(P.f, C => {
+    const listo = () => { if (ANIMP.pide !== pide || state !== 'animp') return; ANIMP.C = C; animpArmar(); };
+    // las de caminar sin arma y con machete se bajan aparte (en el juego solo las tienen algunos)
+    if (!C.clips.some(c => c.name === 'u_idle') && C.mx) animBajar('cuerpo').then(g => { if (g && !C.clips.some(c => c.name === 'u_idle')) C.clips.push(...animParaModelo(C, [g])); listo(); }); else listo();
+  });
+}
+function animpArmar() {
+  animpQuitar();
+  const C = ANIMP.C, A = ANIMP_ACC[ANIMP.ac], V = animpVariantes(), n = V.length, P = ANIMP.lista[ANIMP.pj];
+  const cols = Math.max(1, Math.min(n, innerWidth < innerHeight ? 3 : 5)), filas = Math.ceil(n / cols);
+  ANIMP.cols = cols; ANIMP.filas = filas;
+  V.forEach((nom, i) => {
+    const fi = Math.floor(i / cols), co = i % cols, enFila = Math.min(cols, n - fi * cols);
+    const I = p3dCopia(C, 1.8), g = new THREE.Group(); I.m.rotation.y = P3D.giro; g.add(I.m); I.ch = P.f;
+    g.position.set((co - (enFila - 1) / 2) * ANIMP.sep, 0, -fi * ANIMP.fondo); scene.add(g);
+    // el número encima de cada copia (el mismo que el botón para elegirla)
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+    x.fillStyle = 'rgba(14,11,9,.85)'; x.beginPath(); x.arc(32, 32, 30, 0, TAU); x.fill(); x.font = 'bold 36px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffd27a'; x.fillText(String(i + 1), 32, 34);
+    const lb = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false })); lb.scale.setScalar(0.42); lb.position.set(0, 2.1, 0); lb.renderOrder = 9; g.add(lb);
+    let arma = null;
+    if (ANIMP_ARMA.has(A.k) && /^[pr]_/.test(nom)) { const larga = nom[0] === 'r'; arma = avGun(larga ? 'mp5' : (CHARS[P.f] && CHARS[P.f].gun) || 'paci', P.f); arma.rotation.x = Math.PI / 2; g.add(arma); arma.userData.larga = larga; }
+    ANIMP.copias.push({ g, I, nom, lb, arma });
+  });
+  ANIMP.t = 0; animpPlay(); animpUi();
+}
+function animpPlay() {
+  const A = ANIMP_ACC[ANIMP.ac];
+  let dur = 0;
+  for (const c of ANIMP.copias) { if (ANIMP_LOOP.has(A.k)) p3dAnim(c.I, c.nom, 0); else { p3dUna(c.I, c.nom, 0); dur = Math.max(dur, c.I.unaR || 0); } }
+  ANIMP.dur = ANIMP_LOOP.has(A.k) ? 0 : dur + ANIMP.pausa;   // las de una vez se repiten todas juntas, con una pausa entre una y otra
+}
+function animpPaso(dt) {
+  ANIMP.t += dt; if (ANIMP.dur && ANIMP.t > ANIMP.dur) { ANIMP.t = 0; animpPlay(); }
+  for (const c of ANIMP.copias) {
+    c.I.mix.update(dt);
+    if (c.arma) { c.g.updateMatrixWorld(true); p3dDedos(c.I, 'R', 1); p3dDedos(c.I, 'L', c.arma.userData.larga ? 0.9 : 0.5); p3dArma(c.I, c.arma, 'R', c.arma.userData.larga, c.g, 0, ANIMP_ACC[ANIMP.ac].k === 'recarga' ? 0 : 1); }
+  }
+  // la cámara mira a todas las copias; el panel de abajo no las tapa
+  const ui = $('#animp'), ph = ui ? ui.offsetHeight : 0, W = innerWidth, H = Math.max(1, innerHeight - ph);
+  const ancho = (ANIMP.cols - 1) * ANIMP.sep + 1.4, hondo = (ANIMP.filas - 1) * ANIMP.fondo;
+  const fov = THREE.MathUtils.degToRad(camera.fov), asp = W / H, tv = Math.tan(fov / 2);
+  const d = Math.max(ancho / 2 / (tv * asp), (2.4 + hondo * 0.35) / 2 / tv) + 1.2;
+  camera.setViewOffset(W, innerHeight + ph, 0, ph, W, innerHeight);
+  camera.position.set(0, 1.5 + hondo * 0.45, d); camera.lookAt(0, 0.95, -hondo / 2);
+}
+// el panel: personaje, acción y los números para elegir
+function animpUi() {
+  const P = ANIMP.lista[ANIMP.pj], A = ANIMP_ACC[ANIMP.ac], V = animpVariantes(), E = new Set(animElegidas(P.f, A.k));
+  $('#animp-pj').textContent = P.n; $('#animp-ac').textContent = A.n;
+  $('#animp-nums').innerHTML = !ANIMP.C || ANIMP.copias.length !== V.length ? '<span class="note">Cargando…</span>' : V.map((n, i) => `<button class="btn2${E.has(n) ? ' sel' : ''}" type="button" data-n="${n}" aria-pressed="${E.has(n)}">${i + 1}</button>`).join('');
+  const el = [...E].map(n => V.indexOf(n) + 1).filter(x => x > 0).sort((a, b) => a - b);
+  $('#animp-msg').textContent = el.length ? `Elegidas: ${el.join(', ')}. El juego usa solo esas.` : 'Toca el número de las que más te gustan (puedes elegir varias). Sin elegir, el juego usa todas.';
+}
+function animpMarca(n) {
+  const P = ANIMP.lista[ANIMP.pj], A = ANIMP_ACC[ANIMP.ac], E = new Set(animElegidas(P.f, A.k));
+  if (E.has(n)) E.delete(n); else E.add(n);
+  (ANIME.loc[P.f] = ANIME.loc[P.f] || {})[A.k] = [...E]; store.set('sbAnimElegidas', ANIME.loc); animpUi();
+}
+// todas las elecciones juntas (las del archivo y las de este aparato), para pegarlas en el chat y que valgan para todos
+function animpTexto() {
+  const out = {};
+  for (const ch of new Set(Object.keys(ANIME.arch).concat(Object.keys(ANIME.loc)))) for (const a of ANIMP_ACC) { const L = animElegidas(ch, a.k); if (L.length) (out[ch] = out[ch] || {})[a.k] = L; }
+  return JSON.stringify(out);
+}
+function animpCopiar() {
+  const t = animpTexto(), ok = () => { $('#animp-msg').textContent = 'Copiado. Pégalo en el chat para que quede igual para todos los jugadores.'; };
+  try { navigator.clipboard.writeText(t).then(ok, () => prompt('Copia este texto:', t)); } catch (e) { prompt('Copia este texto:', t); }
 }
 /* ===== Zombi común en 3D con las animaciones de zombi de Mixamo (de prueba: se activa con ?zombi3d en el enlace) =====
    Cada zombi elige su forma de caminar, de correr y de atacar, y camina a su propio ritmo (no se ven todos iguales).
@@ -34923,6 +35065,7 @@ function frame() {
   tAll += dt;
   if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
+  else if (state === 'animp') animpPaso(dt);
   else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
@@ -35020,7 +35163,7 @@ $('#btn-altar-ini').addEventListener('click', () => { volverA = 'inicio'; $('#bt
 $('#btn-ach').addEventListener('click', () => { if (!$('#inicio').hidden) volverA = 'inicio'; }, true);
 $('#btn-como-back').addEventListener('click', () => show('inicio'));
 // Configuración: los mismos controles de la pausa, repartidos en pestañas; al volver regresan a la pausa en su orden
-const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', sens: 'controles' };
+const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', 'btn-animp': 'graficos', sens: 'controles' };
 let cfgOrden = null;
 // los controles se reparten una sola vez en las pestañas; el mismo bloque va a la Configuración del inicio o a la pausa
 function cfgRepartir() {
@@ -35048,6 +35191,17 @@ $('#btn-mictest').addEventListener('click', () => micTest(!MT.st));
 document.querySelectorAll('.cfg-tabs [data-t]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.cfg-tabs [data-t]').forEach(x => x.setAttribute('aria-selected', x === b)); document.querySelectorAll('.cfg-sec').forEach(sc => sc.hidden = sc.dataset.s !== b.dataset.t); pagTodas(); }));
 $('#btn-config').addEventListener('click', cfgAbrir);
 $('#btn-config-back').addEventListener('click', cfgCerrar);
+// modo de prueba de animaciones (PENDIENTES 48): desde Configuración → Gráficos, o con ?animaciones en el enlace
+$('#btn-animp').addEventListener('click', () => { if (state !== 'menu') { Sfx.err(); $('#pause-note').textContent = 'Las animaciones se prueban desde el menú principal.'; return; } micTest(false); animpEntrar(); });
+{ const cambia = (k, d) => { const n = k === 'pj' ? ANIMP.lista.length : ANIMP_ACC.length; ANIMP[k] = (ANIMP[k] + d + n) % n; ANIMP.C = k === 'pj' ? null : ANIMP.C; animpPoner(); };
+  $('#animp-pj-a').addEventListener('click', () => cambia('pj', -1)); $('#animp-pj-s').addEventListener('click', () => cambia('pj', 1));
+  $('#animp-ac-a').addEventListener('click', () => cambia('ac', -1)); $('#animp-ac-s').addEventListener('click', () => cambia('ac', 1));
+  $('#animp-nums').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (b) animpMarca(b.dataset.n); });
+  $('#animp-otra').addEventListener('click', () => { ANIMP.t = 0; animpPlay(); });
+  $('#animp-copiar').addEventListener('click', animpCopiar);
+  $('#animp-salir').addEventListener('click', animpSalir);
+  addEventListener('keydown', e => { if (state === 'animp' && e.key === 'Escape') animpSalir(); });
+  addEventListener('resize', () => { if (state === 'animp' && ANIMP.C) animpArmar(); }); }
 $('#btn-keys-reset').addEventListener('click', () => { keyMap = {}; store.set('sb_keys', keyMap); teclaEspera = null; teclasRefrescar(); });
 teclasRefrescar();
 $('#idioma').value = LANG;
@@ -35063,6 +35217,7 @@ for (let i = 0; i < 6; i++) { const a = rand(0, TAU), r = rand(6, 18); const z =
 $('#loading').remove();
 frame();
 setTimeout(() => $('#btn-jugar').focus(), 50);
+if (ANIMP_URL) setTimeout(animpEntrar, 300);   // ?animaciones en el enlace: entra directo al modo de prueba de animaciones
 })();
 </script>
 
