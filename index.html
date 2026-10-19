@@ -12398,7 +12398,6 @@ const M3D_CRED = [
   ["papelera", "Trash can", "Tiago Lopes", "CC BY 4.0", "https://sketchfab.com/3d-models/trash-can-269cc79ce7ca4dcf88030e7b7151dc36"],
   ["bidon", "Oil Drum", "Heisenberg", "CC BY 4.0", "https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca"],
   ["tumbona", "Sun Lounger", "GeniusPilot2016", "CC BY 4.0", "https://sketchfab.com/3d-models/sun-lounger-5f05a3c301e5426cbc33a257d706d4cf"],
-  ["tanque_agua", "Wooden Water Tower", "BytesCrafter", "CC BY 4.0", "https://sketchfab.com/3d-models/wooden-water-tower-ce4de11b50164c3abf65de2d6c51b872"],
   ["linterna_piedra", "Old Japanese Lamp", "MarcHoogkamp", "CC BY 4.0", "https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db"],
   ["cerezo", "Low- Poly Cherry Blossom Tree 3D Models", "lsclarke", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cherry-blossom-tree-3d-models-4b76fd63c81e4d489cc06ec66c12a866"],
   ["palmera", "Coconut Tree", "sujirour", "CC BY 4.0", "https://sketchfab.com/3d-models/coconut-tree-d141941578044b0f861ca83b36d4c411"],
@@ -12411,6 +12410,7 @@ const M3D_CRED = [
   ["rocas", "Low Poly Stylized Rocks", "Erdem Dağdelen", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-stylized-rocks-99544bd16600463fa5a34ecbd98eb980"],
   ["contenedor", "Low Poly Cargo Container", "yxungsauce2", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7"],
   ["caja_scifi", "Sci-fi Crate", "Darren McNerney 3D", "CC BY 4.0", "https://sketchfab.com/3d-models/sci-fi-crate-0e60a62a8f1e4048b638a32eb0661015"],
+  ["tanque_agua", "Water Tower", "Chamod1999", "CC BY 4.0", "https://sketchfab.com/3d-models/water-tower-500cfe0cf4a74350bb49c5736b692339"],
 ];
 function m3dArchivo(n) {
   if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
@@ -12431,8 +12431,23 @@ function d3Piezas(scene, claveDe) {
     if (!geo.attributes.normal) { if (geo.index) geo = geo.toNonIndexed(); geo.computeVertexNormals(); }   // modelos sin normales (más livianos): caras planas
     let g = grupos.get(k); if (!g) grupos.set(k, g = []); g.push({ geo, src: o.material });
   });
+  // las partes de una pieza con el mismo material se juntan en una sola (menos llamadas de dibujo)
+  const _d3G = ['getX', 'getY', 'getZ', 'getW'];
+  const juntar = parts => {
+    const porMat = new Map(); for (const p of parts) { let L = porMat.get(p.src); if (!L) porMat.set(p.src, L = []); L.push(p); }
+    const res = [];
+    for (const [src, L] of porMat) {
+      if (L.length < 2) { res.push(L[0]); continue; }
+      const gs = L.map(p => p.geo.index ? p.geo.toNonIndexed() : p.geo), keys = Object.keys(gs[0].attributes).filter(k => gs.every(g => g.attributes[k] && g.attributes[k].itemSize === gs[0].attributes[k].itemSize));
+      const geo = new THREE.BufferGeometry();
+      for (const k of keys) { const z = gs[0].attributes[k].itemSize, n = gs.reduce((a, g) => a + g.attributes[k].count, 0), arr = new Float32Array(n * z); let o = 0; for (const g of gs) { const A = g.attributes[k]; for (let i = 0; i < A.count; i++) for (let j = 0; j < z; j++) arr[(o + i) * z + j] = A[_d3G[j]](i); o += A.count; } geo.setAttribute(k, new THREE.BufferAttribute(arr, z)); }
+      res.push({ geo, src });
+    }
+    return res;
+  };
   const out = {};
-  for (const [k, parts] of grupos) {
+  for (let [k, parts] of grupos) {
+    parts = juntar(parts);
     const b = new THREE.Box3(); parts.forEach(p => { p.geo.computeBoundingBox(); b.union(p.geo.boundingBox); });
     const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
     parts.forEach(p => { p.geo.translate(-c.x, -b.min.y, -c.z); p.geo.computeBoundingSphere(); });

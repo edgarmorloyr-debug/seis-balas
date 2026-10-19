@@ -30,7 +30,6 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `papelera.glb` | Trash can | Tiago Lopes | CC BY 4.0 | Parque, Zoo | 22 KB | https://sketchfab.com/3d-models/trash-can-269cc79ce7ca4dcf88030e7b7151dc36 |
 | `bidon.glb` | Oil Drum | Heisenberg | CC BY 4.0 | Rascacielos, Policía, Océano, Backrooms Nivel 2 | 18 KB | https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca |
 | `tumbona.glb` | Sun Lounger | GeniusPilot2016 | CC BY 4.0 | Azotea | 30 KB | https://sketchfab.com/3d-models/sun-lounger-5f05a3c301e5426cbc33a257d706d4cf |
-| `tanque_agua.glb` | Wooden Water Tower | BytesCrafter | CC BY 4.0 | Azotea | 55 KB | https://sketchfab.com/3d-models/wooden-water-tower-ce4de11b50164c3abf65de2d6c51b872 |
 | `linterna_piedra.glb` | Old Japanese Lamp | MarcHoogkamp | CC BY 4.0 | Tokio | 20 KB | https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db |
 | `cerezo.glb` | Low- Poly Cherry Blossom Tree 3D Models | lsclarke | CC BY 4.0 | Tokio | 15 KB | https://sketchfab.com/3d-models/low-poly-cherry-blossom-tree-3d-models-4b76fd63c81e4d489cc06ec66c12a866 |
 | `palmera.glb` | Coconut Tree | sujirour | CC BY 4.0 | Isla | 22 KB | https://sketchfab.com/3d-models/coconut-tree-d141941578044b0f861ca83b36d4c411 |
@@ -43,7 +42,8 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `rocas.glb` | Low Poly Stylized Rocks | Erdem Dağdelen | CC BY 4.0 | Luna | 62 KB | https://sketchfab.com/3d-models/low-poly-stylized-rocks-99544bd16600463fa5a34ecbd98eb980 |
 | `contenedor.glb` | Low Poly Cargo Container | yxungsauce2 | CC BY 4.0 | Océano | 6 KB | https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7 |
 | `caja_scifi.glb` | Sci-fi Crate | Darren McNerney 3D | CC BY 4.0 | Estación Espacial | 19 KB | https://sketchfab.com/3d-models/sci-fi-crate-0e60a62a8f1e4048b638a32eb0661015 |
+| `tanque_agua.glb` | Water Tower | Chamod1999 | CC BY 4.0 | Rascacielos | 58 KB | https://sketchfab.com/3d-models/water-tower-500cfe0cf4a74350bb49c5736b692339 |
 
-Peso total: 1031 KB.
+Peso total: 1033 KB.
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.es
