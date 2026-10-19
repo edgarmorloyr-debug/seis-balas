@@ -3120,7 +3120,8 @@ const MAPS = [
   { name: 'Los Backrooms: Nivel 2', desc: 'Túneles de tuberías calientes que no terminan. Si oyes pasos, no son tuyos.' },
   { name: 'Atlantis', desc: 'La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.' },
   { name: 'El Maid Café', desc: 'Lazos rosas, tartas de fresa y neón de Akihabara. Las camareras no cerraron: ahora sirven a balazos.' },
-  { name: 'BIG NEON CASINO', casino: true, desc: 'La ciudad casino que nunca duerme. Aquí te esperan los jefes: la casa siempre gana… hasta esta noche.' }
+  { name: 'BIG NEON CASINO', casino: true, desc: 'La ciudad casino que nunca duerme. Aquí te esperan los jefes: la casa siempre gana… hasta esta noche.' },
+  { name: 'Los Backrooms: Nivel 3', desc: 'Ladrillo, cables y un zumbido eléctrico que no para. Las máquinas siguen encendidas; los técnicos, no.' }   // después del casino para no mover los números de los demás
 ];
 function lam(color, o) { return new THREE.MeshLambertMaterial(Object.assign({ color }, o || {})); }
 function bsc(color, o) { return new THREE.MeshBasicMaterial(Object.assign({ color }, o || {})); }
@@ -3367,7 +3368,8 @@ const ECHO = [
   [0.06, 0.2, 0.5, 2500],   // Los Backrooms: Nivel 2
   [0.45, 0.3, 0.4, 1300],   // Atlantis: la plaza bajo el mar, eco largo y apagado
   [0.1, 0.24, 0.34, 3800],
-  [0.2, 0.3, 0.35, 3200]   // BIG NEON CASINO: rebota en las fachadas
+  [0.2, 0.3, 0.35, 3200],   // BIG NEON CASINO: rebota en las fachadas
+  [0.06, 0.2, 0.55, 2300]   // Los Backrooms: Nivel 3: pasillos de ladrillo
 ];
 const ACOUSTIC = [
   { sec: 1.8, decay: 3, wet: 0.4, step: 'grass' },               // cementerio: noche abierta
@@ -3401,7 +3403,8 @@ const ACOUSTIC = [
   { sec: 1.2, decay: 1.6, wet: 1, step: 'concrete' },   // Los Backrooms: Nivel 2
   { sec: 3.2, decay: 1.7, wet: 0.85, lp: 4500, step: 'snow' },   // Atlantis: bajo el agua, todo suena hondo y apagado
   { sec: 1.6, decay: 2.6, wet: 0.5, step: 'wood' },
-  { sec: 2, decay: 2.4, wet: 0.5, step: 'carpet' }   // BIG NEON CASINO: alfombra de casino
+  { sec: 2, decay: 2.4, wet: 0.5, step: 'carpet' },   // BIG NEON CASINO: alfombra de casino
+  { sec: 1.3, decay: 1.8, wet: 0.95, step: 'concrete' }   // Los Backrooms: Nivel 3
 ];
 // DESC: La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.
 // ---- Lugar nuevo: Atlantis
@@ -4970,7 +4973,7 @@ function buildMap(i) {
   world.grav = 1; world.weather = null; world.noMoon = false; world.room = null; world.uses = []; world.shoots = []; world.big = false; world.llaves = false; world.llvSpots = null; world.llvObj = null; world.fichaSpots = null; world.zonas = null;
   world.idx = i; world.maidSpots = null; srand = mulberry32(1866 + i * 977);
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
-  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
+  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
   moonMesh.visible = moonHalo.visible = !world.noMoon;
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
   holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
@@ -13326,7 +13329,7 @@ function llvFichaSpots() {
     let n = 0;
     for (let k = 0; k < 4000 && n < LLV_FICHAS.n; k++) {
       const x = rand(-hx, hx), z = rand(-hz, hz);
-      if (!Z.en(x, z) || !insideArena(x, z, 1.5) || pointBlocked(x, z, 0.6) || S.some(q => Math.hypot(q.x - x, q.z - z) < 5)) continue;
+      if (!Z.en(x, z) || !insideArena(x, z, 1.5) || pointBlocked(x, z, 0.6) || (nav.mainDist && nav.mainDist[cellOf(x, z)] >= 1e9) || S.some(q => Math.hypot(q.x - x, q.z - z) < 5)) continue;   // (también: que se pueda llegar)
       S.push({ x, z, zona: Z.k, nombre: Z.nombre }); n++;
     }
   }
@@ -19310,6 +19313,129 @@ function brGrande(g0, H, wp, ceilT) {
   fundirEstatico(g0);
   world.anims.push(llvStep); llvMalla();
 }
+// DESC: Ladrillo, cables y un zumbido eléctrico que no para. Las máquinas siguen encendidas; los técnicos, no.
+// ---- Lugar nuevo: Los Backrooms: Nivel 3 (la estación eléctrica). Ya nace grande: tres salas con llave dentro del laberinto.
+const BR3 = { N: 18, C: 6, salas: [['gen', 1, 1, 5, 5, 'en la sala de generadores'], ['cab', 12, 1, 16, 5, 'en la central de cables'], ['asc', 6, 12, 11, 16, 'en el ascensor roto']] };
+BR3.A = BR3.N * BR3.C / 2;
+BR3.zonas = BR3.salas.map(([k, i0, j0, i1, j1, nombre]) => { const X0 = -BR3.A, C = BR3.C, x0 = X0 + i0 * C, x1 = X0 + (i1 + 1) * C, z0 = X0 + j0 * C, z1 = X0 + (j1 + 1) * C; return { k, nombre, x0, x1, z0, z1, en: (x, z) => x > x0 + 0.6 && x < x1 - 0.6 && z > z0 + 0.6 && z < z1 - 0.6 }; });
+function zonaBR3(x, z) { const Z = BR3.zonas.find(Z => Z.en(x, z)); return Z ? Z.nombre : 'en los pasillos'; }
+function buildBackrooms3() {
+  const { N, C, A } = BR3, X0 = -A, H = 3.6, fast = FAST();
+  world.arena = { t: 'r', hx: A, hz: A }; world.start = { x: 0, z: 2 }; world.indoor = true; world.noMoon = true;
+  world.shirts = [0x5a4a3a, 0x3a3a3a, 0x6a5a2a, 0x2a2a30, 0xa8782a]; world.hat = 'helmet'; world.hatP = 0.2; world.mix = { runner: 1.3, crawler: 1.4, screamer: 1.3, brute: 1.1 };
+  env({ fog: 0x1c140e, dens: 0.036, top: 0x0a0806, sky: false, hemiS: 0xffc890, hemiG: 0x3a2414, hemiI: 0.7, moonC: 0xffd0a0, moonI: 0.25, moonDir: new THREE.Vector3(0.2, 1, 0.1), lantern: 0.85, wind: 0 });
+  const g0 = world.group.children.length;
+  const O = new THREE.Object3D(); O.rotation.order = 'YXZ';
+  const inst = (geo, mat, arr, cast = false) => { const m = new THREE.InstancedMesh(geo, mat, Math.max(1, arr.length)); m.count = arr.length; arr.forEach((a, i) => { O.position.set(a[0], a[1], a[2]); O.rotation.set(a[7] || 0, a[3] || 0, a[8] || 0); O.scale.set(a[4] ?? 1, a[5] ?? 1, a[6] ?? 1); O.updateMatrix(); m.setMatrixAt(i, O.matrix); }); m.castShadow = cast; m.receiveShadow = true; world.group.add(m); return m; };
+  const cx = i => X0 + (i + 0.5) * C;
+  const glow = (x, y, z, col, s, op = 0.6) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); world.group.add(sp); return sp; };
+  // ---------- Texturas: ladrillo con hollín, hormigón con manchas de aceite y techo de chapa
+  const brickT = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#3a2418'; g.fillRect(0, 0, w, h); for (let y = 0; y < 16; y++) for (let x = -1; x < 9; x++) { const ox = (y % 2) * 16; g.fillStyle = pick(['#7a4430', '#6a3a28', '#82503a', '#5e3424', '#744632']); g.fillRect(x * 32 + ox + 1, y * 16 + 1, 30, 14); } const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,.45)'); gr.addColorStop(0.5, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.3)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(20,14,10,.35)'; g.fillRect(rand(0, w), 0, rand(6, 20), rand(40, 160)); } });
+  brickT.wrapS = brickT.wrapT = THREE.RepeatWrapping; brickT.repeat.set(2, 1.2);
+  const wallM = lam(0xffffff, { map: brickT });
+  addGround(2 * A + 4, canvasTex(256, 256, (g, w) => { g.fillStyle = '#4a4440'; g.fillRect(0, 0, w, w); for (let i = 0; i < 2200; i++) { g.fillStyle = pick(['#544e48', '#423c38', '#5a5450']); g.globalAlpha = 0.5; g.fillRect(rand(0, w), rand(0, w), 2, 2); } g.globalAlpha = 1; for (let i = 0; i < 5; i++) { const x = rand(0, w), y = rand(0, w), r = rand(10, 30), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(10,8,6,.55)'); gr.addColorStop(1, 'rgba(10,8,6,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); } }, 24));
+  const ceilT = canvasTex(128, 128, (g, w) => { g.fillStyle = '#2a2622'; g.fillRect(0, 0, w, w); g.fillStyle = '#34302a'; for (let i = 0; i < 8; i++) g.fillRect(i * 16, 0, 8, w); }, 30);
+  M(new THREE.PlaneGeometry(2 * A + 2, 2 * A + 2), lam(0xffffff, { map: ceilT, side: THREE.DoubleSide }), 0, H, 0, { rx: Math.PI / 2, cast: false });
+  // ---------- Laberinto: rejilla de 18 × 18 celdas de 6 m, con la sala del centro y las tres salas con llave
+  const vW = new Uint8Array(N * N).fill(1), hW = new Uint8Array(N * N).fill(1);
+  const ROOMS = [[7, 7, 10, 10], ...BR3.salas.map(s => s.slice(1, 5))];
+  const par = Array.from({ length: N * N }, (_, i) => i), find = a => { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; }, uni = (a, b) => { a = find(a); b = find(b); if (a === b) return false; par[a] = b; return true; }, id = (i, j) => j * N + i;
+  for (const [i0, j0, i1, j1] of ROOMS) for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { if (i < i1) { vW[id(i, j)] = 0; uni(id(i, j), id(i + 1, j)); } if (j < j1) { hW[id(i, j)] = 0; uni(id(i, j), id(i, j + 1)); } }
+  const walls = []; for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { if (i < N - 1 && vW[id(i, j)]) walls.push([0, i, j]); if (j < N - 1 && hW[id(i, j)]) walls.push([1, i, j]); }
+  for (let k = walls.length - 1; k > 0; k--) { const r = Math.floor(srand() * (k + 1)); const t = walls[k]; walls[k] = walls[r]; walls[r] = t; }
+  for (const [o, i, j] of walls) { const a = id(i, j), b = o ? id(i, j + 1) : id(i + 1, j); if (uni(a, b)) (o ? hW : vW)[a] = 0; }
+  for (const [o, i, j] of walls) if (srand() < 0.08) (o ? hW : vW)[id(i, j)] = 0;
+  for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const opts = []; let n = 0;
+    if (i > 0) { if (vW[id(i - 1, j)]) { n++; opts.push(() => vW[id(i - 1, j)] = 0); } } else n++;
+    if (i < N - 1) { if (vW[id(i, j)]) { n++; opts.push(() => vW[id(i, j)] = 0); } } else n++;
+    if (j > 0) { if (hW[id(i, j - 1)]) { n++; opts.push(() => hW[id(i, j - 1)] = 0); } } else n++;
+    if (j < N - 1) { if (hW[id(i, j)]) { n++; opts.push(() => hW[id(i, j)] = 0); } } else n++;
+    if (n >= 3 && opts.length) opts[Math.floor(srand() * opts.length)](); }
+  const full = [], half = [], lintel = [], segs = [], DW = 3, PL = (C + 0.3 - DW) / 2;
+  const addWall = (x, z, vert) => { const ry = vert ? Math.PI / 2 : 0;
+    if (srand() < 0.22) { for (const s of [-1, 1]) { const o = s * (DW / 2 + PL / 2), px = vert ? x : x + o, pz = vert ? z + o : z; half.push([px, H / 2, pz, ry]); addBox(px, pz, vert ? 0.15 : PL / 2, vert ? PL / 2 : 0.15); } lintel.push([x, H - 0.4, z, ry]); }
+    else { full.push([x, H / 2, z, ry]); segs.push([x, z, vert]); } };
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { if (i < N - 1 && vW[id(i, j)]) addWall(X0 + (i + 1) * C, cx(j), true); if (j < N - 1 && hW[id(i, j)]) addWall(cx(i), X0 + (j + 1) * C, false); }
+  solids.push(inst(new THREE.BoxGeometry(C + 0.3, H, 0.3), wallM, full, true));
+  solids.push(inst(new THREE.BoxGeometry(PL, H, 0.3), wallM, half, true));
+  inst(new THREE.BoxGeometry(DW, 0.8, 0.3), wallM, lintel, false);
+  { const key = new Map(); for (const [x, z, v] of segs) key.set(`${v ? 1 : 0}|${x.toFixed(1)}|${z.toFixed(1)}`, 1); const done = new Set();
+    for (const [x, z, v] of segs) { const k0 = `${v ? 1 : 0}|${x.toFixed(1)}|${z.toFixed(1)}`; if (done.has(k0)) continue; let a = v ? z : x, b = a;
+      while (key.has(v ? `1|${x.toFixed(1)}|${(b + C).toFixed(1)}` : `0|${(b + C).toFixed(1)}|${z.toFixed(1)}`)) b += C;
+      while (key.has(v ? `1|${x.toFixed(1)}|${(a - C).toFixed(1)}` : `0|${(a - C).toFixed(1)}|${z.toFixed(1)}`)) a -= C;
+      for (let p = a; p <= b + 0.01; p += C) done.add(v ? `1|${x.toFixed(1)}|${p.toFixed(1)}` : `0|${p.toFixed(1)}|${z.toFixed(1)}`);
+      const len = b - a + C + 0.3, m = (a + b) / 2; if (v) addBox(x, m, 0.15, len / 2); else addBox(m, z, len / 2, 0.15); } }
+  { const t = brickT.clone(); t.needsUpdate = true; t.repeat.set(36, 1.2); const om = lam(0xffffff, { map: t });
+    M(bx(2 * A + 1, H, 0.6), om, 0, H / 2, -A - 0.3, { solid: true }); M(bx(2 * A + 1, H, 0.6), om, 0, H / 2, A + 0.3, { solid: true }); M(bx(0.6, H, 2 * A + 1), om, -A - 0.3, H / 2, 0, { solid: true }); M(bx(0.6, H, 2 * A + 1), om, A + 0.3, H / 2, 0, { solid: true }); }
+  // ---------- Bombillas con rejilla en cada celda (unas parpadean) y cables por el techo
+  const bulbs = [], flick = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { if ((i + j) % 2) continue; const r = srand(); if (r < 0.1) continue; (r < 0.2 ? flick : bulbs).push([cx(i), H - 0.35, cx(j)]); }
+  const bulbG = new THREE.SphereGeometry(0.12, 8, 6), bulbM = bsc(0xffc070), flM = bsc(0xffc070);
+  inst(bulbG, bulbM, bulbs); const fl = inst(bulbG, flM, flick);
+  inst(new THREE.CylinderGeometry(0.16, 0.16, 0.3, 6, 1, true), new THREE.MeshLambertMaterial({ color: 0x2a2a2a, wireframe: true }), [...bulbs, ...flick].map(p => [p[0], p[1], p[2]]));
+  const haloM = new THREE.MeshBasicMaterial({ map: glowTex, color: 0xffa050, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+  inst(new THREE.PlaneGeometry(4, 4), haloM, bulbs.map(p => [p[0], H - 0.05, p[2], 0, 1, 1, 1, Math.PI / 2]));
+  { const cab = []; for (let k = 0; k < 10; k++) { const j = Math.floor(srand() * N), y = H - 0.15 - (k % 3) * 0.1; cab.push([0, y, cx(j) + sr(-1.5, 1.5), 0, 0.06, 0.06, 2 * A, 0, 0]); } inst(new THREE.BoxGeometry(1, 1, 1), lam(0x1a1a1a), cab); }
+  let fOff = 0;
+  world.anims.push((dt) => { fOff -= dt; if (fOff < -rand(0.1, 1.6)) fOff = rand(0.04, 0.2); flM.color.setHex(fOff <= 0 ? 0xffc070 : 0x3a2a18); if (Math.random() < dt * 0.8 && flick.length) { const p = pick(flick); sparks({ x: p[0], y: H - 0.4, z: p[2] }, 5); } });
+  const lamps = [[0, 2], [cx(3), cx(3)], [cx(14), cx(3)], [cx(8), cx(14)], [cx(15), cx(12)]].map(([x, z]) => lampLight(x, H - 0.5, z, 0xffb070, 1.1, 18, null, 1.2));
+  void lamps;
+  // ---------- Cajas de fusibles, tuberías y carteles de peligro por los pasillos
+  { const cajas = [], seña = [];
+    for (let k = 0; k < Math.min(24, full.length); k++) { const w = full[(k * 11) % full.length], vert = Math.abs(w[3]) > 0.1, s = k % 2 ? 1 : -1, u = sr(-1.5, 1.5);
+      cajas.push([w[0] + (vert ? s * 0.25 : u), 1.6, w[2] + (vert ? u : s * 0.25), vert ? Math.PI / 2 : 0, 0.7, 0.9, 0.2]);
+      seña.push([w[0] + (vert ? s * 0.36 : u), 2.35, w[2] + (vert ? u : s * 0.36), vert ? (s > 0 ? Math.PI / 2 : -Math.PI / 2) : (s > 0 ? 0 : Math.PI)]); }
+    inst(new THREE.BoxGeometry(1, 1, 1), lam(0x6a6a5a), cajas);
+    const pelT = canvasTex(64, 64, (g, w) => { g.clearRect(0, 0, w, w); g.fillStyle = '#e8b020'; g.beginPath(); g.moveTo(w / 2, 4); g.lineTo(w - 4, w - 6); g.lineTo(4, w - 6); g.closePath(); g.fill(); g.fillStyle = '#111'; g.fillRect(w / 2 - 3, 22, 6, 22); g.fillRect(w / 2 - 3, 48, 6, 6); });
+    inst(new THREE.PlaneGeometry(0.45, 0.45), bsc(0xffffff, { map: pelT, transparent: true }), seña); }
+  // ---------- Las tres salas con llave
+  world.big = true; world.llaves = true; world.llvSpots = [];
+  world.zonas = BR3.zonas.map(Z => ({ k: Z.k, nombre: Z.nombre, en: Z.en }));
+  const spot = (x, z) => world.llvSpots.push({ x, z, zona: zonaBR3(x, z) });
+  const [ZG, ZC, ZA] = BR3.zonas;
+  const mid = Z => [(Z.x0 + Z.x1) / 2, (Z.z0 + Z.z1) / 2];
+  // la sala de generadores: tres generadores con ventiladores que giran y rayas de peligro
+  { const [mx, mz] = mid(ZG), haz = canvasTex(64, 64, (g, w) => { g.fillStyle = '#e8b020'; g.fillRect(0, 0, w, w); g.fillStyle = '#111'; for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 32, 0); g.lineTo(i * 32 + 16, 0); g.lineTo(i * 32 + 48, w); g.lineTo(i * 32 + 32, w); g.fill(); } }), hazM = lam(0xffffff, { map: haz }), fans = [];
+    for (const [dx, dz] of [[-8, -6], [0, -8], [8, -6]]) { const x = mx + dx, z = mz + dz; M(bx(4, 2.4, 2.4), lam(0x4a5a4a), x, 1.2, z, { solid: true }); M(bx(4.1, 0.3, 2.5), hazM, x, 0.15, z, {}); addBox(x, z, 2, 1.2);
+      const f = new THREE.Group(); f.position.set(x, 1.3, z + 1.25); f.userData.vivo = 1; world.group.add(f); for (let k = 0; k < 4; k++) M(bx(0.15, 1.6, 0.05), lam(0x2a2a2a), 0, 0, 0, { p: f, rz: k * Math.PI / 4, cast: false }); fans.push(f);
+      M(new THREE.CylinderGeometry(0.8, 0.8, 0.06, 16, 1, true), lam(0x1a1a1a), x, 1.3, z + 1.22, { rx: Math.PI / 2, cast: false }); glow(x + 1.4, 2.2, z + 1.25, 0x50ff70, 0.6, 0.8); }
+    world.anims.push((dt) => { for (const f of fans) f.rotation.z += dt * 9; });
+    for (const [x, z] of [[-10, 4], [10, 4], [-4, 8], [4, 8], [0, 0], [-11, -1], [11, -1]]) spot(mx + x, mz + z); }
+  // la central de cables: armarios con lucecitas, haces de cables que cuelgan y un transformador que chisporrotea
+  { const [mx, mz] = mid(ZC), leds = [];
+    for (let i = 0; i < 6; i++) { const x = mx - 11 + i * 4.4, z = mz - 11; M(bx(1.8, 2.6, 1), lam(0x3a4048), x, 1.3, z, { solid: true }); addBox(x, z, 0.9, 0.5); for (let k = 0; k < 4; k++) leds.push(M(bx(0.12, 0.08, 0.04), bsc(0x30ff60), x - 0.5 + k * 0.33, 2.1, z + 0.52, { cast: false })); }
+    world.anims.push(() => { if (Math.random() < 0.2) pick(leds).material.color.setHex(pick([0x30ff60, 0xff3030, 0xffd030, 0x101010])); });
+    for (let i = 0; i < 14; i++) { const x = mx + sr(-12, 12), z = mz + sr(-8, 10), L = sr(0.8, 2.2); M(cyl(0.05, 0.05, L, 5), lam(pick([0x1a1a1a, 0xc02020, 0x2050c0])), x, H - L / 2, z, { cast: false }); }
+    { const tx = mx + 6, tz = mz + 6; M(bx(2.4, 2, 2), lam(0x5a5e58), tx, 1, tz, { solid: true }); for (let k = 0; k < 3; k++) M(cyl(0.15, 0.2, 0.7, 8), lam(0x8a6a4a), tx - 0.7 + k * 0.7, 2.35, tz, {}); addBox(tx, tz, 1.2, 1); const tg = glow(tx, 2.6, tz, 0x9ad0ff, 3, 0.3);
+      world.anims.push((dt) => { tg.material.opacity = 0.15 + Math.random() * 0.3; if (Math.random() < dt * 3) sparks({ x: tx + rand(-0.7, 0.7), y: 2.7, z: tz }, 6); }); }
+    for (const [x, z] of [[-12, 0], [12, -4], [-6, 10], [6, 10], [0, -6], [-12, 10], [12, 12]]) spot(mx + x, mz + z); }
+  // el ascensor roto: puertas medio abiertas con luz dentro, la botonera y sillas amontonadas
+  { const [mx, mz] = mid(ZA), ez = ZA.z1 - 0.2;
+    M(bx(5, 3.2, 0.3), lam(0x8a8a90), mx, 1.6, ez, { solid: true }); for (const s of [-1, 1]) M(bx(1.1, 2.6, 0.08), lam(0xb8bcc4), mx + s * 1.05, 1.3, ez - 0.2, {});
+    M(bx(1, 2.6, 0.05), bsc(0xffe8b0), mx, 1.3, ez - 0.1, { cast: false }); glow(mx, 1.3, ez - 0.6, 0xffe0a0, 3, 0.5);
+    M(new THREE.PlaneGeometry(2.4, 0.5), bsc(0xffffff, { map: canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#a01010'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.fillText('FUERA DE SERVICIO', w / 2, 42); }) }), mx, 3, ez - 0.17, { ry: Math.PI, cast: false });
+    const boton = M(bx(0.2, 0.4, 0.06), bsc(0xff3030), mx + 2, 1.4, ez - 0.17, { cast: false }); world.anims.push((dt, t) => { boton.material.color.setHex((t % 1.4) < 0.7 ? 0xff3030 : 0x401010); });
+    addBox(mx, ez, 2.5, 0.3);
+    for (let i = 0; i < 6; i++) { const x = mx - 9 + sr(-1, 1), z = mz - 4 + sr(-1, 1), g = Grp(x, z, sr(0, TAU)); g.position.y = i * 0.45; g.rotation.z = sr(-0.4, 0.4); M(bx(0.5, 0.06, 0.5), lam(0x2a5a8a), 0, 0.45, 0, { p: g }); M(bx(0.5, 0.5, 0.05), lam(0x2a5a8a), 0, 0.72, 0.24, { p: g }); }
+    addCircle(mx - 9, mz - 4, 1.2);
+    for (const [x, z] of [[-12, -6], [12, -6], [-6, 6], [6, 4], [0, -8], [12, 6], [-13, 2]]) spot(mx + x, mz + z); }
+  // ---------- Generador de emergencia (en la sala del centro): una descarga que fríe a los zombis cercanos
+  { const GX = 4.5, GZ = -4.5; M(bx(1.8, 1.6, 1.2), lam(0xc0302a), GX, 0.8, GZ, { solid: true }); M(bx(1.9, 0.2, 1.3), lam(0x2a2a2a), GX, 1.7, GZ, {}); addBox(GX, GZ, 0.9, 0.6);
+    const pal = new THREE.Group(); pal.position.set(GX + 0.95, 1.1, GZ); pal.userData.vivo = 1; world.group.add(pal); M(bx(0.08, 0.5, 0.08), lam(0x1a1a1a), 0, 0.25, 0, { p: pal, cast: false }); pal.rotation.z = 0.6;
+    const gg = glow(GX, 2.2, GZ, 0x9ad0ff, 3, 0.2); let zap = 0;
+    mapUse({ x: GX + 1.8, z: GZ, r: 2.4, t: 'Generador de emergencia', d: 'Lo arrancas a tope: suelta una descarga que fríe a los zombis cercanos y aturde a los demás.', b: 'Arrancar', price: 6, cd: 40, use() {
+      zap = 1.2; pal.rotation.z = -0.6; Sfx.zap(0); Sfx.boom(); player.shake = Math.min(1, player.shake + 0.3); feed('¡Descarga!', 'gold');
+      for (const z of zombies) { if (z.dead || z.net) continue; const d = Math.hypot(z.root.position.x - GX, z.root.position.z - GZ); if (d < 10) { damageZombie(z, 160 * (1 - d / 14), { part: 'body', dir: null }); z.stagger = Math.max(z.stagger || 0, 1.5); sparks({ x: z.root.position.x, y: 1.2, z: z.root.position.z }, 8); } else if (d < 22) z.stagger = Math.max(z.stagger || 0, 1); }
+    } });
+    world.anims.push((dt) => { if (zap > 0) { zap -= dt; gg.material.opacity = 0.4 + Math.random() * 0.5; if (Math.random() < 0.6) sparks({ x: GX + rand(-0.8, 0.8), y: 1.8, z: GZ }, 6); if (zap <= 0) pal.rotation.z = 0.6; } else gg.material.opacity = 0.15 + Math.random() * 0.05; }); }
+  // ---------- Puntos de aparición en las celdas del borde
+  [[0, 8], [0, 15], [17, 3], [17, 9], [17, 15], [8, 0], [14, 0], [3, 17], [14, 17], [0, 0], [17, 17], [0, 17], [17, 0]].forEach(([i, j]) => world.spawns.push({ x: cx(i), z: cx(j), rise: false }));
+  for (const Z of BR3.zonas) { const [mx, mz] = mid(Z); world.spawns.push({ x: mx - 10, z: mz + 10, rise: false }); }
+  for (const sp of world.spawns) { if (!pointBlocked(sp.x, sp.z, 0.9)) continue; for (let r = 0.6; r <= 6; r += 0.4) { let ok = false; for (let k = 0; k < 12; k++) { const a = k / 12 * TAU, x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r; if (insideArena(x, z, 1) && !pointBlocked(x, z, 0.9)) { sp.x = x; sp.z = z; ok = true; break; } } if (ok) break; } }
+  for (const s of world.llvSpots) if (pointBlocked(s.x, s.z, 0.8)) { for (let r = 0.8; r <= 6; r += 0.6) { let ok = false; for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r; if (!pointBlocked(x, z, 0.8)) { s.x = x; s.z = z; ok = true; break; } } if (ok) break; } }
+  fundirEstatico(g0);
+  world.anims.push(llvStep); llvMalla();
+}
 function buildBackrooms() {
   const N = 17, C = 84 / 17, X0 = -42, H = 3.4, A = 42;
   world.arena = { t: 'r', hx: A, hz: A }; world.start = { x: 0, z: 2 }; world.indoor = true;
@@ -23158,7 +23284,7 @@ const LOOKS = {
   'Chef': z => { z.mats[1].color.set(0xf2f2f2); z.mats[2].color.set(0x2a2a2a); clearHat(z); addL(z.head, LG.cyl(0.15, 0.12, 0.26), LM(0xffffff), 0, 0.26, -0.01); addL(z.torso, LG.box(0.42, 0.55, 0.02), LM(0xf8f8f8), 0, -0.1, 0.15); for (let i = 0; i < 3; i++) addL(z.torso, LG.sph(0.015), LM(0x202020), 0.08, 0.2 - i * 0.1, 0.16); }
 };
 const MAP_LOOKS = [['Novia', 'Momia', 'Vaquero', 'Carbonizado', 'Minero'], ['Granjero', 'Vaquero', 'Payaso', 'Ahogado', 'Minero'], ['Bombero', 'Motociclista', 'Soldado', 'Payaso', 'Enfermera', 'Carbonizado'], ['Cajero', 'Chef', 'Enfermera', 'Payaso', 'Oficinista'], ['Payaso', 'Payaso', 'Vaquero', 'Chef', 'Granjero'], ['Oficinista', 'Novia', 'Momia', 'Enfermera', 'Cajero'], ['Ahogado', 'Ahogado', 'Motociclista', 'Cajero', 'Carbonizado'], ['Bombero', 'Soldado', 'Motociclista', 'Carbonizado', 'Enfermera', 'Cirujano'], ['Payaso', 'Chef', 'Cajero', 'Novia', 'Vaquero'], ['Oficinista', 'Cirujano', 'Enfermera', 'Bombero', 'Soldado', 'Motociclista'], ['Minero', 'Minero', 'Carbonizado', 'Soldado', 'Bombero'], ['Cirujano', 'Oficinista', 'Soldado', 'Enfermera', 'Cirujano'], ['Oficinista', 'Oficinista', 'Cajero', 'Momia', 'Novia'], ['Oficinista', 'Chef', 'Enfermera', 'Motociclista', 'Payaso'], ['Granjero', 'Vaquero', 'Payaso', 'Cajero', 'Chef'], ['Soldado', 'Cirujano', 'Momia', 'Carbonizado'], ['Minero', 'Soldado', 'Bombero', 'Granjero', 'Ahogado'], ['Oficinista'], ['Novia', 'Momia', 'Enfermera', 'Cirujano'], ['Ahogado', 'Ahogado', 'Vaquero', 'Cajero'], ['Granjero', 'Novia', 'Momia', 'Payaso'], ['Chef', 'Chef', 'Payaso', 'Cajero'], ['Ahogado', 'Ahogado', 'Ahogado', 'Soldado'], ['Soldado', 'Motociclista', 'Oficinista', 'Bombero'], ['Ahogado', 'Ahogado', 'Granjero', 'Novia', 'Chef'], ['Oficinista', 'Oficinista', 'Motociclista', 'Cajero', 'Enfermera'], ['Cajero', 'Novia', 'Vaquero', 'Payaso', 'Oficinista'], ['Cajero', 'Cajero', 'Chef', 'Oficinista', 'Enfermera'], ['Minero', 'Oficinista', 'Carbonizado', 'Bombero'], ['Ahogado', 'Ahogado', 'Ahogado', 'Novia', 'Momia'],
-  ['Oficinista', 'Oficinista', 'Chef', 'Cajero', 'Enfermera', 'Motociclista']];
+  ['Oficinista', 'Oficinista', 'Chef', 'Cajero', 'Enfermera', 'Motociclista'], null, ['Oficinista', 'Bombero', 'Minero', 'Carbonizado', 'Minero']];   // (null: el casino usa la mezcla de siempre)
 /* ===== Formas de caminar: cada zombi saca una al azar (velocidad propia) ===== */
 const GAITS_WALK = { clasico: 1, arrastra: 0.8, encorvado: 0.95, tambaleante: 0.9, cuellorroto: 1, espasmos: 1.06, colgando: 0.85 };
 const GAITS_RUN = { sprint: 1, atras: 1.06, frenetico: 0.97 };
@@ -23570,7 +23696,8 @@ const NPC_LOOK = [
   { name: 'El técnico', obj: 'al técnico', shirt: 0x6a5a2a, pants: 0x3a3a30, hat: 'cap' },
   { name: 'La arqueóloga submarina', obj: 'a la arqueóloga submarina', shirt: 0x2a6a7a, pants: 0x1a2a3a, hat: null },
   { name: 'El otaku', obj: 'al otaku', shirt: 0x7a2a2a, pants: 0x3a4a6a, hat: null },
-  { name: 'La crupier', obj: 'a la crupier', shirt: 0x1a1a1e, pants: 0x1a1a1e, hat: null }
+  { name: 'La crupier', obj: 'a la crupier', shirt: 0x1a1a1e, pants: 0x1a1a1e, hat: null },
+  { name: 'El electricista', obj: 'al electricista', shirt: 0xa8782a, pants: 0x2a2a30, hat: 'helmet' }
 ];
 const beamGeo = new THREE.CylinderGeometry(0.45, 0.45, 30, 12, 1, true);
 const npcEyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1410 });
@@ -29788,7 +29915,7 @@ function renderTeam(dt) {
   if (html !== teamKey) { teamKey = html; box.innerHTML = html; } box.hidden = false;
 }
 const AMB = ['grillos', 'grillos', 'sirena', 'zumbido', 'feria', 'zumbido', 'olas', 'sirena', 'feria', 'viento', 'goteo', 'zumbido', 'zumbido', 'grillos', 'grillos', null, 'viento', 'fuego', 'viento', 'olas', 'grillos', 'zumbido', 'olas', 'sirena', 'goteo', 'sirena', 'feria', 'feria', 'zumbido', 'goteo',
-  'zumbido', 'feria'];
+  'zumbido', 'feria', 'zumbido'];
 let moodT = 0;
 function moodStep(dt) {
   if (!game || state === 'menu') return; Sfx.amb(state === 'play' ? AMB[world.idx] : null, dt);
