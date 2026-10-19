@@ -22465,8 +22465,8 @@ const BAL = {
   },
   // Máquinas de cartas de la Trastienda (pedido del dueño, 18-oct-2026). p = probabilidad de salir en cada visita (en la versión de prueba, 1 = siempre)
   // Trastienda (bocetos aprobados por el dueño, 19-oct-2026): carrera de caballos 6 % y duelo de dados 5 %; se apuestan fichas de miembro
-  carrera: { p: 0.06, pagos: [2, 3, 4, 6], max: 5, dur: 8 },
-  dados: { p: 0.05, paga: 2, max: 5, porVisita: 3 },   // duelo de dados contra el crupier (empate: se vuelve a tirar)
+  carrera: { p: 0.06, pagos: [1, 1.5, 2, 3], dur: 8 },   // pago = floor(apuesta × x); la probabilidad de cada caballo va al revés de lo que paga (devuelve 0,4 de media). Sin tope de apuesta ni de carreras (decisión del dueño, 19-oct-2026)
+  dados: { p: 0.05, paga: 2 },   // duelo de dados contra el crupier (empate: se vuelve a tirar). Sin tope de apuesta ni de duelos: el único límite son tus fichas (decisión del dueño, 19-oct-2026)
   empuje: { k: 6, max: 4, grandes: 0.25 },   // cada impacto empuja al zombi hacia atrás: velocidad = k × (daño / vida máxima), hasta max; los grandes ×grandes; los jefes no (PENDIENTES 47)
   rompibles: { golpes: 2, p: 0.4, oro: 6 },   // las cajas se rompen a tiros (golpes) y a veces (p) dan oro al que la rompe (PENDIENTES 47)
   secretos: { oro: 20, ficha: 1, trampillaOro: 35, trampillaLlave: 0.35, golpes: 3, vel: 3, velPanico: 5.5, huyeT: 8, huyeDist: 25, reaparece: 25, maxReap: 2, lejos: 14 },   // patito que huye: tiros para cazarlo, velocidades (m/s), segundos para rematarlo tras el primer tiro, distancia a la que se escapa, segundos hasta que vuelve a salir, veces que vuelve, distancia mínima al salir   // patito de oro y trampilla secreta de cada lugar (PENDIENTES 46)
@@ -30291,10 +30291,11 @@ function bjSale(semilla) {   // la mesa sale igual para todo el grupo: depende d
 }
 const bjCarta = () => ({ r: Math.floor(Math.random() * 13), p: Math.floor(Math.random() * 4) });
 function bjValor(m) { let t = 0, a = 0; for (const c of m) { const v = c.r === 0 ? 11 : Math.min(10, c.r + 1); t += v; if (c.r === 0) a++; } while (t > 21 && a) { t -= 10; a--; } return t; }
-function bjNueva() { return { f: 'sentarse', sent: {}, votos: {}, apuesta: 0, mano: [], banca: [], n: 0, res: '', msg: 'Siéntense todos para empezar.' }; }
+function bjNueva() { return { mesa: 0, f: 'sentarse', sent: {}, votos: {}, apuesta: 0, mano: [], banca: [], n: 0, res: '', msg: 'Siéntense todos para empezar.' }; }
 // el anfitrión (o el jugador solo) aplica un voto o acción
 function bjAccion(id, k, v) {
   const B = game.bj; if (!B) return;
+  if (k === 'nueva' && B.f === 'fin') { const nb = bjNueva(); nb.n = B.n; nb.mesa = (B.mesa | 0) + 1; game.bj = nb; bjEnviar(); return; }   // otra mesa: sin límite por visita (decisión del dueño, 19-oct-2026)
   const todos = bjJugadores(), sentados = () => todos.every(j => B.sent[j]);
   if (k === 'sit' && B.f === 'sentarse') { B.sent[id] = 1; if (v && v.as) B.as = 1; if (sentados()) { B.f = 'apuesta'; B.votos = {}; B.msg = todos.length > 1 ? `Voten la apuesta de la mesa: se divide por igual entre los ${todos.length}.` : 'Elige la apuesta.'; } }
   else if (k === 'up' && B.f === 'sentarse') delete B.sent[id];
@@ -30336,11 +30337,15 @@ function bjObjetos() { return { as: S('bjAs') > 0, ver: S('bjVer') > 0 }; }
 function bjMandar(k, v) { if (Net.client) Net.ev(['bjv', k, v]); else bjAccion(bjYo(), k, v); }
 function abrirBj() {
   if (!game.bj) { hint('La mesa todavía se está preparando…', 1200); return; }
-  if (game.bj.f === 'fin') { hint('La mesa ya se cerró en esta visita', 1400); return; }
   if (game.gold < bjParte(BJ.apuestas[0])) { hint(`Para sentarte necesitas al menos ${bjParte(BJ.apuestas[0])} $`, 1600); Sfx.err(); return; }
-  if (game.bjFichaW !== game.wave) {   // sentarse cuesta 1 ficha de miembro por jugador (cada uno paga la suya, una vez por visita)
+  let otraMesa = false;
+  if (game.bj.f === 'fin') {   // la mesa se cerró: se abre otra pagando otra ficha
+    if ((game.poker | 0) < 1) { hint('Para abrir otra mesa necesitas 1 ficha de miembro', 1800); Sfx.err(); return; }
+    game.poker--; game.bjFichaW = game.wave; game.bjFichaMesa = (game.bj.mesa | 0) + 1; Sfx.coin(); feed(`Pagaste 1 ficha de miembro por otra mesa · te quedan ${game.poker}`, 'gold'); renderChips(); bjMandar('nueva'); otraMesa = true;
+  }
+  if (!otraMesa && (game.bjFichaW !== game.wave || (game.bjFichaMesa | 0) !== (game.bj.mesa | 0))) {   // sentarse cuesta 1 ficha de miembro por jugador y por mesa (cada uno paga la suya)
     if ((game.poker | 0) < 1) { hint('Para sentarte a la mesa necesitas 1 ficha de miembro', 1800); Sfx.err(); return; }
-    game.poker--; game.bjFichaW = game.wave; Sfx.coin(); feed(`Pagaste 1 ficha de miembro por tu silla · te quedan ${game.poker}`, 'gold'); renderChips();
+    game.poker--; game.bjFichaW = game.wave; game.bjFichaMesa = game.bj.mesa | 0; Sfx.coin(); feed(`Pagaste 1 ficha de miembro por tu silla · te quedan ${game.poker}`, 'gold'); renderChips();
   }
   state = 'bj'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
   if (!game.bj.sent[bjYo()]) bjMandar('sit', bjObjetos());
@@ -30366,22 +30371,25 @@ function renderBj() {
   else if (B.f === 'resultado') { btn('Otra mano', 'btn', () => bjMandar('next', 'otra'), !!yo || game.gold < (B.parte || B.apuesta)); btn('Retirarse', 'btn2', () => bjMandar('next', 'retirarse'), !!yo); }
   else btn('Volver a la Trastienda', 'btn', cerrarBj);
 }
+const xPago = x => String(x).replace('.', ',');   // x1,5
 const fichaMini = () => `<span class="fmini" aria-hidden="true">${ico('chip')}</span>`;
 /* ===== Carrera de caballos (evento de la Trastienda, 6 %; boceto aprobado por el dueño, 19-oct-2026) =====
-   4 caballos que pagan x2, x3, x4 y x6. Cada jugador apuesta fichas de miembro (las suyas) a un caballo y mira una carrera 2D de unos 8 s.
-   La probabilidad de ganar de cada caballo va al revés de lo que paga (la casa se queda con un poco). Una carrera por visita.
+   4 caballos que pagan x1, x1,5, x2 y x3 (BAL.carrera; decisión del dueño, 19-oct-2026). Cada jugador apuesta fichas de miembro (las suyas) a un caballo y mira una carrera 2D de unos 8 s.
+   La probabilidad de ganar de cada caballo va al revés de lo que paga (devuelve 0,4 de cada ficha de media). Sin límite de carreras: al terminar, «Otra carrera».
    En grupo manda el anfitrión: corre cuando todos apostaron (o dijeron que no); todos ven la misma carrera y las apuestas de cada uno. */
 const CAR_H = [['Relámpago', '#c0201a', '#fff'], ['Tormenta', '#2a6ac0', '#fff'], ['Polvo de oro', '#e8c040', '#1a1208'], ['Sombra', '#3a3a3a', '#fff']];
 const carYo = () => Net.on ? Net.id : 'yo';
 const carNueva = () => ({ f: 'apuesta', bets: {}, gan: -1, seed: 0 });
-function carGanador() {   // al revés de lo que paga: 1/x2, 1/x3, 1/x4, 1/x6
+function carGanador() {   // al revés de lo que paga: 1/x de cada caballo
   const P = BAL.carrera.pagos, w = P.map(x => 1 / x), tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot;
   for (let i = 0; i < w.length; i++) if ((r -= w[i]) < 0) return i; return 0;
 }
 // el anfitrión (o el jugador solo) recibe una apuesta: [caballo, fichas] o null si no apuesta
 function carAccion(id, v) {
+  if (v === 'otra' && game.car && game.car.f === 'corre') { game.car = carNueva(); game.carPag = 0; carEnviar(); return; }   // otra carrera: sin límite de carreras por visita
   const C = game.car; if (!C || C.f !== 'apuesta') return;
-  C.bets[id] = v && v[1] > 0 ? [clamp(v[0] | 0, 0, 3), Math.min(BAL.carrera.max, v[1] | 0)] : [-1, 0];
+  if (v === 'otra') return;
+  C.bets[id] = v && v[1] > 0 ? [clamp(v[0] | 0, 0, 3), Math.max(0, v[1] | 0)] : [-1, 0];
   const todos = bjJugadores(); if (todos.every(j => C.bets[j])) { C.f = 'corre'; C.gan = carGanador(); C.seed = Math.floor(Math.random() * 1e6); }
   carEnviar();
 }
@@ -30391,11 +30399,11 @@ function carMandar(v) { if (Net.client) Net.ev(['carv', v]); else carAccion(carY
 function carLocal() {
   const C = game.car; if (!C) return;
   if (C.f === 'corre' && !game.carPag) {
-    game.carPag = 1; const b = C.bets[carYo()], pago = BAL.carrera.pagos[C.gan], gana = b && b[0] === C.gan && b[1] > 0;
-    if (gana) game.poker = (game.poker | 0) + b[1] * pago;
-    game.carMsg = !b || b[1] <= 0 ? `Ganó ${CAR_H[C.gan][0]}` : gana ? `¡Ganó ${CAR_H[C.gan][0]}! Cobras ${b[1] * pago} fichas de miembro` : `Ganó ${CAR_H[C.gan][0]}. Perdiste ${b[1]} ${b[1] === 1 ? 'ficha' : 'fichas'}`;
+    game.carPag = 1; const b = C.bets[carYo()], pago = BAL.carrera.pagos[C.gan], gana = b && b[0] === C.gan && b[1] > 0, cobra = gana ? Math.floor(b[1] * pago) : 0;
+    if (gana) game.poker = (game.poker | 0) + cobra;
+    game.carMsg = !b || b[1] <= 0 ? `Ganó ${CAR_H[C.gan][0]}` : gana ? `¡Ganó ${CAR_H[C.gan][0]}! Cobras ${cobra} fichas de miembro` : `Ganó ${CAR_H[C.gan][0]}. Perdiste ${b[1]} ${b[1] === 1 ? 'ficha' : 'fichas'}`;
     game.carT0 = performance.now();
-    setTimeout(() => { if (!game) return; feed(game.carMsg, gana ? 'gold' : 'blue'); if (gana) Sfx.cash(); else Sfx.ouch(0, 0.6); renderChips(); C.f2 = 'fin'; if (state === 'carrera') renderCarrera(); }, BAL.carrera.dur * 1000 + 300);
+    setTimeout(() => { if (!game) return; feed(game.carMsg, gana ? 'gold' : 'blue'); if (gana) Sfx.cash(); else Sfx.ouch(0, 0.6); renderChips(); C.f2 = 'fin'; if (game.car && game.car.f === 'corre' && game.car.seed === C.seed) game.car.f2 = 'fin'; if (state === 'carrera') renderCarrera(); }, BAL.carrera.dur * 1000 + 300);   // (en el estado actual: puede haber llegado otra copia)
     Sfx.bell();
   }
   if (state === 'carrera') renderCarrera();
@@ -30411,7 +30419,7 @@ let carSel = 2, carN = 1, carRaf = 0;
 function abrirCarrera() {
   if (!game.car) game.car = carNueva();
   state = 'carrera'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
-  carN = Math.max(1, Math.min(carN, BAL.carrera.max, game.poker | 0)); show('car-s'); renderCarrera();
+  carN = Math.max(1, Math.min(carN, game.poker | 0)); show('car-s'); renderCarrera();
 }
 function cerrarCarrera() { if (state !== 'carrera') return; cancelAnimationFrame(carRaf); show(null); state = 'play'; requestLock(); canvas.focus(); }
 function renderCarrera() {
@@ -30419,19 +30427,20 @@ function renderCarrera() {
   $('#car-pista').innerHTML = CAR_H.map(([n, c, t], i) => `<div class="car-l"><span class="car-num" style="background:${c};color:${t}">${i + 1}</span><div class="car-h" data-i="${i}">${carSvg(c)}</div></div>`).join('');
   const quien = bjJugadores().map(j => { const b = C.bets[j]; return b ? `<span>${bjNombre(j)} → ${b[1] > 0 ? `${b[0] + 1} ${CAR_H[b[0]][0]} · ${b[1]} ${fichaMini()}` : 'no apuesta'}</span>` : `<span class="esp">${bjNombre(j)} · eligiendo…</span>`; }).join('');
   $('#car-grupo').innerHTML = Net.on || mia ? quien : '';
-  $('#car-apuestas').innerHTML = CAR_H.map(([n, c], i) => `<button type="button" class="car-ap${i === (mia ? mia[0] : carSel) ? ' sel' : ''}" data-i="${i}"${mia || corre ? ' disabled' : ''}><span><b style="color:${i === 3 ? '#c8c0b0' : c}">${i + 1}</b> ${n}</span><small>paga x${P[i]}</small></button>`).join('');
+  $('#car-apuestas').innerHTML = CAR_H.map(([n, c], i) => `<button type="button" class="car-ap${i === (mia ? mia[0] : carSel) ? ' sel' : ''}" data-i="${i}"${mia || corre ? ' disabled' : ''}><span><b style="color:${i === 3 ? '#c8c0b0' : c}">${i + 1}</b> ${n}</span><small>paga x${xPago(P[i])}</small></button>`).join('');
   $('#car-nota').textContent = C.f2 === 'fin' ? game.carMsg : corre ? '¡Corren!' : mia ? (Net.on ? 'Esperando a que apueste todo el grupo…' : '') : `Elige un caballo y cuántas fichas de miembro apuestas (tienes ${game.poker | 0}).`;
   const f = game.poker | 0, ok = !mia && !corre && f > 0;
-  $('#car-pie').innerHTML = C.f2 === 'fin' || (corre && mia) ? `<button type="button" class="btn" id="car-ok">Cerrar</button>`
+  $('#car-pie').innerHTML = C.f2 === 'fin' ? `<button type="button" class="btn2" id="car-ok">Cerrar</button><button type="button" class="btn" id="car-otra">Otra carrera</button>` : (corre && mia) ? `<button type="button" class="btn" id="car-ok">Cerrar</button>`
     : mia ? `<button type="button" class="btn2" id="car-ok">Cerrar</button>`
-    : `<div class="car-paso"><button type="button" id="car-menos" aria-label="Una ficha menos"${ok && carN > 1 ? '' : ' disabled'}>−</button><span class="car-ficha">${fichaMini()}</span><b>${f ? carN : 0}</b><button type="button" id="car-mas" aria-label="Una ficha más"${ok && carN < Math.min(BAL.carrera.max, f) ? '' : ' disabled'}>+</button></div>`
+    : `<div class="car-paso"><button type="button" id="car-menos" aria-label="Una ficha menos"${ok && carN > 1 ? '' : ' disabled'}>−</button><span class="car-ficha">${fichaMini()}</span><b>${f ? carN : 0}</b><button type="button" id="car-mas" aria-label="Una ficha más"${ok && carN < f ? '' : ' disabled'}>+</button></div>`
       + (Net.on ? `<button type="button" class="btn2" id="car-no">No apuesto</button>` : '') + `<button type="button" class="btn" id="car-go"${ok ? '' : ' disabled'}>${f ? 'Apostar' : 'Sin fichas'}</button>`;
   $('#car-s').querySelectorAll('.car-ap').forEach(b => b.addEventListener('click', () => { carSel = +b.dataset.i; Sfx.ui && Sfx.ui(); renderCarrera(); }));
   const on = (id, fn) => { const b = $('#' + id); if (b) b.addEventListener('click', fn); };
   on('car-menos', () => { carN = Math.max(1, carN - 1); renderCarrera(); });
-  on('car-mas', () => { carN = Math.min(BAL.carrera.max, game.poker | 0, carN + 1); renderCarrera(); });
+  on('car-mas', () => { carN = Math.min(game.poker | 0, carN + 1); renderCarrera(); });
   on('car-go', () => { const n = Math.min(carN, game.poker | 0); if (n < 1) return; game.poker -= n; Sfx.coin(); renderChips(); carMandar([carSel, n]); });
   on('car-no', () => carMandar(null));
+  on('car-otra', () => { carMandar('otra'); Sfx.ui && Sfx.ui(); });
   on('car-ok', cerrarCarrera);
   // la carrera: cada caballo avanza por su carril
   cancelAnimationFrame(carRaf);
@@ -30462,27 +30471,26 @@ let dadN = 1, dadTO = [];
 function abrirDados() {
   game.dad = game.dad || { n: 0, yo: [0, 0], cr: [0, 0], msg: '', rueda: false };
   state = 'dados'; input.fireHeld = false; gs.aiming = false; if (document.pointerLockElement) document.exitPointerLock();
-  dadN = Math.max(1, Math.min(dadN, BAL.dados.max, game.poker | 0)); show('dad-s'); renderDados();
+  dadN = Math.max(1, Math.min(dadN, game.poker | 0)); show('dad-s'); renderDados();
 }
 function cerrarDados() { if (state !== 'dados' || (game.dad && game.dad.rueda)) return; for (const t of dadTO) clearTimeout(t); show(null); state = 'play'; requestLock(); canvas.focus(); }
-const dadQuedan = () => BAL.dados.porVisita - ((game.dad && game.dad.n) | 0);
 function renderDados() {
   const D = game.dad, f = game.poker | 0, cara = n => n ? dadoCara(n) : `<svg viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="18" fill="#fbf4e2" stroke="#1a1208" stroke-width="4" opacity=".35"/></svg>`;
   const tot = a => a[0] + a[1];
   $('#dad-yo').innerHTML = `<img alt="" src="${charPic(game.char)}"><b>Tú</b><div class="dad-d">${cara(D.yo[0])}${cara(D.yo[1])}</div><span class="dad-t">${D.yo[0] ? tot(D.yo) : ''}</span>`;
   $('#dad-cr').innerHTML = `<i class="dad-cru">${ico('tophat')}</i><b>El crupier</b><div class="dad-d r">${cara(D.cr[0])}${cara(D.cr[1])}</div><span class="dad-t">${D.cr[0] ? tot(D.cr) : ''}</span>`;
-  $('#dad-msg').textContent = D.msg || `Cada uno tira 2 dados: gana el que suma más. El crupier paga x${BAL.dados.paga}; si empatan, se vuelve a tirar. Te quedan ${Math.max(0, dadQuedan())} ${dadQuedan() === 1 ? 'duelo' : 'duelos'} en esta visita.`;
-  const ok = !D.rueda && f > 0 && dadQuedan() > 0;
-  $('#dad-pie').innerHTML = `<div class="car-paso"><button type="button" id="dad-menos" aria-label="Una ficha menos"${ok && dadN > 1 ? '' : ' disabled'}>−</button><span class="car-ficha">${fichaMini()}</span><b>${f ? dadN : 0}</b><button type="button" id="dad-mas" aria-label="Una ficha más"${ok && dadN < Math.min(BAL.dados.max, f) ? '' : ' disabled'}>+</button></div>`
-    + `<button type="button" class="btn2" id="dad-out"${D.rueda ? ' disabled' : ''}>Volver</button><button type="button" class="btn" id="dad-go"${ok ? '' : ' disabled'}>${dadQuedan() <= 0 ? 'Sin duelos' : f ? 'Tirar' : 'Sin fichas'}</button>`;
+  $('#dad-msg').textContent = D.msg || `Cada uno tira 2 dados: gana el que suma más. El crupier paga x${BAL.dados.paga}; si empatan, se vuelve a tirar.`;
+  const ok = !D.rueda && f > 0;
+  $('#dad-pie').innerHTML = `<div class="car-paso"><button type="button" id="dad-menos" aria-label="Una ficha menos"${ok && dadN > 1 ? '' : ' disabled'}>−</button><span class="car-ficha">${fichaMini()}</span><b>${f ? dadN : 0}</b><button type="button" id="dad-mas" aria-label="Una ficha más"${ok && dadN < f ? '' : ' disabled'}>+</button></div>`
+    + `<button type="button" class="btn2" id="dad-out"${D.rueda ? ' disabled' : ''}>Volver</button><button type="button" class="btn" id="dad-go"${ok ? '' : ' disabled'}>${f ? 'Tirar' : 'Sin fichas'}</button>`;
   const on = (id, fn) => { const b = $('#' + id); if (b) b.addEventListener('click', fn); };
   on('dad-menos', () => { dadN = Math.max(1, dadN - 1); renderDados(); });
-  on('dad-mas', () => { dadN = Math.min(BAL.dados.max, game.poker | 0, dadN + 1); renderDados(); });
+  on('dad-mas', () => { dadN = Math.min(game.poker | 0, dadN + 1); renderDados(); });
   on('dad-out', cerrarDados);
   on('dad-go', dadTirar);
 }
 function dadTirar() {
-  const D = game.dad; if (D.rueda || dadQuedan() <= 0) return; const n = Math.min(dadN, game.poker | 0); if (n < 1) return;
+  const D = game.dad; if (D.rueda) return; const n = Math.min(dadN, game.poker | 0); if (n < 1) return;
   game.poker -= n; D.n++; D.apuesta = n; renderChips(); Sfx.coin(); dadRonda();
 }
 function dadRonda() {
@@ -31592,9 +31600,9 @@ function useLabel(o) {
   if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'gata') return { key: 'gata', t: 'La gata', r: '', d: 'La gata del dueño duerme sobre la caja.', b: 'Rascar', ok: true };
-  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin'; const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, se cierra.`, b: cerr ? 'Mesa cerrada' : game.gold < mn ? `Necesitas ${mn} $` : game.bjFichaW === game.wave ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: !cerr && game.gold >= mn && (game.bjFichaW === game.wave || (game.poker | 0) > 0) }; }
-  if (o.kind === 'dados') { const f = game.poker | 0, q = dadQuedan(); return { key: 'dd' + f + q, t: 'Duelo de dados', r: '', d: `Tú contra el crupier: 2 dados cada uno, gana el que suma más. Paga x${BAL.dados.paga}; el empate se vuelve a tirar. Hasta ${BAL.dados.porVisita} duelos por visita. Tienes ${f} fichas de miembro.`, b: q <= 0 ? 'Ya jugaste' : f ? 'Jugar' : 'Sin fichas de miembro', ok: q > 0 && f > 0 }; }
-  if (o.kind === 'carrera') { const C = game.car, f = game.poker | 0, mia = C && C.bets[carYo()]; return { key: 'ca' + f + (C ? C.f + (C.f2 || '') : '') + !!mia, t: 'Carrera de caballos', r: '', d: `Apuesta fichas de miembro a un caballo: pagan x2, x3, x4 y x6. Una carrera por visita. Tienes ${f}.`, b: C && C.f2 === 'fin' ? 'Ver el resultado' : mia ? 'Ver la carrera' : f ? 'Apostar' : 'Sin fichas de miembro', ok: !!(C && (mia || C.f2 === 'fin' || f > 0)) }; }
+  if (o.kind === 'bj') { const B = game.bj, cerr = B && B.f === 'fin', pagada = game.bjFichaW === game.wave && (game.bjFichaMesa | 0) === ((B && B.mesa) | 0); const mn = bjParte(BJ.apuestas[0]); return { key: 'bj' + (B ? B.f : '') + (game.gold >= mn) + (game.poker | 0) + (game.bjFichaW === game.wave), t: 'Blackjack en equipo', r: '', d: `Juegan todos juntos contra la banca. Sentarse cuesta 1 ficha de miembro a cada jugador (tienes ${game.poker | 0}). Para empezar se sientan todos; la apuesta y cada jugada se votan (mínimo ${BJ.apuestas[0]} $, que se paga a partes iguales entre los presentes). Si pierden una mano, la mesa se cierra; pueden abrir otra pagando otra ficha.`, b: game.gold < mn ? `Necesitas ${mn} $` : cerr ? ((game.poker | 0) > 0 ? 'Abrir otra mesa · 1 ficha' : 'Sin fichas de miembro') : pagada ? 'Volver a la mesa' : (game.poker | 0) > 0 ? 'Sentarse · 1 ficha' : 'Sin fichas de miembro', ok: game.gold >= mn && (pagada && !cerr || (game.poker | 0) > 0) }; }
+  if (o.kind === 'dados') { const f = game.poker | 0; return { key: 'dd' + f, t: 'Duelo de dados', r: '', d: `Tú contra el crupier: 2 dados cada uno, gana el que suma más. Paga x${BAL.dados.paga}; el empate se vuelve a tirar. Juega todas las veces que quieras. Tienes ${f} fichas de miembro.`, b: f ? 'Jugar' : 'Sin fichas de miembro', ok: f > 0 }; }
+  if (o.kind === 'carrera') { const C = game.car, f = game.poker | 0, mia = C && C.bets[carYo()]; return { key: 'ca' + f + (C ? C.f + (C.f2 || '') : '') + !!mia, t: 'Carrera de caballos', r: '', d: `Apuesta fichas de miembro a un caballo: pagan ${BAL.carrera.pagos.map(x => 'x' + xPago(x)).join(' · ')}. Corre todas las veces que quieras. Tienes ${f}.`, b: C && C.f2 === 'fin' ? 'Ver el resultado' : mia ? 'Ver la carrera' : f ? 'Apostar' : 'Sin fichas de miembro', ok: !!(C && (mia || C.f2 === 'fin' || f > 0)) }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay 2 platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
@@ -32322,7 +32330,7 @@ function netEvent(p, e) {
   if (t === 'anim') { if (p && p.av && p.av.p3d) { const k = { rec: 'recarga', hab: 'hab' }[e[1]]; if (k) p3dGesto(p.av.p3d, k, p.dual ? 'p' : animSet(MODEL_RED[p.model] || 'paci')); } return; }
   if (t === 'bjv') { if (Net.host && game && game.bj) bjAccion(p.id, e[1], e[2]); return; }
   if (t === 'carv') { if (Net.host && game && game.car) carAccion(p.id, e[1]); return; }
-  if (t === 'cars') { if (!Net.host && game && e[1]) { const f2 = game.car && game.car.f2; game.car = e[1]; if (f2) game.car.f2 = f2; carLocal(); } return; }
+  if (t === 'cars') { if (!Net.host && game && e[1]) { const f2 = game.car && game.car.f2, nueva = e[1].f === 'apuesta'; if (nueva) game.carPag = 0; game.car = e[1]; if (f2 && !nueva) game.car.f2 = f2; carLocal(); } return; }
   if (t === 'bjs') { if (!Net.host && game && e[1]) { game.bj = e[1]; if (!game.roomBj && world.idx === ROOM_IDX && world.room) { game.roomBj = true; world.room.objs.push(buildBlackjack(5.2, 5.0)); } bjLocal(); } return; }   // si la mesa salió por el árbol del anfitrión, también aparece aquí
   if (t === 'po') { if (e[1] === Net.id) { Net.ping = Math.max(1, Math.round(performance.now() - e[2])); if (state === 'inv') pingHud(); } return; }
   if (t === 'ab') { if (game) habRed(p, e); return; }
