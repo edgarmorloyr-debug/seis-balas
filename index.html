@@ -4919,26 +4919,58 @@ function secretosLugar(i) {
   world.secretos = null;
   if (!game || tuto || state === 'menu' || i === ROOM_IDX || i === CASINO_IDX || MAP_WIP.has(i)) return;
   const rng = mulberry32(4242 + i * 131), S = world.secretos = { duck: null, tramp: null };
-  // ---- el patito de oro
-  const p = secSitio(rng, 14);
-  if (p) {
-    const oro = new THREE.MeshLambertMaterial({ color: 0xf0c030, emissive: 0x5a3a04 }), g = new THREE.Group(); g.position.set(p.x, 0, p.z); g.rotation.y = p.ry; world.group.add(g);
+  // ---- el patito que huye (decisión del dueño, 19-oct-2026): sale en un sitio al azar, corretea por el mapa (solo por celdas
+  // libres de la red de caminos: nunca atraviesa paredes), hay que darle 3 veces; al primer tiro entra en pánico y corre más.
+  // Si no lo rematas en unos segundos o se aleja demasiado, se escapa con un «cuac» y vuelve a salir más tarde en otro sitio.
+  {
+    const B_ = BAL.secretos, libre = c => c >= 0 && nav.blk && !nav.blk[c] && nav.mainDist[c] < 1e9;
+    const centro = c => ({ x: nav.ox + (c % nav.nx + 0.5) * nav.cs, z: nav.oz + (Math.floor(c / nav.nx) + 0.5) * nav.cs });
+    const sitioAzar = () => { for (let k = 0; k < 400; k++) { const c = Math.floor(Math.random() * nav.nx * nav.nz); if (!libre(c)) continue; const q = centro(c); if (Math.hypot(q.x - player.pos.x, q.z - player.pos.z) < B_.lejos || Math.hypot(q.x - world.start.x, q.z - world.start.z) < B_.lejos * 0.5 || !insideArena(q.x, q.z, 1)) continue; return c; } return -1; };
+    const oro = new THREE.MeshLambertMaterial({ color: 0xf0c030, emissive: 0x5a3a04 }), g = new THREE.Group(); g.userData.vivo = 1; g.visible = false; world.group.add(g);
     const cuerpo = new THREE.Mesh(SEC_DUCK.cuerpo, oro); cuerpo.scale.set(1, 0.8, 1.25); cuerpo.position.y = 0.17; g.add(cuerpo);
     const cab = new THREE.Mesh(SEC_DUCK.cabeza, oro); cab.position.set(0, 0.2, 0.17); cuerpo.add(cab);
     const pico = new THREE.Mesh(SEC_DUCK.pico, new THREE.MeshLambertMaterial({ color: 0xff7a1a })); pico.rotation.x = Math.PI / 2; pico.position.set(0, 0.18, 0.31); cuerpo.add(pico);
     for (const s of [-1, 1]) { const o = new THREE.Mesh(SEC_DUCK.ojo, new THREE.MeshBasicMaterial({ color: 0x111111 })); o.position.set(s * 0.06, 0.24, 0.26); cuerpo.add(o); }
     const brillo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffd060, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false })); brillo.scale.set(0.8, 0.8, 1); brillo.position.y = 0.25; g.add(brillo);
-    S.duck = { g, x: p.x, z: p.z, hecho: false };
-    world.anims.push((dt, t) => { if (S.duck.hecho) return; g.rotation.z = Math.sin(t * 2.4) * 0.08; brillo.material.opacity = 0.18 + Math.max(0, Math.sin(t * 1.3)) * 0.2; });
-    shootable(cuerpo, () => {
-      if (S.duck.hecho) return; S.duck.hecho = true; g.visible = false;
-      const si = solids.indexOf(cuerpo); if (si >= 0) solids.splice(si, 1); const wi = world.shoots.indexOf(cuerpo); if (wi >= 0) world.shoots.splice(wi, 1);
-      for (let k = 0; k < 30; k++) PA.add(p.x, 0.3, p.z, rand(-2, 2), rand(1.5, 4), rand(-2, 2), rand(0.6, 1.2), rand(0.05, 0.1), 1, rand(0.75, 0.9), 0.2, 1, 3, 0, 0, 0);
-      addGold(BAL.secretos.oro); Sfx.coin();
-      META.sec = META.sec || {}; const nuevo = !META.sec[i]; META.sec[i] = 1;
-      if (nuevo) { game.poker = (game.poker | 0) + BAL.secretos.ficha; renderChips(); banner('¡Secreto encontrado!', `El patito de oro de este lugar · ${Object.keys(META.sec).length} de ${secPool().length}`, 2200); }
-      feed(nuevo ? `Patito de oro: +${BAL.secretos.oro} $ y ${BAL.secretos.ficha} ficha de miembro` : `Patito de oro: +${BAL.secretos.oro} $`, 'gold');
+    const D = S.duck = { g, cuerpo, x: 0, z: 0, hecho: false, on: false, c: -1, prev: -1, sig: -1, golpes: 0, panico: false, panT: 0, reap: 0, esperaT: 0 };
+    const salir = () => { const c = sitioAzar(); if (c < 0) return false; const q = centro(c); D.c = c; D.prev = -1; D.sig = -1; D.x = q.x; D.z = q.z; D.golpes = 0; D.panico = false; D.on = true; g.visible = true; g.position.set(q.x, 0, q.z); if (!solids.includes(cuerpo)) solids.push(cuerpo); if (!world.shoots.includes(cuerpo)) world.shoots.push(cuerpo); return true; };
+    const quitar = () => { D.on = false; g.visible = false; const si = solids.indexOf(cuerpo); if (si >= 0) solids.splice(si, 1); const wi = world.shoots.indexOf(cuerpo); if (wi >= 0) world.shoots.splice(wi, 1); };
+    const escapa = () => { quitar(); Sfx.whoosh && Sfx.whoosh(panOf(g.position)); for (let k = 0; k < 14; k++) P.add(D.x, 0.3, D.z, rand(-1, 1), rand(0.5, 1.5), rand(-1, 1), 0.8, 0.12, 0.95, 0.85, 0.5, 0.5, 0, 0.3, 0.3, 0);
+      if (D.reap < B_.maxReap) { D.reap++; D.esperaT = B_.reaparece; feed('¡Cuac! El patito de oro se escapó… volverá a salir por aquí', ''); } else { D.hecho = true; feed('¡Cuac! El patito de oro se escapó para siempre de este lugar', ''); } };
+    // elige la siguiente celda: sin volver atrás si puede; con pánico, la que más lo aleja de ti
+    const vecina = () => { const i = D.c % nav.nx, j = Math.floor(D.c / nav.nx), op = [];
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= nav.nx || jj >= nav.nz) continue; const c = jj * nav.nx + ii; if (libre(c)) op.push(c); }
+      if (!op.length) return D.c; const sin = op.filter(c => c !== D.prev), L = sin.length ? sin : op;
+      if (D.panico) { L.sort((a, b) => { const qa = centro(a), qb = centro(b); return Math.hypot(qb.x - player.pos.x, qb.z - player.pos.z) - Math.hypot(qa.x - player.pos.x, qa.z - player.pos.z); }); return Math.random() < 0.75 ? L[0] : pick(L); }
+      if (D.sig >= 0 && L.includes(D.sig) && Math.random() < 0.8) return D.sig;   // sigue un rato en la misma dirección y luego gira
+      return pick(L); };
+    D.esperaT = 0.01; D.reap = 0;   // sale al empezar la visita
+    world.anims.push((dt, t) => {
+      if (D.hecho || !game || state !== 'play') return;
+      if (!D.on) { if (D.esperaT > 0 && (D.esperaT -= dt) <= 0 && !salir()) D.esperaT = 3; return; }
+      const v = D.panico ? B_.velPanico : B_.vel, q = centro(D.sig >= 0 ? D.sig : D.c);
+      if (D.sig < 0) D.sig = vecina();
+      const dx = q.x - D.x, dz = q.z - D.z, d = Math.hypot(dx, dz);
+      if (d < 0.05) { const vino = D.c; D.c = D.sig; const i0 = D.c % nav.nx - vino % nav.nx, j0 = Math.floor(D.c / nav.nx) - Math.floor(vino / nav.nx); D.prev = vino; const recto = D.c + j0 * nav.nx + i0; D.sig = recto; D.sig = vecina(); }   // al llegar a la celda: la siguiente (preferible seguir recto)
+      else { const st = Math.min(d, v * dt); D.x += dx / d * st; D.z += dz / d * st; g.rotation.y = Math.atan2(dx, dz); }
+      g.position.set(D.x, Math.abs(Math.sin(t * (D.panico ? 22 : 14))) * 0.06, D.z); cuerpo.rotation.z = Math.sin(t * (D.panico ? 22 : 14)) * 0.18;
+      brillo.material.opacity = 0.18 + Math.max(0, Math.sin(t * 1.3)) * 0.2;
+      if (D.panico) { D.panT -= dt; if (Math.random() < dt * 8) P.add(D.x, 0.1, D.z, rand(-0.3, 0.3), rand(0.2, 0.6), rand(-0.3, 0.3), 0.6, 0.12, 0.6, 0.55, 0.45, 0.4, 0, 0.3, 0.3, 0);
+        if (D.panT <= 0 || Math.hypot(D.x - player.pos.x, D.z - player.pos.z) > B_.huyeDist) escapa(); }
     });
+    shootable(cuerpo, () => {
+      if (D.hecho || !D.on) return;
+      D.golpes++; for (let k = 0; k < 8; k++) PA.add(D.x, 0.3, D.z, rand(-1.5, 1.5), rand(1, 2.5), rand(-1.5, 1.5), 0.5, 0.06, 1, 0.85, 0.3, 1, 3, 0, 0, 0);
+      if (D.golpes === 1) { D.panico = true; D.panT = B_.huyeT; D.sig = -1; feed(`¡Un patito de oro! Dale ${B_.golpes} veces antes de que se escape`, 'gold'); }
+      if (D.golpes < B_.golpes) { Sfx.thud && Sfx.thud(panOf(g.position)); return; }
+      D.hecho = true; quitar();
+      for (let k = 0; k < 30; k++) PA.add(D.x, 0.3, D.z, rand(-2, 2), rand(1.5, 4), rand(-2, 2), rand(0.6, 1.2), rand(0.05, 0.1), 1, rand(0.75, 0.9), 0.2, 1, 3, 0, 0, 0);
+      addGold(B_.oro); Sfx.coin();
+      META.sec = META.sec || {}; const nuevo = !META.sec[i]; META.sec[i] = 1;
+      if (nuevo) { game.poker = (game.poker | 0) + B_.ficha; renderChips(); banner('¡Secreto encontrado!', `El patito de oro de este lugar · ${Object.keys(META.sec).length} de ${secPool().length}`, 2200); }
+      feed(nuevo ? `Patito de oro: +${B_.oro} $ y ${B_.ficha} ficha de miembro` : `Patito de oro: +${B_.oro} $`, 'gold');
+    });
+    quitar();
   }
   // ---- la trampilla secreta (solo en los lugares con zonas de llave): en una de las zonas, siempre la misma
   if (world.zonas && world.zonas.length) {
@@ -22418,7 +22450,7 @@ const BAL = {
   dados: { p: 0.05, paga: 2, max: 5, porVisita: 3 },   // duelo de dados contra el crupier (empate: se vuelve a tirar)
   empuje: { k: 6, max: 4, grandes: 0.25 },   // cada impacto empuja al zombi hacia atrás: velocidad = k × (daño / vida máxima), hasta max; los grandes ×grandes; los jefes no (PENDIENTES 47)
   rompibles: { golpes: 2, p: 0.4, oro: 6 },   // las cajas se rompen a tiros (golpes) y a veces (p) dan oro al que la rompe (PENDIENTES 47)
-  secretos: { oro: 20, ficha: 1, trampillaOro: 35, trampillaLlave: 0.35 },   // patito de oro y trampilla secreta de cada lugar (PENDIENTES 46)
+  secretos: { oro: 20, ficha: 1, trampillaOro: 35, trampillaLlave: 0.35, golpes: 3, vel: 3, velPanico: 5.5, huyeT: 8, huyeDist: 25, reaparece: 25, maxReap: 2, lejos: 14 },   // patito que huye: tiros para cazarlo, velocidades (m/s), segundos para rematarlo tras el primer tiro, distancia a la que se escapa, segundos hasta que vuelve a salir, veces que vuelve, distancia mínima al salir   // patito de oro y trampilla secreta de cada lugar (PENDIENTES 46)
   maquinas: {
     madame: { p: 0.5, fichas: 1, cartas: 3,   // sale como salía la puerta de Madame: 1 de cada 2 visitas   // cada carta: un premio y un castigo
       premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 80, zona: 30 } },
