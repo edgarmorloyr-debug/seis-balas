@@ -175,7 +175,63 @@ const ANIMS = {
     else m.classList.remove('loca');
     return rods;
   },
+  // 6. Cartas boca abajo (dueño, 19-oct-2026: «la apertura de cartas solo queda para apertura de cartas; tragamonedas para tragamonedas»).
+  //    Es la apertura de TODOS los sobres. La tragamonedas (5) queda solo como muestra suelta.
+  async 6(c, k) { return animarCartas(c, k.balas.map(cartaBala), { pack: k.pack, dorso: 'rojo' }); },
 };
+
+// ----- Apertura de cartas (sirve para los sobres de balas y para el sobre azul) -----
+// Una carta: { k, nom, corto, col, grande, leg, ico }. k = 'nada' es una carta en blanco.
+const cartaBala = id => { const r = rareza(id); return { k: 'bala', id, nom: nombre(id), corto: RNOM[r], col: RAREZA[r], grande: RORD[r] >= 2, leg: r === 'S', ico: ficha(id, 1) }; };
+function cartaHTML(c, dorso = 'rojo') {
+  const vac = c.k === 'nada';
+  return `<div class="carta3d ${dorso}"><div class="dorso"><b>ZG</b></div><div class="cara${vac ? ' blanca' : ''}" style="--gc:${c.col || '#888'}">${vac ? '' : `<div class="ico">${c.ico}</div>`}</div></div>`;
+}
+// c: la caja del escenario (coordenadas 360 × c._H). o: { pack (nodo ya puesto) o packSVG, dorso, alVoltear(i, carta) }
+async function animarCartas(c, cartas, o = {}) {
+  const u = uu(c), H = c._H || 240, cy = Math.round(H * .44);
+  let pk = o.pack;
+  if (pk) { pk.classList.remove('quieto'); pk.style.zIndex = 2; await ir(c, pk, 180, cy, 96, 136, 380); }
+  else {
+    pk = pon(c, o.packSVG, 180, cy, 96, 136, 'pack'); pk.style.zIndex = 2;
+    await an(pk, [{ transform: `translateY(${-150 * u}px) rotate(-14deg)`, opacity: 0 }, { transform: 'none', opacity: 1 }], 420, 'cubic-bezier(.2,.9,.3,1.2)');
+    Son.caida();
+  }
+  // tiembla y se rasga
+  for (let i = 0; i < 2; i++) { Son.clac(); await an(pk, [{ transform: 'none' }, { transform: 'rotate(-6deg) scale(1.05)' }, { transform: 'rotate(6deg) scale(1.05)' }, { transform: 'none' }], 240); }
+  Son.rasgar(); FX.estallido(pk, '#ffe9a8', 12);
+  const fl = pon(c, '', 180, cy, 130, 130, 'flash'); fl.style.zIndex = 5;
+  an(fl, [{ transform: 'scale(.2)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 0 }], 420).then(() => fl.remove());
+  an(pk, [{ transform: 'none', opacity: 1 }, { transform: `translateY(${30 * u}px) scale(.6)`, opacity: 0 }], 360, 'ease-in').then(() => pk.remove());
+  // reparte las 3 cartas boca abajo, como en la mesa
+  const X = [68, 180, 292], nodos = [];
+  for (let i = 0; i < 3; i++) {
+    const d = pon(c, cartaHTML(cartas[i], o.dorso), X[i], cy, 96, 144, 'cartaA'); d.style.zIndex = 3;
+    an(d, [{ transform: `translate(${(180 - X[i]) * u}px,${10 * u}px) scale(.4) rotate(${(i - 1) * 40}deg)`, opacity: 0 }, { transform: 'none', opacity: 1 }], 380, 'cubic-bezier(.2,.9,.3,1.15)');
+    Son.ficha(); nodos.push(d); await espera(170);
+  }
+  await espera(450);
+  // les da la vuelta una por una; la última con suspenso
+  for (let i = 0; i < 3; i++) {
+    const d = nodos[i], k = cartas[i];
+    if (i === 2) { d.classList.add('espera'); for (let j = 0; j < 4; j++) { Son.tic(1200 + j * 220, .07); await espera(200); } d.classList.remove('espera'); }
+    else await espera(i ? 420 : 120);
+    Son.whoosh(); d.classList.add('vuelta');
+    await espera(320);
+    if (k.k === 'nada') { d.classList.add('apagada'); Son.clic(); FX.estallido(d, '#8a8a8a', 4); }
+    else {
+      d.style.setProperty('--gc', k.col); d.classList.add('premio', 'glow'); if (k.leg) d.classList.add('leg');
+      // las raras y legendarias: rayos, brillo grande y campana
+      if (k.grande) { d.insertAdjacentHTML('afterbegin', '<i class="rayosp"></i>'); Son.campana(); if (k.leg) Son.jackpot(); FX.rebote(d, 1.12); }
+      else Son.ficha();
+      FX.estallido(d, k.col, k.grande ? 26 : 10, !!k.grande);
+    }
+    d.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${k.k === 'nada' ? '#cfc2a8' : k.col}">${k.corto}</span>`);
+    o.alVoltear?.(i, k);
+  }
+  if (cartas.some(k => k.leg)) Son.acorde();
+  return nodos;
+}
 
 // Brillo final por rareza (todas las aperturas)
 function revelarFinal(nodos, balas, etq = true) {
@@ -211,7 +267,7 @@ function montarEscenario(host, o) {
     caja.querySelector('.toca')?.remove(); st.pack.classList.remove('quieto');
     const balas = sortear(TIER[o.sobre]);
     const nodos = await ANIMS[o.anim](caja, { sobre: o.sobre, balas, pack: st.pack });
-    revelarFinal(nodos, balas, o.anim !== 5);
+    if (o.anim !== 6) revelarFinal(nodos, balas, o.anim !== 5);
     res.innerHTML = 'Te salió: ' + balas.map(id => `<b style="color:${rcol(id)}">${nombre(id)}</b> (${RNOM[rareza(id)]})`).join(', ');
     st.todas.push(...balas); o.alTerminar?.(balas);
     bOtro.textContent = 'Abrir otro'; bOtro.disabled = false; if (bCerrar) bCerrar.disabled = false; st.estado = 'listo';
@@ -234,7 +290,8 @@ function abrirVentanaSobre(o) {
   setTimeout(() => e.abrir(), 350);
   return e;
 }
-// La apertura elegida por el dueño es la Tragamonedas (5): va por defecto en todos los sobres.
-const apElegida = () => guardado('zg_apertura2', 5);
+// Todos los sobres se abren con cartas (6) por defecto (dueño, 19-oct-2026). La tragamonedas (5) ya no es la de por defecto:
+// se usa una clave nueva para que un 5 guardado antes no se quede pegado.
+const apElegida = () => { const n = guardado('zg_apertura3', 6); return n === 5 ? 6 : n; };
 const sobreElegido = () => guardado('zg_sobre', 1);
-const elegirAp = n => guardar('zg_apertura2', n);
+const elegirAp = n => guardar('zg_apertura3', n);
