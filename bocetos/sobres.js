@@ -2,9 +2,9 @@
 const SOBRES = [
   { n: 1, name: 'Naipe del saloon', tier: 'Sobre Standard', d: 'Sobre con el dorso de un naipe, sello de cera y tira para rasgar.' },
   { n: 2, name: 'Cartucho de dinamita', tier: 'Sobre Terminator', d: 'Tres cartuchos atados con cuerda y una mecha que se enciende.' },
-  { n: 3, name: 'Caja de puros', tier: 'Diseño de reserva (Especial)', d: 'Caja de madera con etiqueta dorada, medallas y precinto.' },
+  { n: 3, name: 'Caja de puros', tier: 'Diseño de reserva (Jackpot)', d: 'Caja de madera con etiqueta dorada, medallas y precinto.' },
   { n: 4, name: 'Bolsa de botín', tier: 'Diseño de reserva (Standard)', d: 'Saco de tela con cordón y sello de la casa estampado.' },
-  { n: 5, name: 'Neón del casino', tier: 'Sobre Especial', d: 'Sobre metálico negro con letrero de neón y una mano de zombi.' },
+  { n: 5, name: 'Neón del casino', tier: 'Sobre Jackpot', d: 'Sobre metálico negro con letrero de neón y una mano de zombi.' },
 ];
 const TXT = 'font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700"';
 const RYE = 'font-family="Rye,Georgia,serif"';
@@ -31,7 +31,7 @@ function sobreSVG(n, extra = '') {
   <rect x="104" y="10" width="32" height="320" fill="#b8321f" opacity=".9"/><rect x="104" y="10" width="32" height="320" fill="none" stroke="#ffd27a" stroke-width="2"/>
   <rect x="34" y="120" width="172" height="120" rx="12" fill="#f6ead7" stroke="#ffd27a" stroke-width="5"/>
   <circle cx="56" cy="142" r="14" fill="#ffd27a" stroke="#8a5a18" stroke-width="3"/><circle cx="184" cy="142" r="14" fill="#ffd27a" stroke="#8a5a18" stroke-width="3"/>
-  <text x="120" y="182" text-anchor="middle" ${RYE} font-size="26" fill="#6b1d12">Especial</text><text x="120" y="208" text-anchor="middle" ${TXT} font-size="18" fill="#3b2a1a">RESERVA DE LA CASA</text><text x="120" y="230" text-anchor="middle" ${TXT} font-size="16" fill="#3b2a1a">3 BALAS · MUCHAS A</text>
+  <text x="120" y="182" text-anchor="middle" ${RYE} font-size="26" fill="#6b1d12">Jackpot</text><text x="120" y="208" text-anchor="middle" ${TXT} font-size="18" fill="#3b2a1a">RESERVA DE LA CASA</text><text x="120" y="230" text-anchor="middle" ${TXT} font-size="16" fill="#3b2a1a">3 BALAS · MUCHAS A</text>
   <circle cx="120" cy="290" r="16" fill="#7a0f0a" stroke="#ffd27a" stroke-width="2"/><text x="120" y="296" text-anchor="middle" ${TXT} font-size="16" fill="#ffd27a">ZG</text>`);
   if (n === 4) return w(`<defs><pattern id="bu" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#b08a5a"/><path d="M0 3H6M3 0V6" stroke="#8a6a40" stroke-width="1"/></pattern></defs>
   <path d="M70 70 C40 120 16 200 24 270 C30 320 210 320 216 270 C224 200 200 120 170 70 Z" fill="url(#bu)" stroke="#5a3a1a" stroke-width="4"/>

@@ -31,7 +31,7 @@
   .it .nm{flex:1;text-align:left}
 }
 </style></head><body><div class="frame">
-<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora</h1><span class="lbl">Elige un producto</span><span class="sp"></span><span class="pill"><i></i><b id="pOro">600</b></span><span class="pill" title="Balas normales"><i class="bala"></i><b id="pNor">0</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
+<div class="top"><a class="btn" href="index.html">Menú</a><h1>Expendedora</h1><span class="lbl">Elige un producto</span><span class="sp"></span><span class="pill" title="Oro"><b id="pOro">600</b><span class="dolar">$</span></span><span class="pill" title="Balas normales"><i class="bala"></i><b id="pNor">0</b></span><button class="btn" id="bReiniciar">Reiniciar</button></div>
 <div class="vm">
  <div class="tabs" id="tabs"><span class="tab" data-t="sobres">Sobres</span><span class="tab" data-t="cajas">Cajas</span><span class="tab" data-t="oferta">Oferta de hoy</span></div>
  <div class="col"><div class="sub" id="sub"></div><div class="items" id="items"></div></div>
@@ -40,7 +40,7 @@
 </div>
 <script>
 const PROD = {
-  sobres: { sub: '3 balas especiales al azar · se abren con la Tragamonedas', items: [{ n: SOBRE_DE.Standard, nom: 'Standard', p: 50, d: '3 balas, casi todas comunes' }, { n: SOBRE_DE.Terminator, nom: 'Terminator', p: 100, d: '3 balas: más poco comunes y alguna rara' }, { n: SOBRE_DE.Especial, nom: 'Especial', p: 300, d: '3 balas: muchas raras y a veces una legendaria' }] },
+  sobres: { sub: '3 balas al azar · te llevas 1, 2 o las 3', items: [{ n: SOBRE_DE.Standard, nom: 'Standard', p: 50, d: '3 balas, casi todas comunes' }, { n: SOBRE_DE.Terminator, nom: 'Terminator', p: 100, d: '3 balas: más poco comunes y alguna rara' }, { n: SOBRE_DE.Jackpot, nom: 'Jackpot', p: 300, d: '3 balas: muchas raras y a veces una legendaria' }] },
   cajas: { sub: 'Balas normales para tu arma', items: [{ c: 25, nom: 'Caja de 25', p: 15, d: '25 balas normales' }, { c: 50, nom: 'Caja de 50', p: 25, d: '50 balas normales, más barata por bala' }] },
   oferta: { sub: '1 bala por compra · cada una se vende una sola vez', items: [{ id: 'escarcha' }, { id: 'relampago' }, { id: 'hipnotica' }] },
 };
@@ -54,20 +54,20 @@ function render() {
   $('#items').innerHTML = P.items.map((it, i) => {
     const gone = E.tab === 'oferta' && E.vendidas.has(it.id);
     const img = E.tab === 'sobres' ? sobreSVG(it.n) : E.tab === 'cajas' ? caja(it.c) : ficha(it.id, 1);
-    return `<div class="it${i === E.sel ? ' sel' : ''}${gone ? ' gone' : ''}${E.tab === 'oferta' && i === 0 ? ' hot' : ''}" data-i="${i}"><div class="img">${img}</div><span class="nm">${it.nom || nombre(it.id)}</span><span class="tag"><i></i>${gone ? 'Vendida' : precio(it)}</span></div>`;
+    return `<div class="it${i === E.sel ? ' sel' : ''}${gone ? ' gone' : ''}${E.tab === 'oferta' && i === 0 ? ' hot' : ''}" data-i="${i}"><div class="img">${img}</div><span class="nm">${it.nom || nombre(it.id)}</span><span class="tag">${gone ? 'Vendida' : precio(it) + ' $'}</span></div>`;
   }).join('');
   const it = P.items[E.sel], gone = E.tab === 'oferta' && E.vendidas.has(it.id);
   $('#txt').innerHTML = E.tab === 'oferta' ? `<b style="color:${rcol(it.id)}">${nombre(it.id)}</b> <small>· ${RNOM[rareza(it.id)]} · ${queHace(it.id, 1)}</small>` : `Sobre ${it.nom || ''}`.replace('Sobre Caja', 'Caja') + ` <small>· ${it.d}</small>`;
-  const b = $('#bComprar'); b.textContent = gone ? 'Vendida' : 'Comprar · ' + precio(it); b.disabled = gone || E.ocup;
+  const b = $('#bComprar'); b.textContent = gone ? 'Vendida' : 'Comprar · ' + precio(it) + ' $'; b.disabled = gone || E.ocup;
 }
-function pagar(p) { if (E.oro < p) { FX.toast('No te alcanza el oro', true); return false; } const a = E.oro; E.oro -= p; FX.contar($('#pOro'), a, E.oro, 500, true); Son.moneda(); return true; }
+function pagar(p) { if (E.oro < p) { FX.toast('No te alcanza el dinero', true); return false; } const a = E.oro; E.oro -= p; FX.contar($('#pOro'), a, E.oro, 500, true); Son.moneda(); return true; }
 $('#tabs').onclick = e => { const t = e.target.closest('[data-t]'); if (!t || E.ocup) return; E.tab = t.dataset.t; E.sel = E.tab === 'sobres' ? 1 : 0; Son.clic(); render(); };
 $('#items').onclick = e => { const d = e.target.closest('[data-i]'); if (!d || E.ocup) return; E.sel = +d.dataset.i; Son.clic(); render(); FX.rebote(d.querySelector('.img'), 1.08); };
 $('#bComprar').onclick = async () => {
   if (E.ocup) return; const P = PROD[E.tab], it = P.items[E.sel];
   if (E.tab === 'oferta' && E.vendidas.has(it.id)) return;
   if (!pagar(precio(it))) return;
-  if (E.tab === 'sobres') { E.ocup = true; render(); abrirVentanaSobre({ anim: 6, sobre: it.n, titulo: 'Sobre ' + it.nom, alOtro: () => pagar(it.p), alCerrar: lista => { E.ocup = false; render(); FX.toast(`Guardaste ${lista.length} balas nuevas`); } }); return; }
+  if (E.tab === 'sobres') { E.ocup = true; render(); abrirVentanaSobre({ sobre: it.n, titulo: 'Sobre ' + it.nom, alOtro: () => pagar(it.p), alCerrar: lista => { E.ocup = false; render(); FX.toast(`Guardaste ${lista.length} balas nuevas`); } }); return; }
   E.ocup = true; render(); const img = $(`#items [data-i="${E.sel}"] .img`); Son.resorte();
   if (E.tab === 'cajas') { await FX.volar(img, $('#pNor'), caja(it.c), { w: 70, arco: -80, estela: false }); Son.metal(); const a = E.nor; E.nor += it.c; FX.flotar($('#pNor'), '+' + it.c + ' balas'); await FX.contar($('#pNor'), a, E.nor, 600, true); }
   else { await FX.volar(img, $('#bComprar'), ficha(it.id, 1), { w: 70, arco: -60, color: rcol(it.id) }); Son.metal(); E.vendidas.add(it.id); FX.estallido($('#bComprar'), rcol(it.id), 14, RORD[rareza(it.id)] >= 2); if (RORD[rareza(it.id)] >= 2) Son.campana(); FX.toast(`Compraste ${nombre(it.id)}: va a tu cinturón`); }

@@ -5,15 +5,15 @@
 const PROB_SOBRE_AZUL = 0.03;
 const CAJA_NORMALES = 30;   // balas que trae la «caja de balas normales» (la caja mediana de la expendedora)
 const CARTAS_AZUL = [
-  { k: 'nada', p: 50, nom: 'Nada', corto: 'Nada' },
-  { k: 'miembro', p: 10, nom: 'Ficha de miembro', corto: 'Miembro', col: '#b67cff', grande: true },
+  { k: 'nada', p: 50, nom: 'Carta en blanco', corto: 'Nada', que: 'no trae nada' },
+  { k: 'miembro', p: 10, nom: 'Ficha de miembro', corto: 'Miembro', col: '#b67cff', grande: true, que: '+1 a tu contador de fichas de miembro' },
   { k: 'bala', p: 5, nom: 'Bala al azar', corto: 'Bala' },
-  { k: 'caja', p: 3, nom: `Caja de ${CAJA_NORMALES} balas normales`, corto: 'Caja', col: '#ffd27a', n: CAJA_NORMALES, grande: true },
-  { k: 'b3', p: 5, nom: '3 balas normales', corto: '+3', col: '#e8c06a', n: 3 },
-  { k: 'b12', p: 10, nom: '12 balas normales', corto: '+12', col: '#ffd27a', n: 12 },
-  { k: 'f25', p: 7, nom: 'Ficha de 25 $', corto: '25 $', col: '#5bd17a', oro: 25 },
-  { k: 'pistola', p: 5, nom: 'Arma de la tienda', corto: 'Arma', col: '#6fd3f0', grande: true },
-  { k: 'plato', p: 5, nom: 'Plato de comida', corto: 'Plato', col: '#ff9a4a' },
+  { k: 'caja', p: 3, nom: `Caja de ${CAJA_NORMALES} balas normales`, corto: 'Caja', col: '#ffd27a', n: CAJA_NORMALES, grande: true, que: `${CAJA_NORMALES} balas normales para tu caja` },
+  { k: 'b3', p: 5, nom: '3 balas normales', corto: '+3', col: '#e8c06a', n: 3, que: 'van a tu caja de balas normales' },
+  { k: 'b12', p: 10, nom: '12 balas normales', corto: '+12', col: '#ffd27a', n: 12, que: 'van a tu caja de balas normales' },
+  { k: 'f25', p: 7, nom: 'Ficha de 25 $', corto: '25 $', col: '#5bd17a', oro: 25, que: 'suma 25 $ a tu oro' },
+  { k: 'pistola', p: 5, nom: 'Arma de la tienda', corto: 'Arma', col: '#6fd3f0', grande: true, que: 'arma de la tienda: queda en «Recibiste»' },
+  { k: 'plato', p: 5, nom: 'Plato de comida', corto: 'Plato', col: '#ff9a4a', que: 'plato de comida: queda en «Recibiste»' },
 ];
 // Las armas de la tienda del juego (ARMAS) y los platos del puesto de ramen (COMIDAS, sin el especial de medianoche)
 const ARMAS_TIENDA = ['Pistola con silenciador', 'Glock-18', 'Escopeta básica', 'Rifle de francotirador', 'Ametralladora del mafioso', 'AK-47'];
