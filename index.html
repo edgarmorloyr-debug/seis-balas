@@ -22769,6 +22769,13 @@ const BAL = {
   subeRango: { C: 'B', B: 'A', A: 'S', S: 'X' },
   // G0-4 · Quejidos al recibir un golpe: volumen (tú y tus compañeros), esperas en segundos (suave, normal, fuerte y entre dos quejidos de cualquiera),
   // y cuánto bajan un instante los disparos (agacha, de 0 a 1, durante agachaT s) y la música (musica, durante musicaT s) para que se oigan
+  // G0-5 · Los ayudantes también recargan: balas del cargador y segundos de recarga según su arma (porAyudante cambia uno en particular).
+  // tactica: segundos sin blanco tras los que recargan solos si les quedan menos de la mitad
+  recargaNpc: {
+    arma: { pistol: { cargador: 8, t: 1.5 }, dual: { cargador: 16, t: 2.1 }, rifle: { cargador: 21, t: 2.4 }, smg: { cargador: 30, t: 2 }, shotgun: { cargador: 6, t: 2.6 } },
+    porAyudante: { franco: { cargador: 5, t: 2.8 }, pistolero: { cargador: 6, t: 1.8 } },
+    tactica: 2
+  },
   vozDolor: { vol: 1.8, volOtro: 1.3, esperaSuave: 2.2, espera: 0.85, esperaFuerte: 1.1, entre: 0.35, agacha: 0.45, agachaT: 0.4, musica: 0.55, musicaT: 0.6 },
   slotBase: 6,
   slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
@@ -29973,9 +29980,24 @@ function updateCops(dt) {
     c.armRG.rotation.x = c.swing > 0 ? -2.6 + (0.25 - c.swing) * 10 : lerp(sw * 0.4, -1.5, c.aim); c.armLG.rotation.x = lerp(-sw * 0.4, -1.3, c.aim); c.armLG.rotation.z = lerp(-0.05, 0.5, c.aim);
     if (c.p3d) ally3dPaso(c, spd, dt);
     c.cd -= dt;
-    if (c.burst > 0) { c.burstT -= dt; if (c.burstT <= 0) { c.burst--; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; if (c.tgt && !c.tgt.dead && state === 'play') allyFire(c, c.tgt, D); } }
-    if (c.tgt && c.cd <= 0 && Math.abs(dy) < 0.4 && state === 'play') copShoot(c, c.tgt);
+    if (c.burst > 0) { c.burstT -= dt; if (c.burstT <= 0) { c.burst--; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; if (c.tgt && !c.tgt.dead && state === 'play' && !(c.recT > 0)) allyFire(c, c.tgt, D); } }
+    npcRecarga(c, D, dt);
+    if (c.tgt && c.cd <= 0 && Math.abs(dy) < 0.4 && state === 'play' && !(c.recT > 0)) copShoot(c, c.tgt);
   }
+}
+// G0-5 · Recarga de los ayudantes (cifras en BAL.recargaNpc): cada disparo gasta una bala; con el cargador vacío se paran a recargar con su animación
+const npcCargador = (c, D) => D.melee || D.aoe || !D.gun ? null : BAL.recargaNpc.porAyudante[c.kind] || BAL.recargaNpc.arma[D.gun] || null;
+function npcRecarga(c, D, dt) {
+  const R = npcCargador(c, D); if (!R) return;
+  if (c.balas == null) c.balas = R.cargador;
+  if (c.recT > 0) { c.recT -= dt; c.aim = Math.min(c.aim, 0.3); if (c.recT <= 0) { c.balas = R.cargador; c.recT = 0; Sfx.clink(panOf(c.root.position), volOf(c.root.position, 0.6)); } return; }
+  if (!c.tgt && c.balas < R.cargador / 2) { if ((c.sinBlanco = (c.sinBlanco || 0) + dt) > BAL.recargaNpc.tactica) npcRecargar(c, D); } else c.sinBlanco = 0;
+}
+function npcRecargar(c, D) {
+  const R = npcCargador(c, D); if (!R || c.recT > 0) return;
+  c.recT = R.t / recMul(); c.burst = 0; c.sinBlanco = 0;
+  Sfx.clink(panOf(c.root.position), volOf(c.root.position, 0.5));
+  if (c.p3d) { const set0 = c.kind === 'pandillero' ? 'p' : ALLY_SET[D.gun] || 'p'; p3dGesto(c.p3d, 'recarga', c.p3d.acts[set0 + '_reload'] ? set0 : 'p'); }
 }
 const DECK_FX = ['frita', 'gravedad', 'trampa', 'acida', 'tormenta'];
 function copShoot(c, z) {
@@ -30002,6 +30024,7 @@ function copShoot(c, z) {
   if (D.burst) { c.burst = D.burst - 1; c.burstT = D.gun === 'smg' ? 0.07 : 0.09; }
 }
 function allyFire(c, z, D, muz) {
+  if (c.balas != null) { if (c.balas <= 0) { npcRecargar(c, D); return; } if (--c.balas <= 0) npcRecargar(c, D); }   // G0-5: gasta una bala del cargador
   const sc = effSc() * allyMul(c.lv) * (1 + 0.25 * (c.glv | 0)) * leadMul(c) * (c.dmgX || 1);
   if (c.p3d) { c.p3d.kick = 1; c.p3d.tiro = 0; }
   (muz || c.muzzle).getWorldPosition(_mp); z.torso.getWorldPosition(_tmp);
