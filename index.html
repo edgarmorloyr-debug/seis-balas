@@ -24911,11 +24911,22 @@ function cycleWeapon(dir) {
   const i = own.indexOf(game.equip); equip(own[(i + dir + own.length) % own.length]);
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida'];
-function saveGame() {
+const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV'];
+// G0-2 · Puntos de guardado (pedido del dueño, 19-oct-2026). sv.punto dice dónde se retoma:
+//   'ola'    al empezar una oleada (y al cruzar la puerta hacia la siguiente): se vuelve a jugar desde su inicio, con el MISMO jefe y la misma regla especial
+//   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
+//   'sala'   en la Trastienda (al entrar y tras cada compra): las máquinas, las ofertas y lo comprado quedan igual
+// Salir al menú fuera de pelea guarda en ese mismo punto; salir en plena pelea vuelve al inicio de la oleada. Así no se puede repetir ni volver a tirar nada.
+const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed'];
+function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
   for (const k of SAVE_FIELDS) sv[k] = game[k];
+  const punto = (o && o.punto) || 'ola'; sv.punto = punto; game.puntoAct = punto;
+  if (o && o.wave) sv.wave = o.wave;
+  if (punto === 'sala') for (const k of SALA_FIELDS) { try { sv[k] = JSON.parse(JSON.stringify(game[k] === undefined ? null : game[k])); } catch (e) {} }
+  // las balas que tienes cargadas vuelven a la caja: al retomar se recargan de ella (no se pierden ni se duplican)
+  { const box = (game.box || []).slice(); for (const L of balManos()) for (const b of L || []) if (isLoaded(b) && !String(b).endsWith('*')) box.push(b); sv.box = box; }
   if (game.habMini) { const M = game.habMini, id = M.id || 'minigun'; sv.owned = Object.assign({}, game.owned); if (M.owned === undefined) delete sv.owned[id]; else sv.owned[id] = M.owned; sv.mag = undefined; }
   store.set(SAVE_KEY, sv);
 }
@@ -24933,6 +24944,8 @@ function newGame(sv, run) {
   };
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
+  const punto = sv && sv.punto ? sv.punto : 'ola';
+  if (sv && punto === 'sala') for (const k of SALA_FIELDS) if (sv[k] !== undefined) game[k] = sv[k];
   if (!CHARS[game.char]) game.char = 'sheriff';
   game.slot = game.slot || []; game.balTemp = game.balTemp || {}; game.nextRescue = 1e9; calcStats();
   game.prog0 = progresoFoto();
@@ -24948,7 +24961,8 @@ function newGame(sv, run) {
   shuffleBox(true);
   Object.assign(player, { vy: 0, vx: 0, vz: 0, kx: 0, kz: 0, onGround: true, yaw: 0, pitch: 0, recoil: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100, lastHurt: -99, shake: 0, roll: 0, down: false, webT: 0, frostT: 0 });
   player.hp = player.maxHp = CHAR_VIDA[game.char] || 100;
-  const w0 = sv ? sv.wave : 1, mi = mapForWave(w0);
+  const w0 = sv ? sv.wave : 1, mi = punto === 'sala' ? ROOM_IDX : mapForWave(w0);
+  if (punto !== 'ola') game.wave = w0;
   buildMap(mi);   // siempre de cero: barriles, puertas y objetos vuelven a estar como nuevos
   player.pos.set(world.start.x, 0, world.start.z);
   if (sv) { player.maxHp = sv.maxHp; player.hp = Math.min(sv.hp, sv.maxHp); player.maxSt = sv.maxSt; }
@@ -24956,7 +24970,12 @@ function newGame(sv, run) {
   equip(game.owned[game.equip] && MODELS[game.equip] ? game.equip : CHARS[game.char].gun, true);
   if (sv) for (const k of (sv.allies || new Array(sv.cops || 0).fill('cop'))) spawnCop(ALLY[k] ? k : 'cop');
   if (!sv) applyChar(); else game.eliteMul = (game.skull | 0) >= 3 ? 2 : 1;
-  startWave(w0);
+  if (punto === 'sala') {   // de vuelta en la Trastienda, tal como la dejaste
+    game.routeWave = w0; game.phase = 'room'; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'sala';
+    setTimeout(() => { if (game && game.phase === 'room') hint('De vuelta en la Trastienda · todo sigue como lo dejaste', 3000); }, 400);
+  } else if (punto === 'limpia') {   // la oleada ya está vencida: se sigue con las mismas puertas
+    game.phase = 'cleared'; game.countT = 0; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'limpia'; afterClear();
+  } else startWave(w0);
 }
 const WAVES_PER_MAP = 3, MAP_COUNT = 10, LAST_WAVE = WAVES_PER_MAP * MAP_COUNT;
 // ---- Etapa 3 (decisiones del dueño, 19-oct-2026): la partida son N mapas de 3 oleadas y al final el BIG NEON CASINO (5 oleadas).
@@ -25010,14 +25029,16 @@ function startWave(n) {
   if (mapIni(n)) { game.pot = 0; game.rescuePaid = false; }
   clearWaveMod(); game.shieldW = 0;
   waveSupplies(n);
-  game.waveMod = game.nextMod || null; game.nextMod = null;
+  const F = !Net.on && game.olaFija && game.olaFija.w === n ? game.olaFija : null;   // G0-2: al retomar, la oleada sale igual (mismo jefe y misma regla)
+  game.waveMod = F ? F.nm : game.nextMod || null; game.nextMod = null;
+  game.olaFija = { w: n, nm: game.waveMod ? JSON.parse(JSON.stringify(game.waveMod)) : null, mk: null, boss: null };
   waveStartLocal(n);
-  if (!game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && !casN(n) && Math.random() < 0.2) { const key = pick(Object.keys(WAVE_MODS)); applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
+  if (F ? F.mk : !game.waveMod && !Net.client && n >= 3 && !isMapEnd(n) && !casN(n) && Math.random() < 0.2) { const key = F ? F.mk : pick(Object.keys(WAVE_MODS)); game.olaFija.mk = key; applyWaveMod(key); if (Net.on) Net.ev(['wmod', key]); }
   if (game.waveMod) { if (game.waveMod.count) game.toSpawn = Math.max(4, Math.round(game.toSpawn * game.waveMod.count)); if (game.waveMod.brute) game.bossQ.push('brute'); }
   if (isMapEnd(n)) {
     if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
     else if (!runN() && n === LAST_WAVE && !game.endless) { game.bossPick = BOSSES.findIndex(b => b.id === 'zero'); game.bossQ.push('boss'); sub = '¡Llega el Paciente Cero!'; }
-    else { game.bossPick = pickBoss(); game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
+    else { game.bossPick = F && F.boss != null && BOSSES[F.boss] ? F.boss : pickBoss(); game.olaFija.boss = game.bossPick; game.bossQ.push('boss'); sub = `¡Jefe: ${BOSSES[game.bossPick].name}!`; }
   }
   else if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
   else if (wavePos(n) === 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
@@ -25144,7 +25165,7 @@ function gameOver() {
   updateBest();
 }
 function updateBest() {
-  let sv = store.get(SAVE_KEY, null); if (sv && !(sv.wave >= 2)) { store.set(SAVE_KEY, null); sv = null; }   // una partida recién empezada no se ofrece para continuar
+  let sv = store.get(SAVE_KEY, null); if (sv && !(sv.wave >= 2 || (sv.punto && sv.punto !== 'ola'))) { store.set(SAVE_KEY, null); sv = null; }   // una partida recién empezada no se ofrece para continuar
   const bc = $('#btn-continue');
   bc.hidden = !sv; $('#save-note').hidden = !sv; $('#modo-cards').classList.toggle('solo', !sv);
   if (sv) modoPartida(sv);
@@ -25156,7 +25177,7 @@ function modoPartida(sv) {
   const img = $('#mc-img'); if (img.getAttribute('src') !== CHAR_IMG[ch]) img.src = CHAR_IMG[ch];
   $('#mc-nm').textContent = CHARS[ch].name; const d = $('#mc-df'); d.textContent = DIFF[df].name; d.className = 'df ' + df;
   const N = sv.nMap | 0, tot = N ? WAVES_PER_MAP * N + CAS_OLEADAS : LAST_WAVE, cas = N && w > WAVES_PER_MAP * N && w <= tot;
-  const mapa = cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
+  const mapa = sv.punto === 'sala' ? MAPS[ROOM_IDX].name : cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
   $('#mc-where').textContent = w <= tot ? `Oleada ${w} de ${tot} · ${mapa}` : `Oleada ${w} · ${mapa}`;
   $('#mc-g').textContent = '$ ' + fmt(sv.gold | 0); $('#mc-k').textContent = sv.keys | 0; $('#mc-p').textContent = sv.poker | 0; $('#mc-z').textContent = fmt(sv.kills | 0);
   const sl = (sv.slot || []).filter(e => BALAS[e.k]), ids = sl.map(e => e.k), its = Object.fromEntries(sl.map(e => [e.k, e.lv]));
@@ -28602,6 +28623,7 @@ function updateWave(dt) {
       for (const z of zombies) if (!z.dead && !z.net) { z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false; z.fallDir = Math.random() < 0.5 ? 1 : -1; }
       game.alive = 0;
       waveSummary(); Net.ev(['clear', game.wave]); casOlaFin(game.wave);
+      if (!(game.wave === lastWave() && !game.endless)) saveGame({ punto: 'limpia' });   // G0-2: oleada (o jefe) vencida: lo ganado queda guardado
       if (Net.host && relicTime()) rvPrep();
       if (Net.host && Net.peers.size && !isMapEnd(game.wave) && game.wave >= 2 && Math.random() < 0.2) { game.devilVoteWave = game.wave; game.dvVotes = {}; Net.ev(['devil', game.wave]); }
       for (const c of cops) if (!c.dead) c.hp = Math.min(c.maxHp, c.hp + 40);
@@ -29375,6 +29397,7 @@ function hostProceed() {
   if (game.pendingRoute) { const o = game.pendingRoute; game.pendingRoute = null; takeRoute(o); return; }
   if (isMapEnd(game.wave) && game.routeWave !== game.wave && !(game.wave >= lastWave() && !game.endless)) { openRoute(); return; }
   const ni = mapForWave(game.wave + 1);
+  saveGame({ punto: 'ola', wave: game.wave + 1 });   // G0-2: camino elegido: al volver empiezas la oleada siguiente en el lugar nuevo
   Net.ev(['go', game.wave + 1, ni]);
   if (ni !== world.idx) travel(ni, game.wave + 1);
   else { state = 'play'; game.phase = 'count'; game.countT = 3; renderChips(); }
@@ -30507,7 +30530,11 @@ function openExitDoors() {
    encima aparece un contador con los votos. Cuando todos votaron empieza una cuenta atrás; gana la más votada y, si empatan, una al azar. */
 const RV = { r: 2.6, t: 3 };
 function rvOpts(conLlave) {
-  if (!Net.on) return conLlave || routeOptions();
+  if (!Net.on) {   // G0-2: las puertas no cambian aunque salgas al menú y vuelvas
+    if (conLlave) return conLlave;
+    if (!(game.salidaOpts && game.salidaOpts.w === game.wave)) { game.salidaOpts = { w: game.wave, opts: routeOptions() }; saveGame({ punto: 'limpia' }); }
+    return game.salidaOpts.opts;
+  }
   if (game.exitOpts && game.exitOpts.w === game.wave) return game.exitOpts.opts;
   if (Net.client) return null;
   rvPrep(conLlave); return game.exitOpts.opts;
@@ -30589,7 +30616,7 @@ function prepRoom() {
 }
 function enterRoom() {
   if (player.down) revive();
-  prepRoom(); game.routeWave = game.wave;
+  prepRoom(); game.routeWave = game.wave; saveGame({ punto: 'sala' });   // G0-2: lo que trae la Trastienda queda fijo
   if (document.pointerLockElement && state !== 'play') document.exitPointerLock();
   show(null); travel(ROOM_IDX, game.wave, () => {
     state = 'play'; game.phase = 'room'; renderChips(); requestLock(); canvas.focus();
@@ -31993,6 +32020,7 @@ function backToRoom() {
   if (vend && world.room) { for (const o of world.room.objs) { if (o.surtir) o.surtir(); if (o.auto) o.wait = true; } }
   else if (world.idx === ROOM_IDX) { const p = player.pos.clone(); buildMap(ROOM_IDX); player.pos.copy(p); for (const o of world.room.objs) if (o.auto) o.wait = true; }
   releaseInput();
+  if (world.idx === ROOM_IDX) saveGame({ punto: 'sala' });   // G0-2: cada compra queda guardada
   renderChips(); requestLock(); canvas.focus();
 }
 
@@ -35219,7 +35247,7 @@ $('#btn-tu-menu').addEventListener('click', () => toMenu());
 // (antes el menú se quedaba congelado uno o dos segundos mientras se armaba). En grupo se arma enseguida, como antes, y solo se aclara con un fundido.
 let arrancando = false;
 function fundidoAntes(sv) {
-  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])] || MAPS[0];
+  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[sv && sv.punto === 'sala' ? ROOM_IDX : mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])] || MAPS[0];
   $('#fade-s').textContent = sv && sv.wave ? `Oleada ${w0}` : 'Nivel 1'; $('#fade-t').textContent = M_.name; $('#fade-d').textContent = M_.desc || '';
   el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = '';
 }
@@ -35240,7 +35268,7 @@ function startGameNow(sv) {
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   if (PRUEBA_CASINO && !(sv && sv.wave) && !Net.client && !tuto) irAlCasino(PRUEBA_CASINO.ola);
-  state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
+  if (state !== 'trans') state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   $('#me-pic').src = charPic(game.char);
   renderChips(); requestLock(); canvas.focus();
 }
@@ -35252,12 +35280,25 @@ function pause() {
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
+// G0-2: al salir al menú fuera de pelea se guarda tal cual (en la pelea manda el guardado del inicio de la oleada)
+function guardarAlSalir() {
+  const P = game.puntoAct;
+  if (P === 'sala') saveGame({ punto: 'sala' });
+  else if (P === 'limpia') {
+    if (game.phase === 'cleared') {   // el botín que quedaba en el suelo es tuyo
+      for (const p of pickups) if (isLoot(p)) p.g.position.set(player.pos.x, p.g.position.y, player.pos.z);
+      const st = state, pd = player.down; state = 'play'; player.down = false; try { updatePickups(0); } catch (e) {} state = st; player.down = pd;
+    }
+    saveGame({ punto: 'limpia' });
+  }
+}
 function toMenu(dest) {
   dest = dest === 'inicio' ? 'inicio' : 'menu';   // al morir o ganar, «Menú» vuelve a la portada (Mesa del saloon), no a elegir personaje
   Golpes.limpiar();
   if (I18N.pend) { location.reload(); return; }
   tutoStop(); $('#tuto-end').hidden = true;
   if (game && game.deOn) deadEye(false);
+  if (game && !tuto && !Net.on && !['over', 'win', 'dying', 'menu'].includes(state)) guardarAlSalir();
   netLeave();
   state = 'menu'; game = null; clearActors(); for (let i = cops.length - 1; i >= 0; i--) removeCop(i);
   if (world.idx !== 0) buildMap(0);
