@@ -3,6 +3,62 @@
 Plan ordenado con el dueño (17-oct-2026). Lo de arriba va primero. Cualquier error que reporte el dueño se arregla antes que todo.
 La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 
+## PLAN DE GAMEPLAY (pedido del dueño, 19-oct-2026) · lo que sigue
+Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los errores (G0), luego en orden.
+
+### G0 · Errores que reportó el dueño (van primero)
+1. El mapa 1 dice «El Cementerio» pero lleva a la Granja. **El Cementerio siempre es el mapa 1.**
+2. Puntos de guardado (anti trampa): salió al menú después de vencer al jefe, comprar en la tienda calavera y entrar a la Estación; al volver apareció en el Cementerio contra otro jefe. Definir bien dónde se guarda y que no se pueda repetir ni saltar nada saliendo al menú.
+3. Demasiados textos en pantalla tapan la vista: aplicar en PC la misma solución del teléfono.
+4. Los personajes no se escuchan bien al recibir golpes.
+5. Los NPC (ayudantes) también deben recargar.
+6. Las cajas de la Trastienda tapan la ruleta.
+7. Lag cuando hay explosiones.
+
+### G1 · Historia y deuda con el casino
+- Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
+- Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
+- Al pagar: «¡Esta es solo la primera parte! ¡Págame o te rompo las piernas!». Otras frases: «Hmmm… dinero…», «Sabía que podías hacerlo, eres como un hijo para mí», «Más te vale conseguir el resto pronto».
+- Después del teléfono se pueden usar las 3 puertas de la habitación: eliges camino si tienes la llave. Sin llaves, pierdes. Si no pagas, pierdes.
+- En esa habitación siempre hay juegos de azar.
+- Si pierdes: escena en primera persona, amarrado, 3 golpes hasta morir con la pantalla en rojo.
+- Meta de dinero por oleadas para pagar los rescates: armarse bien y a la vez ir pagando (la gracia del juego).
+
+### G2 · Balas nuevas (roguelike) · primero bocetos y lista para aprobar
+- Se reemplaza todo el sistema de balas actual (queda de referencia) por **40 balas nuevas** con efectos divertidos y útiles. **No se borra nada hasta que el dueño apruebe la lista y la interfaz.**
+- Las balas suben de nivel del 1 al 5 (más nivel, mejores efectos).
+- Cinturón de balas especiales de 8 espacios + un espacio extra con hasta 5 balas; inventario de 6 balas extras.
+- 2 balas iguales = 1 bala de nivel 2. Fusionar 2 balas distintas; la fusión sube de nivel con 1 sola bala de las que la forman.
+- Objetos que amplían el cinturón; balas que multiplican el daño solo por estar ahí; balas pasivas (ej.: bala negra: no se dispara, pero mientras la tengas tus disparos salen en 4 direcciones).
+- La interfaz sale al usar la máquina de balas y la máquina de fusión. Debe sentirse cómoda, dinámica y divertida al subir de nivel. **Enviar 5 modelos de interfaz + una opción 6 donde las mejoras se hacen en la misma expendedora (compra y arreglos).**
+- Probar la mecánica de «pool» roguelike: inventario finito, más combinaciones para subir de nivel.
+
+### G3 · Expendedora, sobres y fichas
+- La expendedora vende: Sobres de balas especiales, Cajas de balas y «Oferta de hoy» (las balas disponibles, 1 por compra). Que se vea claro con imágenes cada producto del menú.
+- Animación cuando eliges las balas y salen de la máquina. Animación después de comprar un sobre.
+- Diseños de sobre y de animación de apertura: encuesta con 5 de cada uno.
+- En grupo: los eventos de la tienda son los mismos para todos (solo cambian los objetos que encuentra cada uno) y las animaciones de las expendedoras las ven todos.
+- Animaciones y sonidos para cada tipo de ficha según su función: jackpot, canje de oro, daño, destrucción de ficha, invocación, control.
+
+### G4 · Contenido y presentación
+- Mapa nuevo: SUPER CUTE MALL.
+- Música de jefes («battle theme 1») y de minijefes («battle 2»).
+- Animaciones comiendo cada cosa.
+- Animaciones, 3D y efectos para zombis y jefes (zombis 3D en curso).
+- Mejorar los mapas con todos los recursos posibles. **Solo serán jugables los mapas con 3 llaves y 3D al máximo; el resto queda fuera hasta estar listo.**
+- Imágenes de mapas y de objetos.
+- Optimizar flujo y efectos de sonido.
+- Mejora y opciones de las habilidades definitivas. Mazos.
+- Agacharse en PC para apuntar mejor.
+
+### G5 · Para analizar con el dueño
+- Mecánicas para generar combos de 10.
+- Las armas tienen espacios y valores diferentes.
+- Mejora constante de bala; balas que solo funcionan con cierto tipo de arma.
+- Las pistolas suben de nivel al usarlas (número) y las cartas dan el multiplicador; la dificultad del nivel mantiene el reto.
+- Balas que dan más espacios de bala y más proyectiles.
+- Activables con el dedo que se cargan: lluvia de flechas, curación, invocación, etc.
+
 ## Etapa 0 · Errores urgentes · HECHA (17-oct-2026)
 1. **Android:** algunos textos durante la partida tapan la pantalla.
 2. **Multijugador:** zombis invisibles (un jugador ve un zombi que el otro no ve) y el invitado recibe daño de zombis que no ve.
