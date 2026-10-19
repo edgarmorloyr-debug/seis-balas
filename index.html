@@ -2318,6 +2318,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
         <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
+        <label for="z3d">Zombis en 3D</label><select id="z3d"><option value="si">Sí (los más cercanos)</option><option value="no">No (más fluido)</option></select>
         <span id="animp-lb">Animaciones 3D</span><button class="btn2" id="btn-animp" type="button">Probar animaciones</button>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select>
         <label for="vvol">Volumen de la voz</label><input type="range" id="vvol" min="0" max="1.5" step="0.05">
@@ -2584,7 +2585,7 @@ const IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const app = $('#app');
 if (IS_TOUCH) app.classList.add('touch');
-const settings = { gfx: store.get('sb_gfx', null), voice: ['off', 'open', 'ptt'].includes(store.get('sb_voice', 'off')) ? store.get('sb_voice', 'off') : 'off', vvol: +store.get('sb_vvol', 1), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), gvol: +store.get('sb_gvol', 1), mvol: +store.get('sb_mvol', 0.8), music: store.get('sb_music', 'map') };
+const settings = { gfx: store.get('sb_gfx', null), voice: ['off', 'open', 'ptt'].includes(store.get('sb_voice', 'off')) ? store.get('sb_voice', 'off') : 'off', vvol: +store.get('sb_vvol', 1), sens: store.get('sb_sens', 1), vol: store.get('sb_vol', 0.8), gvol: +store.get('sb_gvol', 1), mvol: +store.get('sb_mvol', 0.8), music: store.get('sb_music', 'map'), z3d: store.get('sb_z3d', 'si') };
 if (typeof THREE === 'undefined') { $('#loading').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga.'; return; }
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
@@ -23483,7 +23484,6 @@ function buildZombie(type) {
   }
   if ((type === 'walker' || type === 'runner') && !o.hat && Math.random() < 0.45) { z.look = pick(MAP_LOOKS[Math.max(0, world.idx)] || ['Cajero', 'Novia', 'Vaquero', 'Oficinista', 'Chef']); LOOKS[z.look](z); }
   if (ZNUEVO[type]) ZNUEVO[type](z, mk);
-  if (Z3D.on && type === 'walker') z3dPoner(z);
   return z;
 }
 
@@ -23582,6 +23582,7 @@ function spawnZombie(type, x, zz, wave, rise = true) {
   Object.assign(z, { flanker: !d.big && !d.quad && Math.random() < 0.2, flankSide: Math.random() < 0.5 ? 1 : -1, atkCd: 0.5, windup: 0, swing: 0, stagger: 0, flash: 0, burn: 0, burnDps: 0, groanT: rand(1, 6), spitCd: rand(1.5, 3), spitAnim: 0, charge: 0, chargeCd: rand(3, 6), t: 0, dead: false, neckSpurt: 0, headless: false, rage: 0, scream: 0, screamCd: rand(2, 5), lunge: 0, lungeCd: rand(1, 2), tgtT: 0, tk: 'p', tobj: null, los: false, unstuck: 0, ux: 0, uz: 0, chkT: 1.2, lastX: x, lastZ: zz, eating: false, frozen: 0, poison: 0, poisonDps: 0, mark: 0, charm: 0, kbx: 0, kbz: 0, trapped: 0, pulled: false });
   z.root.position.set(x, rise ? -1.9 * z.s : 0, zz); z.root.rotation.y = z.yaw;
   scene.add(z.root); zombies.push(z);
+  if (Z3D.on && Z3D_TIPO[type]) z3dPoner(z);   // su modelo 3D (si no hay demasiados)
   return z;
 }
 function removeZombie(k) { const z = zombies[k]; scene.remove(z.root); z.mats.forEach(m => m.dispose()); zombies.splice(k, 1); }
@@ -25801,11 +25802,11 @@ function goreChunk(p, dir, mat, geo, sp = 3) {
   debris.push({ m, v: new THREE.Vector3((dir ? dir.x : 0) * sp + rand(-1.2, 1.2), rand(1.5, 3.5), (dir ? dir.z : 0) * sp + rand(-1.2, 1.2)), av: new THREE.Vector3(rand(-10, 10), rand(-10, 10), rand(-10, 10)), life: 2.5, t: 0 });
 }
 function addWound(z, mesh, pt, sc = 1) {
-  if (!mesh || !mesh.parent || (z.wounds | 0) >= 7) return; z.wounds = (z.wounds | 0) + 1;
+  if (!mesh || !mesh.parent || (z.wounds | 0) >= 7) return; z.wounds = (z.wounds | 0) + 1; mesh = z3dDe(z, mesh);
   const w = new THREE.Mesh(goreGeo.blob, goreMats.flesh); mesh.worldToLocal(w.position.copy(pt)); w.scale.set(sc, sc * 0.85, sc * 0.6); mesh.add(w);
 }
 function showRibs(z, pt) {
-  z.ribs = true; const t = z.torso, l = t.worldToLocal(pt.clone()), side = l.z >= 0 ? 1 : -1, x = clamp(l.x, -0.1, 0.1), y = clamp(l.y, -0.18, 0.16);
+  z.ribs = true; const t = z3dDe(z, z.torso), l = t.worldToLocal(pt.clone()), side = l.z >= 0 ? 1 : -1, x = clamp(l.x, -0.1, 0.1), y = clamp(l.y, -0.18, 0.16);
   const h = new THREE.Mesh(goreGeo.hole, goreMats.hole); h.position.set(x, y, 0.152 * side); t.add(h);
   for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(goreGeo.rib, goreMats.bone); r.position.set(x, y - 0.09 + i * 0.06, 0.165 * side); r.rotation.z = (i % 2 ? 0.06 : -0.06); t.add(r); }
   const m = new THREE.Mesh(goreGeo.blob, goreMats.meat); m.position.set(x + 0.05, y - 0.02, 0.15 * side); m.scale.set(1.2, 1, 0.5); t.add(m);
@@ -25864,19 +25865,21 @@ function loseLimb(z, k, dir) {
     detach(g, vel);
     if (!left && z.saw) { z.saw = null; z.dmg *= 0.5; }
     if (!left && z.type === 'axer') z.spitCd = 1e9;
-    z.dmg *= ZONE.armLostDmg; stumps.push({ z, node: z.torsoG, off: at, t: 2.4 });
-    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.copy(at); z.torsoG.add(st);
+    z.dmg *= ZONE.armLostDmg; const [nd, of] = z3dMunon(z, at); stumps.push({ z, node: nd, off: of, t: 2.4 });
+    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.copy(of); nd.add(st);
   } else {
     const m = left ? z.legL : z.legR; if (!m || !m.parent) return;
     dropHit(z, m); detach(m, vel);
     if (left) z.legL = new THREE.Object3D(); else z.legR = new THREE.Object3D();
     if (!z.dead && (z.net || z.hp > 0)) makeCrawl(z);
-    stumps.push({ z, node: z.torsoG, off: new THREE.Vector3(left ? -0.12 : 0.12, 0, 0), t: 2.4 });
-    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.set(left ? -0.12 : 0.12, 0, 0); z.torsoG.add(st);
+    const [nd, of] = z3dMunon(z, new THREE.Vector3(left ? -0.12 : 0.12, 0, 0)); stumps.push({ z, node: nd, off: of, t: 2.4 });
+    const st = new THREE.Mesh(goreGeo.stump, goreMats.flesh); st.position.copy(of); nd.add(st);
   }
   _tmp.set(p.x, 1, p.z); bloodBurst(_tmp, d, IS_TOUCH ? 10 : 18, true); addSplat(p.x + d.x * 0.6, p.z + d.z * 0.6, rand(0.3, 0.5));
   Sfx.splat(panOf(p), volOf(p, 0.9));
 }
+// muñón: en un zombi 3D va en el pecho del modelo (en el mismo lugar del mundo)
+function z3dMunon(z, off) { const m = z.z3d && z.z3d.marco.torso; if (!m) return [z.torsoG, off]; z.torsoG.updateMatrixWorld(true); const w = z.torsoG.localToWorld(off.clone()); m.updateMatrixWorld(true); return [m, m.worldToLocal(w)]; }
 // sin una pierna: cae al suelo y sigue arrastrándose, más lento
 function makeCrawl(z) {
   if (z.crawlMode || z.type === 'crawler') return;
@@ -27396,7 +27399,7 @@ function bossHpFor(B) { return B.hp * 0.38 * 3 * DF().hp *   // jefes con el tri
    (sk(1) ? 1.25 : 1) * zoneHp(zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
 function applyBoss(z, idx, opt = {}) {
   const B = BOSSES[idx]; if (!B) return;
-  z.boss = idx; z.B = B; z.bt = 0; z.bst = z.bst | 0; z.gait = null; z.look = null;
+  z3dQuitar(z); z.boss = idx; z.B = B; z.bt = 0; z.bst = z.bst | 0; z.gait = null; z.look = null;   // los jefes siguen de bloques por ahora
   let sc = B.sc; if (B.id === 'mass') { z.gen = opt.gen | 0; sc = B.sc * Math.pow(0.78, z.gen); }
   z.s = sc; z.body.scale.setScalar(sc); z.r = (z.def.quad ? 0.32 : 0.33) * sc;
   if (!opt.net) {
@@ -27414,7 +27417,7 @@ function applyBoss(z, idx, opt = {}) {
 const SLOTZ_P = 0.01, SLOTZ_TIPOS = ['walker', 'crawler', 'runner', 'dog', 'spitter', 'screamer', 'armored', 'copz', 'axer', 'caballero', 'enfermera', 'bloater', 'saw', 'brute', 'maton'];
 function slotPon(z) {
   if (z.slotM || !z.torso) return; z.slotZ = true;
-  const g = new THREE.Group(); g.position.set(0, 0.2, -0.21); g.scale.setScalar(1.2); z.torso.add(g); z.slotM = g;   // asoma por encima de los hombros: se ve también de frente
+  const g = new THREE.Group(); g.position.set(0, 0.2, -0.21); g.scale.setScalar(1.2); z3dDe(z, z.torso).add(g); z.slotM = g;   // asoma por encima de los hombros: se ve también de frente
   addL(g, LG.box(0.36, 0.44, 0.2), LM(0xa01a2a, { emissive: 0x200408 }), 0, 0, 0);
   addL(g, LG.box(0.38, 0.05, 0.22), LM(0xd8a838, { emissive: 0x403008 }), 0, 0.23, 0);
   const t = slotScreenT.clone(); t.needsUpdate = true; z.slotT = t;
@@ -27783,7 +27786,7 @@ function makeElite(z, k, net) {
     if (k === 'giant') { z.maxHp *= 2; z.hp = z.maxHp; z.dmg *= 1.4; }
     feed(`¡Zombi élite: ${ELITE[k].name}!`, 'red');
   }
-  if (k === 'giant') { z.s *= 1.4; z.body.scale.setScalar(z.s); z.r *= 1.4; }
+  if (k === 'giant') { z.s *= 1.4; z.body.scale.setScalar(z.s); z.r *= 1.4; if (z.z3d) z.z3d.I.m.scale.multiplyScalar(1.4); }
 }
 /* ---- Minijefes: uno propio por cada lugar. Sale una vez, en la segunda oleada del lugar ---- */
 // ab = su habilidad · base = cuerpo de zombi que usa · sc = tamaño · tint = color de la ropa · glow = color de su aura · hat = lo que lleva en la cabeza
@@ -27865,6 +27868,7 @@ function miniHat(z, k) {
 // Convierte un zombi recién nacido en el minijefe del lugar
 function applyMini(z, idx, net) {
   const M = MINIS[idx]; if (!M) return;
+  z3dQuitar(z);   // los minijefes siguen de bloques por ahora
   z.mini = M; z.miniIdx = idx; z.mt = 0; z.mT2 = 0;
   z.s *= M.sc; z.body.scale.setScalar(z.s); z.r *= M.sc;
   if (z.mats && z.mats[1]) { z.mats[1].color.setHex(M.tint); z.mats[1].map = null; z.mats[1].needsUpdate = true; }
@@ -29282,7 +29286,7 @@ function retarget(z, canAttack) {
 }
 const _zp = new THREE.Vector3();
 function updateZombies(dt, canAttack) {
-  if (Z3D.list.length) z3dPaso(dt);
+  if (Z3D.list.length || Z3D.on) z3dPaso(dt);
   for (let k = zombies.length - 1; k >= 0; k--) {
     const z = zombies[k]; z.t += dt;
     if (z.flash > 0) z.flash -= dt;
@@ -29295,7 +29299,7 @@ function updateZombies(dt, canAttack) {
     if (!z.dead) { if (z.frozen > 0) { eg += 0.35; eb += 0.75; } if (z.poison > 0) eg += 0.3; if (z.charm > 0) { er += 0.4; eb += 0.3; } if (z.mark > 0) er += 0.12 + 0.12 * Math.sin(z.t * 10); }
     if (z.charm > 0) { z.charm -= dt; if (z.charm <= 0) z.tgtT = 0; }
     if (er > 0 || z.eOn) { for (const m of z.mats) m.emissive.setRGB(er, eg, eb); z.eOn = er > 0; }
-    if (z.neckSpurt > 0) { z.neckSpurt -= dt; z.neck.getWorldPosition(_zp); for (let i = 0; i < 2; i++) P.add(_zp.x, _zp.y, _zp.z, rand(-0.6, 0.6), rand(1.5, 3.5) * z.neckSpurt, rand(-0.6, 0.6), rand(0.8, 1.6), rand(0.03, 0.06), 0.42, 0.02, 0.02, 1, 9.8, 0.4, 0, 1); }
+    if (z.neckSpurt > 0) { z.neckSpurt -= dt; (z.z3d && z.z3d.I.B.NeckTwist01 || z.neck).getWorldPosition(_zp); for (let i = 0; i < 2; i++) P.add(_zp.x, _zp.y, _zp.z, rand(-0.6, 0.6), rand(1.5, 3.5) * z.neckSpurt, rand(-0.6, 0.6), rand(0.8, 1.6), rand(0.03, 0.06), 0.42, 0.02, 0.02, 1, 9.8, 0.4, 0, 1); }
     if (z.dead) {
       z.deadT += dt;
       const ft = clamp(z.deadT / 0.6, 0, 1);
@@ -32488,7 +32492,7 @@ function applySnapshot(s) {
     if (!z) {
       if (a[6] & 1) continue;
       if (a[1] < 0) { zPedir(a[0]); continue; }   // sin el tipo todavía: se le pide al anfitrión y se crea con el próximo envío
-      z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4];
+      z = spawnZombie(ZTYPES[a[1]], a[2], a[3], s.w, false); z.state = 'chase'; z.net = true; z.id = a[0]; z.root.position.y = a[5]; z.yaw = a[4]; if (z.z3d) { z3dQuitar(z); z3dPoner(z); }   // el mismo cuerpo y la misma ropa que ve el anfitrión (salen del número del zombi)
       if (z.type === 'caballero') armarCaballero(z);
       if (a[8] >= 0) { z.bst = a[9] | 0; applyBoss(z, a[8], { net: true, gen: a[9] | 0 }); const B = BOSSES[a[8]]; if (B && !B.helper && !B.final && !(a[9] | 0) && (B.id !== 'mass')) { const j = CAS_JEFES.indexOf(B.id); bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub }); } }
       if (a[10] >= 0) makeElite(z, ELITE_KEYS[a[10]], true);
@@ -32720,7 +32724,9 @@ function setAvGun(av, p) {
 }
 /* ===== Los personajes en 3D (modelos de Tripo con esqueleto y animaciones: quieto, caminar y correr) =====
    Se cargan solo cuando hacen falta. Mientras tanto (o si no cargan) se ve el muñeco de bloques de siempre. */
-const P3D = { cache: {}, esperan: {}, v: 5 };   // v2: personajes de Mixamo con dedos
+const P3D = { cache: {}, esperan: {}, v: 5 };
+// modelos 3D de los zombis (modelos/zombis/): cada tipo usa uno de estos cuerpos (PENDIENTES 43)
+const ZOMBI_FILES = new Set(['zombi_h', 'zombi_m']);   // v2: personajes de Mixamo con dedos
 // ayudantes y escuadras con su propio modelo 3D (los demás siguen de bloques); las maids van con su mapa
 const NPC3D = { cop: 'cop', swat: 'swat', bill: 'bill', ayudante: 'ayudante', maid_rubia: 'maid_rubia', maid_rosa: 'maid_rosa', maid_plata: 'maid_plata',
   pistolero: 'pistolero', pandillero: 'pandillero', carlos: 'granjero', rebeca: 'rebeca', ursula: 'ursula', contador: 'contador', recargador: 'recargador', franco: 'franco', dinamitero: 'dinamitero', carnicero: 'carnicero' };
@@ -32768,14 +32774,14 @@ const esSombra = ch => ch === 'ludo';
 function p3dSombra(obj) { obj.traverse(o => { if (o.isMesh) o.material = o.isSkinnedMesh ? SOMBRA.sk : SOMBRA.rig; }); }
 function p3dCargar(ch, cb) {
   ch = P3D_ALIAS[ch] || ch;
-  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : null;
+  const dir = CHARS[ch] ? 'personajes' : NPC3D_FILES.has(ch) ? 'npc' : ch === 'zombi_comun' ? '.' : ZOMBI_FILES.has(ch) ? 'zombis' : null;
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils || !dir) return;
   if (P3D.cache[ch]) { if (cb) cb(P3D.cache[ch]); return; }
   const w = P3D.esperan[ch] || (P3D.esperan[ch] = []); if (cb) w.push(cb); if (w.cargando) return; w.cargando = true;
   new THREE.GLTFLoader().load(`modelos/${dir}/${ch}.glb?v=${P3D.v}`, g => {
     const m = g.scene, b = new THREE.Box3().setFromObject(m);
     m.updateMatrixWorld(true); p3dSanear(m);
-    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; o.material = new THREE.MeshLambertMaterial({ map: o.material.map, color: o.material.map ? 0xffffff : o.material.color, skinning: !!o.isSkinnedMesh }); } });   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
+    m.traverse(o => { if (o.isMesh) { o.castShadow = false; o.geometry.computeBoundingSphere(); o.geometry.boundingSphere.radius *= 1.7; o.frustumCulled = true; const mt = o.material; o.material = new THREE.MeshLambertMaterial({ map: mt.map, color: mt.color, skinning: !!o.isSkinnedMesh, transparent: mt.transparent, opacity: mt.opacity, alphaTest: mt.alphaTest, side: mt.side }); } });   // con su color y su transparencia (pelo con recorte)   // sin sombra (las piezas sin textura, como los audífonos de Ludo, guardan su color) y sin dibujarse fuera de pantalla: en grupo hay muchos personajes 3D
     const C = { ch, m, clips: g.animations.slice(), h: b.max.y - b.min.y || 1, minY: b.min.y };
     const listo = () => { P3D.cache[ch] = C; for (const f of w.splice(0)) f(C); };
     // animaciones extra (disparar, golpe, caída, festejo, mirar alrededor, rascarse…) en un archivo aparte, más liviano
@@ -32783,7 +32789,7 @@ function p3dCargar(ch, cb) {
       for (const c of list) C.clips.push(new THREE.AnimationClip(c.name, c.d, c.tracks.map(t => new (t.k === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(t.n, t.t, t.v))));
     }).catch(() => {})
       // animaciones de combate de Mixamo (compartidas por todos los modelos); si no llegan, quedan las de antes
-      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
+      .then(() => ANIME.listo).then(() => Promise.all((ch === 'zombi_comun' || ZOMBI_FILES.has(ch) ? ['zombi'] : ANIM_GRUPOS.concat(ANIM_CUERPO.has(ch) || ['quieto', 'caminar', 'correr'].some(k => animElegidas(ch, k).some(n => /^[um]_/.test(n))) ? ['cuerpo'] : [])).map(animBajar))).then(gs => { const n = animParaModelo(C, gs.filter(Boolean)); C.clips.push(...n); C.mx = n.length > 0; }).catch(() => {})
       .finally(listo);
   }, undefined, () => {});
 }
@@ -33188,50 +33194,148 @@ function animpCopiar() {
   const t = animpTexto(), ok = () => { $('#animp-msg').textContent = 'Copiado. Pégalo en el chat para que quede igual para todos los jugadores.'; };
   try { navigator.clipboard.writeText(t).then(ok, () => prompt('Copia este texto:', t)); } catch (e) { prompt('Copia este texto:', t); }
 }
-/* ===== Zombi común en 3D con las animaciones de zombi de Mixamo (de prueba: se activa con ?zombi3d en el enlace) =====
-   Cada zombi elige su forma de caminar, de correr y de atacar, y camina a su propio ritmo (no se ven todos iguales).
-   El cuerpo de bloques queda invisible pero sigue recibiendo los tiros; si le arrancan un brazo, una pierna o la cabeza, al modelo también. */
-const Z3D = { on: /[?&]zombi3d\b/.test(location.search), list: [] };
-if (Z3D.on) setTimeout(() => p3dCargar('zombi_comun'), 0);
+/* ===== Zombis en 3D (PENDIENTES 43): cada tipo con su modelo, su ropa y sus cosas =====
+   El cuerpo de bloques sigue ahí, invisible: recibe los tiros (cabeza, cuerpo, piernas), choca y hace todo lo de siempre.
+   El modelo 3D se anima según lo que hace el zombi (caminar, correr, arrastrarse, atacar, morder, gritar, recibir golpes, morir, levantarse).
+   Lo que lleva encima (casco, gorra, motosierra, hacha, cuchillos, placas, escudo…) pasa a los huesos del modelo.
+   Si arrancan la cabeza o un brazo o una pierna, ese pedazo del modelo sale volando y en el modelo desaparece.
+   Con muchos zombis a la vez (o con «Zombis en 3D: no» en Gráficos), los demás quedan de bloques, como antes. */
+const Z3D = { luz: 1.6, vivos: 0, on: /[?&]zombi3d\b/.test(location.search) || settings.z3d !== 'no', list: [], max: IS_TOUCH ? 14 : 26, ms: 0, piezas: {} };
+// por tipo: cuerpos posibles, ropa [camisa, pantalón] y forma (escala del pecho y de los brazos)
+const Z3D_TIPO = {
+  walker: { c: ['zombi_h', 'zombi_h', 'zombi_m'], ropa: [[0x8a8a78, 0x4a4a52], [0x9a5a4a, 0x3a4a62], [0x5a6a7a, 0x4a3a30], [0xa8a898, 0x50503a], [0x7a3434, 0x3a3a40], [0x5a6a4a, 0x40362c]] },
+  runner: { c: ['zombi_h', 'zombi_m'], ropa: [[0xc8c8be, 0x404048], [0x4a6a8a, 0x34343a], [0x8a3a3a, 0x2a2a30]], forma: { pecho: [0.9, 1, 0.9] } },
+  crawler: { c: ['zombi_h', 'zombi_m'], ropa: [[0x8a8a78, 0x4a4a52], [0x6a5a4a, 0x3a3a40]], arrastra: true },
+  screamer: { c: ['zombi_m'], ropa: [[0xe0d8d0, 0x6a5a6a], [0xa83a5a, 0x34303a], [0x7a8aa0, 0x3a3a46]], forma: { pecho: [0.85, 1.05, 0.85] } },
+  copz: { c: ['zombi_h'], ropa: [[0x2a3c66, 0x1c2232]] }
+};
+if (Z3D.on) setTimeout(() => { for (const f of ZOMBI_FILES) p3dCargar(f); }, 0);
+// geometrías del cuerpo de bloques (lo que no es esto, es algo que lleva encima)
+const Z3D_BASE = new Set([ZG.socket, ZG.nose, ZG.jaw, ZG.mouth, ZG.bigMouth, ZG.tooth, ZG.hair, ZG.hand, ZG.rib, ZG.foot, ZG.head, ZG.torso, ZG.arm, ZG.leg]);
+const _zq = new THREE.Quaternion(), _zq2 = new THREE.Quaternion(), _zv = new THREE.Vector3(), _zv2 = new THREE.Vector3(), _zs = new THREE.Vector3(), _zm = new THREE.Matrix4();
+// un «marco» pegado a un hueso que se para donde estaba la pieza de bloques (misma posición, mismo giro y mismo tamaño)
+function z3dMarco(hueso, pieza, raiz, k = 1) {
+  const m = new THREE.Group(); hueso.add(m); hueso.updateMatrixWorld(true);
+  pieza.getWorldPosition(_zv); hueso.worldToLocal(m.position.copy(_zv));
+  raiz.getWorldQuaternion(_zq); hueso.getWorldQuaternion(_zq2); m.quaternion.copy(_zq2.invert().multiply(_zq));
+  pieza.getWorldScale(_zs); hueso.getWorldScale(_zv2); m.scale.set(_zs.x / _zv2.x, _zs.y / _zv2.y, _zs.z / _zv2.z).multiplyScalar(k);
+  return m;
+}
+// el marco de un brazo: en la mano, con el brazo hacia abajo (−y) como el de bloques
+function z3dMarcoMano(I, s, pieza, raiz) {
+  const h = I.B[s + '_Hand'], f = I.B[s + '_Forearm']; if (!h || !f) return null;
+  const m = new THREE.Group(); h.add(m); h.updateMatrixWorld(true);
+  const ph = h.getWorldPosition(new THREE.Vector3()), dir = ph.clone().sub(f.getWorldPosition(new THREE.Vector3())).normalize();
+  raiz.getWorldQuaternion(_zq); const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(_zq), y = dir.clone().negate(), zz = fw.addScaledVector(y, -fw.dot(y)).normalize(), x = new THREE.Vector3().crossVectors(y, zz);
+  _zq.setFromRotationMatrix(_zm.makeBasis(x, y, zz)); h.getWorldQuaternion(_zq2); m.quaternion.copy(_zq2.invert().multiply(_zq));
+  h.worldToLocal(m.position.copy(ph));
+  pieza.getWorldScale(_zs); h.getWorldScale(_zv2); m.scale.set(_zs.x / _zv2.x, _zs.y / _zv2.y, _zs.z / _zv2.z);
+  return m;
+}
 function z3dPoner(z) {
-  const C = P3D.cache.zombi_comun; if (!C || !C.mx) { p3dCargar('zombi_comun'); return; }
-  const I = p3dCopia(C, 1.78 * (z.s || 1)); I.m.rotation.y = P3D.giro; z.root.add(I.m);
-  z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id)) o.visible = false; });
+  const T = Z3D_TIPO[z.type]; if (!T || z.z3d || !Z3D.on) return;
+  if (z.mini || z.boss != null || z.dead || z.lost || z.headless) return;
+  if (Z3D.vivos >= Z3D.max) return;   // muchos zombis a la vez: este queda de bloques (cuando se libera un lugar, el más cercano pasa a 3D)
+  const cu = T.c[Math.floor(tirada(z.id, 7) * T.c.length)], C = P3D.cache[cu];
+  if (!C || !C.mx) { p3dCargar(cu); return; }
+  const I = p3dCopia(C, 1.78 * (z.s || 1)); I.m.rotation.y = P3D.giro; z.root.add(I.m); I.cu = cu;
+  // materiales propios: el destello del golpe, el fuego, el hielo y el veneno se ven en el modelo (z.mats)
+  const ropa = T.ropa ? T.ropa[Math.floor(tirada(z.id, 8) * T.ropa.length)] : null;
+  I.mallas = []; I.m.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (ropa && o.name === 'material') o.material.color.setHex(ropa[0]); if (ropa && o.name === 'Bottom') o.material.color.setHex(ropa[1]); if (!/Hair/.test(o.name)) o.material.color.multiplyScalar(Z3D.luz); z.mats.push(o.material); I.mallas.push(o); });
+  if (T.forma && T.forma.pecho && I.B.Spine01) { I.B.Spine01.scale.set(...T.forma.pecho); if (I.B.NeckTwist01) I.B.NeckTwist01.scale.set(1 / T.forma.pecho[0], 1 / T.forma.pecho[1], 1 / T.forma.pecho[2]); }
   z.root.updateMatrixWorld(true);
-  const lado = n => { const v = new THREE.Vector3(); I.B[n].getWorldPosition(v); z.root.worldToLocal(v); return v.x; };
+  const lado = n => { I.B[n].getWorldPosition(_zv); z.root.worldToLocal(_zv); return _zv.x; };
   const brazo = lado('L_Upperarm') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' }, pierna = lado('L_Thigh') < 0 ? { L: 'L_', R: 'R_' } : { L: 'R_', R: 'L_' };
-  const A = { I, brazo, pierna, partes: { armL: z.armLG, armR: z.armRG, legL: z.legL, legR: z.legR, head: z.head }, vistas: {},
-    walk: pick(['z_walk1', 'z_walk2', 'z_walk4']), run: pick(['z_run1', 'z_run2']), atk: pick(['z_attack1', 'z_attack2', 'z_punch', 'z_bite']), hit: pick(['z_hit1', 'z_hit2']), ritmo: rand(0.85, 1.15), px: z.root.position.x, pz: z.root.position.z, v: 0, acc: 0 };
-  z.z3d = A; Z3D.list.push(z);
+  // marcos: cabeza, pecho y manos
+  const marco = {};
+  if (z.head && I.B.Head) { marco.head = z3dMarco(I.B.Head, z.head, z.root, 0.74); marco.head.position.y -= 0.03 / (I.B.Head.getWorldScale(_zs).y || 1); }   // la cabeza del modelo es más chica que la de bloques
+  if (z.torso && I.B.Spine02) marco.torso = z3dMarco(I.B.Spine02, z.torso, z.root, 0.82);
+  if (z.armL) marco.armL = z3dMarcoMano(I, brazo.L.slice(0, 1), z.armL, z.root);
+  if (z.armR) marco.armR = z3dMarcoMano(I, brazo.R.slice(0, 1), z.armR, z.root);
+  // lo que lleva encima pasa a los marcos
+  const movidos = [], mueve = (par, m, dy) => { if (!par || !m) return; for (const o of par.children.slice()) { if (o.isMesh && Z3D_BASE.has(o.geometry)) continue; if (o === z.jaw) continue; movidos.push([o, par, o.position.clone(), o.scale.clone()]); m.add(o); if (dy) o.position.y += dy; if (o.geometry === ZG.eye) { o.scale.multiplyScalar(0.5); o.position.z += 0.012; } } };   // los ojos brillan con el color de su tipo
+  mueve(z.head, marco.head); mueve(z.torso, marco.torso); mueve(z.armL, marco.armL, 0.68); mueve(z.armR, marco.armR, 0.68);
+  // el cuerpo de bloques se vuelve invisible (sigue recibiendo tiros y sus hijos de adorno se siguen viendo)
+  const mat0 = new Map(); z.root.traverse(o => { if (o.isMesh && !I.m.getObjectById(o.id) && !o.userData.z3dProp) { mat0.set(o, o.material); o.material = P3D.invisible; } });
+  for (const k in marco) if (marco[k]) marco[k].traverse(o => { if (o.isMesh && mat0.has(o)) { o.material = mat0.get(o); mat0.delete(o); } });
+  z.det = null;
+  const A = { I, brazo, pierna, marco, mat0, movidos, partes: { armL: z.armLG, armR: z.armRG, legL: z.legL, legR: z.legR, head: z.head }, vistas: {},
+    walk: pick(['z_walk1', 'z_walk2', 'z_walk4']), run: pick(['z_run1', 'z_run2']), atk: pick(['z_attack1', 'z_attack2', 'z_punch', 'z_bite']), hit: pick(['z_hit1', 'z_hit2']), ritmo: rand(0.95, 1.25), px: z.root.position.x, pz: z.root.position.z, v: 0, acc: 0 };
+  if (T.arrastra) A.arrastra = true;
+  z.z3d = A; Z3D.list.push(z); Z3D.vivos++;
+}
+// vuelve a ser de bloques (los jefes y minijefes siguen de bloques por ahora)
+function z3dQuitar(z) {
+  const A = z.z3d; if (!A) return;
+  for (const [o, par, pos, sc] of A.movidos) { par.add(o); o.position.copy(pos); o.scale.copy(sc); }
+  for (const [o, m] of A.mat0) o.material = m;
+  z.mats = z.mats.filter(m => !A.I.mallas.some(o => o.material === m));
+  if (A.I.m.parent) A.I.m.parent.remove(A.I.m);
+  z.z3d = null; const i = Z3D.list.indexOf(z); if (i >= 0) Z3D.list.splice(i, 1);
+}
+// el pedazo del modelo que se arranca (cabeza, brazo o pierna): una malla quieta con la forma de esa parte, sacada una vez por modelo
+const Z3D_SUB = { head: ['Head'], armL: ['L_Upperarm', 'L_Forearm', 'L_Hand'], armR: ['R_Upperarm', 'R_Forearm', 'R_Hand'], legL: ['L_Thigh', 'L_Calf', 'L_Foot', 'L_ToeBase'], legR: ['R_Thigh', 'R_Calf', 'R_Foot', 'R_ToeBase'] };
+function z3dPiezaGeo(I, malla, huesos) {
+  const key = I.cu + '|' + malla.name + '|' + huesos.join(), c = Z3D.piezas; if (key in c) return c[key];
+  const g = malla.geometry, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, bn = malla.skeleton.bones.map(b => b.name), ok = new Set(huesos.map(h => bn.indexOf(h)).filter(i => i >= 0));
+  const C4 = (A, i, k) => k === 0 ? A.getX(i) : k === 1 ? A.getY(i) : k === 2 ? A.getZ(i) : A.getW(i);
+  const dentro = i => { let w = 0; for (let k = 0; k < 4; k++) if (ok.has(C4(SI, i, k))) w += C4(SW, i, k); return w > 0.5; };
+  const I0 = g.index.array, tri = []; for (let t = 0; t < I0.length; t += 3) if (dentro(I0[t]) && dentro(I0[t + 1]) && dentro(I0[t + 2])) tri.push(I0[t], I0[t + 1], I0[t + 2]);
+  if (!tri.length) return (c[key] = null);
+  const ng = new THREE.BufferGeometry(); for (const k of ['position', 'normal', 'uv']) if (g.attributes[k]) ng.setAttribute(k, g.attributes[k]); ng.setIndex(tri);
+  return (c[key] = ng);
+}
+function z3dPieza(z, k, hueso) {
+  const A = z.z3d, I = A.I, vuela = A.partes[k]; if (!vuela) return;
+  const huesos = Z3D_SUB[k].map(n => n.replace(/^[LR]_/, s => k === 'head' ? s : (k[0] === 'a' ? A.brazo : A.pierna)[k.endsWith('L') ? 'L' : 'R']));
+  vuela.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(vuela.matrixWorld).invert();
+  for (const ms of I.mallas) {
+    if (!ms.isSkinnedMesh) continue; const geo = z3dPiezaGeo(I, ms, huesos); if (!geo) continue;
+    const bi = ms.skeleton.bones.indexOf(hueso); if (bi < 0) continue;
+    hueso.updateMatrixWorld(true);
+    const mw = new THREE.Matrix4().multiplyMatrices(hueso.matrixWorld, ms.skeleton.boneInverses[bi]).multiply(ms.bindMatrix);
+    const p = new THREE.Mesh(geo, ms.material.clone()); p.material.skinning = false; p.matrixAutoUpdate = true;
+    mw.premultiply(inv); mw.decompose(p.position, p.quaternion, p.scale); vuela.add(p);
+  }
 }
 function z3dPaso(dt) {
+  const t0 = performance.now();
+  let vivos = 0; for (const z of Z3D.list) if (!z.dead && z.root.parent) vivos++; Z3D.vivos = vivos;
+  // hay lugar: el zombi de bloques más cercano pasa a 3D (de a uno, cada medio segundo)
+  if (Z3D.on && vivos < Z3D.max && (Z3D.subeT = (Z3D.subeT || 0) - dt) <= 0) { Z3D.subeT = 0.5; let mej = null, md = 1e9; for (const z of zombies) { if (z.z3d || z.dead || !Z3D_TIPO[z.type] || z.mini || z.boss != null || z.lost || z.headless || z.state === 'rise') continue; const d = (z.root.position.x - camera.position.x) ** 2 + (z.root.position.z - camera.position.z) ** 2; if (d < md) { md = d; mej = z; } } if (mej) z3dPoner(mej); }
   for (let i = Z3D.list.length - 1; i >= 0; i--) {
     const z = Z3D.list[i], A = z.z3d, I = A.I, p = z.root.position;
     if (!z.root.parent) { Z3D.list.splice(i, 1); continue; }
+    if (!z.body.visible && I.m.visible) I.m.visible = false;   // el Hinchado revienta
     const v = Math.hypot(p.x - A.px, p.z - A.pz) / Math.max(dt, 1e-3); A.px = p.x; A.pz = p.z; A.v = damp(A.v, v, 8, dt);
     // los lejanos se animan menos seguido (en el teléfono hay muchos zombis)
-    const lejos = Math.hypot(p.x - camera.position.x, p.z - camera.position.z) > 30; A.acc += dt; if (lejos && A.acc < 0.12) continue; const d = A.acc; A.acc = 0;
+    const dc = Math.hypot(p.x - camera.position.x, p.z - camera.position.z), cada = dc > 30 ? 0.12 : dc > 16 && IS_TOUCH ? 0.05 : 0;
+    A.acc += dt; if (A.acc < cada) continue; const d = A.acc; A.acc = 0;
     I.unaR = (I.unaR || 0) - d;
-    const sinPierna = z.lost && (z.lost.legL || z.lost.legR);
-    if (z.dead) { if (!A.muerto) { A.muerto = sinPierna ? 'z_die2' : pick(['z_die1', 'z_die2']); p3dUna(I, A.muerto, 0.15, 1.2); } }
+    const sinPierna = A.arrastra || (z.lost && (z.lost.legL || z.lost.legR)) || z.crawlMode;
+    if (z.dead) { if (!A.muerto) { A.muerto = sinPierna ? 'z_die2' : pick(['z_die1', 'z_die2']); p3dUna(I, A.muerto, 0.12, 1.3); } }
     else if (z.state === 'rise') { if (I.cur !== 'z_standup') { p3dUna(I, 'z_standup', 0.05, 3.1 * 0.5 / (z.riseDur || 1.3)); I.acts.z_standup.time = 3.1 * 0.5; } }
-    else if (z.grabbing) p3dAnim(I, 'z_bite', 0.15);
-    else if (z.scream > 0) { if (I.una !== 'z_scream') p3dUna(I, 'z_scream', 0.1, 2.4); }
-    else if (z.windup > 0) { if (!A.ataca) { A.ataca = true; p3dUna(I, A.atk, 0.1, A.atk === 'z_punch' ? 1.3 : 2); } }
-    else if (z.stagger > 0.2 && !(I.una && I.unaR > 0)) p3dUna(I, A.hit, 0.08, 1.6);
+    else if (z.grabbing) p3dAnim(I, 'z_bite', 0.12);
+    else if (z.scream > 0) { if (I.una !== 'z_scream') p3dUna(I, 'z_scream', 0.08, 2.4); }
+    else if (z.windup > 0) { if (!A.ataca) { A.ataca = true; p3dUna(I, sinPierna ? 'z_punch' : A.atk, 0.06, A.atk === 'z_punch' ? 1.5 : 2.3); } }   // ataque rápido, como un zarpazo
+    else if (z.spitAnim > 0 && I.una !== 'z_scream') p3dUna(I, 'z_scream', 0.06, 3);
+    else if (z.stagger > 0.2 && !(I.una && I.unaR > 0)) p3dUna(I, A.hit, 0.06, 1.8);
     else if (!(I.una && I.unaR > 0)) {
       A.ataca = false;
       const n = sinPierna ? (A.v > 1.5 ? 'z_crawlrun' : 'z_crawl') : A.v < 0.12 ? 'z_idle' : A.v > 2.6 ? A.run : A.walk;
-      p3dAnim(I, n, 0.25); const ac = I.acts[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(A.v / c.v, 0.5, 1.7) : A.ritmo;
+      p3dAnim(I, n, 0.2); const ac = I.acts[n], c = ac && ac.getClip(); if (ac) ac.timeScale = c.v ? clamp(A.v / c.v, 0.7, 1.9) : A.ritmo;
     }
     if (!z.windup) A.ataca = false;
     I.mix.update(d);
-    // partes arrancadas: se esconden en el modelo y el pedazo de bloques que sale volando se ve
-    const esconde = (k, n) => { const b = I.B[n]; if (!b) return; if (!A.vistas[k]) { A.vistas[k] = 1; const pz = A.partes[k]; if (pz) pz.traverse(o => { if (o.isMesh) o.visible = true; }); } b.scale.setScalar(0.001); };
+    // partes arrancadas: en el modelo desaparecen y el pedazo del modelo sale volando con la pieza de bloques
+    const esconde = (k, n) => { const b = I.B[n]; if (!b) return; if (!A.vistas[k]) { A.vistas[k] = 1; z3dPieza(z, k, b); } b.scale.setScalar(0.001); };
     if (z.head && z.head.parent !== z.neck) esconde('head', 'Head');
     if (z.lost) { if (z.lost.armL) esconde('armL', A.brazo.L + 'Upperarm'); if (z.lost.armR) esconde('armR', A.brazo.R + 'Upperarm'); if (z.lost.legL) esconde('legL', A.pierna.L + 'Thigh'); if (z.lost.legR) esconde('legR', A.pierna.R + 'Thigh'); }
   }
+  Z3D.ms = Z3D.ms * 0.95 + (performance.now() - t0) * 0.05;   // milisegundos por cuadro (se ven en el inventario)
 }
+// heridas, costillas y muñones: en un zombi 3D van en el marco del modelo (si no, quedarían en el cuerpo invisible)
+const z3dDe = (z, mesh) => z.z3d && z.z3d.marco ? (mesh === z.head ? z.z3d.marco.head : mesh === z.torso || mesh === z.torsoG ? z.z3d.marco.torso : null) || mesh : mesh;
 // policía, SWAT, soldado y ayudante del sheriff con su modelo 3D: el muñeco de bloques se vuelve invisible y el arma pasa a la mano del modelo
 function ally3d(c) {
   const f = NPC3D[c.kind]; if (!f) return;
@@ -34828,7 +34932,7 @@ function pause() {
   if (state !== 'play') return;
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
-  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel(); cfgEn($('#pause-cfg'));
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -34912,6 +35016,7 @@ async function toggleFullscreen() {
 $('#btn-fs').addEventListener('click', toggleFullscreen); setTimeout(fsLabel);
 document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
 $('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
+$('#z3d').addEventListener('change', e => { settings.z3d = e.target.value; store.set('sb_z3d', settings.z3d); Z3D.on = settings.z3d !== 'no'; if (Z3D.on) for (const f of ZOMBI_FILES) p3dCargar(f); $('#pause-note').textContent = 'Los zombis nuevos ya salen así.'; });
 $('#gfx').addEventListener('change', e => { settings.gfx = e.target.value; store.set('sb_gfx', settings.gfx); renderer.shadowMap.enabled = !FAST(); scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); }); $('#pause-note').textContent = 'Las luces de los faroles cambian al pasar al siguiente mapa.'; });
 
 /* ===================== CONTROLES ===================== */
@@ -35169,7 +35274,7 @@ $('#btn-altar-ini').addEventListener('click', () => { volverA = 'inicio'; $('#bt
 $('#btn-ach').addEventListener('click', () => { if (!$('#inicio').hidden) volverA = 'inicio'; }, true);
 $('#btn-como-back').addEventListener('click', () => show('inicio'));
 // Configuración: los mismos controles de la pausa, repartidos en pestañas; al volver regresan a la pausa en su orden
-const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', 'btn-fs': 'graficos', 'btn-animp': 'graficos', sens: 'controles' };
+const CFG_SEC = { gvol: 'sonido', vol: 'sonido', mvol: 'sonido', music: 'sonido', 'voice-pause': 'sonido', vvol: 'sonido', gfx: 'graficos', z3d: 'graficos', 'btn-fs': 'graficos', 'btn-animp': 'graficos', sens: 'controles' };
 let cfgOrden = null;
 // los controles se reparten una sola vez en las pestañas; el mismo bloque va a la Configuración del inicio o a la pausa
 function cfgRepartir() {
@@ -35179,7 +35284,7 @@ function cfgRepartir() {
   set.hidden = true;
 }
 function cfgEn(dest) { cfgRepartir(); const b = $('#cfg-body'); if (b && b.parentNode !== dest) dest.prepend(b); }
-function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
+function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; $('#z3d').value = settings.z3d; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
 function cfgCerrar() { micTest(false); teclaEspera = null; show('inicio'); }
 // prueba de micrófono: una barra que sube con tu voz (no se envía a nadie)
 const MT = { st: null, ac: null, raf: 0 };
