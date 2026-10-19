@@ -12491,6 +12491,8 @@ const M3D_CRED = [
   ["generador", "Generator", "cdeeks", "CC BY 4.0", "https://sketchfab.com/3d-models/generator-e8a5bcc23c43482e950cb316c6395aa7"],
   ["generador_p", "Low poly generator", "creosine", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-generator-146a0eac61174258a5e4409ad6533b6e"],
   ["rack", "Server Rack", "Anaïs3Dcraft", "CC BY 4.0", "https://sketchfab.com/3d-models/server-rack-1348f8c5313f4059b9a2b5b3f37c81f3"],
+  ["contenedor_basura", "Old Dumpster Low Poly", "Michele.Passerino", "CC BY 4.0", "https://sketchfab.com/3d-models/old-dumpster-low-poly-f77c43a407244009ba49d16540a03515"],
+  ["aire_ext", "air conditioner unit low-poly", "fumestic", "CC BY 4.0", "https://sketchfab.com/3d-models/air-conditioner-unit-low-poly-41cea2db9a7c4844b77d248fd322488d"],
 ];
 function m3dArchivo(n) {
   if (!M3D.gltf[n]) M3D.gltf[n] = !THREE.GLTFLoader ? Promise.resolve(null) : new Promise(ok => new THREE.GLTFLoader().load(`modelos/3d/${n}.glb`, ok, undefined, () => ok(null)));
@@ -12617,20 +12619,22 @@ function m3dLote() {
 // para lo que se rompe, se mueve o se dispara (cajas rompibles…): el objeto de siempre se queda (choques, disparos, animación)
 // pero se vuelve invisible y el modelo va colgado de él; hasta que llega el modelo se ve el de antes
 const M3D_INV = new THREE.MeshBasicMaterial({ visible: false });
+// tam: alto (o ancho/largo según spec.por) o [ancho, alto, largo] del modelo (lo estira)
 // o = { ocultar: [mallas que se vuelven invisibles (siguen chocando)], color: color de la copia (spec.pinta) }
 function m3dHijo(obj, S, tam, vi = 0, o = {}) {
   if (!M3D.on) return;
+  obj.userData.vivo = 1;   // que fundirEstatico no lo junte con lo quieto (si no, sus piezas se seguirían viendo y el modelo no se colgaría)
   const tok = world.m3d;
   m3dPiezas(S).then(vs => {
     if (world.m3d !== tok || !vs.length || !obj.parent) return;
-    const v = vs[vi % vs.length], base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, k = tam / base, pinta = S.pinta ? new RegExp(S.pinta) : null;
+    const v = vs[vi % vs.length], base = S.por === 'ancho' ? v.w : S.por === 'largo' ? v.d : v.h, k = Array.isArray(tam) ? 1 : tam / base, pinta = S.pinta ? new RegExp(S.pinta) : null;
     let y0 = 0; if (obj.geometry) { if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox(); y0 = obj.geometry.boundingBox.min.y; }
     if (obj.isMesh) obj.material = M3D_INV;
     for (const q of o.ocultar || []) q.material = M3D_INV;
     for (const p of v.parts) {
       let mat = p.mat3 || (p.mat3 = d3Mat(p, S));
       if (pinta && o.color != null && pinta.test(p.src.name)) { mat = mat.clone(); const c = new THREE.Color(o.color); if (S.aclara) c.lerp(_d3W, S.aclara); mat.color.multiply(c); }
-      const m = new THREE.Mesh(p.geo, mat); m.scale.setScalar(k / (obj.scale.x || 1)); m.position.y = y0; if (S.giro) m.rotation.y = S.giro;
+      const m = new THREE.Mesh(p.geo, mat); m.scale.setScalar(k / (obj.scale.x || 1)); if (Array.isArray(tam)) m.scale.set(tam[0] / v.w, tam[1] / v.h, tam[2] / v.d).divideScalar(obj.scale.x || 1);   // [ancho, alto, largo]: se estira m.position.y = y0; if (S.giro) m.rotation.y = S.giro;
       m.castShadow = true; m.receiveShadow = true; m.raycast = () => {}; obj.add(m);
     }
   });
@@ -12702,6 +12706,9 @@ const M3G = {
   taquilla: { f: 'armario' },
   taquillaV: { f: 'armario', por: 'ancho', pinta: '.', color: 0x8aa8c8 },   // taquillas de vestuario (azuladas)   // armario metálico de dos puertas (taquillas)
   furgonetaQuemada: { f: 'furgoneta', por: 'ancho', tinte: 0x24201c },
+  furgoneta: { f: 'furgoneta', por: 'ancho' },   // furgoneta de reparto (blanca, con sus rótulos)
+  contenedorBasura: { f: 'contenedor_basura', por: 'ancho' },   // contenedor de basura con tapa
+  aireExt: { f: 'aire_ext' },   // aparato de aire acondicionado de fuera (el ventilador mira a -z)
   autobus: { f: 'autobus', por: 'largo', giro: Math.PI / 2, pinta: '^(material_4|material_5|puert)$', blanco: true },
   barrera: { f: 'barrera', por: 'largo', giro: Math.PI / 2 },
   bici: { f: 'bici', por: 'largo', giro: Math.PI / 2, pinta: '.', aclara: 0.45 },

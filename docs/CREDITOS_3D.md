@@ -35,8 +35,8 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `coche.glb` | Low-poly Car | BUKKBEEK | CC BY 4.0 | Súper, Zoo, Policía, Parque, Tokio, Maid Café, Backrooms | 28 KB | https://sketchfab.com/3d-models/low-poly-car-8e500541f5e341b3a7ad86b08a5aaeab |
 | `camioneta.glb` | Low Poly Pickup Truck 2 | Aditya Voxel | CC BY 4.0 | Súper | 44 KB | https://sketchfab.com/3d-models/low-poly-pickup-truck-2-4d29173e76624021b80630db2cf089df |
 | `carrito.glb` | Shopping Cart | AdrianXY | CC BY 4.0 | Súper | 12 KB | https://sketchfab.com/3d-models/shopping-cart-b96f896453b240ae804d0399f1faf027 |
-| `cajas_barril.glb` | Stylized Low Poly Wooden Boxes And Barrel | sdvtljkrgv | CC BY 4.0 | Circo, Isla y cajas rompibles de todos los mapas | 33 KB | https://sketchfab.com/3d-models/stylized-low-poly-wooden-boxes-and-barrel-1c5dabaacc6949da8bf809b3e463bcf3 |
-| `banco.glb` | Wooden Park Bench | TheMadraver | CC BY 4.0 | Parque, Zoo | 31 KB | https://sketchfab.com/3d-models/wooden-park-bench-e53ad46c604c44e59a98bad27041cb19 |
+| `cajas_barril.glb` | Stylized Low Poly Wooden Boxes And Barrel | sdvtljkrgv | CC BY 4.0 | Circo, Isla y cajas rompibles de todos los mapas, El Maid Café | 33 KB | https://sketchfab.com/3d-models/stylized-low-poly-wooden-boxes-and-barrel-1c5dabaacc6949da8bf809b3e463bcf3 |
+| `banco.glb` | Wooden Park Bench | TheMadraver | CC BY 4.0 | Parque, Zoo, El Maid Café | 31 KB | https://sketchfab.com/3d-models/wooden-park-bench-e53ad46c604c44e59a98bad27041cb19 |
 | `papelera.glb` | Trash can | Tiago Lopes | CC BY 4.0 | Parque, Zoo | 22 KB | https://sketchfab.com/3d-models/trash-can-269cc79ce7ca4dcf88030e7b7151dc36 |
 | `bidon.glb` | Oil Drum | Heisenberg | CC BY 4.0 | Rascacielos, Policía, Océano, Backrooms Nivel 2 | 18 KB | https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca |
 | `tumbona.glb` | Sun Lounger | GeniusPilot2016 | CC BY 4.0 | Azotea | 30 KB | https://sketchfab.com/3d-models/sun-lounger-5f05a3c301e5426cbc33a257d706d4cf |
@@ -72,19 +72,21 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `lanzadera.glb` | E_Transport | LaVADraGoN | CC BY 4.0 | La Estación Espacial | 141 KB | https://sketchfab.com/3d-models/e-transport-e5eab5753f43429a8a9bc7c21b75b7d9 |
 | `cohete.glb` | Sci-Fi Rocket Model | Marco Zakaria | CC BY 4.0 | La Luna | 53 KB | https://sketchfab.com/3d-models/sci-fi-rocket-model-7b030d81119b465c904ac2f006ff8d9c |
 | `armario.glb` | Metal Cabinet (Low Poly) | Berk Gedik | CC BY 4.0 | El Océano | 38 KB | https://sketchfab.com/3d-models/metal-cabinet-low-poly-1053729ad9d24d71a578622251f76deb |
-| `autobus.glb` | Bus Low Poly | byANG3L | CC BY 4.0 | La Comisaría | 106 KB | https://sketchfab.com/3d-models/bus-low-poly-08e508c5d17041f4a2c99d715771e2bd |
-| `furgoneta.glb` | White Van - PS1 Low Poly | Wersaus33 | CC BY 4.0 | La Comisaría | 14 KB | https://sketchfab.com/3d-models/white-van-ps1-low-poly-1cac40905d494bae8108a556d870e23e |
+| `autobus.glb` | Bus Low Poly | byANG3L | CC BY 4.0 | La Comisaría, La Estación de Policía, Tokio | 106 KB | https://sketchfab.com/3d-models/bus-low-poly-08e508c5d17041f4a2c99d715771e2bd |
+| `furgoneta.glb` | White Van - PS1 Low Poly | Wersaus33 | CC BY 4.0 | La Comisaría, El Maid Café, El Supermercado, La Estación de Policía | 14 KB | https://sketchfab.com/3d-models/white-van-ps1-low-poly-1cac40905d494bae8108a556d870e23e |
 | `barrera.glb` | Jersey Barrier | bilgehan.korkmaz | CC BY 4.0 | La Comisaría | 34 KB | https://sketchfab.com/3d-models/jersey-barrier-0c5443577a07489694fa295d01478388 |
-| `bici.glb` | Low poly Road bike | ATDG_YT | CC BY 4.0 | Tokio | 166 KB | https://sketchfab.com/3d-models/low-poly-road-bike-0a48fbbc492f420ba2eb59ddbf7a1959 |
+| `bici.glb` | Low poly Road bike | ATDG_YT | CC BY 4.0 | Tokio, El Maid Café | 166 KB | https://sketchfab.com/3d-models/low-poly-road-bike-0a48fbbc492f420ba2eb59ddbf7a1959 |
 | `perro_estatua.glb` | Dog Statue | milanraymakers | CC BY 4.0 | Tokio | 43 KB | https://sketchfab.com/3d-models/dog-statue-b65b0406b3bd465fa4c355963df330b1 |
 | `kart.glb` | Go Kart | Samuel Thomas | CC BY 4.0 | El Arcade | 94 KB | https://sketchfab.com/3d-models/go-kart-2338810f0b1e444bace9bd7796b8c9e4 |
 | `anfora.glb` | Amphora | guillaume.biju-duval | CC BY 4.0 | La Atlántida | 27 KB | https://sketchfab.com/3d-models/amphora-7d1ed7c0786749cbb4c1ec034da36147 |
 | `coral.glb` | Spiked Red Coral | LightningBlock | CC BY 4.0 | La Atlántida | 9 KB | https://sketchfab.com/3d-models/spiked-red-coral-fcba57bb4dbb44f689d925e5d17fc65d |
 | `tragaperras.glb` | Slot_machine | morrrtu1o | CC BY 4.0 | El Casino | 84 KB | https://sketchfab.com/3d-models/slot-machine-d58181162e154af2ab73e8667db2e81d |
-| `generador.glb` | Generator | cdeeks | CC BY 4.0 | Los Backrooms: Nivel 3 | 93 KB | https://sketchfab.com/3d-models/generator-e8a5bcc23c43482e950cb316c6395aa7 |
+| `generador.glb` | Generator | cdeeks | CC BY 4.0 | Los Backrooms: Nivel 3, La Estación de Policía | 93 KB | https://sketchfab.com/3d-models/generator-e8a5bcc23c43482e950cb316c6395aa7 |
 | `generador_p.glb` | Low poly generator | creosine | CC BY 4.0 | Los Backrooms: Nivel 3 | 82 KB | https://sketchfab.com/3d-models/low-poly-generator-146a0eac61174258a5e4409ad6533b6e |
 | `rack.glb` | Server Rack | Anaïs3Dcraft | CC BY 4.0 | Los Backrooms: Nivel 3 | 68 KB | https://sketchfab.com/3d-models/server-rack-1348f8c5313f4059b9a2b5b3f37c81f3 |
+| `contenedor_basura.glb` | Old Dumpster Low Poly | Michele.Passerino | CC BY 4.0 | El Maid Café, La Estación de Policía, El Supermercado | 45 KB | https://sketchfab.com/3d-models/old-dumpster-low-poly-f77c43a407244009ba49d16540a03515 |
+| `aire_ext.glb` | air conditioner unit low-poly | fumestic | CC BY 4.0 | El Maid Café | 33 KB | https://sketchfab.com/3d-models/air-conditioner-unit-low-poly-41cea2db9a7c4844b77d248fd322488d |
 
-Peso total: 2879 KB.
+Peso total: 2957 KB.
 
 Licencia CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.es
