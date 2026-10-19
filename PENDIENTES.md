@@ -19,6 +19,17 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Todos los mapas listos están abiertos desde el inicio; el Cementerio siempre es el primero.
 - Jefe 1 del casino tras 5 mapas, jefe 2 tras 6, luego 7, 8 y 9 (visita final). Se quitan los logros «Desbloquea 4 mapas nuevos» y «Todos los lugares».
 
+### G0c · Pedidos del dueño (19-oct-2026)
+- El aviso del cofre no se ve claro: hacerlo bien visible.
+- Ya no hay balas de regalo al empezar cada oleada; solo Françoise por su pasiva (decisión del dueño).
+
+### G1b · Trastienda nueva (decisión del dueño, 19-oct-2026) · primero boceto
+- Sala principal: el puesto de ramen y el teléfono negro para abonar la deuda de cada mapa. Deuda: 100 $ el mapa 1 y 50 % más en cada mapa (decisión del dueño).
+- 3 puertas al frente (lo de dentro siempre es sorpresa de su categoría) + 1 puerta de salida fija:
+  1. Símbolo de intercambio: el Diablo, Madame y la expendedora de retos pueden salir juntos o no.
+  2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo; +5 % a las probabilidades de todos los juegos que salgan.
+  3. Símbolo de balas: la expendedora de balas (40 %) y el vendedor de armas nuevo (25 %), que se atiende solo: escopetas, fusiles de asalto, Desert Eagle, 3 tipos de ametralladora, chalecos y dinamita (se equipan del 1 al 9 y se lanzan).
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
