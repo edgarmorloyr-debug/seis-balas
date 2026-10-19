@@ -25,18 +25,19 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 
 ### G1b · Trastienda nueva (decisión del dueño, 19-oct-2026) · primero boceto
 *Hecho en la rama trastienda-nueva (19-oct-2026), para probar: salón, 3 salas, pasillo de los caminos, vendedor de armas, teclas 1-4 (el cañón pasó a Num 1-9 y Z/X), deuda con el teléfono, escena de la derrota, texto de entrada, plato extra del ramen y la tragamonedas con la pantalla del prototipo. Cifras en BAL.trastienda, BAL.deuda y BAL.armeria.*
+*Trastienda 2 (rama trastienda-2, 19-oct-2026), para probar: puertas de madera con tiradores de latón que se abren con la tecla de usar (animación y chirrido); símbolos pequeños sobre cada puerta (el intercambio es un «?»), sin carteles de texto ni adornos de «vacío»; cada puerta sale abierta o cerrada con llave al 50 % (BAL.trastienda.puertaAbierta), igual para el grupo y guardado, y dentro sale siempre todo (se quitó el +5 % de la sala de los dados y su letrero); tras un jefe, cadenas hasta pagar; teléfono en cada visita con abonos (+10/+50/+100/Pagar todo) e interés de la deuda +30 % por oleada (BAL.deuda.interes); Don Santino habla con voz de teléfono; devolución de fichas del nodo viejo del ramen; alfombras sin parpadeo.*
 - Sala principal: el puesto de ramen y el teléfono negro para abonar la deuda de cada mapa. Deuda: 100 $ el mapa 1 y 50 % más en cada mapa (decisión del dueño).
 - 3 puertas al frente (lo de dentro siempre es sorpresa de su categoría) + 1 puerta de salida fija:
   1. Símbolo de intercambio: el Diablo, Madame y la expendedora de retos pueden salir juntos o no.
-  2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo; +5 % a las probabilidades de todos los juegos que salgan.
+  2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo. *(El +5 % se quitó en trastienda-2: ahora sale siempre todo.)*
   3. Símbolo de balas: la expendedora de balas (40 %) y el vendedor de armas nuevo (25 %), que se atiende solo: escopetas, fusiles de asalto, Desert Eagle, 3 tipos de ametralladora, chalecos y dinamita (se equipan del 1 al 9 y se lanzan).
 
 **Decisiones del dueño sobre los bocetos de la Trastienda y la deuda (19-oct-2026):**
-- El teléfono suena solo después de un jefe; en las demás visitas está colgado y las puertas ya están abiertas.
+- El teléfono suena solo después de un jefe; en las demás visitas está colgado (brilla suave y sirve para abonar) y cada puerta abre o no según el sorteo de la visita.
 - La salida fija lleva a un pasillo con una puerta de color por cada llave (las reglas de llaves y caminos de hoy).
 - Se puede entrar a las 3 salas en la misma visita.
 - Las salas pueden salir vacías (se deja así).
-- Sala de dados: cada juego de azar tiene 5 % más de probabilidad de aparecer.
+- ~~Sala de dados: cada juego de azar tiene 5 % más de probabilidad de aparecer.~~ Reemplazado (19-oct-2026): dentro de cada sala sale siempre todo; lo que sale al azar es si la puerta abre.
 - Deuda: 100 $ el primer nivel y 50 % más por cada nivel superado, sin volver a empezar.
 - Teclas: 1, 2 y 3 para armas; 4 siempre para la dinamita (la elección de recámara del revólver se mueve a otras teclas).
 - En grupo: un solo bote entre todos para la deuda.
