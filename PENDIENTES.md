@@ -30,6 +30,19 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
   2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo; +5 % a las probabilidades de todos los juegos que salgan.
   3. Símbolo de balas: la expendedora de balas (40 %) y el vendedor de armas nuevo (25 %), que se atiende solo: escopetas, fusiles de asalto, Desert Eagle, 3 tipos de ametralladora, chalecos y dinamita (se equipan del 1 al 9 y se lanzan).
 
+**Decisiones del dueño sobre los bocetos de la Trastienda y la deuda (19-oct-2026):**
+- El teléfono suena solo después de un jefe; en las demás visitas está colgado y las puertas ya están abiertas.
+- La salida fija lleva a un pasillo con una puerta de color por cada llave (las reglas de llaves y caminos de hoy).
+- Se puede entrar a las 3 salas en la misma visita.
+- Las salas pueden salir vacías (se deja así).
+- Sala de dados: cada juego de azar tiene 5 % más de probabilidad de aparecer.
+- Deuda: 100 $ el primer nivel y 50 % más por cada nivel superado, sin volver a empezar.
+- Teclas: 1, 2 y 3 para armas; 4 siempre para la dinamita (la elección de recámara del revólver se mueve a otras teclas).
+- En grupo: un solo bote entre todos para la deuda.
+- El texto «Lo perdiste todo…» sale en cada partida y se puede saltar con un toque.
+- El Ángel se queda junto al Diablo en la sala de intercambio; la galería de tiro pasa a la sala de balas; la mejora «ramen más seguido» pasa a ser «un plato extra».
+- Ametralladoras del vendedor: Thompson, M60 y Gatling de manivela (propuesta del boceto).
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
