@@ -12642,6 +12642,7 @@ const M3G = {
   farolaBrazo(col, dx) { const k = 'b' + col + dx; return this.farolas[k] || (this.farolas[k] = Object.assign({}, this.farola(col), { anclaLocal: [dx, 0] })); },
   papelera: { f: 'papelera' },
   farolas: {},
+  get farolaAlta() { return this.farola(0xfff0c8); },
   farola(col) { return this.farolas[col] || (this.farolas[col] = { f: 'farol', solido: false, giro: Math.PI / 2, luz: col, alto: [4.6, 4.6], ancla: v => { const p = v.parts.find(q => /Emission/i.test(q.src.name)); if (!p) return null; p.geo.computeBoundingBox(); return p.geo.boundingBox.getCenter(new THREE.Vector3()); } }); }
 };
 // quita del dibujo lo que se añadió a «padre» desde el índice n0 (sus choques quedan); devuelve lo quitado
@@ -15531,11 +15532,13 @@ function superGrande(K) {
     // ---- Farolas altas del estacionamiento (unas encendidas, otras fundidas; una parpadea)
     const farolas = [[-70, 63.6], [-35, 63.6], [0, 63.6], [35, 63.6], [-52, 72.4], [52, 72.4], [70, 63.6]];
     farolas.forEach(([x, z], i) => {
-      grp(x, z); pz('s', C_(0.13, 0.18, 9, 8), 0x3a3c40, 0, 4.5, 0); pz('d', B_(4.2, 0.16, 0.16), 0x3a3c40, 0, 8.9, 0); pz('d', C_(0.4, 0.4, 0.3, 8), 0x5a5a56, 0, 0.15, 0);
+      const F3 = world.m3dL.on;   // modelos 3D: dos farolas espalda con espalda (los conos de luz se quedan)
+      grp(x, z); if (!F3) { pz('s', C_(0.13, 0.18, 9, 8), 0x3a3c40, 0, 4.5, 0); pz('d', B_(4.2, 0.16, 0.16), 0x3a3c40, 0, 8.9, 0); pz('d', C_(0.4, 0.4, 0.3, 8), 0x5a5a56, 0, 0.15, 0); }
       for (const s of [-1, 1]) {
+        if (F3) world.m3dL.pon(M3G.farolaAlta, x + s * 1.9, z, s > 0 ? 0 : Math.PI, 10.4);
         if (i === 6 && s === 1) continue;   // esa cabeza es la que parpadea (abajo)
         const on = (i + s) % 3 !== 0;
-        pz(on ? 'L' : 'n', B_(0.9, 0.12, 0.5), on ? 0xfff0c8 : 0x3a3a36, s * 1.9, 8.78, 0);
+        if (!F3) pz(on ? 'L' : 'n', B_(0.9, 0.12, 0.5), on ? 0xfff0c8 : 0x3a3a36, s * 1.9, 8.78, 0);
         if (on) pz('A', gk('cono', () => new THREE.ConeGeometry(2.6, 8.4, 12, 1, true)), 0xffe8b0, s * 1.9, 4.5, 0);
       }
       sinGrp(); addCircle(x, z, 0.32);
@@ -15566,7 +15569,7 @@ function superGrande(K) {
     inst(C_(0.14, 0.14, 1.0, 8), lam(0xd8b020), bol);
     grp(16, 43.6); pz('s', B_(2.2, 1.3, 0.9), 0xe8eef2, 0, 0.65, 0); pz('n', B_(2.0, 0.3, 0.02), 0x2a6aa0, 0, 0.95, 0.46); sinGrp(); addBox(16, 43.6, 1.15, 0.5);
     M(PL(1.6, 0.26), bsc(0xffffff, { map: signTex('HIELO', 256, 48, 'bold 34px sans-serif', '#2a6aa0', '#ffffff') }), 16, 0.95, 44.07, { cast: false });
-    for (const x of [-7, 7, -30, 30]) { grp(x, 43.6); pz('s', C_(0.32, 0.28, 1.0, 10), 0x2a4a3a, 0, 0.5, 0); pz('d', C_(0.34, 0.34, 0.1, 10), 0x1a2a20, 0, 1.03, 0); sinGrp(); addCircle(x, 43.6, 0.36); }
+    for (const x of [-7, 7, -30, 30]) { if (world.m3dL.on) world.m3dL.pon(M3G.papelera, x, 43.6, x, 1.05); else { grp(x, 43.6); pz('s', C_(0.32, 0.28, 1.0, 10), 0x2a4a3a, 0, 0.5, 0); pz('d', C_(0.34, 0.34, 0.1, 10), 0x1a2a20, 0, 1.03, 0); sinGrp(); } addCircle(x, 43.6, 0.36); }   // modelo 3D
     // el letrero grande de la fachada, encendido (se ve desde todo el estacionamiento)
     M(B_(HX * 2 + 1.4, 1.8, 0.6), lam(0xc8c4b6), 0, H + 0.9, HZ + 0.3, { solid: true });
     sign(mA, 0, 20, 2.4, 0, H + 0.9, HZ + 0.62); glowAt(0, H + 0.9, HZ + 2, 0xff4030, 14, 0.25);
