@@ -15,6 +15,10 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 6. Las cajas de la Trastienda tapan la ruleta.
 7. Lag cuando hay explosiones.
 
+### G0b · Mapas y jefes (decisión del dueño, 19-oct-2026) · hecho en la versión de prueba
+- Todos los mapas listos están abiertos desde el inicio; el Cementerio siempre es el primero.
+- Jefe 1 del casino tras 5 mapas, jefe 2 tras 6, luego 7, 8 y 9 (visita final). Se quitan los logros «Desbloquea 4 mapas nuevos» y «Todos los lugares».
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
@@ -135,6 +139,7 @@ Cambio grande de mecánica para que el juego sea original (referencia de diseño
 43. Renders 3D de todos los zombis.
    - **En marcha (rama zombis-3d, 19-oct-2026): zombis 3D de verdad en el juego, para todos (ya no solo con ?zombi3d), tipo por tipo.** Estilo pedido por el dueño: terror de arcade (piel podrida gris verdosa y morada, sangre, ropa rota, ojos que brillan), sin copiar nada de otros juegos. El cuerpo de bloques sigue, invisible, para los tiros (cabeza, cuerpo, piernas), los choques y el grupo; el modelo 3D se anima según lo que hace el zombi. Lo que llevan encima (gorra, placa, casco…) pasa al modelo. Cabezas, brazos y piernas que se arrancan salen volando como pedazos del modelo. En Configuración → Gráficos, «Zombis en 3D: Sí / No»; con muchos zombis, solo los más cercanos son 3D (14 en el teléfono, 26 en la computadora) y los lejanos se animan menos seguido. Los jefes y minijefes siguen de bloques (son el paso siguiente).
      - Grupo 1 hecho: caminante, corredor, reptante, gritona y oficial zombi (modelos zombi_h y zombi_m, CC-BY, créditos en docs/CREDITOS_3D.md).
+     - Grupo 2 hecho: escupidor, hinchado, carnicero, antidisturbios, matón, hachero (cuerpo cambiado: más ancho, brazos más gruesos; casco, chaleco, hacha y cinturón en el modelo), perro (modelo propio de perro deforme; sus patas, cabeza y boca siguen al perro del juego) y esqueleto (modelo propio de esqueleto con garras).
      - **Pregunta para el dueño:** *al morir, el zombi 3D hace su animación de caída en vez de desplomarse con el «muñeco de trapo» de antes (el empujón del disparo sí se mantiene). ¿Está bien así?*
 
 ## Etapa 5 · Mundo
