@@ -28,7 +28,7 @@ Con `?sin3d=1` al final de la dirección se ve el mapa sin los modelos (para com
 | `cajas_barril.glb` | Stylized Low Poly Wooden Boxes And Barrel | sdvtljkrgv | CC BY 4.0 | Circo, Isla y cajas rompibles de todos los mapas | 33 KB | https://sketchfab.com/3d-models/stylized-low-poly-wooden-boxes-and-barrel-1c5dabaacc6949da8bf809b3e463bcf3 |
 | `banco.glb` | Wooden Park Bench | TheMadraver | CC BY 4.0 | Parque, Zoo | 31 KB | https://sketchfab.com/3d-models/wooden-park-bench-e53ad46c604c44e59a98bad27041cb19 |
 | `papelera.glb` | Trash can | Tiago Lopes | CC BY 4.0 | Parque, Zoo | 22 KB | https://sketchfab.com/3d-models/trash-can-269cc79ce7ca4dcf88030e7b7151dc36 |
-| `bidon.glb` | Oil Drum | Heisenberg | CC BY 4.0 | Rascacielos, Circo (barriles), Policía, Océano, Backrooms Nivel 2 | 18 KB | https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca |
+| `bidon.glb` | Oil Drum | Heisenberg | CC BY 4.0 | Rascacielos, Policía, Océano, Backrooms Nivel 2 | 18 KB | https://sketchfab.com/3d-models/oil-drum-b3ad1d2c0b03440eacacdee8478180ca |
 | `tumbona.glb` | Sun Lounger | GeniusPilot2016 | CC BY 4.0 | Azotea | 30 KB | https://sketchfab.com/3d-models/sun-lounger-5f05a3c301e5426cbc33a257d706d4cf |
 | `tanque_agua.glb` | Wooden Water Tower | BytesCrafter | CC BY 4.0 | Azotea | 55 KB | https://sketchfab.com/3d-models/wooden-water-tower-ce4de11b50164c3abf65de2d6c51b872 |
 | `linterna_piedra.glb` | Old Japanese Lamp | MarcHoogkamp | CC BY 4.0 | Tokio | 20 KB | https://sketchfab.com/3d-models/old-japanese-lamp-2d95746c71724633baf24d8066ecf8db |
