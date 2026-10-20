@@ -306,3 +306,17 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 ## Para el final (dueño, 20-oct-2026)
 - Caballero aliado en 3D con un modelo de Sketchfab (rama caballero3d, en pausa: «déjalo de último»).
 - Propuesta de diseño nuevo para las balas, después de las tareas de juego: que cada ficha tenga la forma de una bala de verdad (de revólver, de escopeta o de rifle), no un círculo, y cada una con su propio diseño. Ejemplos: bala de caramelo, de oro, de queso, de diamante, verde, etc. Enviar varias propuestas para elegir.
+
+## G4 · Lista del dueño (20-oct-2026), después de lo pendiente (expendedora nueva, agarre de dedos, selección en carta)
+1. La Garra deja de ser igual que las Cápsulas: se juega en vivo para agarrar objetos, con basura inútil mezclada para que sea difícil.
+2. La cámara no se mueve sola al jugar la ruleta y el tragamonedas.
+3. Blackjack: se ve el número de las cartas del crupier.
+4. Revisar el agarre óptimo de todas las armas con los brazos 3D.
+5. Probar que las armas también suben de nivel en el herrero.
+6. Munición por tipo de arma: escopeta, pistola y fusil.
+7. La mira del centro solo sale con la pistola.
+8. Zombis nuevos por días: día 1 el básico más el zombi de oro (baja probabilidad, como la gallina), día 2 corredores, día 3 escupidor, y así; cada mapa desbloquea uno nuevo y el avance es poco a poco (más difícil en otras dificultades).
+9. Los NPC siguen al jugador con rutas inteligentes; en la Trastienda se les hunden los pies.
+10. El jefe espejo es demasiado fuerte: sus disparos dejan una brecha pequeña para esquivar.
+11. Si la deuda del nivel ya está pagada, las 3 puertas de la Trastienda después del jefe están siempre abiertas.
+12. Playa de Náufragos: hay una zona que los zombis no pueden cruzar.
