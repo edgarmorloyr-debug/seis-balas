@@ -150,6 +150,12 @@ body{font-family:var(--hud);font-size:16px}
 .tm.down img{filter:grayscale(1) brightness(.55);border-color:#7a2a20}.tm.down .am{color:#ff7a6a}
 .touch .tm{width:40px}.touch .tm img{width:40px;height:40px}
 #gold{font-family:var(--display);font-size:clamp(20px,2.8vw,26px);color:var(--gold);font-variant-numeric:tabular-nums}
+/* G1c · la deuda siempre a la vista (dueño, 20-oct-2026): pequeña bajo el oro; parpadea en rojo cuando el jefe está a 1 oleada o menos */
+#vit #goldrow{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px}
+#deuda-mini{font:700 14px/1.1 var(--hud);color:#f0b8a8;letter-spacing:.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+#deuda-mini.cerca{color:#ff5a48;animation:dmini 1s steps(2,jump-none) infinite}
+@keyframes dmini{0%{opacity:1}100%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){#deuda-mini.cerca{animation:none}}
 #gold-pop{position:absolute;left:10px;top:calc(100% + 6px);font-weight:700;font-size:18px;color:var(--gold);opacity:0;white-space:nowrap}
 #gold-pop.on{animation:gpop .9s ease-out}
 #gold-pop.on2{animation:gpop2 .9s ease-out}
@@ -2254,7 +2260,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
           <div class="bar" id="de"><b></b><em></em><span class="de-l"><kbd class="only-desk" data-k="KeyQ">Q</kbd></span></div>
           <div class="bar" id="hab" title="Ultimate de tu personaje"><b></b><span class="de-l only-desk"><span id="hab-n"></span> <kbd data-k="KeyC">C</kbd></span></div>
         </div>
-        <div id="goldrow"><div id="gold">$ 0</div><div id="gold-pop"></div></div>
+        <div id="goldrow"><div id="gold">$ 0</div><div id="deuda-mini" hidden></div><div id="gold-pop"></div></div>
       </div>
       </div>
       <div id="chips"></div>
@@ -23333,7 +23339,9 @@ const BAL = {
   //   interes: lo que crece el saldo sin pagar al terminar cada oleada (+30 %, decisión del dueño 19-oct-2026; ver deudaInteres)
   //   espera: segundos tras vencer al jefe antes de ir al teléfono · redondeo: múltiplo al que se redondea · intro: segundos del texto de entrada
   //   paliza: la escena de derrota (golpes, segundos entre golpes y segundos de la caída)
-  deuda: { base: 100, factor: 1.5, interes: 0.30, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
+  //   avisoOlas: la deuda del HUD parpadea en rojo cuando el próximo jefe está a esta cantidad de oleadas o menos
+  //   interesTrasOla: el interés empieza a correr después de esta oleada de la partida (dueño, 20-oct-2026: «tras la oleada 2»; antes era tras el jefe 1)
+  deuda: { base: 100, factor: 1.5, interes: 0.30, interesTrasOla: 2, avisoOlas: 1, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
   // G1b · Vendedor de armas (25 %): precio en $, tipo (para la etiqueta) y barras (0 a 5) de daño, rapidez y cargador.
   //   Las armas van en el espacio 2 o 3 (teclas 2 y 3) el resto de la partida; el 1 es siempre el revólver.
   armeria: {
@@ -31208,7 +31216,7 @@ function updateHud(dt) {
   setText(el.waveSub, 'wsub', game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : tuto ? tuto.sub : 'Despejado');
   { const ct = $('#contract'), tx = contractText(); setText(ct, 'ctr', tx); const ci = $('#ctr-ic'); if (!!tx !== !!ci.innerHTML) ci.innerHTML = tx ? ico('scroll') : ''; const cl = game.contract ? (game.contract.done ? 'done' : game.contract.fail ? 'fail' : '') : ''; if (ct.className !== cl) ct.className = cl; if (game.phase === 'fight' && !(game.time % 0.5 < 0.02)) contractStep(false); }
   setText(el.fee, 'fee', game.phase === 'room' ? 'La Trastienda' : game.phase === 'exit' ? 'Elige una puerta para seguir' : '');
-  setText(el.gold, 'gold', `$ ${game.gold}`);
+  setText(el.gold, 'gold', `$ ${game.gold}`); deudaMini();
   cajaHud();
   { const npc = cops.find(c => c.npc && !c.dead);
     if (cache.rescOn !== !!npc) { cache.rescOn = !!npc; el.rescue.hidden = !npc; }
@@ -31721,11 +31729,26 @@ function deudaSaldo() { if (!game) return 0; if (game.saldo == null) game.saldo 
 function deudaReinicia() { game.saldo = deudaMonto((game.deudaN | 0) + 1); game.abono = 0; }   // pagado el jefe: el próximo nivel empieza en su monto base
 function deudaInteres() {   // al terminar cada oleada (solo, o el anfitrión); una sola vez por oleada aunque salgas al menú
   if (!game || tuto || Net.client || game.interesW === game.wave) return; game.interesW = game.wave;
+  if (game.wave <= BAL.deuda.interesTrasOla) return;   // dueño, 20-oct-2026: el interés empieza después de la oleada 2 de la partida
   const s0 = deudaSaldo(); if (s0 <= 0) return;
   game.saldo = deudaRed5(s0 * (1 + BAL.deuda.interes));
   feed(`La deuda creció a ${game.saldo} $ (+${Math.round(BAL.deuda.interes * 100)} %)`, 'red');
   if (Net.host) Net.ev(['abS', game.saldo, game.abono | 0, game.wave]);
 }
+// G1c · la deuda en el HUD (BAL.deuda.avisoOlas: con cuántas oleadas de margen empieza a parpadear)
+function deudaJefeEn() {   // cuántas oleadas faltan para el próximo jefe (0 = se pelea ahora o ya ganó y toca pagar)
+  if (!game) return 99; if (deudaPend() || (game.phase === 'cleared' && relicTime())) return 0;
+  const lucha = game.phase === 'fight' || game.phase === 'horde', w0 = lucha ? game.wave : game.wave + 1;
+  for (let k = 0; k < 40; k++) if (isMapEnd(w0 + k)) return w0 + k - game.wave;
+  return 99;
+}
+function deudaMini() {
+  const b = $('#deuda-mini'); if (!b) return; const on = !!(game && !tuto && runN() && !game.endless && (deudaHoy() || deudaSaldo() > 0));
+  if (b.hidden === on) b.hidden = !on; if (!on) return;
+  setText(b, 'dmini', `Deuda: ${deudaProx()} $`);
+  const cerca = deudaJefeEn() <= BAL.deuda.avisoOlas; if (cache.dminiC !== cerca) { cache.dminiC = cerca; b.classList.toggle('cerca', cerca); }
+}
+const deudaCorre = () => !!game && (game.wave | 0) >= BAL.deuda.interesTrasOla;   // la oleada que viene ya cobra interés
 const deudaProxN = () => deudaPend() ? game.deuda.n : (game.deudaN | 0) + 1;
 const deudaProx = () => deudaPend() ? deudaFalta() : deudaSaldo();   // lo que falta para el próximo jefe
 function deudaTotal() {   // lo que queda por pagar en la partida sin contar intereses futuros (el saldo de hoy y los montos base de los jefes que faltan); null si es sin fin
@@ -31811,7 +31834,7 @@ function telRender() {
   fila('#tel-bote', pend ? (grupo ? 'En el bote' : 'Ya pagaste de este nivel') : 'Ya abonaste', pend ? `${D.bote | 0} / ${D.monto} $` : `${game.abono | 0} $`);
   fila('#tel-tot-f', 'Deuda total de la partida', tot == null ? null : `${tot} $`);
   fila('#tel-g-f', 'Tienes', `${oro} $`, oro >= deudaProx() ? 'ok' : 'no');
-  const it = $('#tel-int'); it.hidden = pend || deudaSaldo() <= 0; if (!it.hidden) it.textContent = `Interés: +${Math.round(BAL.deuda.interes * 100)} % por oleada · la próxima oleada debes ${deudaRed5(deudaSaldo() * (1 + BAL.deuda.interes))} $`;
+  const it = $('#tel-int'); it.hidden = pend || deudaSaldo() <= 0; if (!it.hidden) it.textContent = deudaCorre() ? `Interés: +${Math.round(BAL.deuda.interes * 100)} % por oleada · la próxima oleada debes ${deudaRed5(deudaSaldo() * (1 + BAL.deuda.interes))} $` : `Sin interés hasta la oleada ${BAL.deuda.interesTrasOla} · después, +${Math.round(BAL.deuda.interes * 100)} % por oleada`;
   const pagar = $('#tel-pagar'), colgar = $('#tel-colgar'), sinNada = tope <= 0;
   $('#tel-rap').hidden = sinNada || (pend && D.pagada);
   pagar.hidden = sinNada || (pend && D.pagada); pagar.disabled = telSel <= 0;
