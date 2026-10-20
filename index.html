@@ -24161,14 +24161,15 @@ const BR3_CFG = {
   hombroLargas: { L: [-0.12, -0.16, -0.06] },        // con las armas largas el hombro izquierdo se adelanta (como al encarar un rifle)
   codo: { R: [0.6, -1, 0.15], L: [-0.6, -1, 0.15] },   // hacia dónde se doblan los codos
   lref: [0.085, 0.048, 0.432],                      // luz media de la manga, el guante y la piel en la textura original (para teñir sin perder las arrugas)
-  // ropa de cada personaje, sacada de su modelo 3D (color medio de la textura del brazo y la mano). guante: null = mano descubierta
+  // ropa de cada personaje, sacada de su modelo 3D (color medio de la textura del brazo y la mano; la piel, un poco menos saturada porque
+  // la luz cálida del juego la volvía naranja). guante: null = mano descubierta
   looks: {
-    sheriff: { manga: '#a59579', guante: '#5a3a22', piel: '#c4987a' },    // camisa caqui del uniforme y guantes de cuero
-    johnny: { manga: '#ae9062', guante: null, piel: '#d09b84' },          // saco mostaza
-    armando: { manga: '#d8d6d2', guante: null, piel: '#a96d4d' },         // Don Velorio: camisa blanca
+    sheriff: { manga: '#a59579', guante: '#4e3524', piel: '#b8917a' },    // camisa caqui del uniforme y guantes de cuero
+    johnny: { manga: '#ae9062', guante: null, piel: '#bf9682' },          // saco mostaza
+    armando: { manga: '#d8d6d2', guante: null, piel: '#9a6c55' },         // Don Velorio: camisa blanca
     lilith: { manga: '#161618', guante: '#1e1c1e', piel: '#ba9a97' },     // todo negro, piel pálida
-    carlos: { manga: '#4d522a', guante: null, piel: '#b97242' },          // Geronimo: chaqueta militar verde oliva
-    francois: { manga: '#1c1b1b', guante: null, piel: '#c49c7c' },        // traje negro
+    carlos: { manga: '#4d522a', guante: null, piel: '#966448' },          // Geronimo: chaqueta militar verde oliva
+    francois: { manga: '#1c1b1b', guante: null, piel: '#b8977f' },        // traje negro
     ludo: { sombra: true }                                                 // silueta negra total
   },
   // agarre de la mano derecha (espacio del arma: cañón hacia -z). palma: centro de la palma · dir: muñeca → nudillos · nor: hacia dónde mira la palma
@@ -24197,6 +24198,7 @@ const BR3_CFG = {
   // la mano izquierda en las acciones (cámara o arma)
   bolsillo: [-0.24, -0.5, -0.2],               // donde va a buscar balas o cargadores (fuera de la pantalla, abajo a la izquierda)
   recarga: { rev: [-0.06, -0.01, -0.03], pist: [0, -0.12, 0.07], larga: [0, -0.07, -0.02], mini: [-0.07, -0.01, -0.05] },   // punto del arma donde mete las balas
+  vertical: 1.3,         // pantallas más angostas que esto (teléfono en vertical) acercan el arma al centro en proporción
   ojoSube: 0.05,          // en Ojo Muerto el arma sube un poco (con las dos manos)
   ojo: { palma: [-0.02, -0.095, 0.065], dir: [0.8, 0.45, -0.4], nor: [0.3, 1, 0.1], dedos: [0.5, 0.9, 1.1, 1.15, 1.2] },   // Ojo Muerto: la izquierda sostiene la empuñadura por debajo
   abanico: { sobre: [0.004, 0.035, 0.06], va: 0.045, dir: [0.2, -0.15, -1], nor: [0, -1, 0.15] },   // abanicar: la palma barre el martillo
@@ -24255,11 +24257,11 @@ function br3Tex(ch) {
     g.drawImage(BRZ.base, 0, 0, W, W); const im = g.getImageData(0, 0, W, W), d = im.data;
     const cm = document.createElement('canvas'); cm.width = cm.height = W; const gm = cm.getContext('2d'); gm.drawImage(BRZ.mask, 0, 0, W, W); const mk = gm.getImageData(0, 0, W, W).data;
     const col = h => { const c = new THREE.Color(h); return [c.r * 255, c.g * 255, c.b * 255]; };
-    const cs = [col(L.manga), col(L.guante || L.piel), col(L.piel)], lr = BR3_CFG.lref.slice(); if (!L.guante) lr[1] = lr[2];
+    const cs = [col(L.manga), col(L.guante || L.piel), col(L.piel)], lr = BR3_CFG.lref;
     for (let i = 0; i < d.length; i += 4) {
       const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255, w = [mk[i], mk[i + 1], mk[i + 2]], tw = w[0] + w[1] + w[2] || 1;
       let r = 0, gg = 0, b = 0;
-      for (let k = 0; k < 3; k++) { if (!w[k]) continue; const ref = !L.guante && k === 1 ? Math.max(lr[1], 0.2) : lr[k], f = Math.pow(clamp(lum / ref, 0.35, 2.2), 0.8) * w[k] / tw; r += cs[k][0] * f; gg += cs[k][1] * f; b += cs[k][2] * f; }
+      for (let k = 0; k < 3; k++) { if (!w[k]) continue; const f = Math.pow(clamp(lum / lr[k], 0.35, !L.guante && k === 1 ? 1.1 : 2.2), !L.guante && k === 1 ? 0.4 : 0.8) * w[k] / tw;   /* sin guante: piel lisa, sin las costuras */ r += cs[k][0] * f; gg += cs[k][1] * f; b += cs[k][2] * f; }
       d[i] = Math.min(255, r); d[i + 1] = Math.min(255, gg); d[i + 2] = Math.min(255, b);
     }
     g.putImageData(im, 0, 0);
@@ -30882,6 +30884,7 @@ function updateGun(dt) {
     h.cylRot = damp(h.cylRot, h.cylTarget, 22, dt);
     const hc = br3Cadera(h.model), p = (hc ? _tmp.set(hc.p[0], hc.p[1], hc.p[2]) : _tmp.copy(GUN_HIP)).lerp(GUN_ADS, aimG);   // con los brazos 3D, el arma un poco más arriba (y las largas más a la derecha)
     if (hc && gs.ojoK > 0.001) p.y += BR3_CFG.ojoSube * gs.ojoK;   // Ojo Muerto: el arma sube con las dos manos
+    if (hc && camera.aspect < BR3_CFG.vertical) p.x *= camera.aspect / BR3_CFG.vertical;   // teléfono en vertical: el arma se acerca al centro (si no, queda fuera de la pantalla)
     const ph = player.bob + (h.side ? Math.PI : 0);
     h.root.position.set(
       sgn * (p.x + Math.sin(ph) * 0.012 * bm - gs.pose * 0.05) - clamp(gs.swayX, -0.03, 0.03),
