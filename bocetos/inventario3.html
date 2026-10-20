@@ -1,0 +1,127 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventario 3 · Mesa del saloon</title><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="vivo.css"><link rel="stylesheet" href="inventario.css">
+<script src="fichas.js"></script><script src="vivo.js"></script><script src="inventario.js"></script>
+<style>
+/* Diseño 3: una mesa de póker del saloon. Las 8 balas del cinturón son tus fichas apostadas en tu lado de la mesa;
+   la reserva se guarda en un baúl abierto; tu perfil es el cartel de «SE BUSCA» clavado en la pared. */
+body{background:linear-gradient(90deg,#00000033 0 2px,transparent 2px 64px) 0 0/64px 100%,linear-gradient(#5a3418,#3a200c)}
+.lay{flex:1;min-height:0;display:grid;grid-template-columns:var(--cw,230px) minmax(0,1fr) var(--bw,200px);gap:var(--gap)}
+/* ---------- Cartel SE BUSCA ---------- */
+.pared{min-width:0;min-height:0;display:flex;flex-direction:column;gap:var(--gap)}
+.cartel{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 10px 10px;color:#2a1a0a;text-align:center;overflow:hidden;
+  background:radial-gradient(120% 100% at 50% 30%,#f4e4bf,#e0c894 70%,#c8a868);box-shadow:0 8px 16px #000b,inset 0 0 26px #8a5a1866;transform:rotate(-1.2deg);border-radius:3px}
+.cartel::before,.cartel::after{content:"";position:absolute;top:6px;width:10px;height:10px;border-radius:50%;background:#6a6a70;box-shadow:inset -2px -2px 0 #333}
+.cartel::before{left:8px}.cartel::after{right:8px}
+.cartel .se{font:400 clamp(20px,4.4vh,34px)/1 var(--display);letter-spacing:2px;color:#3a1a08}
+.cartel img{width:clamp(56px,20vh,150px);aspect-ratio:1;border:3px solid #3a1a08;filter:sepia(.55) contrast(1.05);background:#c8a868;flex:none}
+.cartel b.nom{font:400 clamp(16px,3vh,24px)/1 var(--display);color:#3a1a08}
+.cartel .pas{font-size:14px;color:#4a3018}
+.cartel .stl{display:grid;grid-template-columns:auto auto;gap:1px 10px;font-size:15px;text-align:left;width:100%;max-width:220px;justify-content:center}
+.cartel .stl span{color:#5a3a18}.cartel .stl b{color:#2a1004;text-align:right;white-space:nowrap}
+.repisa{flex:none;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:8px;background:linear-gradient(#4a2e17,#2d1a0b);border:2px solid var(--brass-d);box-shadow:0 6px 0 #1a0e05}
+.repisa .objs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.repisa .d{font-size:14px;line-height:1.2;color:var(--bone)}.repisa .d b{color:var(--gold)}
+#bVoltear{display:none;background:linear-gradient(#4a2e17,#2d1a0b);border-color:#c8963a}
+/* ---------- La mesa ---------- */
+.mesa-zona{min-width:0;min-height:0;display:flex;flex-direction:column;gap:var(--gap)}
+.mesa{flex:1;min-height:0;position:relative;border-radius:50%/42%;border:clamp(10px,2.4vh,18px) solid #6b3f1d;
+  background:radial-gradient(80% 70% at 50% 45%,#2f8a5a,#1f5a3c 60%,#123d28);
+  box-shadow:inset 0 0 0 3px #eaa23a88,inset 0 0 40px #000a,0 0 0 3px #2a1608,0 12px 24px #000c;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:3% 6% 3%}
+.mesa.brilla{animation:brilla .9s ease-out}
+@keyframes brilla{0%{box-shadow:inset 0 0 0 3px #ffd27a,inset 0 0 120px #ffd27a,0 0 0 3px #2a1608,0 0 40px #ffd27a}100%{box-shadow:inset 0 0 0 3px #eaa23a88,inset 0 0 40px #000a,0 0 0 3px #2a1608,0 12px 24px #000c}}
+.centro{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;gap:14px;overflow:hidden}
+.centro .f{--ch:clamp(54px,18vh,140px);flex:none}
+.centro .t{min-width:0;max-width:440px;max-height:100%;display:flex;flex-direction:column;gap:3px;overflow:hidden;padding:8px 12px;border-radius:10px;background:#0b1f15d9;border:1px solid #ffffff2a}
+.centro .t>*{flex:none}
+.centro h2{font:400 clamp(18px,3.6vh,30px)/1.05 var(--display);color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.centro .rar{font-size:16px;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}
+.centro .d{font-size:16px;line-height:1.2}
+.centro .pr{font-size:14px;color:#8dffaa;font-weight:700}.centro .sig{font-size:14px;color:var(--gold)}.centro .donde{font-size:14px;color:var(--bone-dim)}
+.centro .vacio{font-size:16px;color:var(--bone-dim);text-align:center}.centro .vacio b{display:block;font:400 clamp(18px,3.2vh,26px) var(--display);color:var(--gold);margin-bottom:4px}
+.tulado{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tulado .lbl{color:#cfe8d8}
+.arco{display:flex;justify-content:center;gap:var(--ag,8px);flex-wrap:wrap;--ch:var(--mc);padding-bottom:10px}
+.arco .slot{width:calc(var(--ch) + 8px);height:calc(var(--ch) + 8px);border:2px dashed #ffd27a66;background:radial-gradient(circle,#0003 55%,transparent 56%);transform:translateY(calc(var(--y) * 1px))}
+.acc{display:flex;gap:6px;flex:none}
+.acc .btn{flex:1;min-width:0;padding:0 6px;background:linear-gradient(#4a2e17,#2d1a0b);border-color:#c8963a}
+.acc .btn[disabled]{border-color:#6a5030}
+#bJuntar.listo{background:#0d3a1e;border-color:#5bd17a}
+/* ---------- El baúl (reserva) ---------- */
+.baul{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:0}
+.tapa{height:clamp(26px,9vh,70px);border-radius:14px 14px 4px 4px;background:linear-gradient(#7a4822,#4a2a12);border:3px solid #2a1608;position:relative;transform:perspective(300px) rotateX(28deg);transform-origin:bottom;box-shadow:inset 0 -14px 0 #8a1a22}
+.tapa::after{content:"";position:absolute;left:50%;bottom:-3px;width:22px;height:16px;transform:translateX(-50%);background:#eaa23a;border-radius:3px 3px 0 0;border:2px solid #8a5a18}
+.caja-b{position:relative;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:4px 4px 12px 12px;background:repeating-linear-gradient(0deg,#00000018 0 2px,transparent 2px 14px),linear-gradient(#6b3f1d,#3a200c);border:3px solid #2a1608;box-shadow:0 10px 18px #000b}
+.caja-b::before,.caja-b::after{content:"";position:absolute;bottom:-3px;width:18px;height:18px;border:3px solid #eaa23a;pointer-events:none}
+.caja-b::before{left:-3px;border-right:0;border-top:0}.caja-b::after{right:-3px;border-left:0;border-top:0}
+.caja-b .lbl{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.caja-b .lbl small{font-size:14px;text-transform:none;letter-spacing:0;color:var(--bone-dim)}
+.terciopelo{display:grid;grid-template-columns:repeat(var(--bc,2),calc(var(--ch) + 8px));gap:6px;justify-content:center;padding:6px;border-radius:8px;background:radial-gradient(#8a1a22,#5a0e14);box-shadow:inset 0 4px 10px #000a;--ch:var(--rc)}
+.terciopelo .slot{width:calc(var(--ch) + 8px);height:calc(var(--ch) + 8px);border-radius:10px;border:2px solid #00000055;background:#3a080c88}
+.terciopelo .slot.par{border-color:#5bd17a}
+[hidden]{display:none!important}
+/* ---------- Medidas ---------- */
+:root{--mc:min(80px,10.5vh,calc(((100vw - var(--cw,230px) - var(--bw,200px) - 70px) * .88 - 30px) / 8 - 16px));--rc:min(72px,10vh)}
+@media (min-height:560px) and (orientation:landscape){.centro .d{font-size:20px}.centro .rar,.centro .pr,.centro .sig,.centro .donde{font-size:16px}}
+@media (max-height:500px){
+  :root{--cw:160px;--bw:118px;--mc:min(42px,calc(((100vw - 160px - 118px - 70px) * .9 - 24px) / 8 - 14px));--rc:40px;--ag:6px}
+  .cartel{padding:6px;gap:2px}.cartel .se{font-size:18px}.cartel img{width:56px}.cartel .stl{font-size:14px;gap:0 6px}.cartel .pas{display:none}
+  .repisa{display:none}.pared.objetos .cartel{display:none}.pared.objetos .repisa{display:flex;flex:1;min-height:0;overflow:hidden}
+  #bVoltear{display:flex}
+  .mesa{padding:2% 5% 2%}.centro .f{--ch:56px}.centro .t{padding:4px 8px}.centro .d{font-size:14px}.centro h2{font-size:18px}
+  .tulado .lbl{display:none}.tapa{height:22px}.caja-b{padding:5px}.caja-b .lbl small{display:none}.terciopelo{gap:4px;padding:4px}
+}
+@media (orientation:portrait){
+  .top{flex-wrap:wrap;row-gap:6px;gap:6px}.top h1{flex:1 1 auto;order:-2;font-size:22px}.top .main{order:-1}.top .sp{display:none}.top .pill{padding:0 8px}#pills{flex:1}
+  :root{--mc:min(62px,calc((100vw - 150px)/4 - 14px));--rc:calc((100vw - 140px)/6);--bc:6}
+  .lay{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+  .pared{flex-direction:row}
+  .cartel{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;text-align:left;align-items:start;padding:10px 12px}
+  .cartel img{grid-row:1/4}.cartel .se{font-size:22px}.cartel .pas{display:none}.cartel .stl{max-width:none;grid-template-columns:repeat(2,auto auto);justify-content:start;gap:0 8px;font-size:14px}.cartel img{width:76px}
+  .repisa{display:none}.pared.objetos .cartel{display:none}.pared.objetos .repisa{display:flex;flex:1}
+  #bVoltear{display:flex;position:absolute;right:8px;top:8px}.pared{position:relative}
+  .baul{order:-1;flex-direction:column}.tapa{display:none}.baul{order:0}
+  .mesa{border-radius:46%/30%;padding:8% 6% 6%}.centro{gap:8px}.centro .f{--ch:58px}.centro h2{font-size:20px}
+  .arco{width:calc(4 * (var(--mc) + 8px) + 3 * var(--ag,8px) + 2px)}
+}
+</style></head><body><div class="frame">
+<div class="top"><a class="btn" href="inventario_encuesta.html">Diseños</a><h1>Inventario</h1><span class="sp"></span><span id="pills"></span><button class="btn main" id="bVolver">Volver al juego</button></div>
+<div class="lay">
+ <div class="pared" id="pared">
+  <div class="cartel" id="cartel"></div>
+  <div class="repisa" id="repisa"></div>
+  <button class="btn" id="bVoltear">Objetos</button>
+ </div>
+ <div class="mesa-zona">
+  <div class="mesa" id="mesa"><div class="centro" id="centro"></div><div class="tulado"><div class="lbl">Cinturón <b id="cCin"></b> · tus fichas en juego</div><div class="arco" id="cin"></div></div></div>
+  <div class="acc"><button class="btn" id="bMover"></button><button class="btn" id="bJuntar"></button><button class="btn" id="bVender" data-drop="vender"></button></div>
+ </div>
+ <div class="baul"><div class="tapa"></div><div class="caja-b"><div class="lbl">Baúl <b id="cRes"></b><small>reserva · no dan efecto</small></div><div class="terciopelo" id="res"></div></div></div>
+</div></div>
+<script>
+let objetos = false;   // en el teléfono, el cartel se da la vuelta para ver los objetos
+function pintar3() {
+  const P = perfil(), st = k => P.stats.find(x => x.k === k), o = INV.obj && P.objetos.find(x => x.k === INV.obj);
+  const par = $('#pared'); par.classList.toggle('objetos', objetos);
+  $('#bVoltear').textContent = objetos ? 'Cartel' : 'Objetos';
+  $('#cartel').innerHTML = `<div class="se">SE BUSCA</div><img src="${P.pj.foto}" alt="${P.pj.nombre}"><b class="nom">${P.pj.nombre}</b><div class="pas">${P.pj.arma} · Pasiva: ${P.pj.pasiva}</div>
+    <div class="stl">${P.stats.map(x => `<span>${x.t}</span><b>${x.v}</b>`).join('')}</div>`;
+  $('#repisa').innerHTML = `<div class="lbl">Objetos del misterio</div><div class="objs">${P.objetos.map(x => `<span class="obj${x.tiene ? '' : ' no'}${x.k === INV.obj ? ' on' : ''}" data-obj="${x.k}" title="${x.nombre}">${objetoSVG(x.k)}</span>`).join('')}</div>
+    <div class="d">${o ? `<b>${o.nombre}</b> · ${o.tiene ? o.tipo : 'No lo tienes'}. ${o.d}` : 'Toca un objeto para leerlo.'}</div>`;
+  encajar($('#cartel')); encajar($('#repisa'));
+  // fichas en arco (sonrisa), 8 en una fila o 4 + 4 en vertical
+  const n = innerWidth > innerHeight ? 8 : 4;
+  $('#cin').innerHTML = Z.e.cin.map((_, i) => { const k = i % n, c = (n - 1) / 2; return hueco('cin:' + i).replace('data-loc', `style="--y:${((c ** 2 - (k - c) ** 2) * (n === 8 ? 1.4 : 1.6)).toFixed(1)}" data-loc`); }).join('');
+  $('#res').innerHTML = Z.e.inv.map((_, i) => hueco('inv:' + i)).join('');
+  $('#cCin').textContent = cuenta('cin'); $('#cRes').textContent = cuenta('inv');
+  const C = $('#centro'), D = INV.sel && detalle(INV.sel);
+  if (!D) { C.innerHTML = `<div class="t"><div class="vacio"><b>${INV.cambio ? 'Elige con cuál cambiarla' : 'Toca una ficha'}</b>Las que brillan en verde tienen pareja. 2 iguales del mismo nivel = 1 del nivel siguiente.</div></div>`; encajar(C.querySelector('.t')); return; }
+  C.innerHTML = `${D.ficha()}<div class="t"><h2>${D.nombre}</h2><div class="rar"><span style="color:${D.rcol}">${D.rar}</span>${pips(D.nv)}<span>Nv ${D.nv} de 4</span></div><div class="d">${D.ahora}</div>${D.par ? `<div class="pr opc">${D.par}</div>` : ''}<div class="donde opc">${INV.cambio ? 'Toca la ficha con la que quieres cambiarla.' : D.donde.replace('reserva', 'baúl (reserva)')}</div><div class="sig opc">${D.sig}</div></div>`;
+  encajar(C.querySelector('.t'));
+}
+iniciarInv({ render: pintar3, root: $('.lay') });
+// al juntar, el paño de la mesa se ilumina; con el Nv 4 la mesa entera tiembla
+INV.alJuntar = (el, r) => { const m = $('#mesa'); m.classList.remove('brilla'); void m.offsetWidth; m.classList.add('brilla'); if (r.item.nv >= NIVEL_MAX) FX.sacudir(m); Son.tintineo(); };
+$('#bVoltear').onclick = () => { objetos = !objetos; Son.clic(); render(); };
+$('#pared').addEventListener('click', e => { const o = e.target.closest('[data-obj]'); if (!o) return; INV.obj = o.dataset.obj; Son.ficha(); render(); FX.rebote($(`[data-obj="${INV.obj}"]`), 1.12); });
+</script></body></html>
