@@ -93,6 +93,13 @@ DESP = {
  'Gran jackpot: los jefes siempre mueren como jackpot': 'Big Jackpot: bosses always die like a jackpot',
 }
 UI = {
+ 'Canana': 'Bandolier', 'dan efecto': 'take effect', 'Toca una bala de la canana': 'Tap a bullet on the bandolier', 'Elige con cuál cambiarla': 'Choose which one to swap it with',
+ '2 balas iguales del mismo nivel se juntan en 1 del nivel siguiente (hasta Nv 4). Las que sobran van solas a la alforja.': '2 equal bullets of the same level merge into 1 of the next level (up to Lv 4). Extra ones go to the saddlebag by themselves.',
+ 'En la canana: da su efecto.': 'On the bandolier: it takes effect.', 'En la alforja (reserva): no da efecto.': 'In the saddlebag (reserve): no effect.', 'Toca la bala con la que quieres cambiarla.': 'Tap the bullet you want to swap it with.',
+ 'a la alforja': 'to the saddlebag', 'a la canana': 'to the bandolier', 'Cancelar': 'Cancel', 'el cambio': 'the swap', 'no se vende': "can't be sold", 'Objetos del misterio': 'Mystery items', 'Nivel máximo.': 'Max level.',
+ 'Toca una medalla o un objeto para saber de dónde sale. Solo cuentan las balas de la canana.': 'Tap a medal or an item to see where it comes from. Only bandolier bullets count.', 'No lo tienes': "You don't have it", 'A la canana': 'To the bandolier', 'A la alforja': 'To the saddlebag',
+ '3 cartas: en blanco o con premio. Solo se abre en la máquina expendedora de la Trastienda.': '3 cards: blank or with a prize. It only opens at the Back Room vending machine.', '¡Nivel 4!': 'Level 4!',
+ 'El sobre azul va solo en la alforja (reserva)': 'The blue pack only goes in the saddlebag (reserve)', 'La alforja está llena: toca la bala que quieres cambiar': 'The saddlebag is full: tap the bullet you want to swap', 'La canana está llena: toca la bala que quieres cambiar': 'The bandolier is full: tap the bullet you want to swap',
  'Cartas en blanco': 'Blank cards', 'Saca 10 cartas en blanco de los sobres azules': 'Get 10 blank cards from blue packs',
  ': se abre tu inventario. Ahí ves tu cinturón de 8 balas (hacen efecto), tu reserva de 6 (no hacen efecto) y qué hace cada una, la caja y las familias. En la pestaña Juntar, 2 balas iguales del mismo nivel suben al nivel siguiente. En grupo también ves a tus compañeros. Ábrelo y vuelve al juego.': ': your inventory opens. There you see your belt of 8 bullets (they take effect), your reserve of 6 (no effect) and what each one does, the box and the families. In the Merge tab, 2 equal bullets of the same level go up to the next level. In a group you also see your teammates. Open it and go back to the game.',
  'Tu cinturón guarda 8 balas: todas te ayudan siempre (algunas por probabilidad, en cada disparo, golpe o muerte). Lo que no cabe va a tu reserva de 6, donde no hace efecto. 2 balas iguales del mismo nivel suben al nivel siguiente.': 'Your belt holds 8 bullets: they always help you (some by chance, on each shot, hit or kill). Whatever does not fit goes to your reserve of 6, where it has no effect. 2 equal bullets of the same level go up to the next level.',
@@ -129,6 +136,8 @@ UI = {
  'Tus balas hacen {n} efectos en la próxima oleada': '', 'Con un solo efecto': 'With a single effect', 'Efectos de bala': 'Bullet effects', 'Esta bala no se vende': "This bullet can't be sold",
 }
 P = [
+ [r'^Tiene pareja: junta las 2 y sube a Nv (\d)\.$', 'It has a pair: merge the 2 and it goes up to Lv $1.'], [r'^Nv (\d) de 4$', 'Lv $1 of 4'], [r'^sube a Nv (\d)$', 'goes up to Lv $1'], [r'^Nivel (\d)$', 'Level $1'],
+ [r'^(.+) va a la canana: ahora da efecto$', '$1 goes to the bandolier: now it takes effect'], [r'^(.+) va a la alforja: ya no da efecto$', '$1 goes to the saddlebag: no effect anymore'], [r'^Ultimate: (.+)\.$', 'Ultimate: $1.'],
  [r'^Inventario: tu cinturón y tu reserva de balas y qué hace cada una,(.*)$', 'Inventory: your bullet belt and reserve and what each one does,$1'],
  [r'^Comprar · (\d+) \$$', 'Buy · $1 $$'], [r'^Faltan (\d+) \$$', '$1 $$ short'], [r'^Vender · \+(\d+) \$$', 'Sell · +$1 $$'], [r'^Vender \+(\d+) \$$', 'Sell +$1 $$'],
  [r'^Juntar pareja · Nv (\d)$', 'Merge pair · Lv $1'], [r'^Juntar · Nv (\d)$', 'Merge · Lv $1'], [r'^Juntar · nivel (\d)$', 'Merge · level $1'], [r'^Parejas listas: (\d+)$', 'Ready pairs: $1'],
