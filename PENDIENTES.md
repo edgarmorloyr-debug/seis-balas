@@ -65,6 +65,10 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - En todos los juegos de azar se apuesta con fichas y se gana dinero.
 - Ambientación bonita en cada sala, sin personas: primero propuestas visuales para elegir.
 
+### G1e · Decoración elegida por el dueño (20-oct-2026)
+- Sala principal: «Salón del Prestamista». Misterio: «Capilla del Trato». Dados: «Garito de Contrabando». Balas: «Forja del Armero». Sin personas. Propuestas en el scratchpad decor/.
+- Tambor del revólver vuelve al diseño y tamaño originales (hecho en la versión de prueba).
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
