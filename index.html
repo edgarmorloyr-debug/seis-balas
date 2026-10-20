@@ -755,7 +755,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .ch-stats small{font-size:11px;letter-spacing:.04em;color:var(--bone-dim);text-transform:uppercase}
 /* ---- Indicadores de poder: 8 cifras (4 por fila), cada una se toca o se señala para ver qué hace ---- */
 .ch-stats.pw-row,#menu .ch-stats.pw-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;justify-content:stretch}
-.car-info .ch-stats.pw-row{grid-template-columns:repeat(5,minmax(0,1fr))}
+.car-info .ch-stats.pw-row,#char-list .ch-stats.pw-row{grid-template-columns:repeat(5,minmax(0,1fr))}
 .ch-stats .pw-st{min-height:48px;justify-content:center;cursor:help;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:border-color .15s,box-shadow .15s;min-width:0}
 .ch-stats .pw-st small{white-space:nowrap}
 .ch-stats .pw-st.pw-n b{color:#ffd27a}
@@ -32920,7 +32920,9 @@ function introDeuda(then) {
   };
   const avanzar = () => { if (bt.hidden) return; if (fi < INTRO_FRASES.length - 1) decir(); else seguir(); };
   delete box.dataset.colgado; bt.onclick = avanzar; const sk = $('#gi-saltar'); sk.hidden = false; sk.onclick = seguir;
-  const tecla_ = e => { if (!bt.hidden && (e.code === 'Space' || e.code === 'Enter')) { e.preventDefault(); avanzar(); } else if (e.code === 'Escape') { e.preventDefault(); seguir(); } };
+  // dueño, 20-oct-2026: Espacio sigue con la frase siguiente y Enter salta la llamada (en PC se ve la tecla en cada botón)
+  if (!IS_TOUCH) { bt.innerHTML = `${tx('Continuar')} <kbd>${tecla('Space')}</kbd>`; sk.innerHTML = `${tx('Saltar la llamada')} <kbd>${tecla('Enter')}</kbd>`; }
+  const tecla_ = e => { if (e.code === 'Space') { e.preventDefault(); avanzar(); } else if (e.code === 'Enter' || e.code === 'Escape') { e.preventDefault(); seguir(); } };
   addEventListener('keydown', tecla_); introDeuda.quitar = () => removeEventListener('keydown', tecla_);
   introDeuda.seguir = seguir;   // para las pruebas
 }
@@ -38313,6 +38315,7 @@ function renderCarousel(dir) {
 // En el menú, el personaje elegido aparece en 3D de cuerpo completo, quieto y con su propia pose:
 // en pantallas anchas, en la franja libre a la izquierda de la tarjeta; en las angostas, sobre su retrato
 const M3 = { r: null, scene: null, cam: null, inst: null, ch: null, on: false, lado: false };
+const MENU_SOLO_FOTO = true;
 function menu3dCaja() {
   const card = document.querySelector('#menu .card'), lado = $('#m3d-lado'); if (!card || !lado) return null;
   const r = card.getBoundingClientRect(), libre = r.left - 24;
@@ -38365,7 +38368,7 @@ function menu3dPose(I, id) {
   for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = [];
 }
 function menu3d(id) {
-  const caja = menu3dCaja();
+  const caja = MENU_SOLO_FOTO ? null : menu3dCaja();   // dueño, 20-oct-2026: la selección vuelve a la de siempre, solo con fotos (sin el muñeco 3D)
   if (!caja) { if (M3.r) M3.r.domElement.remove(); const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
   if (!THREE.GLTFLoader || !(CHARS[id] || id === 'azar')) { if (M3.r) M3.r.domElement.style.opacity = '0'; const img = document.querySelector('#char-list .car-main .ch-pic'); if (img) img.style.opacity = ''; return; }
   if (!M3.r) {
