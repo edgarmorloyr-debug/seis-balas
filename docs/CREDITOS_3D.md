@@ -149,3 +149,15 @@ si no baja (o con `?sin3d=1`), se ve el dibujo de antes. Ningún modelo lleva ma
 | Frijoles del vaquero | `comida/frijoles.glb` | Can of beans | Urpo | CC BY 4.0 | 1220 (33KB) | https://sketchfab.com/3d-models/can-of-beans-566323fb276f4fa7ac2943b38bb4e98d |  |
 | Leche de almendras? | `comida/leche.glb` | Milk Carton | Chris | CC BY 4.0 | 278 (16KB) | https://sketchfab.com/3d-models/milk-carton-713643151cce41798f6dfb98bbff09cb | Se borraron del dibujo de la caja los sellos (ecológico, «BIO» y el de reciclaje). |
 | Brocheta yakitori | `comida/yakitori.glb` | Sate ayam | yoboseiyo | CC BY 4.0 | 1472 (21KB) | https://sketchfab.com/3d-models/sate-ayam-7064573dc9034e7996753b0fe8a489f6 |  |
+
+## Brazos en primera persona
+
+Los brazos y las manos que sostienen las armas en primera persona. Tienen huesos (hombro, codo, muñeca y tres falanges por dedo):
+el juego coloca las manos en la empuñadura y en el guardamanos de cada arma, y anima la recarga, el abanico, el Ojo Muerto y la dinamita.
+La ropa se tiñe en el juego con los colores de cada personaje (camisa caqui del Sheriff, saco mostaza de Johnny, camisa blanca de
+Don Velorio, negro de Lilith y de Françoise, verde oliva de Geronimo; Ludo, silueta negra). Si el modelo no baja o se usa `?sin3d=1`,
+se ve la mano de bloques de antes.
+
+| Archivo | Modelo | Autor | Licencia | Triángulos (peso) | Dirección | Cambios |
+|---|---|---|---|---|---|---|
+| `brazos/brazos.glb` | First Person arms | DJMaesen | CC BY 4.0 | 3982 (187KB) | https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987 | Simplificado de 7240 a 3982 triángulos; sin mapas de relieve ni de brillo; textura de 1024 a 512 px en WebP; se agregó una imagen de zonas (manga, guante y piel) para teñir la ropa de cada personaje. |

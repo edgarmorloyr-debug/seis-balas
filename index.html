@@ -12800,6 +12800,7 @@ const M3D_CRED = [
   ["armas/cuero", "Vest", "denj666", "CC BY 4.0", "https://sketchfab.com/3d-models/vest-f8c0b3b1ef054685a1631cef7791f2f8"],
   ["armas/acero", "Breastplate - metal", "Multipainkiller Studio", "CC BY 4.0", "https://sketchfab.com/3d-models/breastplate-metal-bac83c715d48430c812f154100908095"],
   ["armas/dinamita", "Dynamite bundle", "DJMaesen", "CC BY 4.0", "https://sketchfab.com/3d-models/dynamite-bundle-6d333be39e454b458d48ad86f8a78df4"],
+  ["brazos/brazos", "First Person arms", "DJMaesen", "CC BY 4.0", "https://sketchfab.com/3d-models/first-person-arms-e3c42c05b22944e5839deb8e003f0987"],
   ["comida/ramen", "Low Poly Stylized Ramen Bowl", "Nazzareno", "CC BY 4.0", "https://sketchfab.com/3d-models/low-poly-stylized-ramen-bowl-6b4ce426beed4e18bea2283973fc9949"],
   ["comida/medianoche", "Anime Style Ramen", "keatura", "CC BY 4.0", "https://sketchfab.com/3d-models/anime-style-ramen-f72892d920a34c34aaa4b70b0bd76829"],
   ["comida/onigiri", "Onigiri - midpoly", "Pierre.Bourdon", "CC BY 4.0", "https://sketchfab.com/3d-models/onigiri-midpoly-e7db392d6d3a4664becaea75c17e972a"],
@@ -24141,9 +24142,274 @@ function gunFin(h, id, P_, o) {
   const gunG = new THREE.Group(); for (const c of h.k.children.slice()) if (c !== hand) gunG.add(c); h.k.add(gunG); h.gunG = gunG;
   h.k.traverse(x => { if (x.isMesh) { x.castShadow = false; x.renderOrder = 1; } });
   Object.assign(h, { cylG: o.cylG, cylSpin: o.cylSpin, hammer: o.hammer, muzzle, spinG: o.spinG, spinV: 0, model: id, cap: o.N });
+  if (hands.includes(h)) { h.handG = hand; hand.visible = !BRZ.ok; h.br3 = null; br3Medir(h); }   // primera persona: con los brazos 3D la mano de bloques se esconde
 }
 // luz suave pegada a la cámara: ilumina el arma de noche sin cambiar el resto del mapa
 const gunLight = new THREE.PointLight(0xffe0bc, 0.75, 0.9, 2); gunLight.position.set(0.05, 0.08, -0.15); camera.add(gunLight);
+/* ===== Brazos 3D en primera persona (pedido del dueño: «Brazos 3D de verdad») =====
+   Modelo: «First Person arms» de DJMaesen (Sketchfab, CC BY 4.0; créditos en docs/CREDITOS_3D.md y en Configuración → Gráficos).
+   modelos/brazos/brazos.glb: ~4000 triángulos con huesos (hombro, codo, muñeca y 3 falanges por dedo), textura 512 WebP
+   y una segunda imagen con las zonas (rojo = manga, verde = guante, azul = piel) para teñir la ropa de cada personaje.
+   Los brazos van pegados a la cámara; cada cuadro los hombros se quedan quietos y las manos van a donde está el arma
+   (cinemática inversa de dos huesos), así siguen solas el retroceso, el balanceo, la recarga y el cambio de arma.
+   Si el modelo no baja o el juego va con ?sin3d, se queda la mano de bloques de antes (gunFin).
+   Todas las cifras (metros en el espacio de la cámara o del arma, radianes) están en BR3_CFG. */
+const BR3_CFG = {
+  archivo: 'modelos/brazos/brazos.glb', v: 1,
+  escala: 0.011,                                    // el modelo viene en centímetros; ×1,1 para que el brazo llegue cómodo al arma
+  hombro: { R: [0.2, -0.16, 0.14], L: [-0.2, -0.16, 0.14] },   // dónde quedan los hombros (cámara: x derecha, y arriba, -z adelante)
+  hombroLargas: { L: [-0.12, -0.16, -0.06] },        // con las armas largas el hombro izquierdo se adelanta (como al encarar un rifle)
+  codo: { R: [0.6, -1, 0.15], L: [-0.6, -1, 0.15] },   // hacia dónde se doblan los codos
+  lref: [0.085, 0.048, 0.432],                      // luz media de la manga, el guante y la piel en la textura original (para teñir sin perder las arrugas)
+  // ropa de cada personaje, sacada de su modelo 3D (color medio de la textura del brazo y la mano). guante: null = mano descubierta
+  looks: {
+    sheriff: { manga: '#a59579', guante: '#5a3a22', piel: '#c4987a' },    // camisa caqui del uniforme y guantes de cuero
+    johnny: { manga: '#ae9062', guante: null, piel: '#d09b84' },          // saco mostaza
+    armando: { manga: '#d8d6d2', guante: null, piel: '#a96d4d' },         // Don Velorio: camisa blanca
+    lilith: { manga: '#161618', guante: '#1e1c1e', piel: '#ba9a97' },     // todo negro, piel pálida
+    carlos: { manga: '#4d522a', guante: null, piel: '#b97242' },          // Geronimo: chaqueta militar verde oliva
+    francois: { manga: '#1c1b1b', guante: null, piel: '#c49c7c' },        // traje negro
+    ludo: { sombra: true }                                                 // silueta negra total
+  },
+  // agarre de la mano derecha (espacio del arma: cañón hacia -z). palma: centro de la palma · dir: muñeca → nudillos · nor: hacia dónde mira la palma
+  // dedos: cuánto se cierra cada falange [pulgar, índice, medio, anular, meñique, giro del pulgar hacia adelante] · ant: la mano izquierda (null = el arma se lleva con una mano)
+  agarre: {
+    rev: { palma: [0.022, -0.06, 0.08], dir: [0, 0.35, -1], nor: [-1, 0.05, 0.1], dedos: [0.15, 0.75, 1.25, 1.3, 1.35, 0.7] },
+    pist: { palma: [0.022, -0.048, 0.07], dir: [0, 0.35, -1], nor: [-1, 0.05, 0.1], dedos: [0.15, 0.75, 1.25, 1.3, 1.35, 0.7] },
+    mini: { palma: [0.024, -0.078, 0.09], dir: [0, 0.35, -1], nor: [-1, 0.05, 0.1], dedos: [0.15, 0.75, 1.25, 1.3, 1.35, 0.7] },
+    larga: { palma: [0.024, -0.06, 0.085], dir: [0, 0.35, -1], nor: [-1, 0.05, 0.1], dedos: [0.15, 0.75, 1.25, 1.3, 1.35, 0.7], ant: 0.55 }
+  },
+  // mano izquierda bajo el guardamanos: la palma hacia arriba y un poco a la derecha, los dedos rodean el arma por el lado derecho
+  guardamanos: { bajo: 0.03, dir: [0.5, 0.15, -0.85], nor: [0.5, 1, 0], dedos: [0.6, 1.0, 1.1, 1.15, 1.2] },
+  // clase de cada arma (las que no están: 'rev') y su agarre propio si hace falta (ant: dónde va la mano izquierda, de 0 = empuñadura a 1 = boca)
+  clase: { glock: 'pist', silen: 'pist', deagle: 'pist', minigun: 'mini', escopeta: 'larga', doble: 'larga', sniper: 'larga', ak47: 'larga', m16: 'larga', tommy: 'larga', m60: 'larga', gatling: 'larga' },
+  porArma: { tommy: { ant: 0.42 }, gatling: { ant: 0.3, palma: [0.03, -0.1, 0.1] }, m60: { ant: 0.45 }, doble: { ant: 0.5 }, sniper: { ant: 0.5 } },
+  // dónde va el arma en la pantalla (cámara) y su giro [cabeceo, guiñada]; inclina: cuánto se ladea al recargar (1 = como el revólver); con los brazos 3D reemplaza a GUN_HIP (un poco más arriba, para que se vea la mano)
+  cadera: {
+    rev: { p: [0.14, -0.112, -0.36], r: [0, 0] },
+    pist: { p: [0.14, -0.105, -0.36], r: [0, 0] },
+    mini: { p: [0.15, -0.115, -0.37], r: [0, 0] },
+    larga: { p: [0.19, -0.1, -0.4], r: [0, 0.03], inclina: 0.35 },
+    m60: { p: [0.2, -0.12, -0.38], r: [0, 0.05], inclina: 0.3 },
+    gatling: { p: [0.2, -0.13, -0.37], r: [0, 0.05], inclina: 0.25 }
+  },
+  gatillo: 0.35,          // el índice aprieta un poco más justo al disparar
+  // la mano izquierda en las acciones (cámara o arma)
+  bolsillo: [-0.24, -0.5, -0.2],               // donde va a buscar balas o cargadores (fuera de la pantalla, abajo a la izquierda)
+  recarga: { rev: [-0.06, -0.01, -0.03], pist: [0, -0.12, 0.07], larga: [0, -0.07, -0.02], mini: [-0.07, -0.01, -0.05] },   // punto del arma donde mete las balas
+  ojoSube: 0.05,          // en Ojo Muerto el arma sube un poco (con las dos manos)
+  ojo: { palma: [-0.02, -0.095, 0.065], dir: [0.8, 0.45, -0.4], nor: [0.3, 1, 0.1], dedos: [0.5, 0.9, 1.1, 1.15, 1.2] },   // Ojo Muerto: la izquierda sostiene la empuñadura por debajo
+  abanico: { sobre: [0.004, 0.035, 0.06], va: 0.045, dir: [0.2, -0.15, -1], nor: [0, -1, 0.15] },   // abanicar: la palma barre el martillo
+  dinamita: { dur: 0.45, a: [-0.2, -0.42, -0.2], b: [-0.17, 0.02, -0.3], c: [-0.06, -0.06, -0.6] },   // el lanzamiento: abajo → arriba → adelante
+  relajada: { R: [0.17, -0.24, -0.38], L: [-0.17, -0.24, -0.38], dedos: [0.3, 0.35, 0.45, 0.5, 0.55] },   // sin arma (Trastienda)
+  suave: 16               // qué tan rápido la mano izquierda va a su sitio
+};
+const BRZ = { on: false, pedido: false, ok: false, sinArma: false, tiro: 0, m: null, B: {}, tex: {}, char: null, base: null, mask: null, mat: null };
+// el modelo baja una vez (null si falla o con ?sin3d: queda la mano de bloques)
+function br3Cargar() {
+  if (BRZ.pedido) return; BRZ.pedido = true;
+  if (!THREE.GLTFLoader || !M3D.on) return;
+  new THREE.GLTFLoader().load(`${BR3_CFG.archivo}?v=${BR3_CFG.v}`, g => { try { br3Montar(g); } catch (e) { BRZ.ok = false; } }, undefined, () => {});
+}
+const _bq = new THREE.Quaternion(), _bq2 = new THREE.Quaternion(), _bv = new THREE.Vector3(), _bv2 = new THREE.Vector3(), _bv3 = new THREE.Vector3(), _bm = new THREE.Matrix4(), _bm2 = new THREE.Matrix4();
+const DEDOS3 = ['thumb', 'point', 'middle', 'ring', 'pink'];
+function br3Montar(g) {
+  const root = new THREE.Group(); root.rotation.y = Math.PI; root.scale.setScalar(BR3_CFG.escala); camera.add(root);
+  root.add(g.scene); let sk = null;
+  g.scene.traverse(o => { if (o.isBone) BRZ.B[o.name.replace(/_\d+$/, '')] = o; if (o.isSkinnedMesh) sk = o; });
+  if (!sk || !BRZ.B.R_wrist || !BRZ.B.L_wrist) { camera.remove(root); return; }
+  const src = sk.material; BRZ.base = src.map && src.map.image; BRZ.mask = src.emissiveMap && src.emissiveMap.image;
+  sk.material = BRZ.mat = new THREE.MeshLambertMaterial({ map: src.map, skinning: true });
+  sk.frustumCulled = false; sk.renderOrder = 1; sk.castShadow = false; BRZ.mesh = sk;
+  BRZ.m = root; root.updateMatrixWorld(true);
+  BRZ.rest = new Map(); for (const n in BRZ.B) BRZ.rest.set(BRZ.B[n], BRZ.B[n].quaternion.clone());
+  // por cada mano: marco de la mano en la muñeca (dirección de los dedos y de la palma) y eje de cierre de cada falange
+  BRZ.H = {};
+  for (const s of ['R', 'L']) {
+    const B = BRZ.B, wp = n => B[s + '_' + n].getWorldPosition(new THREE.Vector3());
+    const w = wp('wrist'), m1 = wp('middle1'), i1 = wp('point1'), p1 = wp('pink1'), t4 = wp('thumb4');
+    const f = m1.clone().sub(w).normalize(), n = new THREE.Vector3().crossVectors(f, i1.clone().sub(p1)).normalize();
+    if (t4.clone().sub(w).dot(n) < 0) n.negate();   // la palma, del lado del pulgar
+    const qw = B[s + '_wrist'].getWorldQuaternion(new THREE.Quaternion()), qi = qw.clone().invert();
+    const pc = w.clone().add(m1).add(i1).add(p1).multiplyScalar(0.25);
+    const H = { f: f.clone().applyQuaternion(qi), n: n.clone().applyQuaternion(qi), pc: pc.sub(w).applyQuaternion(qi), dedos: [], palm: new THREE.Vector3(), q: new THREE.Quaternion(), on: false, pesoN: 0 };
+    H.n.sub(_bv.copy(H.f).multiplyScalar(H.n.dot(H.f))).normalize();
+    for (let d = 0; d < 5; d++) for (let j = 1; j <= 3; j++) {
+      const b = B[s + '_' + DEDOS3[d] + j], c = B[s + '_' + DEDOS3[d] + (j + 1)]; if (!b || !c) continue;
+      const dir = c.getWorldPosition(new THREE.Vector3()).sub(b.getWorldPosition(new THREE.Vector3())).normalize();
+      let ax = new THREE.Vector3().crossVectors(dir, n).normalize(); if (d === 0) ax.lerp(f, 0.35).normalize();   // el pulgar se cierra cruzando la palma
+      H.dedos.push({ b, d, j, ax: ax.applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()), axN: d === 0 && j === 1 ? n.clone().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()) : null });
+    }
+    const S0 = B[s + '_arm'].getWorldPosition(new THREE.Vector3()), E0 = B[s + '_elbow'].getWorldPosition(new THREE.Vector3());
+    H.a = S0.distanceTo(E0); H.b = E0.distanceTo(w);
+    BRZ.H[s] = H;
+  }
+  BRZ.ok = true; BRZ.char = null; root.visible = false;
+}
+// textura teñida con la ropa del personaje (una vez por personaje)
+function br3Tex(ch) {
+  if (BRZ.tex[ch] !== undefined) return BRZ.tex[ch];
+  const L = BR3_CFG.looks[ch] || BR3_CFG.looks.sheriff;
+  try {
+    const W = 512, cv = document.createElement('canvas'); cv.width = cv.height = W; const g = cv.getContext('2d');
+    g.drawImage(BRZ.base, 0, 0, W, W); const im = g.getImageData(0, 0, W, W), d = im.data;
+    const cm = document.createElement('canvas'); cm.width = cm.height = W; const gm = cm.getContext('2d'); gm.drawImage(BRZ.mask, 0, 0, W, W); const mk = gm.getImageData(0, 0, W, W).data;
+    const col = h => { const c = new THREE.Color(h); return [c.r * 255, c.g * 255, c.b * 255]; };
+    const cs = [col(L.manga), col(L.guante || L.piel), col(L.piel)], lr = BR3_CFG.lref.slice(); if (!L.guante) lr[1] = lr[2];
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255, w = [mk[i], mk[i + 1], mk[i + 2]], tw = w[0] + w[1] + w[2] || 1;
+      let r = 0, gg = 0, b = 0;
+      for (let k = 0; k < 3; k++) { if (!w[k]) continue; const ref = !L.guante && k === 1 ? Math.max(lr[1], 0.2) : lr[k], f = Math.pow(clamp(lum / ref, 0.35, 2.2), 0.8) * w[k] / tw; r += cs[k][0] * f; gg += cs[k][1] * f; b += cs[k][2] * f; }
+      d[i] = Math.min(255, r); d[i + 1] = Math.min(255, gg); d[i + 2] = Math.min(255, b);
+    }
+    g.putImageData(im, 0, 0);
+    const t = new THREE.CanvasTexture(cv); t.flipY = false; t.encoding = BRZ.mat.map ? BRZ.mat.map.encoding : THREE.LinearEncoding;
+    return (BRZ.tex[ch] = t);
+  } catch (e) { return (BRZ.tex[ch] = null); }
+}
+function br3Look(ch) {
+  BRZ.char = ch; const L = BR3_CFG.looks[ch] || BR3_CFG.looks.sheriff;
+  if (L.sombra) { BRZ.mesh.material = SOMBRA.sk; return; }
+  const t = br3Tex(ch); BRZ.mesh.material = BRZ.mat; if (t) { BRZ.mat.map = t; BRZ.mat.needsUpdate = true; }
+}
+// Trastienda (zona de paz): brazos sin arma, manos sueltas. Lo llama quien quita las armas; br3SinArma(false) las devuelve.
+function br3SinArma(on) { BRZ.sinArma = !!on; }
+const br3Clase = id => BR3_CFG.clase[id] || 'rev';
+function br3Agarre(id) { const c = br3Clase(id); return Object.assign({}, BR3_CFG.agarre[c], BR3_CFG.porArma[id] || {}); }
+// dónde va el arma en la pantalla: GUN_HIP salvo las largas (más abajo a la derecha; la M60 y la Gatling, todavía más, para no tapar)
+function br3Cadera(id) { const C = BR3_CFG.cadera; return BRZ.ok ? C[id] || C[br3Clase(id)] || null : null; }   // sin brazos 3D, el arma va donde siempre
+// al armar el arma de primera persona: busca el guardamanos (el punto de abajo del arma a esa altura del cañón)
+function br3Medir(h) {
+  if (!hands.includes(h) || !h.muzzle || !h.gunG) return;
+  const A = br3Agarre(h.model); h.br3 = { A, fore: null };
+  if (A.ant == null) return;
+  const z0 = A.palma[2], z1 = h.muzzle.position.z, z = z0 + (z1 - z0) * A.ant, y0 = h.muzzle.position.y;
+  h.k.updateMatrixWorld(true); _bm.copy(h.k.matrixWorld).invert();
+  let minY = Infinity, sx = 0, n = 0;
+  h.gunG.traverse(o => {
+    if (!o.isMesh || !o.geometry.attributes.position) return;
+    _bm2.multiplyMatrices(_bm, o.matrixWorld); const P = o.geometry.attributes.position, st = Math.max(1, Math.floor(P.count / 3000));
+    for (let i = 0; i < P.count; i += st) { _bv.fromBufferAttribute(P, i).applyMatrix4(_bm2); if (Math.abs(_bv.z - z) < 0.025 && _bv.y > y0 - 0.12 && Math.abs(_bv.x) < 0.06) { if (_bv.y < minY) minY = _bv.y; sx += _bv.x; n++; } }
+  });
+  h.br3.fore = new THREE.Vector3(n ? sx / n : 0, isFinite(minY) ? minY : y0 - 0.03, z);
+}
+// apunta un hueso para que su hijo (en «hijo») quede hacia «a»
+function br3Apunta(b, hijo, a) {
+  b.getWorldPosition(_bv); hijo.getWorldPosition(_bv2);
+  _bv2.sub(_bv).normalize(); _bv3.copy(a).sub(_bv).normalize();
+  _bq.setFromUnitVectors(_bv2, _bv3); b.getWorldQuaternion(_bq2); _bq.multiply(_bq2);
+  b.parent.getWorldQuaternion(_bq2); b.quaternion.copy(_bq2.invert().multiply(_bq)); b.updateMatrixWorld(true);
+}
+const _bE = new THREE.Vector3(), _bS = new THREE.Vector3(), _bW = new THREE.Vector3(), _bP = new THREE.Vector3(), _bF = new THREE.Vector3(), _bN = new THREE.Vector3(), _bX = new THREE.Vector3();
+// coloca un brazo: palma en P (mundo), dedos hacia F, palma hacia N, codo hacia «polo»; dedos: cierre de cada dedo
+function br3Brazo(s, P, F, N, polo, dedos, gat) {
+  const B = BRZ.B, H = BRZ.H[s], sh = B[s + '_arm'], el = B[s + '_elbow'], wr = B[s + '_wrist'];
+  sh.scale.setScalar(1);
+  // giro de la mano: el marco (f, n) de la muñeca pasa a (F, N)
+  _bF.copy(F).normalize(); _bN.copy(N).addScaledVector(_bF, -N.dot(_bF)).normalize(); _bX.crossVectors(_bF, _bN);
+  _bm.makeBasis(_bF, _bN, _bX); _bv.crossVectors(H.f, H.n); _bm2.makeBasis(H.f, H.n, _bv).transpose(); _bm.multiply(_bm2);
+  const Q = H.q.setFromRotationMatrix(_bm);
+  // muñeca = palma - (centro de la palma girado)
+  _bW.copy(H.pc).applyQuaternion(Q); _bW.subVectors(P, _bW);   // (pc, a y b ya están en metros: se midieron con el modelo a escala)
+  // dos huesos
+  sh.quaternion.copy(BRZ.rest.get(sh)); el.quaternion.copy(BRZ.rest.get(el)); sh.updateMatrixWorld(true);
+  sh.getWorldPosition(_bS); const a = H.a, b = H.b;
+  _bv.subVectors(_bW, _bS); const dist = clamp(_bv.length(), Math.abs(a - b) + 1e-3, (a + b) * 0.999); _bv.normalize();
+  const ca = clamp((a * a + dist * dist - b * b) / (2 * a * dist), -1, 1), sa = Math.sqrt(1 - ca * ca);
+  _bv2.copy(polo).addScaledVector(_bv, -polo.dot(_bv)).normalize();
+  _bE.copy(_bS).addScaledVector(_bv, a * ca).addScaledVector(_bv2, a * sa); _bP.copy(_bS).addScaledVector(_bv, dist);
+  br3Apunta(sh, el, _bE); br3Apunta(el, wr, _bP);
+  el.getWorldQuaternion(_bq2); wr.quaternion.copy(_bq2.invert().multiply(Q)); wr.updateMatrixWorld(true);
+  for (const D of H.dedos) {
+    const c = (dedos[D.d] || 0) + (D.d === 1 ? gat || 0 : 0); D.b.quaternion.copy(BRZ.rest.get(D.b));
+    if (D.axN && dedos[5]) D.b.quaternion.multiply(_bq.setFromAxisAngle(D.axN, dedos[5]));   // el pulgar gira hacia adelante (dedos[5])
+    if (c) D.b.quaternion.multiply(_bq.setFromAxisAngle(D.ax, c * (D.j === 1 && D.d ? 0.8 : 1)));
+  }
+}
+function br3Esconde(s) { const b = BRZ.B[s + '_arm']; b.scale.setScalar(1e-4); }
+const _bk = { p: new THREE.Vector3(), f: new THREE.Vector3(), n: new THREE.Vector3() }, _bpolo = { R: new THREE.Vector3(), L: new THREE.Vector3() };
+// punto y direcciones del espacio de un arma (h.k) al mundo
+function br3DeArma(h, p, f, n) {
+  _bk.p.set(p[0], p[1], p[2]); h.k.localToWorld(_bk.p);
+  if (f) _bk.f.set(f[0], f[1], f[2]).transformDirection(h.k.matrixWorld);
+  if (n) _bk.n.set(n[0], n[1], n[2]).transformDirection(h.k.matrixWorld);
+  return _bk;
+}
+const br3DeCam = (v, out) => out.set(v[0], v[1], v[2]).applyMatrix4(camera.matrixWorld);
+const _bLI = { p: new THREE.Vector3(), f: new THREE.Vector3(), n: new THREE.Vector3(), ok: false };
+// cada cuadro, después de mover la cámara y el arma
+function br3Paso(dt) {
+  if (!BRZ.pedido && game) br3Cargar();
+  const H0 = hands[0], H1 = hands[1];
+  const vis0 = H0.root.visible && !!H0.gunG, sin = BRZ.sinArma && game && state !== 'menu';
+  if (sin) for (const h of hands) h.root.visible = false;
+  for (const h of hands) if (h.handG) h.handG.visible = !BRZ.ok;
+  if (!BRZ.ok) return;
+  const on = (vis0 || sin) && !!game && !player.down;
+  BRZ.m.visible = on; if (!on) return;
+  if (BRZ.char !== game.char) br3Look(game.char);
+  camera.updateMatrixWorld(true);
+  const C = BR3_CFG, polo = s => _bpolo[s].set(...C.codo[s]).transformDirection(camera.matrixWorld);
+  // hombros (los fija la cámara; con armas largas el izquierdo se adelanta)
+  const larga = !sin && H0.br3 && H0.br3.A.ant != null && !(game && game.dual);
+  for (const s of ['R', 'L']) { const hp = (larga && C.hombroLargas[s]) || C.hombro[s], b = BRZ.B[s + '_arm']; br3DeCam(hp, _bv); b.position.copy(b.parent.worldToLocal(_bv)); }
+  BRZ.m.updateMatrixWorld(true);
+  const sway = Math.sin(menuT * 1.6) * 0.004;
+  if (sin) {   // sin arma: manos sueltas abajo, se balancean al caminar
+    const R = C.relajada, bob = Math.sin(player.bob) * 0.012 * Math.min(1, Math.hypot(player.vx, player.vz) / 5);
+    for (const s of ['R', 'L']) {
+      const sg = s === 'R' ? 1 : -1; br3DeCam([R[s][0], R[s][1] + sway + bob * sg, R[s][2]], _bP);
+      const F = _bF.set(-0.25 * sg, 0.5, -1).transformDirection(camera.matrixWorld), N = _bN.set(-sg, -0.2, 0).transformDirection(camera.matrixWorld);
+      br3Brazo(s, _bP.clone(), F.clone(), N.clone(), polo(s), R.dedos, 0);
+    }
+    BRZ.tiro = 0; return;
+  }
+  // mano derecha: la empuñadura del arma 1
+  if (!H0.br3) br3Medir(H0); if (!H0.br3) return;
+  const A = H0.br3.A, gat = H0.fl > 0 ? C.gatillo : 0;
+  let k = br3DeArma(H0, A.palma, A.dir, A.nor); br3Brazo('R', k.p.clone(), k.f.clone(), k.n.clone(), polo('R'), A.dedos, gat);
+  // mano izquierda: el segundo revólver, el guardamanos, o lo que esté haciendo (recargar, abanicar, Ojo Muerto, dinamita)
+  BRZ.tiro = Math.max(0, BRZ.tiro - dt);
+  const cls = br3Clase(H0.model), L = _bLI;
+  let want = null;   // { p, f, n, dedos, cam: true si p/f/n ya están en el mundo }
+  if (BRZ.tiro > 0) {
+    const D = C.dinamita, u = 1 - BRZ.tiro / D.dur, P1 = u < 0.5 ? D.a : D.b, P2 = u < 0.5 ? D.b : D.c, w = u < 0.5 ? u * 2 : (u - 0.5) * 2, e = w * w * (3 - 2 * w);
+    br3DeCam([lerp(P1[0], P2[0], e), lerp(P1[1], P2[1], e), lerp(P1[2], P2[2], e)], _bv3);
+    want = { p: _bv3.clone(), f: _bv.set(0.3, 0.8, -0.5).transformDirection(camera.matrixWorld).clone(), n: _bv2.set(0.6, 0, -0.8).transformDirection(camera.matrixWorld).clone(), dedos: u < 0.6 ? [0.8, 1.2, 1.3, 1.3, 1.3] : [0.1, 0.15, 0.15, 0.2, 0.2] };
+    if (game.dual && H1.root.visible) H1.root.position.y -= 0.35 * Math.sin(u * Math.PI);   // el segundo revólver baja mientras lanza
+  } else if (game.dual && H1.active && H1.root.visible && H1.gunG) {
+    if (!H1.br3) br3Medir(H1);
+    const A1 = H1.br3.A; k = br3DeArma(H1, A1.palma, A1.dir, A1.nor);
+    br3Brazo('L', k.p.clone(), k.f.clone(), k.n.clone(), polo('L'), A1.dedos, H1.fl > 0 ? C.gatillo : 0); L.ok = false; return;
+  } else if (gs.reloading) {
+    const rp = C.recarga[cls] || C.recarga.rev, pr = gs.phase === 'insert' && gs.ptMax ? 1 - gs.pt / gs.ptMax : 0;
+    const fuera = gs.phase === 'insert' && pr < 0.55 && Math.sin(pr / 0.55 * Math.PI) > 0.3;   // va al bolsillo y vuelve con la bala
+    if (fuera) { br3DeCam(C.bolsillo, _bv3); want = { p: _bv3.clone(), f: _bv.set(0.4, 0.2, -1).transformDirection(camera.matrixWorld).clone(), n: _bv2.set(0.5, 0.6, 0).transformDirection(camera.matrixWorld).clone(), dedos: [0.9, 1.1, 1.2, 1.3, 1.3] }; }
+    else if (gs.phase === 'close' && A.ant != null && H0.br3.fore) want = null;
+    else { const c = cls === 'rev' || cls === 'mini' ? H0.cylG.position : null; const q = c ? [c.x + rp[0], c.y + rp[1], c.z + rp[2]] : rp; k = br3DeArma(H0, q, [0.6, 0.6, -0.5], [0.4, 0.3, -0.8]); want = { p: k.p.clone(), f: k.f.clone(), n: k.n.clone(), dedos: [0.7, 0.9, 1.0, 1.1, 1.1] }; }
+  } else if (gs.fan > 0 && cls !== 'larga') {
+    const F_ = C.abanico, h = H0.hammer.position, sw = Math.sin(menuT * 37) * F_.va;
+    k = br3DeArma(H0, [h.x + F_.sobre[0], h.y + F_.sobre[1], h.z + F_.sobre[2] + sw], F_.dir, F_.nor); want = { p: k.p.clone(), f: k.f.clone(), n: k.n.clone(), dedos: [0.2, 0.15, 0.15, 0.2, 0.2] };
+  } else if (game.deOn && A.ant == null) {
+    const O = C.ojo; k = br3DeArma(H0, O.palma, O.dir, O.nor); want = { p: k.p.clone(), f: k.f.clone(), n: k.n.clone(), dedos: O.dedos };
+  }
+  if (!want && A.ant != null && H0.br3.fore) {   // el guardamanos
+    const G_ = C.guardamanos, fo = H0.br3.fore; k = br3DeArma(H0, [fo.x, fo.y - G_.bajo, fo.z], G_.dir, G_.nor); want = { p: k.p.clone(), f: k.f.clone(), n: k.n.clone(), dedos: G_.dedos, fijo: true };
+  }
+  if (!want) {   // una sola mano: la izquierda baja fuera de la pantalla
+    if (!L.ok) { br3Esconde('L'); return; }
+    br3DeCam(C.bolsillo, _bv3); want = { p: _bv3.clone(), f: _bv.set(0.4, 0.2, -1).transformDirection(camera.matrixWorld).clone(), n: _bv2.set(0.5, 0.6, 0).transformDirection(camera.matrixWorld).clone(), dedos: [0.5, 0.6, 0.7, 0.8, 0.8], fin: true };
+  }
+  // suaviza el viaje de la mano izquierda (en el espacio de la cámara, para que no se quede atrás al girar)
+  _bm.copy(camera.matrixWorld).invert();
+  const pc = want.p.clone().applyMatrix4(_bm), fc = want.f.clone().transformDirection(_bm), nc = want.n.clone().transformDirection(_bm);
+  if (!L.ok && !want.fijo) { L.p.set(C.bolsillo[0], C.bolsillo[1], C.bolsillo[2]); L.f.set(0.4, 0.2, -1).normalize(); L.n.set(0.5, 0.6, 0).normalize(); L.ok = true; L.dedos = want.dedos.slice(); }
+  if (!L.ok || (want.fijo && L.p.distanceTo(pc) < 0.012)) { L.p.copy(pc); L.f.copy(fc); L.n.copy(nc); L.ok = true; if (!L.dedos) L.dedos = want.dedos.slice(); }
+  else { const kk = 1 - Math.exp(-C.suave * dt); L.p.lerp(pc, kk); L.f.lerp(fc, kk).normalize(); L.n.lerp(nc, kk).normalize(); }
+  L.dedos = (L.dedos || want.dedos.slice()).map((v, i) => damp(v, want.dedos[i], 18, dt));
+  if (want.fin && L.p.distanceTo(pc) < 0.03) { L.ok = false; br3Esconde('L'); return; }
+  br3Brazo('L', L.p.clone().applyMatrix4(camera.matrixWorld), L.f.clone().transformDirection(camera.matrixWorld), L.n.clone().transformDirection(camera.matrixWorld), polo('L'), L.dedos, 0);
+}
 
 const bulletMats = {};
 function bulletMat(t) {
@@ -25653,7 +25919,7 @@ function lanzarDinamita() {
   if (world.idx === ROOM_IDX) { hint('Aquí no: la Trastienda es zona de paz', 1400); return; }
   if ((game.dina | 0) < 1) { hint('No tienes dinamita: la vende el vendedor de armas', 1600); Sfx.err(); return; }
   if ((game.dinaT || 0) > game.time) return;
-  game.dina--; game.dinaT = game.time + 0.5; armasHud();
+  game.dina--; game.dinaT = game.time + 0.5; armasHud(); BRZ.tiro = BR3_CFG.dinamita.dur;   // la mano izquierda hace el lanzamiento
   const yaw = player.yaw, pit = player.pitch, a = camera.position.clone();
   let dist = D.alcance; if (pit < -0.05) dist = Math.min(dist, a.y / Math.tan(-pit));   // mirando al suelo, cae donde miras
   dist = Math.max(3, dist);
@@ -30552,7 +30818,7 @@ function specCamera(dt) {
   setText($('#spec-name'), 'specn', `Viendo a ${p.name}`);
   setText($('#spec-sub'), 'specs', `Vida ${p.hp == null ? '?' : p.hp} %${t.length > 1 ? (IS_TOUCH ? ' · Toca las flechas para cambiar' : ' · Clic o ← → para cambiar') : ''}`);
 }
-function updateCamera(dt) { updateCameraBase(dt); introCam(); }
+function updateCamera(dt) { updateCameraBase(dt); introCam(); br3Paso(dt); }
 function updateCameraBase(dt) {
   { const on = specActive(); if (on !== spec.on) { spec.on = on; $('#spec').hidden = !on; $('#xh').style.visibility = on ? 'hidden' : ''; spec.snap = true; $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; } if (on) { $('#spec-prev').hidden = $('#spec-next').hidden = specTargets().length < 2; specCamera(dt); return; } }
   player.recoil *= Math.exp(-7 * dt);
@@ -30605,6 +30871,7 @@ function updateGun(dt) {
   gs.swayX *= Math.exp(-9 * dt); gs.swayY *= Math.exp(-9 * dt);
   const hs = Math.hypot(player.vx, player.vz), aimG = game.dual ? 0 : gs.aim, bm = Math.min(1, hs / 5) * (1 - aimG * 0.85);
   const drawOff = Math.max(0, gs.draw) / 0.45;
+  gs.ojoK = damp(gs.ojoK || 0, game.deOn && BRZ.ok && br3Agarre(game.equip).ant == null ? 1 : 0, 8, dt);
   for (const h of hands) {
     h.root.visible = h.active && !(state === 'dying' && dyingT > 0.3) && !player.down;
     if (!h.active) continue;
@@ -30613,14 +30880,16 @@ function updateGun(dt) {
     h.idleT = (h.idleT || 0) + dt; if (h.idleT > 0.4) h.streak = 0;
     if (h.spinG) { h.spinV = damp(h.spinV, h.idleT < 0.2 || (input.fireHeld && state === 'play') ? 30 : 0, 5, dt); h.spinG.rotation.z += h.spinV * dt; }
     h.cylRot = damp(h.cylRot, h.cylTarget, 22, dt);
-    const p = _tmp.copy(GUN_HIP).lerp(GUN_ADS, aimG);
+    const hc = br3Cadera(h.model), p = (hc ? _tmp.set(hc.p[0], hc.p[1], hc.p[2]) : _tmp.copy(GUN_HIP)).lerp(GUN_ADS, aimG);   // con los brazos 3D, el arma un poco más arriba (y las largas más a la derecha)
+    if (hc && gs.ojoK > 0.001) p.y += BR3_CFG.ojoSube * gs.ojoK;   // Ojo Muerto: el arma sube con las dos manos
     const ph = player.bob + (h.side ? Math.PI : 0);
     h.root.position.set(
       sgn * (p.x + Math.sin(ph) * 0.012 * bm - gs.pose * 0.05) - clamp(gs.swayX, -0.03, 0.03),
       p.y - Math.abs(Math.cos(ph)) * 0.01 * bm + clamp(gs.swayY, -0.03, 0.03) + h.kick * 0.02 + gs.pose * 0.02 + Math.sin(menuT * 1.6 + h.side) * 0.002 - drawOff * 0.25,
       p.z + h.kick * 0.06 + gs.pose * 0.02
     );
-    h.root.rotation.set(h.kick * 0.45 + gs.pose * 0.45 + (gs.fan > 0 ? Math.sin(menuT * 50 + h.side) * 0.04 : 0) - drawOff * 0.9, clamp(gs.swayX * 3, -0.1, 0.1) * sgn, sgn * (gs.pose * 0.9 + (gs.fan > 0 ? 0.25 : 0)));
+    const pk = hc && hc.inclina != null ? hc.inclina : 1;   // las largas se ladean menos al recargar
+    h.root.rotation.set(h.kick * 0.45 + gs.pose * 0.45 * pk + (gs.fan > 0 ? Math.sin(menuT * 50 + h.side) * 0.04 : 0) - drawOff * 0.9 + (hc ? hc.r[0] * (1 - aimG) : 0), clamp(gs.swayX * 3, -0.1, 0.1) * sgn + (hc ? hc.r[1] * (1 - aimG) * sgn : 0), sgn * (gs.pose * 0.9 * pk + (gs.fan > 0 ? 0.25 : 0)));
     const tw = gs.twirl > 0 ? Math.min(1, gs.twirl / 0.7) : 0, ang = -TAU * 2 * (tw < 1 ? 1 - Math.pow(1 - tw, 2.2) : 0);
     if (h.gunG) { const py = -0.035, pz = 0.005, c_ = Math.cos(ang), s_ = Math.sin(ang); h.gunG.rotation.x = ang; h.gunG.position.set(0, py - (py * c_ - pz * s_), pz - (py * s_ + pz * c_)); }
     const sc_ = gs.spinC > 0 ? gs.spinC : 0, open = sc_ > 0 ? (sc_ < 0.18 ? sc_ / 0.18 : sc_ < 0.82 ? 1 : Math.max(0, (1 - sc_) / 0.18)) : 0;
