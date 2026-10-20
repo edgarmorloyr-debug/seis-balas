@@ -265,3 +265,11 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 1. ¿Te gusta el nombre «Matón»? Otras ideas: «El Grandote», «Toro», «Bulldozer».
 2. ¿Las cifras están bien (vida 300, golpe 22, velocidad 2,7 a 3,1) o lo quieres más duro o más rápido?
 3. ¿Desde qué oleada quieres que salga? Ahora desde la 4.
+
+## Balas · rarezas y efectos sencillos (dueño, 20-oct-2026)
+- Hecho en la lista de balas (bocetos/fichas.js, rama prueba):
+  - Bumerán y Junior quedan a la mitad.
+  - 12 raras pasan a poco comunes: Suerte, Dado cargado, Invocación, Hipnótica, Reloj, Encantador, As de espadas, Reloj de arena, Caballero del tiempo, Traición, Cobrador amigo y Naipe dorado.
+  - 6 legendarias pasan a raras: Rey, Ángel, Espejo, Ave de la fortuna, Reflejo de fuego y Mesa de apuestas altas.
+  - Quedan 23 comunes, 36 poco comunes, 17 raras y 18 legendarias. Las cifras se ajustan después.
+- Después: añadir efectos más sencillos, por ejemplo +10 balas al empezar cada oleada, +30 % de velocidad de recarga y curar 1 de vida al impactar.
