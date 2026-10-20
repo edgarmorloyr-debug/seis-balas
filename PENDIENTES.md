@@ -32,6 +32,11 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
   2. Símbolo de dado: todos los juegos de azar, cada uno con su lugar fijo. *(El +5 % se quitó en trastienda-2: ahora sale siempre todo.)*
   3. Símbolo de balas: la expendedora de balas (40 %) y el vendedor de armas nuevo (25 %), que se atiende solo: escopetas, fusiles de asalto, Desert Eagle, 3 tipos de ametralladora, chalecos y dinamita (se equipan del 1 al 9 y se lanzan).
 
+**Don Santino (dueño, 19-oct-2026):** la voz del teléfono es Don Santino, el dueño del casino y prestamista; cada frase suena con una voz de teléfono que no se entiende (no llega solo el texto).
+**Deuda (dueño, 19-oct-2026):** cada oleada que pasa, la deuda sin pagar sube 30 % de interés. El teléfono se puede usar en cada visita para ver la deuda, abonar o pagar todo.
+
+**Prueba del dueño (19-oct-2026), manda sobre lo de abajo:** cada una de las 3 puertas tiene 50 % de estar abierta o cerrada en cada visita; todo lo que hay dentro de cada sala sale siempre. Sin carteles ni adornos de «no salió nada»; símbolos pequeños sobre puertas de verdad (intercambio pasa a ser «?» de misterio); sin cartel en la caja del gato.
+
 **Decisiones del dueño sobre los bocetos de la Trastienda y la deuda (19-oct-2026):**
 - El teléfono suena solo después de un jefe; en las demás visitas está colgado (brilla suave y sirve para abonar) y cada puerta abre o no según el sorteo de la visita.
 - La salida fija lleva a un pasillo con una puerta de color por cada llave (las reglas de llaves y caminos de hoy).
@@ -44,6 +49,13 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - El texto «Lo perdiste todo…» sale en cada partida y se puede saltar con un toque.
 - El Ángel se queda junto al Diablo en la sala de intercambio; la galería de tiro pasa a la sala de balas; la mejora «ramen más seguido» pasa a ser «un plato extra».
 - Ametralladoras del vendedor: Thompson, M60 y Gatling de manivela (propuesta del boceto).
+
+### G1c · Elegido por el dueño del informe (20-oct-2026)
+- Interés: el 30 % por oleada empieza después del jefe 1 (la primera deuda queda en 100 $).
+- Mejoras: deuda siempre en pantalla (pequeña junto al oro; parpadea en rojo cerca del jefe); achicar M60 y Gatling en primera persona y aclarar la lata de frijoles; programar las 10 balas nuevas al llevar el cinturón al juego.
+- Tiendas nuevas: Casa de Empeño (vendes armas, chalecos o balas a la mitad de su precio) y Prestamista Rival (te presta para pagarle a Don Santino, con 50 % de interés).
+- Ítems nuevos: Dado cargado (repite una tirada de ruleta o tragamonedas una vez por visita), Moneda de dos caras (1 de cada 10 apuestas perdidas cuenta como ganada), Pagaré firmado (saltas un pago, el siguiente se duplica), Amuleto del gato negro (más suerte; el gato te bufa), Llave maestra (abre una puerta cerrada de la Trastienda una vez).
+- Situaciones al azar en la Trastienda: Redada policial (5 %: dados cerrados, armas con descuento), Don Santino de buen humor (5 %: perdona el interés de esa oleada), Cobrador en persona (3 %: si le pagas ahí, −20 %; si no, la deuda sube 10 %), Apagón (5 %: a oscuras con linternas, se abre una puerta cerrada), Noche de casino (5 %: los juegos pagan el doble y cuestan lo mismo), El gato trae algo (5 %: ficha o sobre azul en el mostrador), Zombi colado (3 %: hay que matarlo antes de comprar, buen premio), Liquidación (5 %: el vendedor de armas rebaja todo 30 %).
 
 ### G1 · Historia y deuda con el casino
 *Hecho en la rama trastienda-nueva (ver G1b). Al colgar sin dinero se abre la sala de los dados para apostar (las otras dos siguen con cadena hasta pagar).*
