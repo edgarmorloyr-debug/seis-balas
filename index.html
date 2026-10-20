@@ -32179,7 +32179,8 @@ function rivalCobra() {
   if (mias.length) { const id = mias[0].id, i = game.armas.indexOf(id); game.armas[i] = null; if (game.equip === id) equip(CHARS[game.char].gun, true); if (game.mag) game.mag[id] = undefined; txt = `Se llevó tu ${MODELS[id].name}`; armasHud(); }
   else { const q = Math.floor((game.gold | 0) * MIS.rival.castigoOro); game.gold -= q; txt = `Se llevó ${q} $ de tu oro`; }
   R.debe = 0; R.prest = 0; Sfx.err(); Sfx.rival(1.4);
-  banner('El Prestamista Rival se cobró', txt, 3600, 'lock'); feed(`El prestamista se cobró: ${txt.toLowerCase()}`, 'red'); renderChips();
+  setTimeout(() => { if (game) banner('El Prestamista Rival se cobró', txt, 3600, 'lock'); }, 4600);   // después del «¡Riiing!» del teléfono
+  feed(`El prestamista se cobró: ${txt.toLowerCase()}`, 'red'); renderChips();
 }
 // la Casa de Empeño, el Prestamista y el Mostrador en la Sala del Misterio
 function trFigura(P, o) {   // una persona sencilla: piernas, cuerpo, brazos, cabeza y sombrero (o) { traje, piel, sombrero, ancho }
@@ -32217,7 +32218,7 @@ function buildPrestamista(x, z) {
   M(bx(0.5, 0.06, 0.3), lam(0x2a6a3a), -0.3, 0.88, 0.25, q); for (let i = 0; i < 4; i++) M(bx(0.16, 0.025, 0.08), lam(0x5ab06a), 0.25 + i * 0.03, 0.88 + i * 0.026, 0.25, q);   // fajos de billetes
   M(cyl(0.05, 0.05, 0.12, 8), lam(0xd8a838), 0.55, 0.92, 0.4, q);
   const c = trCartel('PRÉSTAMOS', 'Rápidos y discretos', '#7ae08a', 1.6, 0.45); c.position.set(0, 2.55, -0.62); P.add(c);
-  lampLight(0, 1.6, 0.4, 0x7ae08a, 0.3, 3, P, 0.4);
+  { const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x7ae08a, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.set(1.2, 1.2, 1); h.position.set(0, 1.6, 0.4); P.add(h); }   // brillo sin luz de verdad
   addBox(x + 0.3, z, 0.55, 0.8);
   const o = { kind: 'rival', x: x + 1.5, z, r: 1.4 }; let t0 = 0;
   world.anims.push((dt, t) => { fig.cab.rotation.y = Math.sin(t * 0.7) * 0.35; if (o.habla > 0) { o.habla -= dt; fig.cab.rotation.x = Math.sin(t * 22) * 0.05; } });
@@ -32235,7 +32236,7 @@ function buildMostrador(x, z) {
   M(bx(0.26, 0.03, 0.03), lam(0xd8a838, { emissive: 0x2a1c04 }), 0.78, 1.09, 0.2, q); M(new THREE.TorusGeometry(0.05, 0.015, 6, 12), lam(0xd8a838), 0.62, 1.09, 0.2, { p: P, rx: Math.PI / 2 });
   M(bx(2.2, 2.5, 0.12), lam(0x1a0e22), 0, 1.25, -0.4, q);
   const c = trCartel('MOSTRADOR DEL MISTERIO', 'Cosas raras · pague aquí', '#c9a0ff', 2.2, 0.55); c.position.set(0, 2.85, -0.33); P.add(c);
-  lampLight(0, 2.2, 0.3, 0xb48cff, 0.4, 4, P, 0.3);
+  { const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xb48cff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.set(1.6, 1.6, 1); h.position.set(0, 2.2, 0.3); P.add(h); }
   addBox(x - 0.2, z, 0.45, 1.05);
   return { kind: 'mostrador', x: x - 1.4, z, r: 1.4 };
 }
@@ -32247,14 +32248,14 @@ const SIT_ORDEN = ['redada', 'humor', 'cobrador', 'apagon', 'casino', 'gato', 'z
 function sitInfo(k) {
   const S_ = BAL.situaciones, pc = v => Math.round(v * 100) + ' %';
   return {
-    redada: ['Redada policial', `La sala de los dados está precintada · el vendedor de armas rebaja ${pc(S_.redada.rebaja)}`, 'badge'],
+    redada: ['Redada policial', `Dados cerrados · armas −${pc(S_.redada.rebaja)}`, 'badge'],
     humor: ['Don Santino está de buen humor', 'Te perdona el interés de esta oleada', 'star'],
-    cobrador: ['El cobrador vino en persona', `Págale aquí y te rebaja ${pc(S_.cobrador.rebaja)} · si lo ignoras, la deuda sube ${pc(S_.cobrador.sube)}`, 'lock'],
-    apagon: ['Apagón', 'Todo a oscuras… y una puerta cerrada se abrió', 'moon'],
-    casino: ['Noche de casino', `La ruleta, los dados y el blackjack pagan ×${S_.casino.paga} y cuestan lo mismo`, 'dice'],
-    gato: ['La gata trae algo', 'Dejó un regalo en el mostrador de la caja', 'paw'],
-    zombi: ['¡Zombi colado!', 'Mátalo antes de comprar: suelta un buen premio', 'skull'],
-    liquidacion: ['Liquidación', `El vendedor de armas rebaja todo ${pc(S_.liquidacion.rebaja)}`, 'tag']
+    cobrador: ['El cobrador vino en persona', `Págale aquí: −${pc(S_.cobrador.rebaja)} · si lo ignoras: +${pc(S_.cobrador.sube)}`, 'lock'],
+    apagon: ['Apagón', 'A oscuras… y se abrió una puerta cerrada', 'moon'],
+    casino: ['Noche de casino', `Ruleta, dados y blackjack pagan ×${S_.casino.paga}, al mismo precio`, 'dice'],
+    gato: ['La gata trae algo', 'Dejó un regalo junto a la caja', 'paw'],
+    zombi: ['¡Zombi colado!', 'Mátalo antes de comprar: buen premio', 'skull'],
+    liquidacion: ['Liquidación', `Armas −${pc(S_.liquidacion.rebaja)}`, 'tag']
   }[k];
 }
 const sitHoy = () => game && game.sit && game.sit.w === game.routeWave ? game.sit.k : null;
@@ -32272,7 +32273,7 @@ function sitSortear(rr) {
 }
 // lo que pasa una sola vez al sortearse (queda guardado con la visita)
 function sitAplicar() {
-  const k = sitHoy(); if (!k || game.sitHecho) return; game.sitHecho = true;
+  const k = game.sit && game.sit.w === game.wave ? game.sit.k : null; if (!k || game.sitHecho) return; game.sitHecho = true;   // (se llama al preparar la sala, antes de que routeWave sea esta oleada)
   if (k === 'humor' && !Net.client) {   // perdona el interés que se sumó al terminar la oleada
     const U = game.interesUlt; if (U && U.w === game.wave && game.saldo > U.antes) { game.saldo = U.antes; feed(`Don Santino te perdonó el interés: la deuda vuelve a ${game.saldo} $`, 'gold'); if (Net.host) Net.ev(['abS', game.saldo, game.abono | 0]); }
   }
