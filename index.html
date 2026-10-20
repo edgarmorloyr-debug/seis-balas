@@ -750,6 +750,7 @@ kbd{font:700 14px var(--hud);border:1px solid rgba(236,226,203,.4);border-bottom
 .ch-stats small{font-size:11px;letter-spacing:.04em;color:var(--bone-dim);text-transform:uppercase}
 /* ---- Indicadores de poder: 8 cifras (4 por fila), cada una se toca o se señala para ver qué hace ---- */
 .ch-stats.pw-row,#menu .ch-stats.pw-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;justify-content:stretch}
+.car-info .ch-stats.pw-row{grid-template-columns:repeat(5,minmax(0,1fr))}
 .ch-stats .pw-st{min-height:48px;justify-content:center;cursor:help;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:border-color .15s,box-shadow .15s;min-width:0}
 .ch-stats .pw-st small{white-space:nowrap}
 .ch-stats .pw-st.pw-n b{color:#ffd27a}
@@ -30113,9 +30114,9 @@ function poderStats(ch, gun, vivo) {
   out.push(['suerte', (suT > 0 ? '+' : '') + pctTxt(suT), 'Suerte', 'Botín, cofres y efectos de tus balas salen más seguido.', su.filter(Boolean)]);
   return out;
 }
-function poderHtml(ch, gun, vivo) {
+function poderHtml(ch, gun, vivo, sinNuevos) {   // sinNuevos: en la elección de personaje no salen Movimiento, Crítico y Suerte (solo en el Perfil; pedido del dueño)
   pwTip();
-  return `<div class="ch-stats pw-row">${poderStats(ch, gun, vivo).map(([k, v, nm, d, det]) => `<div class="pw-st${['mov', 'crit', 'suerte'].includes(k) ? ' pw-n' : ''}" role="button" tabindex="0" aria-expanded="false" data-pw="${encodeURIComponent(JSON.stringify([nm, d, det]))}"><b>${v}</b><small>${nm}</small></div>`).join('')}</div>`;
+  return `<div class="ch-stats pw-row">${poderStats(ch, gun, vivo).filter(([k]) => !sinNuevos || !['mov', 'crit', 'suerte'].includes(k)).map(([k, v, nm, d, det]) => `<div class="pw-st${['mov', 'crit', 'suerte'].includes(k) ? ' pw-n' : ''}" role="button" tabindex="0" aria-expanded="false" data-pw="${encodeURIComponent(JSON.stringify([nm, d, det]))}"><b>${v}</b><small>${nm}</small></div>`).join('')}</div>`;
 }
 // la ventanita con la descripción: se abre al pasar el cursor (PC) o al tocar (teléfono); tocar en otro lado la cierra. Nunca se sale de la pantalla.
 var PW = { el: null, src: null, fijo: false };   // (var: show() puede cerrar la ventanita antes de que se cree)
@@ -36425,7 +36426,7 @@ function renderCarousel(dir) {
       ${estrellasHtml(id)}
     </div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
   <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t}${C.req.k === 'jefe' ? '' : ` · ${charProgress(id)}/${C.req.n}`}</span>`}${fichaPj(id)}</div>
-    <div class="car-info">${id === 'ludo' && !open ? '' : poderHtml(id, C.gun)}</div>
+    <div class="car-info">${id === 'ludo' && !open ? '' : poderHtml(id, C.gun, false, true)}</div>
     <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
   const st = $('#btn-start'); st.disabled = !open; st.innerHTML = open ? 'Empezar' : `${ico('lock')} Bloqueado`;
