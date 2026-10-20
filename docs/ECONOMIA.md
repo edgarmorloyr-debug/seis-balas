@@ -147,7 +147,12 @@ Si un atajo se salta un mapa, vencer al jefe de un mapa más adelante abre tambi
   - **Amigo de Don Santino** (5 niveles): 1 punto menos de interés por nivel; con todo, 7 % en vez de 12 % (`BAL.arbolSuerte.interes`).
 - «Oro ganado» ahora dice la verdad: suma en todo lo que cobras (no solo en los zombis).
 
-## 6. Cómo volver a correr la simulación
+## 6. Lo que cambia si llegan las otras ramas
+
+- **Juegos de azar en vivo** (rama juegos-vivos): cada ficha de miembro apostada devuelve unos 25 $ de media. Con unas 11 fichas por partida son unos 275 $ más. La simulación con eso (`FICHA_ORO=25`): el jugador normal que gasta el 15 % paga el mapa 5 el 98 % de las veces, y el que gasta el 25 %, el 74 %. Si se siente fácil, hay dos perillas: subir `BAL.deuda.interes` a 0,15 o bajar lo que paga cada ficha en `BAL.juegos`.
+- **Trastienda 3** (interés desde la oleada 3, Prestamista Rival, Mostrador del misterio): la primera cuota baja de 140 $ a 110 $ y el jugador normal que gasta el 15 % paga el mapa 5 el 83 % de las veces. Los objetos del Mostrador (70 $ a 150 $) entran en ese 15-25 % de gasto: son otra decisión más.
+
+## 7. Cómo volver a correr la simulación
 
 En la carpeta `docs` está `economia_modelo.js`. Con Node instalado:
 
@@ -157,6 +162,6 @@ GASTO=0.15 node docs/economia_modelo.js index.html normal
 GASTO=0.25 INT=0.15 node docs/economia_modelo.js index.html bueno
 ```
 
-`GASTO` es la parte del oro que se gasta en compras; `INT` prueba otro interés sin tocar el juego; el último dato es el tipo de jugador (`flojo`, `normal` o `bueno`). La simulación lee `BAL` directamente del juego.
+`GASTO` es la parte del oro que se gasta en compras; `INT` prueba otro interés sin tocar el juego; `TRAS=2` hace que el interés empiece tras la oleada 2; `FICHA_ORO=25` cuenta cada ficha de miembro como 25 $ apostados; el último dato es el tipo de jugador (`flojo`, `normal` o `bueno`). La simulación lee `BAL` directamente del juego.
 
 **Lo que la simulación no cuenta:** las apuestas, la galería de tiro, vender balas, las máquinas de los mapas (pozo, cafetera…), los abonos antes del interés y las cajas rompibles que no se ven. Son cifras para comparar, no una promesa exacta.

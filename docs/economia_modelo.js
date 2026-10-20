@@ -73,6 +73,7 @@ for (let it = 0; it < N; it++) {
       // interés de la deuda al terminar la oleada
       if (n > trasOla) saldo = red5(saldo * (1 + BAL.deuda.interes));
     }
+    g += f * (+process.env.FICHA_ORO || 0);   // FICHA_ORO: si las fichas de miembro se apuestan, lo que devuelve cada una en oro (de media)
     oro += g * (1 - (+process.env.GASTO || 0)); fichas += f;
     res[m].oro.push(g); res[m].fichas.push(f); res[m].deuda.push(saldo);
     if (vivo && oro >= saldo) { oro -= saldo; pagan[m]++; } else vivo = false;
