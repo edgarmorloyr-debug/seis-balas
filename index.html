@@ -2426,7 +2426,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
 :is(#vm2,#inv2) .acc{display:flex;gap:8px}
 :is(#vm2,#inv2) .acc .vb{flex:1;padding:0 8px}
 :is(#vm2,#inv2) #bJuntar:not([disabled]){border-color:#5bd17a;color:#d8ffe4;background:#0d3a1e;box-shadow:0 0 14px #5bd17a77;animation:v2par 1.3s ease-in-out infinite}
-:is(#vm2,#inv2) #bAbrirAzul{border-color:#6fb0ff;color:#e4f0ff;background:#163f8f;box-shadow:0 0 14px #6fb0ff77}
+:is(#vm2,#inv2) :is(#bAbrirAzul,#iAbrir:not([disabled])){border-color:#6fb0ff;color:#e4f0ff;background:#163f8f;box-shadow:0 0 14px #6fb0ff77}
 @media (orientation:portrait){:is(#vm2,#inv2) .top{flex-wrap:wrap;row-gap:6px;gap:6px}
 :is(#vm2,#inv2) .top h1{flex-basis:100%;order:-1;font-size:20px}
 :is(#vm2,#inv2) .top .sp{display:none}
@@ -3146,7 +3146,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=19').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=20').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -26121,7 +26121,7 @@ function invTab(t) {
   pagTodas();
 }
 // siempre se puede salir: aunque el estado haya cambiado mientras estaba abierto (pausa por perder el puntero, pantalla completa…), la canana se cierra (dueño, 21-oct-2026: «no puedo salir del inventario»)
-function closeInv() { const ab = VM2.invAbierto(); if (state !== 'inv' && !ab) return; if (game) game.fz = null; VM2.invCerrar(); show(null); if (state === 'inv' || state === 'pause') { state = 'play'; requestLock(); canvas.focus(); } }
+function closeInv() { const ab = VM2.invAbierto(); if (state !== 'inv' && !ab) return; if (state === 'inv' && VM2.abierta()) return; if (game) game.fz = null; VM2.invCerrar(); show(null); if (state === 'inv' || state === 'pause') { state = 'play'; requestLock(); canvas.focus(); } }
 // la ficha de una bala del cinturón o de la reserva (el sobre azul se dibuja como un sobre)
 function balFichaE(e, cls = '') { return esSobreAzul(e) ? `<span class="bf azul ${cls}" title="Sobre azul">${typeof VM2 !== 'undefined' ? VM2.sobreAzulMini() : ''}</span>` : balFicha(e.k, e.lv, cls); }
 // G2 · Inventario (Tab): «Tu cinturón» (8 espacios, hacen efecto) y la reserva (6, sin efecto); «Juntar» sube de nivel 2 iguales del mismo nivel
@@ -26144,7 +26144,7 @@ function renderInv() {
   g.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { game.invSel = { d: b.dataset.d, i: +b.dataset.i }; Sfx.ui(); renderInv(); }));
   const e = S && Balas.ent(game, S), D = $('#inv-det');
   if (!e) D.innerHTML = '<p>Tu cinturón está vacío. Consigue balas en la máquina expendedora, en los cofres y venciendo jefes.</p>';
-  else if (esSobreAzul(e)) D.innerHTML = `<h3>${balFichaE(e)}<span>Sobre azul</span></h3><p>Trae 3 cartas: en blanco o con premio (fichas, balas, oro, un arma o un plato).</p><p class="dim">Solo se abre en la máquina expendedora de la Trastienda. Ocupa un espacio de tu reserva.</p>`;
+  else if (esSobreAzul(e)) D.innerHTML = `<h3>${balFichaE(e)}<span>Sobre azul</span></h3><p>Trae 3 cartas: en blanco o con premio (fichas, balas, oro, un arma o un plato).</p><p class="dim">Ábrelo desde el inventario o en la máquina expendedora. Ocupa un espacio de tu reserva.</p>`;
   else {
     const k = e.k, B = BULLETS[k], lv = e.lv, fam = BALAS[k].f, enRes = S.d === 'r', venta = Balas.ventaDe(k, lv), enSala = game.phase === 'room';
     const comp = Balas.companera(game, S);
@@ -32463,7 +32463,7 @@ function balGanar(k, o = {}) {
 function balSobreAzul() {
   if (!game) return false; game.reserva = game.reserva || [];
   if (game.reserva.length >= BAL.reserva) { hint('Tu reserva está llena: libera un espacio para el sobre azul', 2400); return false; }
-  game.reserva.push({ k: 'sobreazul', lv: 0, sobre: 1 }); Sfx.coin(); feed('¡Sobre azul! Va a tu reserva: ábrelo en la máquina expendedora', 'blue'); stMas('sobres'); return true;
+  game.reserva.push({ k: 'sobreazul', lv: 0, sobre: 1 }); Sfx.coin(); feed('¡Sobre azul! Va a tu reserva: ábrelo desde el inventario', 'blue'); stMas('sobres'); return true;
 }
 const esSobreAzul = e => !!e && e.k === 'sobreazul';
 // vender una bala del cinturón (d = 's') o de la reserva (d = 'r'): la mitad de su precio por cada copia de nivel 1 que vale
@@ -40549,13 +40549,14 @@ function invRender() {
   if (!INV.ocupado) for (const e of iq('#iBalas').querySelectorAll('.f[style*="visibility"]')) e.style.visibility = '';   // una ficha escondida por una animación que no terminó
   const P = iq('#papel'), D = INV.sel && detalle(INV.sel);
   if (!D) P.innerHTML = `<div class="t"><div class="vacio"><b>${INV.cambio ? 'Elige con cuál cambiarla' : 'Toca una bala de la canana'}</b>2 balas iguales del mismo nivel se juntan en 1 del nivel siguiente (hasta Nv 4). Las que sobran van solas a la alforja.</div></div>`;
-  else if (D.sobre) P.innerHTML = `<span class="f sobreA">${sobreAzulSVG()}</span><div class="t"><h2>Sobre azul</h2><div class="d">3 cartas: en blanco o con premio. Solo se abre en la máquina expendedora de la Trastienda.</div></div>`;
+  else if (D.sobre) P.innerHTML = `<span class="f sobreA">${sobreAzulSVG()}</span><div class="t"><h2>Sobre azul</h2><div class="d">3 cartas: en blanco o con premio. Toca «Abrir sobre» para abrirlo aquí mismo.</div></div>`;
   else P.innerHTML = `${D.ficha()}<div class="t"><h2>${D.nombre}</h2><div class="rar"><span class="rk-${rareza(D.id)}">${D.rar}</span>${pips(D.nv)}<span>Nv ${D.nv} de 4</span></div>
     <div class="d">${D.ahora}</div>${D.par ? `<div class="pr">${D.par}</div>` : ''}<div class="donde opc">${INV.cambio ? 'Toca la bala con la que quieres cambiarla.' : D.donde}</div><div class="sig opc">${D.sig}</div></div>`;
   encajarInv(P.querySelector('.t'));
   // botones
   const l = INV.sel, x = l && Z.get(l), bM = iq('#iMover'), bJ = iq('#iJuntar'), bV = iq('#iVender'), dos = (a, b) => `<span>${a}</span>${b ? `<small>${b}</small>` : ''}`;
   bM.disabled = !x || x.sobre || INV.ocupado; bM.innerHTML = INV.cambio ? dos('Cancelar', 'el cambio') : x && !x.sobre ? dos('Mover', zona(l) === 'cin' ? 'a la alforja' : 'a la canana') : dos('Mover'); bM.classList.toggle('esperando', !!INV.cambio);
+  const bA = iq('#iAbrir'), azul = !!(x && x.sobre); bA.hidden = !azul; bJ.hidden = azul; bA.disabled = INV.ocupado;   // G4 · 0b: el sobre azul se abre desde el inventario
   const p = x && !x.sobre && parDe(l); bJ.disabled = !p || INV.ocupado; bJ.innerHTML = p ? dos('Juntar', `sube a Nv ${x.nv + 1}`) : dos('Juntar'); bJ.classList.toggle('listo', !!p && !INV.ocupado);
   const v = x && !x.sobre ? venta(x) : 0; bV.disabled = !v || INV.ocupado; bV.innerHTML = x && !x.sobre ? dos('Vender', v ? `+${v} $` : 'no se vende') : dos('Vender');
   [...I0().querySelectorAll('.elegida')].forEach(e => e.classList.remove('elegida')); if (INV.sel) { const e = locEl(INV.sel); if (e) e.classList.add('elegida'); }
@@ -40632,7 +40633,7 @@ function invArmar() {
  <div class="abajo">
   <div class="alforja"><div class="vlbl">Reserva <b id="iCRes"></b><small>no dan efecto</small></div><div class="bolsa" id="iRes"></div></div>
   <div class="nota"><div class="papel" id="papel"></div>
-   <div class="acc"><button class="vb" id="iMover" type="button"></button><button class="vb" id="iJuntar" type="button"></button><button class="vb" id="iVender" type="button" data-drop="vender"></button></div></div>
+   <div class="acc"><button class="vb" id="iMover" type="button"></button><button class="vb" id="iJuntar" type="button"></button><button class="vb" id="iAbrir" type="button" hidden><span>Abrir sobre</span></button><button class="vb" id="iVender" type="button" data-drop="vender"></button></div></div>
  </div>
 </div>
 <div class="perfil" id="iPerfil" hidden></div>
@@ -40643,6 +40644,7 @@ function invArmar() {
   iq('#iMover').addEventListener('click', invMover);
   iq('#iJuntar').addEventListener('click', () => { const p = INV.sel && parDe(INV.sel); if (p) invJuntarAnim(p[0], p[1]); });
   iq('#iVender').addEventListener('click', invVender);
+  iq('#iAbrir').addEventListener('click', () => { invAbrirAzul().catch(e => { noteErr(e, 'sobre azul'); }); });
   arrastre(iq('#iBalas'), {
     puede: () => !INV.ocupado,
     alTocar(k) { if (!k.startsWith('drop:')) invTocar(k); },
@@ -40656,10 +40658,25 @@ function invArmar() {
   });
   addEventListener('resize', () => { if (!I0().hidden) invRender(); });
 }
+// G4 · 0b: abrir el sobre azul desde el inventario. Es la misma apertura de la máquina (abrirAzul y su escena, con las mismas cartas y
+// el mismo cupo): la máquina se muestra solo mientras dura y al terminar se vuelve al inventario. No se sortean ofertas nuevas.
+async function invAbrirAzul() {
+  const l = INV.sel; if (!l || INV.ocupado || !(Z.get(l) || {}).sobre || T.ocupado) return;
+  INV.ocupado = true; INV.cambio = null; armar();
+  T.vendO = null; T.desdeTienda = true; T.recibidos = []; S = [l];
+  I0().hidden = true; R0().hidden = false; R0().classList.add('soloSobre'); document.body.classList.add('vm2-on'); Sfx.open();
+  render(); await new Promise(r => requestAnimationFrame(r)); ajustar(); render();
+  try { await abrirAzul(l); }
+  finally {
+    T.ocupado = false; R0().classList.remove('soloSobre'); cerrar();
+    INV.sel = null; INV.ocupado = false;
+    if (game && state === 'inv') { I0().hidden = false; document.body.classList.add('vm2-on'); invRender(); }
+  }
+}
 function invAbrir() { if (!game) return; invArmar(); INV.sel = INV.cambio = INV.obj = INV.stat = null; INV.ocupado = false; I0().hidden = false; document.body.classList.add('vm2-on'); invRender(); requestAnimationFrame(invRender); }
 function invCerrar() { if (!I0()) return; I0().hidden = true; INV.cambio = null; document.body.classList.remove('vm2-on'); const j = document.getElementById('inv-jug'), c = document.querySelector('#inv-s .card'); if (j && c && j.parentNode !== c) c.insertBefore(j, c.querySelector('.inv-sec')); }
 
-return { invAbrir, invCerrar, invRender, invAbierto: () => !!I0() && !I0().hidden, _INV: INV, abrir, cerrar, abierta: () => !!R0() && !R0().hidden, render, sobreAzulMini: () => `<span class="sa-mini">${sobreAzulSVG()}</span>`, _Z: Z, _T: T, comprar, ajustar };
+return { invAbrir, invCerrar, invAbrirAzul, invRender, invAbierto: () => !!I0() && !I0().hidden, _INV: INV, abrir, cerrar, abierta: () => !!R0() && !R0().hidden, render, sobreAzulMini: () => `<span class="sa-mini">${sobreAzulSVG()}</span>`, _Z: Z, _T: T, comprar, ajustar };
 })();
 /* @@VM2 fin */
 $('#loading').remove();
