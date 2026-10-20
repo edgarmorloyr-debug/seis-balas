@@ -57,6 +57,20 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Ítems nuevos: Dado cargado (repite una tirada de ruleta o tragamonedas una vez por visita), Moneda de dos caras (1 de cada 10 apuestas perdidas cuenta como ganada), Pagaré firmado (saltas un pago, el siguiente se duplica), Amuleto del gato negro (más suerte; el gato te bufa), Llave maestra (abre una puerta cerrada de la Trastienda una vez).
 - Situaciones al azar en la Trastienda: Redada policial (5 %: dados cerrados, armas con descuento), Don Santino de buen humor (5 %: perdona el interés de esa oleada), Cobrador en persona (3 %: si le pagas ahí, −20 %; si no, la deuda sube 10 %), Apagón (5 %: a oscuras con linternas, se abre una puerta cerrada), Noche de casino (5 %: los juegos pagan el doble y cuestan lo mismo), El gato trae algo (5 %: ficha o sobre azul en el mostrador), Zombi colado (3 %: hay que matarlo antes de comprar, buen premio), Liquidación (5 %: el vendedor de armas rebaja todo 30 %).
 
+### G1d · Pedidos del dueño (20-oct-2026)
+- Transición suave después de la introducción (sin quedarse pegado unos 5 s).
+- Símbolos de las puertas más pequeños y sin hueco encima de la puerta.
+- Que no se trabe al entrar a la Trastienda.
+- El interés del 30 % empieza después de la oleada 2 (cambia lo de «después del jefe 1»).
+- El teléfono de Don Santino vibra y suena al empezar la llamada.
+- Carrera de caballos en vivo y en 3D en la sala, sin interfaz. Tragamonedas en vivo en la propia máquina, con la animación de paño rojo. Duelo de dados en vivo sobre la mesa.
+- En todos los juegos de azar se apuesta con fichas y se gana dinero.
+- Ambientación bonita en cada sala, sin personas: primero propuestas visuales para elegir.
+
+### G1e · Decoración elegida por el dueño (20-oct-2026)
+- Sala principal: «Salón del Prestamista». Misterio: «Capilla del Trato». Dados: «Garito de Contrabando». Balas: «Forja del Armero». Sin personas. Propuestas en el scratchpad decor/.
+- Tambor del revólver vuelve al diseño y tamaño originales (hecho en la versión de prueba).
+
 ### G1 · Historia y deuda con el casino
 *Hecho en la rama trastienda-nueva (ver G1b). Al colgar sin dinero se abre la sala de los dados para apostar (las otras dos siguen con cadena hasta pagar).*
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
@@ -257,3 +271,11 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 1. ¿Te gusta el nombre «Matón»? Otras ideas: «El Grandote», «Toro», «Bulldozer».
 2. ¿Las cifras están bien (vida 300, golpe 22, velocidad 2,7 a 3,1) o lo quieres más duro o más rápido?
 3. ¿Desde qué oleada quieres que salga? Ahora desde la 4.
+
+## Balas · rarezas y efectos sencillos (dueño, 20-oct-2026)
+- Hecho en la lista de balas (bocetos/fichas.js, rama prueba):
+  - Bumerán y Junior quedan a la mitad.
+  - 12 raras pasan a poco comunes: Suerte, Dado cargado, Invocación, Hipnótica, Reloj, Encantador, As de espadas, Reloj de arena, Caballero del tiempo, Traición, Cobrador amigo y Naipe dorado.
+  - 6 legendarias pasan a raras: Rey, Ángel, Espejo, Ave de la fortuna, Reflejo de fuego y Mesa de apuestas altas.
+  - Quedan 23 comunes, 36 poco comunes, 17 raras y 18 legendarias. Las cifras se ajustan después.
+- Después: añadir efectos más sencillos, por ejemplo +10 balas al empezar cada oleada, +30 % de velocidad de recarga y curar 1 de vida al impactar.
