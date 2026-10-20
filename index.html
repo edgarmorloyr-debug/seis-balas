@@ -32371,7 +32371,7 @@ function buildBlackjack(x, z) {
   const o = { kind: 'bj', x: x - 1.7, z, r: 1.4, cx: x - 0.35, cz: z };
   // las cartas: cada una vuela del zapato a su sitio; la tapada de la banca se voltea al destaparla
   const cartaG = new THREE.PlaneGeometry(0.15, 0.21), dorso = lam(0xffffff, { map: bjCartaTex(null) }), ZAP = new THREE.Vector3(-0.12, 1.1, -0.72);
-  const manos = { m: [], b: [] }, rM = rotulo(0.3, 0.15), rB = rotulo(0.3, 0.15); rM.spr.position.set(-0.68, 1.16, 0.46); rB.spr.position.set(-0.26, 1.16, 0.46); P.add(rM.spr); P.add(rB.spr);
+  const manos = { m: [], b: [] }, rM = rotulo(0.3, 0.15), rB = rotulo(0.3, 0.15); rM.spr.position.set(-0.92, 1.07, 0); rB.spr.position.set(-0.05, 1.15, 0);   // el total de ustedes delante de sus cartas y el de la banca detrás de las suyas P.add(rM.spr); P.add(rB.spr);
   let nAct = -1, cola = 0;
   const limpiar = () => { for (const L of [manos.m, manos.b]) { for (const c of L) P.remove(c.g); L.length = 0; } };
   const nueva = c => { const g = new THREE.Group(), fl = new THREE.Group(); g.add(fl); const fr = new THREE.Mesh(cartaG, lam(0xffffff, { map: bjCartaTex(c) })); fr.rotation.x = -Math.PI / 2; fr.position.y = 0.0015; fl.add(fr); const bk = new THREE.Mesh(cartaG, dorso); bk.rotation.x = Math.PI / 2; bk.position.y = -0.0015; fl.add(bk); fl.rotation.z = Math.PI; g.rotation.y = -Math.PI / 2 + rand(-0.08, 0.08); g.position.copy(ZAP); P.add(g); return { g, fl, t0: performance.now() + cola * 220, de: ZAP.clone(), a: new THREE.Vector3(), sono: false }; };
@@ -32998,6 +32998,15 @@ function buildSlot(x, z) {
   M(bx(1.2, 1.1, 0.9), red, 0, 0.55, 0, { solid: true, p: P }); addBox(x, z, 0.5, 0.65);
   M(bx(1.24, 0.12, 1.0), gold, 0, 1.12, 0, q); M(bx(1.2, 1.05, 0.72), red, 0, 1.68, -0.09, q); M(bx(1.28, 0.1, 0.84), gold, 0, 2.24, -0.09, q);
   M(bx(1.0, 0.12, 0.18), dk, 0, 0.42, 0.42, q); M(bx(1.04, 0.04, 0.24), gold, 0, 0.36, 0.44, q);   // la bandeja
+  // la tabla de premios pintada en el mueble (sale de BAL.juegos.slot): así no hace falta ninguna pantalla para saber qué paga
+  M(new THREE.PlaneGeometry(1.04, 0.4), new THREE.MeshBasicMaterial({ map: canvasTex(512, 196, (tg, w, h) => {
+    tg.fillStyle = '#2a0805'; tg.fillRect(0, 0, w, h); tg.strokeStyle = '#d8a838'; tg.lineWidth = 5; tg.strokeRect(3, 3, w - 6, h - 6);
+    tg.fillStyle = '#ffd27a'; tg.font = '900 26px Georgia, serif'; tg.textAlign = 'center'; tg.textBaseline = 'middle'; tg.fillText(tx('PREMIOS'), w / 2, 24);
+    const Pr = BAL.juegos.slot.premios, fil = [['seven', Pr.seven.oro], ['gem', Pr.gem.oro], ['bell', Pr.bell.oro], ['ficha', Pr.ficha.oro], ['bar', Pr.bar.oro], ['cherry', Pr.cherry.oro], [null, BAL.juegos.slot.par.oro]];
+    fil.forEach(([k, v], i) => { const cx = i < 4 ? 20 : 266, cy = 62 + (i % 4) * 36; tg.textAlign = 'left'; tg.font = '700 22px Arial, sans-serif';
+      if (k) for (let j = 0; j < 3; j++) tg.drawImage(sltSym(k), cx + j * 34, cy - 16, 32, 32); else { tg.fillStyle = '#f4ead8'; tg.fillText(tx('DOS IGUALES'), cx, cy + 1); }
+      tg.fillStyle = '#ffe9a8'; tg.textAlign = 'right'; tg.fillText(`${v} $`, cx + 226, cy + 1); });
+  }) }), 0, 0.82, 0.452, { p: P, cast: false });
   for (const s of [-1, 1]) M(bx(0.05, 1.05, 0.06), gold, s * 0.6, 1.68, 0.27, q);
   // la pantalla: paño rojo con los 3 rodillos de cartas blancas y la línea de premio (lienzo de 512 × 256)
   const W = 512, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
@@ -33716,7 +33725,7 @@ function useLabel(o) {
     const v = !aqui ? 'Párate frente a esta puerta para votar por ella.' : V && V.seg >= 0 ? `Votas por esta puerta · votos: ${n} de ${tot} · cruzan en ${V.seg}` : `Votas por esta puerta · votos: ${n} de ${tot} · faltan compañeros por elegir`;
     return { key: 'rv' + o.opt.k + v, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' ' + v, b: null }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
-  if ((o.kind === 'slot' || o.kind === 'wheel') && o.busy) return null;
+  if ((o.kind === 'slot' || o.kind === 'wheel') && (o.busy || o.win > 0)) return null;   // mientras gira y mientras festeja, nada tapa la máquina
   if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: o.v === 'espiral' ? 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.' : `Retos para la próxima oleada: si lo cumples, ganas un premio (oro, fichas, vida o un nivel). Cada reto cuesta ${BAL.retos.fichas} ficha de miembro (tienes ${game.poker | 0}). Máximo ${BAL.retos.max} a la vez.`, b: o.v === 'espiral' ? 'Comprar' : 'Ver retos', ok: true }; }
   if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
@@ -33734,8 +33743,8 @@ function useLabel(o) {
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
   if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay ${(game.ramenOfertas || { ids: [1, 1] }).ids.length} platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
-  if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0, Pr = BAL.juegos.slot.premios; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Tres 7: ${Pr.seven.oro} $ · tres fichas: ${Pr.ficha.oro} $ · tres diamantes: ${Pr.gem.oro} $ · tres campanas: ${Pr.bell.oro} $ · tres BAR: ${Pr.bar.oro} $ · tres cerezas: ${Pr.cherry.oro} $ · dos iguales: ${BAL.juegos.slot.par.oro} $. Cada jugada, 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Tirar de la palanca · 1 ficha' : 'Sin fichas de miembro', ok }; }
-  if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0, R = BAL.juegos.ruleta.oro; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Cada casilla paga dinero: de ${Math.min(...R.filter(v => v))} a ${Math.max(...R)} $ (${R.filter(v => !v).length} casillas no dan nada). Cada tirada, 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
+  if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `Los premios están pintados en la máquina. Cada jugada, 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Tirar de la palanca · 1 ficha' : 'Sin fichas de miembro', ok }; }
+  if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Cada casilla paga el dinero que muestra. Cada tirada, 1 ficha de miembro (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
   return null;
 }
 let useCur = null;
