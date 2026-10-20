@@ -51,11 +51,31 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Ametralladoras del vendedor: Thompson, M60 y Gatling de manivela (propuesta del boceto).
 
 ### G1c · Elegido por el dueño del informe (20-oct-2026)
-- Interés: el 30 % por oleada empieza después del jefe 1 (la primera deuda queda en 100 $).
+- Interés: ~~el 30 % por oleada empieza después del jefe 1 (la primera deuda queda en 100 $)~~ → cambio del dueño (20-oct-2026): empieza después de la oleada 2 de la partida.
 - Mejoras: deuda siempre en pantalla (pequeña junto al oro; parpadea en rojo cerca del jefe); achicar M60 y Gatling en primera persona y aclarar la lata de frijoles; programar las 10 balas nuevas al llevar el cinturón al juego.
 - Tiendas nuevas: Casa de Empeño (vendes armas, chalecos o balas a la mitad de su precio) y Prestamista Rival (te presta para pagarle a Don Santino, con 50 % de interés).
 - Ítems nuevos: Dado cargado (repite una tirada de ruleta o tragamonedas una vez por visita), Moneda de dos caras (1 de cada 10 apuestas perdidas cuenta como ganada), Pagaré firmado (saltas un pago, el siguiente se duplica), Amuleto del gato negro (más suerte; el gato te bufa), Llave maestra (abre una puerta cerrada de la Trastienda una vez).
 - Situaciones al azar en la Trastienda: Redada policial (5 %: dados cerrados, armas con descuento), Don Santino de buen humor (5 %: perdona el interés de esa oleada), Cobrador en persona (3 %: si le pagas ahí, −20 %; si no, la deuda sube 10 %), Apagón (5 %: a oscuras con linternas, se abre una puerta cerrada), Noche de casino (5 %: los juegos pagan el doble y cuestan lo mismo), El gato trae algo (5 %: ficha o sobre azul en el mostrador), Zombi colado (3 %: hay que matarlo antes de comprar, buen premio), Liquidación (5 %: el vendedor de armas rebaja todo 30 %).
+
+*Trastienda 3 (rama trastienda-3, 20-oct-2026), para probar. Cifras en BAL.deuda, BAL.misterio y BAL.situaciones:*
+- *Interés (cambio del dueño, 20-oct-2026, reemplaza «tras el jefe 1»): el 30 % por oleada empieza después de la **oleada 2** de la partida (BAL.deuda.interesTrasOla = 2). El teléfono dice «Sin interés hasta la oleada 2».*
+- *Deuda siempre en pantalla: «Deuda: X $» pequeña bajo el oro; parpadea en rojo cuando el jefe está a 1 oleada o menos (BAL.deuda.avisoOlas).*
+- *M60 y Gatling más chicas en primera persona (ARMA3D.fp); lata de frijoles más clara.*
+- *Sala del Misterio, siempre: Casa de Empeño (paga la mitad: armas compradas, chalecos, dinamita, balas), Prestamista Rival (presta 50/100/200 $ con 50 % de interés, hasta 300 $ a la vez; su deuda va aparte, se ve en el teléfono y en el Perfil; si al vencer al jefe siguiente le debes, **se lleva tu arma comprada más cara; si no tienes, la mitad de tu oro**) y Mostrador del misterio (Dado cargado 120 $, Moneda de dos caras 150 $, Pagaré firmado 90 $, Amuleto del gato negro 140 $, Llave maestra 70 $).*
+- *8 situaciones al azar (a lo sumo una por visita, igual para el grupo y guardada): Redada 5 %, Buen humor 5 %, Cobrador 3 %, Apagón 5 %, Noche de casino 5 %, El gato trae algo 5 %, Zombi colado 3 %, Liquidación 5 %.*
+- *Sin arma en la Trastienda (salvo el tiro al blanco y el zombi colado); teléfono que tiembla con timbre de campanas; frases nuevas de Don Santino y «Ya has pagado esta cuota»; entrada sin tirones; símbolos más pequeños en un dintel; decoración elegida (Salón del Prestamista, Capilla del Trato, Garito de Contrabando, Forja del Armero) con su sonido.*
+
+**Tabla de la deuda (sin abonar nada; interés +30 % al terminar cada oleada desde la 3; redondeo a 5 $):**
+
+| Nivel | Base | Tras su 1.ª, 2.ª y 3.ª oleada (lo que pide el jefe) |
+|---|---|---|
+| 1 | 100 $ | 100 $ → 100 $ → 130 $ |
+| 2 | 150 $ | 195 $ → 255 $ → 330 $ |
+| 3 | 225 $ | 295 $ → 385 $ → 500 $ |
+| 4 | 340 $ | 440 $ → 570 $ → 740 $ |
+| 5 | 505 $ | 655 $ → 850 $ → 1105 $ |
+
+Con el Pagaré firmado, el jefe siguiente pide el doble de su base (y su interés corre sobre eso).
 
 ### G1 · Historia y deuda con el casino
 *Hecho en la rama trastienda-nueva (ver G1b). Al colgar sin dinero se abre la sala de los dados para apostar (las otras dos siguen con cadena hasta pagar).*
