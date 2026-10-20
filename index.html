@@ -2777,7 +2777,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=5').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=6').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -14100,7 +14100,7 @@ function llvOleada(n) {
   llvBotin(); llvFichas();
 }
 // Botín escondido en los puntos de llaves: en cada oleada, 2 % de que aparezca una llave de cofre, 8 % una bala especial y 8 % una ficha de miembro
-const LLV_BOTIN = { p: 0.08, vida: 120 };
+const LLV_BOTIN = { get p() { return BAL.eco.botinLlave; }, vida: 120 };   // p sale de BAL.eco (BAL se define más abajo)
 // Llaves doradas (pedido del dueño, 17-oct-2026: salían demasiadas, 84 en la oleada 7): 2 % en cada ocasión de soltar una
 const LLAVE_P = 0.02;
 function llvLugar(lejos) {
@@ -14121,7 +14121,7 @@ function llvBotin() {
 // Fichas de miembro escondidas: cada zona de llave del lugar (world.zonas: catacumbas, castillo y bosque en el cementerio;
 // maizal, granero y pantano en la granja) tiene 7 escondites; en cada oleada,
 // cada escondite vacío tiene 5 % de tener una ficha, que se queda ahí hasta que alguien la recoja.
-const LLV_FICHAS = { n: 7, p: 0.05 };
+const LLV_FICHAS = { n: 7, get p() { return BAL.eco.fichasEscondidas; } };   // p sale de BAL.eco
 const lugarOcupado = (x, z, r = 1.8) => pickups.some(p => Math.hypot(p.g.position.x - x, p.g.position.z - z) < r) || chests.some(c => !c.open && Math.hypot(c.g.position.x - x, c.g.position.z - z) < r);
 function llvFichaSpots() {
   if (world.fichaSpots) return world.fichaSpots;
@@ -23263,13 +23263,13 @@ const BAL = {
   nivelMax: 4,
   nivelMul: [1, 1.5, 2, 3], // nivel 1, 2, 3 y 4 (el 4 además «despierta»: ver DESPERTAR)
   probMax: 0.95,            // ninguna probabilidad pasa de aquí
-  precio: { C: 20, B: 40, A: 80, S: 300 },   // balas sueltas (la S solo se vende si alguna vez sale en una máquina)
+  precio: { C: 25, B: 50, A: 100, S: 350 },   // balas sueltas (la S solo se vende si alguna vez sale en una máquina) · economía 20-oct-2026: antes 20, 40, 80 y 300
   venta: 0.5,               // vender devuelve la mitad (por cada nivel)
   sueltas: { n: 3, peso: { C: 55, B: 33, A: 12 } },   // máquina · Sueltas: 3 por visita, de C a A
   mojada: 0.25,             // cada espacio de un sobre sale mojado (no sirve)
   sobres: [
-    { k: 'standard', name: 'Sobre Standard', price: 50, peso: { C: 70, B: 25, A: 5 }, col: '#c8a868', d: '3 balas, casi todas de rango C.' },
-    { k: 'terminator', name: 'Sobre Terminator', price: 100, peso: { C: 40, B: 45, A: 15 }, col: '#ff5a3a', d: '3 balas: más de rango B y alguna A.' },
+    { k: 'standard', name: 'Sobre Standard', price: 60, peso: { C: 70, B: 25, A: 5 }, col: '#c8a868', d: '3 balas, casi todas de rango C.' },
+    { k: 'terminator', name: 'Sobre Terminator', price: 125, peso: { C: 40, B: 45, A: 15 }, col: '#ff5a3a', d: '3 balas: más de rango B y alguna A.' },
     { k: 'especial', name: 'Sobre Especial', price: 300, peso: { C: 10, B: 50, A: 40 }, col: '#c070ff', d: '3 balas: muchas de rango A.' }
   ],
   cofre: { C: 60, B: 40 },  // cada cofre da 1 bala C o B
@@ -23288,7 +23288,7 @@ const BAL = {
       activas: { t: 'Dispara {n} balas activas en la próxima oleada', c: 'Activas disparadas', n: 5, ic: 'bullet' }
     },
     premios: {
-      oro: { t: '+{n} $', base: 60, zona: 25 }, fichas: { t: '+{n} fichas de miembro', n: 2 }, curar: { t: 'curación completa' },
+      oro: { t: '+{n} $', base: 50, zona: 20 }, fichas: { t: '+{n} fichas de miembro', n: 1 }, curar: { t: 'curación completa' },
       vidaMax: { t: '+{n} de vida máxima', n: 10 }, nivel: { t: 'una bala de tu slot sube 1 nivel', oro: 60 }, normales: { t: '+{n} balas normales', n: 25 }
     }
   },
@@ -23301,13 +23301,13 @@ const BAL = {
   secretos: { oro: 20, ficha: 1, trampillaOro: 35, trampillaLlave: 0.35, golpes: 3, vel: 3, velPanico: 5.5, huyeT: 8, huyeDist: 25, reaparece: 25, maxReap: 2, lejos: 14 },   // patito que huye: tiros para cazarlo, velocidades (m/s), segundos para rematarlo tras el primer tiro, distancia a la que se escapa, segundos hasta que vuelve a salir, veces que vuelve, distancia mínima al salir   // patito de oro y trampilla secreta de cada lugar (PENDIENTES 46)
   maquinas: {
     madame: { p: 0.5, fichas: 1, cartas: 3,   // sale como salía la puerta de Madame: 1 de cada 2 visitas   // cada carta: un premio y un castigo
-      premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 80, zona: 30 } },
+      premios: { balaA: { tipo: 'bala', rango: 'A' }, balasB: { tipo: 'bala', rango: 'B', n: 2 }, nivel: {}, espacio: { n: 1 }, oro: { base: 60, zona: 25 } },
       castigos: { vida: { n: 15, min: 50 }, oro: { p: 0.5 }, malas: { n: 4 }, torpe: {}, debil: { x: 0.8 } } },
     diabloAngel: { p: 0.5, diablo: 0.5 },   // sale como la puerta del diablo (1 de cada 2 visitas); cuando sale, 50 % diablo y 50 % ángel
     diablo: { fichas: 1, cartas: 3, vidaMin: 30,   // ofertas fuertes, se pagan con vida máxima
       ofertas: { balaA: { tipo: 'bala', rango: 'A', vida: 10 }, balaS: { tipo: 'bala', rango: 'S', vida: 25 }, nivel: { vida: 15 }, espacio: { n: 1, vida: 20 } } },
     angel: { fichas: 1, cartas: 3,           // regalos más pequeños, gratis
-      ofertas: { balaC: { tipo: 'bala', rango: 'C' }, balaB: { tipo: 'bala', rango: 'B' }, curar: { max: 5 }, nivelC: { tipo: 'nivel', rango: 'C' }, normales: { n: 20 }, oro: { base: 30, zona: 10 } } }
+      ofertas: { balaC: { tipo: 'bala', rango: 'C' }, balaB: { tipo: 'bala', rango: 'B' }, curar: { max: 5 }, nivelC: { tipo: 'nivel', rango: 'C' }, normales: { n: 20 }, oro: { base: 25, zona: 10 } } }
   },
   familiaMin: 3,
   familia: {
@@ -23322,35 +23322,67 @@ const BAL = {
   caballero: { vida: 300, dano: 40, max: 8 },   // el caballero que invocan (máximo 8 a la vez) Invocación, Legión, Ángel guardián, Duelo y Caballero del tiempo (antes del nivel)
   arbolEspacio: { max: 2, coste: [8, 15] },   // Tienda calavera: espacios de slot extra (caros)
   // Tienda calavera, rama Suerte (PENDIENTES 20, 19-oct-2026): lo que suma cada nivel (5 niveles; cuestan 1, 2, 3, 4 y 5 fichas)
-  arbolSuerte: { balas: 0.03, cofre: 0.06, rango: 0.08 },
+  //   puertas: lo que sube por nivel que cada puerta de la Trastienda abra · fichaIni: fichas de miembro al empezar por nivel ·
+  //   interes: puntos de interés de la deuda que se quitan por nivel (mejora «Amigo de Don Santino», rama Economía)
+  arbolSuerte: { balas: 0.03, cofre: 0.06, rango: 0.08, puertas: 0.05, fichaIni: 1, interes: 0.01 },
   // G1b · Trastienda nueva (bocetos aprobados por el dueño, 19-oct-2026): salón con ramen, teléfono y caja + 3 salas + pasillo de los caminos
   //   puertaAbierta: probabilidad de que cada una de las 3 puertas esté abierta en una visita (regla «para la prueba» del dueño, 19-oct-2026:
   //   dentro de las salas sale siempre todo) · ramenExtra: platos que suma la mejora «Puesto de ramen» del árbol (1 nivel, coste en fichas de calavera)
   trastienda: { puertaAbierta: 0.5, ramenPlatos: 2, ramenExtra: { platos: 1, max: 1, coste: [4] } },
   // G1 · Deuda con el casino (decisión del dueño, 19-oct-2026): 100 $ el primer nivel y 50 % más por cada nivel superado, sin volver a empezar.
-  //   interes: lo que crece el saldo sin pagar al terminar cada oleada (+30 %, decisión del dueño 19-oct-2026; ver deudaInteres)
+  //   interes: lo que crece el saldo sin pagar al terminar cada oleada (era +30 %, decisión del dueño 19-oct-2026; baja a +12 % con la
+  //     economía nueva del 20-oct-2026: con 30 % las cuotas crecían mucho más rápido que el oro y nadie llegaba al mapa 4; ver docs/ECONOMIA.md)
   //   espera: segundos tras vencer al jefe antes de ir al teléfono · redondeo: múltiplo al que se redondea · intro: segundos del texto de entrada
   //   paliza: la escena de derrota (golpes, segundos entre golpes y segundos de la caída)
-  deuda: { base: 100, factor: 1.5, interes: 0.30, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
+  deuda: { base: 100, factor: 1.5, interes: 0.12, redondeo: 5, espera: 10, intro: 3, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
   // G1b · Vendedor de armas (25 %): precio en $, tipo (para la etiqueta) y barras (0 a 5) de daño, rapidez y cargador.
   //   Las armas van en el espacio 2 o 3 (teclas 2 y 3) el resto de la partida; el 1 es siempre el revólver.
   armeria: {
     armas: [
-      { id: 'doble', tipo: 'Escopeta', precio: 180, b: [5, 1, 1] },
-      { id: 'escopeta', tipo: 'Escopeta', precio: 240, b: [4, 2, 3] },
-      { id: 'ak47', tipo: 'Fusil de asalto', precio: 320, b: [3, 4, 3] },
-      { id: 'm16', tipo: 'Fusil de asalto', precio: 300, b: [3, 3, 3] },
-      { id: 'deagle', tipo: 'Pistola', precio: 260, b: [4, 2, 2] },
-      { id: 'tommy', tipo: 'Ametralladora', precio: 280, b: [2, 5, 4] },
-      { id: 'm60', tipo: 'Ametralladora', precio: 420, b: [3, 4, 5] },
-      { id: 'gatling', tipo: 'Ametralladora', precio: 520, b: [3, 5, 5] }
+      { id: 'doble', tipo: 'Escopeta', precio: 200, b: [5, 1, 1] },
+      { id: 'escopeta', tipo: 'Escopeta', precio: 250, b: [4, 2, 3] },
+      { id: 'ak47', tipo: 'Fusil de asalto', precio: 340, b: [3, 4, 3] },
+      { id: 'm16', tipo: 'Fusil de asalto', precio: 320, b: [3, 3, 3] },
+      { id: 'deagle', tipo: 'Pistola', precio: 270, b: [4, 2, 2] },
+      { id: 'tommy', tipo: 'Ametralladora', precio: 300, b: [2, 5, 4] },
+      { id: 'm60', tipo: 'Ametralladora', precio: 450, b: [3, 4, 5] },
+      { id: 'gatling', tipo: 'Ametralladora', precio: 560, b: [3, 5, 5] }
     ],
     chalecos: [
-      { id: 'cuero', name: 'Chaleco de cuero', precio: 120, blindaje: 40 },
-      { id: 'acero', name: 'Chaleco de acero', precio: 260, blindaje: 100 }
+      { id: 'cuero', name: 'Chaleco de cuero', precio: 130, blindaje: 40 },
+      { id: 'acero', name: 'Chaleco de acero', precio: 280, blindaje: 100 }
     ],
     blindajeMax: 150,   // el blindaje se suma hasta este tope; para primero los golpes y no vuelve solo
-    dinamita: { precio: 90, n: 3, max: 9, dano: 160, radio: 4.2, propio: 25, alcance: 18, vuelo: 0.75 }
+    dinamita: { precio: 100, n: 3, max: 9, dano: 160, radio: 4.2, propio: 25, alcance: 18, vuelo: 0.75 }
+  },
+  // Personajes (pedido del dueño, 20-oct-2026): al empezar solo está el Sheriff. Cada uno se abre para siempre al vencer al jefe
+  //   del mapa N de una partida (N = el lugar 1, 2, 3… de la partida; el Cementerio siempre es el 1), con cualquier personaje y dificultad.
+  //   Vencer al jefe de un mapa más adelante abre también a los de los mapas anteriores. Ludo Cheng sigue saliendo del jefe 2 del casino.
+  desbloqueo: { johnny: 1, armando: 2, lilith: 3, carlos: 4, francois: 5 },
+  // Economía (pedido del dueño, 20-oct-2026: «que el dinero siempre sea justo»). Cuentas y tabla en docs/ECONOMIA.md.
+  //   muerte / muerteZona: oro por zombi = el oro de su tipo (ZDEF) × (muerte + muerteZona × lugar); lo que no da un número entero se
+  //     sortea (1,4 = 1 o 2). lugar: 0 en el mapa 1, 1 en el mapa 2… · cabezaGrande: extra por tiro a la cabeza a uno grande ·
+  //     racha: extra por cada muerte seguida (doble, triple…) · combo: premio al llegar a ese combo
+  //   ola: lo que pagas al terminar la oleada (chica, grande, jefe) + zona × lugar; limpia: sin un rasguño; punteria: buena puntería;
+  //     sobrantes: 1 $ por cada «sobrantes» balas que quedan en la caja, hasta sobrantesMax
+  //   bolsa: la bolsa de oro que a veces sueltan los zombis · elite, jefe, mini: bolsas de los élite, del jefe del mapa (ayudante: los
+  //     que lo acompañan) y del minijefe (base + zona × lugar) · abom: la Abominación
+  //   cofre: p = probabilidad de un cofre más en cada oleada (el primero del lugar sale siempre); oro de cada cofre = [base, por lugar]
+  //   caminoVerde: oro del Camino del tesoro · gallina: la gallina dorada
+  //   fichaZombi: probabilidad de que un zombi suelte una ficha de miembro · fichasEscondidas: probabilidad de cada escondite en cada
+  //     oleada · botinLlave: probabilidad de una bala o una ficha escondida en los puntos de llaves
+  //   normales: paquetes de balas normales [balas, precio]
+  //   calavera: fichas de calavera al terminar la partida = (lugares superados × lugar + jefes vencidos × jefe + ganar) × dificultad,
+  //     más «diaria» en la primera partida del día · cambio: en la caja registradora, 1 de calavera = «miembro» de miembro y
+  //     «aCalavera» de miembro = 1 de calavera
+  eco: {
+    muerte: 0.8, muerteZona: 0.3, cabezaGrande: 3, racha: 1, combo: { 5: 2, 10: 5, 15: 8, 20: 12, 30: 20 },
+    ola: { base: [2, 3, 6], zona: 2, limpia: 4, limpiaZona: 2, punteria: 4, punteriaZona: 1.5, sobrantes: 10, sobrantesMax: 5 },
+    bolsa: 3, elite: { base: 5, zona: 3 }, jefe: { base: 30, zona: 25, ayudante: 10 }, mini: { base: 15, zona: 8 }, abom: 25,
+    cofre: { p: 0.3, dorado: [50, 25], hueso: [15, 5], maldito: [80, 30] }, caminoVerde: 40, gallina: 200,
+    fichaZombi: 0.03, fichasEscondidas: 0.03, botinLlave: 0.05,
+    normales: [[12, 12], [30, 27], [60, 50]],
+    calavera: { lugar: 0.5, jefe: 0.5, ganar: 4, diaria: 2 }, cambio: { miembro: 3, aCalavera: 4 }
   }
 };
 // t: 'p' pasiva · 'a' activa · vuelve: true = vuelve a la caja, false = se rompe · f: familia · c: nombre corto para el slot y el cañón
@@ -24605,7 +24637,7 @@ const ALLY = {
   carnicero: { name: 'El Carnicero', short: 'El Carnicero', al: 'al Carnicero', desc: 'Pelea cuerpo a cuerpo con un machete. Aguanta mucho y los zombis lo prefieren a él.', price: 50, hp: 220, shirt: 0xb0a090, pants: 0x3a3027, hat: null, gun: 'machete', cd: [0.8, 1.1], dmg: 45, melee: true, bait: true, range: 14 }
 };
 const ALLY_KEYS = Object.keys(ALLY), ALLY_POOL = ALLY_KEYS.filter(k => k !== 'cop' && !ALLY[k].hab);
-const allyOk = k => isOpen('a:' + k) && (!ALLY[k].maid || !!META.maids);   // las maids se pueden contratar después de pelear con ellas en el Maid Café
+const allyOk = k => !ALLY[k].maid || !!META.maids;   // las maids se pueden contratar después de pelear con ellas en el Maid Café
 const ALLY_MAX = 6, ALLY_EACH = 3;
 // Nivel 2 y 3 de cada ayudante: más daño, más vida y más curación; el Contador da más oro y el Recargador fabrica más seguido.
 const allyMul = lv => 1 + 0.3 * ((lv || 1) - 1), allyHpMul = lv => 1 + 0.25 * ((lv || 1) - 1);
@@ -24905,7 +24937,7 @@ function caraFicha(v) {   // la cara de la ficha con su valor (o el Joker en la 
   return (monedaTex[v] = canvasTex(128, 128, (g, w) => { g.fillStyle = col; g.beginPath(); g.arc(64, 64, 64, 0, 7); g.fill(); const claro = v === 1 || v === 5; g.fillStyle = claro ? '#c8382c' : '#fff4e0'; for (let i = 0; i < 8; i++) { g.save(); g.translate(64, 64); g.rotate(i * Math.PI / 4); g.fillRect(-8, -64, 16, 18); g.restore(); } g.strokeStyle = claro ? '#c8382c' : '#fff4e0'; g.lineWidth = 4; g.beginPath(); g.arc(64, 64, 40, 0, 7); g.stroke(); g.fillStyle = claro ? '#3a2a20' : '#fff4e0'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (v === 'joker') { g.font = 'bold 44px serif'; g.fillText('J', 64, 60); g.font = 'bold 15px sans-serif'; g.fillText('JOKER', 64, 92); g.beginPath(); g.moveTo(44, 36); g.lineTo(52, 26); g.lineTo(64, 36); g.lineTo(76, 26); g.lineTo(84, 36); g.fill(); } else { g.fillStyle = col; g.beginPath(); g.arc(64, 64, 34, 0, 7); g.fill(); } }));   // las fichas de dinero solo se distinguen por el color (pedido del dueño, 16-oct-2026)
 }
 // Fichas de miembro: las suelta 1 de cada 20 zombis; con ellas se juega a la tragamonedas, la ruleta y la garra (no cuestan oro)
-const FICHA_P = 0.08;
+const FICHA_P = BAL.eco.fichaZombi;   // ficha de miembro que suelta un zombi (BAL.eco)
 const fichasTxt = n => `${n} ficha${n === 1 ? '' : 's'} de miembro`;
 function pagaFicha() {
   if ((game.poker | 0) < 1) { hint('Necesitas una ficha de miembro: las sueltan los zombis', 1800); Sfx.err(); return false; }
@@ -25592,6 +25624,7 @@ function addGold(n, silent) {
   if (!silent && n >= 5) Sfx.coin();
 }
 const goldPop = { n: 0, raf: 0 };
+const oroAzar = x => { const f = Math.floor(x); return f + (Math.random() < x - f ? 1 : 0); };   // 1,4 $ = 1 $ o 2 $ (así un zombi común puede valer menos de 1 en promedio)
 
 /* ===================== LÓGICA DEL JUEGO ===================== */
 function clearActors() {
@@ -25946,8 +25979,9 @@ function gameOver() {
   $('#over-rec').hidden = !saveBest();
   $('#over-stats').innerHTML = statsRows();
   { const R = runRank(), rk = $('#over-rank'); rk.textContent = R[0]; rk.className = R[0]; rk.style.animation = 'none'; void rk.offsetWidth; rk.style.animation = ''; $('#over-rank-d').textContent = R[2]; }
-  { const c = logroCerca(), el_ = $('#over-cerca');   // te falta poco: el logro más cercano
-    if (el_) { el_.hidden = !c; if (c) el_.innerHTML = `<small>Te falta poco</small><b>${c.A.name}</b><span>${c.A.d}</span><div class="ach-p"><s style="width:${Math.round(c.r * 100)}%"></s></div><em>${c.A.n > 1 ? c.v.toLocaleString('es') + ' / ' + c.A.n.toLocaleString('es') : 'Pendiente'}</em>`; } }
+  { const c = logroCerca(), el_ = $('#over-cerca'), pjN = game && game.prog0 ? progresoFoto().pjs.filter(k => !game.prog0.pjs.includes(k)) : [];   // te falta poco: el logro más cercano
+    if (el_ && pjN.length) { el_.hidden = false; el_.innerHTML = `<small>${pjN.length > 1 ? 'Personajes nuevos' : 'Personaje nuevo'}</small><b>${pjN.map(k => CHARS[k].name).join(' y ')}</b><span>Ya se ${pjN.length > 1 ? 'pueden' : 'puede'} elegir en el menú</span>`; }
+    else if (el_) { el_.hidden = !c; if (c) el_.innerHTML = `<small>Te falta poco</small><b>${c.A.name}</b><span>${c.A.d}</span><div class="ach-p"><s style="width:${Math.round(c.r * 100)}%"></s></div><em>${c.A.n > 1 ? c.v.toLocaleString('es') + ' / ' + c.A.n.toLocaleString('es') : 'Pendiente'}</em>`; } }
   show('over'); el.hud.hidden = true; $('#touch').hidden = true;
   setTimeout(() => $('#btn-again').focus(), 50);
   updateBest();
@@ -27288,23 +27322,23 @@ function killZombie(z, info) {
   }
   if (info.remote && info.by) Net.ev(['kill', info.by, ZTYPES.indexOf(z.type), head ? 1 : 0, info.weapon || '']);
   else creditKill(z.def, head, info.ally, info.weapon);
-  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; if (Math.random() < LLAVE_P * (S('llavero') ? 3 : 1)) makePickup('key', p.x - 0.8, p.z, 0); makePickup('bag', p.x, p.z + 0.8, ((6 + 2 * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2) * (S('eliteOro') || 1)); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
+  if (z.elite) { game.eliteKills = (game.eliteKills || 0) + 1; if (Math.random() < LLAVE_P * (S('llavero') ? 3 : 1)) makePickup('key', p.x - 0.8, p.z, 0); makePickup('bag', p.x, p.z + 0.8, ((BAL.eco.elite.base + BAL.eco.elite.zona * zoneOf(game.wave)) * (rl('vela') ? 3 : 1) + (z.stolen || 0) * 2) * (S('eliteOro') || 1)); if (z.elite === 'boom') { z.torso.getWorldPosition(_tmp); Sfx.boom(); explode(_tmp.clone(), 3.5, 60, 25, false); } }
   if (z.mini && !z.net) miniDied(z, p);
   // La Masa: solo el último pedazo cuenta como jefe muerto y suelta el botín (antes cada pedazo daba su bolsa de oro)
   if (z.boss != null && z.B && z.B.id === 'mass' && zombies.some(o => o !== z && !o.dead && o.B && o.B.id === 'mass')) return;
-  if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? 15 : 40 + 10 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper) { makePickup('bala', p.x, p.z + 1.8, BKEYS.indexOf(bossBullet())); banner('¡Botín del jefe!', 'Soltó una bala de rango A: recógela', 2800); } return; }
-  if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, 25); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', 'Recoge sus fichas: +25 $', 2600); return; }
+  if (z.boss != null) { bossDied(z); makePickup('bag', p.x + 1, p.z, z.B.helper ? BAL.eco.jefe.ayudante : BAL.eco.jefe.base + BAL.eco.jefe.zona * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (!z.B.helper) { makePickup('bala', p.x, p.z + 1.8, BKEYS.indexOf(bossBullet())); banner('¡Botín del jefe!', 'Soltó una bala de rango A: recógela', 2800); } return; }
+  if (z.type === 'abom') { makePickup('bag', p.x + 1, p.z, BAL.eco.abom); makePickup('health', p.x - 1, p.z); banner('Abominación abatida', `Recoge sus fichas: +${BAL.eco.abom} $`, 2600); return; }
   if (!tuto && Math.random() < (FICHA_P + arbP('ficha')) * (ST.fichaX || 1)) makePickup('ficha', p.x + rand(-0.6, 0.6), p.z + rand(-0.6, 0.6), 0);
   if (Math.random() < z.def.drop * (1 + 0.5 * lv('luck')) * (1 + S('luck') / 100) * (rl('trebol') ? 2 : 1) * (game.char === 'johnny' ? JOHNNY_SUERTE.botin : 1)) {
     const low = player.hp < player.maxHp * 0.5, r = Math.random();
-    makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, 3);
+    makePickup(r < (low ? 0.5 : 0.3) ? 'health' : r < 0.55 ? 'deadeye' : r < 0.86 ? 'bag' : 'gold', p.x, p.z, BAL.eco.bolsa);
   }
   if (Math.random() < 0.4 * Math.max(0.1, 1 + S('ammoC') / 100) * (1 + S('luck') / 200) * (game.char === 'johnny' ? JOHNNY_SUERTE.municion : 1)) makePickup('ammo', p.x + rand(-0.7, 0.7), p.z + rand(-0.7, 0.7), (2 + Math.floor(Math.random() * 2) + Math.floor(zoneOf(game.wave) / 3)) * (z.def.big ? 2 : 1) + (S('ammoN') | 0));
 }
 function creditKill(def, head, ally, weapon) {
-  if (def === ZDEF.oro && !ally) { banner('¡Zombi de oro!', `+${def.gold} $`, 2400, 'coins'); Sfx.win(); Sfx.cash(); }
-  const hb = head && !ally ? (def.big ? 3 : 0) : 0;
-  addGold(Math.round((def.gold + hb) * (dareOn() && !ally ? 1.5 : 1)));
+  const E_ = BAL.eco, hb = head && !ally ? (def.big ? E_.cabezaGrande : 0) : 0, og = oroAzar(def.gold * (E_.muerte + E_.muerteZona * zoneOf(game.wave))) + hb;   // BAL.eco: oro por zombi según el lugar
+  if (def === ZDEF.oro && !ally) { banner('¡Zombi de oro!', `+${og} $`, 2400, 'coins'); Sfx.win(); Sfx.cash(); }
+  addGold(Math.round(og * (dareOn() && !ally ? 1.5 : 1)));
   if (!ally && !tuto) { META.st.kills++; if (def.human) META.st.bandits = (META.st.bandits | 0) + 1; }
   game.gold5++;
   if (!ally) {
@@ -27316,9 +27350,9 @@ function creditKill(def, head, ally, weapon) {
     comboKill(def);
     game.lastKill = game.time;
     const multiNames = ['', '', 'Doble', 'Triple', 'Cuádruple', '¡Masacre!', '¡Masacre!', '¡Leyenda del Oeste!'];
-    if (game.multi >= 2 && !MODELS[game.equip].auto) { addGold(1, true); feed(`${multiNames[Math.min(game.multi, 7)]} · +1 $`, 'red'); }
-    else if (def.big) feed(`${def.name} abatido · +${5 + hb} $`, 'gold');
-    else if (head) feed(`Tiro a la cabeza · +${def.gold + hb} $`, '');
+    if (game.multi >= 2 && !MODELS[game.equip].auto) { addGold(E_.racha, true); feed(`${multiNames[Math.min(game.multi, 7)]} · +${E_.racha} $`, 'red'); }
+    else if (def.big) feed(`${def.name} abatido · +${og} $`, 'gold');
+    else if (head) feed(`Tiro a la cabeza · +${og} $`, '');
   } else if (def.big) feed(`Un oficial abatió al ${def.name}`, 'blue');
   game.de = Math.min(100, game.de + (head ? 11 : 6) * ST.deX * (game.char === 'lilith' ? 1.5 : 1));
   if (!(game.habT > 0)) game.hab = Math.min(100, (game.hab || 0) + (head ? HAB_CARGA.cabeza : HAB_CARGA.muerte) * (ST.habX || 1));
@@ -29243,7 +29277,7 @@ function miniFx(z, dt) {
 }
 function miniDied(z, p) {
   const M = z.mini; game.miniKills = (game.miniKills || 0) + 1;
-  makePickup('bag', p.x + 1, p.z, 20 + 8 * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (Math.random() < LLAVE_P) makePickup('key', p.x, p.z + 1, 0);
+  makePickup('bag', p.x + 1, p.z, BAL.eco.mini.base + BAL.eco.mini.zona * zoneOf(game.wave)); makePickup('health', p.x - 1, p.z); if (Math.random() < LLAVE_P) makePickup('key', p.x, p.z + 1, 0);
   banner(`${M.name} cayó`, 'Recoge su bolsa de oro', 2400, 'skull');
   if (M.ab === 'split') { for (let i = 0; i < MINI_AB.split.n; i++) { const a = i / MINI_AB.split.n * TAU, x = p.x + Math.cos(a) * 1.4, zz = p.z + Math.sin(a) * 1.4; if (!insideArena(x, zz, 0.5) || pointBlocked(x, zz, 0.4)) continue; const o = spawnZombie(M.base === 'bloater' ? 'crawler' : 'runner', x, zz, diffW(game.wave), false); o.state = 'chase'; o.rage = 1e9; game.alive++; }
     feed(`¡${M.name} se partió en pedazos!`, 'red'); }
@@ -29617,12 +29651,12 @@ function lootPull() { if (game.countT < 1.6) for (const p of pickups) if (isLoot
 function waveSummary() {
   if (game.w.hurt) game.mapHurt = true;
   if (isMapEnd(game.wave) && game.mapStart === iniDeMapa(game.wave) && !game.mapHurt) META.st.clean = 1;
-  checkUnlocks();
-  const wv = game.wave, zz = zoneOf(wv), base = [3, 4, 6][wavePos(wv)] + zz, clean = game.w.hurt ? 0 : 3 + zz;
+  mapaJefeFin(game.wave); checkUnlocks();
+  const O_ = BAL.eco.ola, wv = game.wave, zz = zoneOf(wv), base = O_.base[wavePos(wv)] + O_.zona * zz, clean = game.w.hurt ? 0 : O_.limpia + O_.limpiaZona * zz;
   const eff = game.w.shots ? game.w.kills / game.w.shots : 0;
-  const aim = eff >= 0.5 ? Math.round(clamp((eff - 0.4) / 0.6, 0, 1.2) * (4 + zz * 1.5)) : 0;
-  const left = Math.min(5, Math.floor(game.box.length / 10));
-  game.sum = [[['Oleada chica', 'Oleada grande', 'Jefe vencido'][wavePos(wv)], base], ['Sin un rasguño', clean], [`Pocas balas · ${game.w.kills} bajas con ${game.w.shots} disparos`, aim], ['Balas sobrantes (1 $ por cada 10)', left]];
+  const aim = eff >= 0.5 ? Math.round(clamp((eff - 0.4) / 0.6, 0, 1.2) * (O_.punteria + zz * O_.punteriaZona)) : 0;
+  const left = Math.min(O_.sobrantesMax, Math.floor(game.box.length / O_.sobrantes));
+  game.sum = [[['Oleada chica', 'Oleada grande', 'Jefe vencido'][wavePos(wv)], base], ['Sin un rasguño', clean], [`Pocas balas · ${game.w.kills} bajas con ${game.w.shots} disparos`, aim], [`Balas sobrantes (1 $ por cada ${O_.sobrantes})`, left]];
   let g = base + clean + aim + left;
   const mine = myAllies();
   const CT = ALLY.contador, conts = mine.filter(c => c.kind === 'contador');
@@ -29702,14 +29736,14 @@ function afterEvent() { if (game.doorWave === game.wave) { continueAfter(); retu
 const ROUTE_MODS = {
   red: { col: '#c0302a', ic: 'blood', name: 'Camino de sangre', desc: '+40 % de oro, pero los zombis corren un 20 % más', gold: 1.4, speed: 1.2 },
   blue: { col: '#2a6ac0', ic: 'heart', name: 'Camino de calma', desc: 'Te curas por completo y la tienda cuesta un 25 % menos', shop: 0.75 },
-  green: { col: '#2a9a4a', ic: 'chest', name: 'Camino del tesoro', desc: 'Encuentras 1 llave y 60 $ al llegar' },
+  green: { col: '#2a9a4a', ic: 'chest', name: 'Camino del tesoro', get desc() { return `Encuentras 1 llave y ${BAL.eco.caminoVerde} $ al llegar`; } },
   purple: { col: '#8a3ac0', ic: 'urn', name: 'Camino maldito', desc: 'Una bala gratis, pero salen el triple de zombis élite', elite: 3 }
 };
 const zmodOn = f => { if (!game || !game.zmod || game.zmod.z !== zoneOf(game.wave)) return 0; const C = ROUTE_MODS[game.zmod.k]; return C && C[f] || 0; };
 // Lo que el camino regala en el momento (cada jugador lo recibe en su teléfono)
 function routeGift(k) {
   if (k === 'blue') player.hp = player.maxHp;
-  if (k === 'green') { game.keys = (game.keys || 0) + 1; addGold(60, true); }
+  if (k === 'green') { game.keys = (game.keys || 0) + 1; addGold(BAL.eco.caminoVerde, true); }
   if (k === 'purple') balGanar(randomBullet());
   renderChips();
 }
@@ -29896,14 +29930,14 @@ function openChest(c) {
   c.open = 0.001; if (useCur === c.use) { useCur = null; showUse(null); } const p = c.g.position, z = zoneOf(game.wave); stMas('cofres');
   if (c.kind === 'gold') {
     game.keys--;
-    const g = Math.round(50 + 25 * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra();
+    const CF = BAL.eco.cofre.dorado, g = Math.round(CF[0] + CF[1] * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra();
     cofreAviso('Cofre abierto', 'Cofre dorado', `+${g} $ · la bala ${BULLETS[b].name}`); Sfx.cash();
   } else if (c.kind === 'bone') {
-    player.hp -= 15; const b = cofreBala(); balGanar(b, { quiet: true }); balTrebolExtra(); const g = Math.round(15 + 5 * z) * balTrebol(); addGold(g, true);
+    player.hp -= 15; const b = cofreBala(); balGanar(b, { quiet: true }); balTrebolExtra(); const CF = BAL.eco.cofre.hueso, g = Math.round(CF[0] + CF[1] * z) * balTrebol(); addGold(g, true);
     cofreAviso('Cofre abierto', 'Cofre de hueso', `−15 de vida · la bala ${BULLETS[b].name} · +${g} $`, { ic: 'skull' }); Sfx.ouch(0, 1);
   } else {
     if (Math.random() < luck(0.5, 1.2)) {
-      const g = Math.round(100 + 30 * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra(); cofreAviso('Cofre maldito', '¡El cofre maldito te sonríe!', `+${g} $ · la bala ${BULLETS[b].name}`, { ic: 'coins' });
+      const CF = BAL.eco.cofre.maldito, g = Math.round(CF[0] + CF[1] * z) * balTrebol(), b = cofreBala(); addGold(g, true); balGanar(b, { quiet: true }); balTrebolExtra(); cofreAviso('Cofre maldito', '¡El cofre maldito te sonríe!', `+${g} $ · la bala ${BULLETS[b].name}`, { ic: 'coins' });
       Sfx.win();
     } else {
       player.hp = Math.max(1, player.hp - 25); let n = 0; for (let k = 0; k < 3; k++) { const i = game.box.indexOf('normal'); if (i >= 0) { game.box[i] = 'mala'; n++; } }
@@ -29919,7 +29953,7 @@ function updateChests(dt) {
     game.chestWave = game.wave;
     // cada lugar trae al menos un cofre (antes era solo 35 % por oleada y en algunos lugares no salía ninguno); luego, 35 % en cada oleada
     const zn = zoneOf(game.wave), primero = game.chestZ !== zn;
-    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && (primero || Math.random() < (0.35 + (game.keys > 0 ? 0.15 : 0) + arbP('cofreX')) * (1 + S('cofreC') / 100))) { if (spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null)) game.chestZ = zn; }
+    if (game.wave >= 2 && chests.filter(c => !c.open).length < 2 && (primero || Math.random() < (BAL.eco.cofre.p + (game.keys > 0 ? 0.15 : 0) + arbP('cofreX')) * (1 + S('cofreC') / 100))) { if (spawnChest(game.keys > 0 && Math.random() < 0.5 ? 'gold' : null)) game.chestZ = zn; }
   }
   for (let i = chests.length - 1; i >= 0; i--) {
     const c = chests[i]; c.t += dt; c.warnT -= dt;
@@ -30278,7 +30312,7 @@ function renderShop() {
   const normals = game.box.filter(b => b === 'normal').length;
   const bl = $('#shop-bullets'); bl.innerHTML = '';
   if (!VD) { const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas normales<small>Se suman a tu caja</small>'; bl.appendChild(h); }
-  if (!VD) for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {   // en la Trastienda, las balas normales se venden en la caja registradora
+  if (!VD) for (const [n, pr] of BAL.eco.normales) {   // en la Trastienda, las balas normales se venden en la caja registradora
     const price = shopP(pr), c = shopCard('ammo' + n, { pic: `<span class="sc-emo">${ico('bullets')}</span>`, name: `${n} balas normales`, line: 'Se suman a tu caja', tag: `Tienes ${game.box.length}` });
     shopBtn(c.act, 'buy-ammo-' + n, 'buy', cost(price), game.gold < price, () => { if (game.gold < price) return; game.gold -= price; for (let k = 0; k < n; k++) game.box.push('normal'); Sfx.cash(); Sfx.insert(); renderShop(); });
     bl.appendChild(c.d);
@@ -30323,7 +30357,7 @@ function renderShop() {
   });
   if (vt === 'normales') {   // la máquina vende las balas normales (hasta llenar la caja) y te compra las balas de tu slot
     const cap = Balas.cajaCap(game), libre = Math.max(0, cap - Balas.normales(game));
-    for (const [n, pr] of [[12, 10], [30, 22], [60, 40]]) {
+    for (const [n, pr] of BAL.eco.normales) {
       const price = shopP(pr), c = shopCard('ammo' + n, { pic: `<span class="sc-emo">${ico('bullets')}</span>`, name: `${n} normales`, line: 'Se suman a tu caja', tag: `Caja ${normals} / ${cap}` });
       shopBtn(c.act, 'buy-ammo-' + n, 'buy', libre <= 0 ? 'Caja llena' : cost(price), libre <= 0 || game.gold < price, () => { if (game.gold < price || Balas.normales(game) >= Balas.cajaCap(game)) return; game.gold -= price; Balas.addNormales(game, n); Sfx.cash(); Sfx.insert(); vende({ t: 'bala', k: 'normal', col: BULLETS.normal.col }); renderShop(); });
       bl.appendChild(c.d);
@@ -31447,7 +31481,7 @@ function updateEcg(dt) {
 }
 // Combo: muertes seguidas con muy poco tiempo entre una y otra. Llegar a ×10 tiene que costar.
 const COMBO_T = 1.1;
-const COMBO_PRIZE = { 5: 2, 10: 5, 15: 8, 20: 12, 30: 20 };
+const COMBO_PRIZE = BAL.eco.combo;
 let comboT = 0;
 function comboKill() {
   if (!game) return;
@@ -31670,7 +31704,7 @@ function prepRoom() {
   game.roomUsed = {};
   /* Regla «para la prueba» del dueño (19-oct-2026): dentro de las 3 salas sale SIEMPRE todo; lo único al azar es si cada puerta está
      abierta o cerrada con llave (BAL.trastienda.puertaAbierta, 50 %). El azar sale de la sala y la oleada: igual para todo el grupo, y se guarda. */
-  game.puertasRoll = {}; for (const S_ of TR.salas) game.puertasRoll[S_.k] = rr() < BAL.trastienda.puertaAbierta;
+  game.puertasRoll = {}; for (const S_ of TR.salas) game.puertasRoll[S_.k] = rr() < BAL.trastienda.puertaAbierta + (Net.on ? 0 : arbP('puertas'));   // Tienda calavera: Puertas abiertas (en grupo no cuenta: las puertas tienen que salir igual para todos)
   // sala del misterio: Madame, el Diablo o el Ángel (mitad y mitad), Cápsulas y La Garra
   game.roomMadame = true; game.roomDva = rr() < BAL.maquinas.diabloAngel.diablo ? 'diablo' : 'angel'; game.maqOf = {}; game.retoOf = {};
   game.roomVendCap = true; game.roomVendGarra = true;
@@ -31730,13 +31764,14 @@ function deudaHud() { const b = $('#deuda-hud'); if (!b) return; const on = !!(g
    game.saldo es lo que deberás al próximo jefe: empieza en deudaMonto(nivel) justo después de pagar el anterior, cada oleada le suma el interés
    y cada abono en el teléfono lo baja ANTES del siguiente interés (por eso abonar pronto sale más barato). Lo calcula el anfitrión en grupo. */
 const deudaRed5 = v => Math.round(v / BAL.deuda.redondeo) * BAL.deuda.redondeo;
+const deudaTasa = () => Math.max(0, BAL.deuda.interes - arbP('interes'));   // interés por oleada, menos la mejora «Amigo de Don Santino» de la Tienda calavera
 function deudaSaldo() { if (!game) return 0; if (game.saldo == null) game.saldo = deudaMonto((game.deudaN | 0) + 1); return Math.max(0, game.saldo); }
 function deudaReinicia() { game.saldo = deudaMonto((game.deudaN | 0) + 1); game.abono = 0; }   // pagado el jefe: el próximo nivel empieza en su monto base
 function deudaInteres() {   // al terminar cada oleada (solo, o el anfitrión); una sola vez por oleada aunque salgas al menú
   if (!game || tuto || Net.client || game.interesW === game.wave) return; game.interesW = game.wave;
   const s0 = deudaSaldo(); if (s0 <= 0) return;
-  game.saldo = deudaRed5(s0 * (1 + BAL.deuda.interes));
-  feed(`La deuda creció a ${game.saldo} $ (+${Math.round(BAL.deuda.interes * 100)} %)`, 'red');
+  game.saldo = deudaRed5(s0 * (1 + deudaTasa()));
+  feed(`La deuda creció a ${game.saldo} $ (+${Math.round(deudaTasa() * 100)} %)`, 'red');
   if (Net.host) Net.ev(['abS', game.saldo, game.abono | 0, game.wave]);
 }
 const deudaProxN = () => deudaPend() ? game.deuda.n : (game.deudaN | 0) + 1;
@@ -31824,7 +31859,7 @@ function telRender() {
   fila('#tel-bote', pend ? (grupo ? 'En el bote' : 'Ya pagaste de este nivel') : 'Ya abonaste', pend ? `${D.bote | 0} / ${D.monto} $` : `${game.abono | 0} $`);
   fila('#tel-tot-f', 'Deuda total de la partida', tot == null ? null : `${tot} $`);
   fila('#tel-g-f', 'Tienes', `${oro} $`, oro >= deudaProx() ? 'ok' : 'no');
-  const it = $('#tel-int'); it.hidden = pend || deudaSaldo() <= 0; if (!it.hidden) it.textContent = `Interés: +${Math.round(BAL.deuda.interes * 100)} % por oleada · la próxima oleada debes ${deudaRed5(deudaSaldo() * (1 + BAL.deuda.interes))} $`;
+  const it = $('#tel-int'); it.hidden = pend || deudaSaldo() <= 0; if (!it.hidden) it.textContent = `Interés: +${Math.round(deudaTasa() * 100)} % por oleada · la próxima oleada debes ${deudaRed5(deudaSaldo() * (1 + deudaTasa()))} $`;
   const pagar = $('#tel-pagar'), colgar = $('#tel-colgar'), sinNada = tope <= 0;
   $('#tel-rap').hidden = sinNada || (pend && D.pagada);
   pagar.hidden = sinNada || (pend && D.pagada); pagar.disabled = telSel <= 0;
@@ -32528,19 +32563,20 @@ function openCaja() {
   const draw = () => {
     box.innerHTML = ''; const f = META.fichas | 0;
     const P = game.poker | 0;
-    $('#items-say').textContent = `«Cada ficha de calavera vale 3 de miembro, y 3 de miembro te dan una de calavera para la tienda de afuera. También vendo balas normales y te compro tus balas especiales.» Tienes ${f} de calavera, ${P} de miembro y ${game.gold} $.`;
-    const opc = [[1, 'Cambiar 1 calavera', 1], [f, `Cambiar todas (${f})`, 1], [3, 'Cambiar 3 de miembro', -1], [P - P % 3, `Cambiar todas las de miembro (${P - P % 3})`, -1]];
+    const CM = BAL.eco.cambio.miembro, CC = BAL.eco.cambio.aCalavera;   // BAL.eco.cambio
+    $('#items-say').textContent = `«Cada ficha de calavera vale ${CM} de miembro, y ${CC} de miembro te dan una de calavera para la tienda de afuera. También vendo balas normales y te compro tus balas especiales.» Tienes ${f} de calavera, ${P} de miembro y ${game.gold} $.`;
+    const opc = [[1, 'Cambiar 1 calavera', 1], [f, `Cambiar todas (${f})`, 1], [CC, `Cambiar ${CC} de miembro`, -1], [P - P % CC, `Cambiar todas las de miembro (${P - P % CC})`, -1]];
     opc.forEach(([n, txt, dir], i) => {
-      if ((i === 1 && n <= 1) || (i === 3 && n <= 3)) return;   // «Cambiar todas» solo si son más de las del botón de 1 (antes, con 1 de calavera o 3-5 de miembro desaparecían los dos botones)
+      if ((i === 1 && n <= 1) || (i === 3 && n <= CC)) return;   // «Cambiar todas» solo si son más de las del botón de 1 (antes, con 1 de calavera o 3-5 de miembro desaparecían los dos botones)
       const b = document.createElement('button'); b.className = 'perk item r0';
-      b.disabled = dir > 0 ? (!n || f < n) : (n < 3 || P < n);
-      b.innerHTML = dir > 0 ? `<span class="relic-ic">${fichaCal()}</span><em>1 calavera = 3 de miembro</em><b>${txt}</b><span>${n} de calavera → ${n * 3} de miembro</span>`
-        : `<span class="relic-ic">${ico('chip')}</span><em>3 de miembro = 1 calavera</em><b>${txt}</b><span>${n} de miembro → ${Math.floor(n / 3)} de calavera</span>`;
+      b.disabled = dir > 0 ? (!n || f < n) : (n < CC || P < n);
+      b.innerHTML = dir > 0 ? `<span class="relic-ic">${fichaCal()}</span><em>1 calavera = ${CM} de miembro</em><b>${txt}</b><span>${n} de calavera → ${n * CM} de miembro</span>`
+        : `<span class="relic-ic">${ico('chip')}</span><em>${CC} de miembro = 1 calavera</em><b>${txt}</b><span>${n} de miembro → ${Math.floor(n / CC)} de calavera</span>`;
       b.addEventListener('click', () => {
         if (state !== 'items') return;
         const antes = game.poker | 0;
-        if (dir > 0) { const k = Math.min(n, META.fichas | 0); if (!k) return; META.fichas -= k; game.poker = antes + k * 3; feed(`Cambiaste ${k} de calavera por ${k * 3} de miembro`, 'gold'); }
-        else { const k = Math.floor(Math.min(n, antes) / 3); if (!k) return; game.poker = antes - k * 3; META.fichas = (META.fichas | 0) + k; feed(`Cambiaste ${k * 3} de miembro por ${k} de calavera`, 'gold'); }
+        if (dir > 0) { const k = Math.min(n, META.fichas | 0); if (!k) return; META.fichas -= k; game.poker = antes + k * CM; feed(`Cambiaste ${k} de calavera por ${k * CM} de miembro`, 'gold'); }
+        else { const k = Math.floor(Math.min(n, antes) / CC); if (!k) return; game.poker = antes - k * CC; META.fichas = (META.fichas | 0) + k; feed(`Cambiaste ${k * CC} de miembro por ${k} de calavera`, 'gold'); }
         // las fichas de calavera se guardan al instante: la partida guardada («Continuar») recibe el mismo cambio, si no al seguir la partida volvían las fichas de miembro ya cambiadas (o se perdían)
         if (!tuto && !Net.on && (game.wave | 0) >= 2) { const sv = store.get(SAVE_KEY, null); if (sv && sv.v && sv.char === game.char) { sv.poker = Math.max(0, (sv.poker | 0) + (game.poker - antes)); store.set(SAVE_KEY, sv); } }
         saveMeta(); Sfx.coin(); renderChips(); draw();
@@ -32811,7 +32847,7 @@ function goldenChicken() {
   chicken = { g, body, t: 3, dir: Math.atan2(fz * side, -fx * side), turnT: 0.5, legs };
   body.userData.onShot = head.userData.onShot = () => {
     if (!chicken) return; const c = chicken.g.position;
-    addGold(500); banner('¡GALLINA DORADA!', '+500 $', 2600, 'coins'); Sfx.win(); Sfx.cash(); META.st.chickens = (META.st.chickens | 0) + 1;
+    addGold(BAL.eco.gallina); banner('¡GALLINA DORADA!', `+${BAL.eco.gallina} $`, 2600, 'coins'); Sfx.win(); Sfx.cash(); META.st.chickens = (META.st.chickens | 0) + 1;
     for (let i = 0; i < 50; i++) PA.add(c.x, 0.6, c.z, rand(-4, 4), rand(1, 6), rand(-4, 4), rand(0.6, 1.3), 0.08, 1, 0.82, 0.25, 1, 9.8, 0.5, 0, 0);
     removeChicken();
   };
@@ -33536,7 +33572,7 @@ function useLabel(o) {
   if (o.kind === 'dados') { const f = game.poker | 0; return { key: 'dd' + f, t: 'Duelo de dados', r: '', d: `Tú contra el crupier: 2 dados cada uno, gana el que suma más. Paga x${BAL.dados.paga}; el empate se vuelve a tirar. Juega todas las veces que quieras. Tienes ${f} fichas de miembro.`, b: f ? 'Jugar' : 'Sin fichas de miembro', ok: f > 0 }; }
   if (o.kind === 'carrera') { const C = game.car, f = game.poker | 0, mia = C && C.bets[carYo()]; return { key: 'ca' + f + (C ? C.f + (C.f2 || '') : '') + !!mia, t: 'Carrera de caballos', r: '', d: `Apuesta fichas de miembro a un caballo: pagan ${BAL.carrera.pagos.map(x => 'x' + xPago(x)).join(' · ')}. Corre todas las veces que quieras. Tienes ${f}.`, b: C && C.f2 === 'fin' ? 'Ver el resultado' : mia ? 'Ver la carrera' : f ? 'Apostar' : 'Sin fichas de miembro', ok: !!(C && (mia || C.f2 === 'fin' || f > 0)) }; }
   if (o.kind === 'tiro') { const ok = !o.used && !game.tiro && game.gold >= TIRO_P; return { key: 'ti' + game.gold + !!o.used + !!game.tiro, t: 'Tiro al blanco', r: '', d: `${TIRO_T} s para tumbar ${TIRO_N} blancos. ${TIRO_GOLD} $ por acierto y una bala de rango B si los tumbas todos. No gasta tus balas.`, b: o.used ? 'Ya jugaste' : game.gold >= TIRO_P ? `Jugar · ${TIRO_P} $` : `Faltan ${TIRO_P - game.gold} $`, ok }; }
-  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = 3 de miembro, y 3 de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
+  if (o.kind === 'caja') { const f = META.fichas | 0; return { key: 'cj' + f + '_' + (game.poker | 0), t: 'Caja registradora', r: '', d: `Cambia fichas (1 de calavera = ${BAL.eco.cambio.miembro} de miembro, y ${BAL.eco.cambio.aCalavera} de miembro = 1 de calavera), compra balas normales y vende tus balas especiales. Tienes ${f} de calavera y ${game.poker | 0} de miembro.`, b: 'Abrir la caja', ok: true }; }
   if (o.kind === 'ramen') { const quedan = (game.ramenOfertas || { ids: [1, 1] }).ids.filter((_, i) => !(game.ramenOfertas && game.ramenOfertas.comido[i])).length; return { key: 'rm' + quedan + '_' + (game.poker | 0), t: 'Puesto de ramen', r: '', d: quedan ? `Comida caliente: te sube la vida máxima y te cura. Hoy hay ${(game.ramenOfertas || { ids: [1, 1] }).ids.length} platos. Solo acepta fichas de miembro (tienes ${game.poker | 0}).` : 'Ya te comiste todo lo de hoy.', b: quedan ? 'Ver la carta' : 'Sin platos', ok: quedan > 0 }; }
   if (o.kind === 'slot') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'sl' + f + !!o.busy, t: 'Tragamonedas', r: '', d: `777: 1000 $. Tres fichas: 3 fichas de miembro. Tres diamantes: una bala de rango A. Tres campanas: 3 balas al azar. Tres BAR: 50 $. Tres cerezas: te cura. Dos iguales: 12 $. Cada jugada cuesta 1 ficha de miembro, sin límite (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Jugar · 1 ficha' : 'Sin fichas de miembro', ok }; }
   if (o.kind === 'wheel') { const f = game.poker | 0, ok = !o.busy && f > 0; return { key: 'wh' + f + !!o.busy, t: 'Ruleta', r: '', d: `Premios pequeños: fichas de dinero, fichas de miembro, balas de cada tipo o curación. Solo dos casillas no dan nada. Cada tirada cuesta 1 ficha de miembro y puedes girar todas las veces que quieras (tienes ${f}).`, b: o.busy ? 'Girando…' : f > 0 ? 'Girar · 1 ficha' : 'Sin fichas de miembro', ok }; }
@@ -34172,7 +34208,7 @@ function renderLobby() {
   // personaje: no se repite; si dos eligen el mismo a la vez, se lo queda el de id menor y el otro pasa a uno libre
   const otros = [...Net.peers.values()], tomado = id => otros.some(p => p.lch === id), libres = CHAR_KEYS.filter(k => charOpen(k) && !tomado(k));
   if (!Net.myChar || !charOpen(Net.myChar) || otros.some(p => p.lch === Net.myChar && p.id < Net.id)) { const pref = charOpen(META.char) && !tomado(META.char) ? META.char : libres[0]; if (pref && pref !== Net.myChar) { Net.myChar = pref; Net.flush(); } }
-  const ch = CHAR_KEYS.map(k => { const q = otros.find(p => p.lch === k), mio = Net.myChar === k, ok = charOpen(k); return `<button class="lch${mio ? ' mio' : ''}${q ? ' tomado' : ''}" data-ch="${k}" ${q || !ok ? 'disabled' : ''} aria-pressed="${mio}"><img alt="" src="${charPic(k)}"><span>${q ? escapeHtml(q.name) : mio ? 'Tú' : CHARS[k].name.replace(/^El /, '')}</span></button>`; }).join('');
+  const ch = CHAR_KEYS.map(k => { const q = otros.find(p => p.lch === k), mio = Net.myChar === k, ok = charOpen(k); return `<button class="lch${mio ? ' mio' : ''}${q ? ' tomado' : ''}" data-ch="${k}" ${q || !ok ? 'disabled' : ''}${!ok && CHARS[k].req ? ` title="${CHARS[k].req.t}"` : ''} aria-pressed="${mio}"><img alt="" src="${charPic(k)}"><span>${q ? escapeHtml(q.name) : mio ? 'Tú' : CHARS[k].name.replace(/^El /, '')}</span></button>`; }).join('');
   if ($('#lobby-chars').innerHTML !== ch) $('#lobby-chars').innerHTML = ch;
   const dsel = Net.host ? (Net.diffSel || META.diff) : (Net.diffSel || 'normal');
   const dh = DIFF_KEYS.map(k => `<button class="btn2${k === 'apoc' ? ' apoc' : ''}" data-ld="${k}" role="radio" aria-checked="${k === dsel}" ${Net.host && diffAbierta(k) ? '' : 'disabled'}>${Net.host && !diffAbierta(k) ? ico('lock') + ' ' : ''}${DIFF[k].name}</button>`).join('');
@@ -35909,16 +35945,28 @@ const CHARS = {
   sheriff: { name: 'El Sheriff', gun: 'paci', ab: 'Justiciero', desc: 'Lleva la Estrella de plata: +10 % de daño.' },
   johnny: { name: 'Johnny R.', gun: 'corto', ab: 'Gambler', desc: 'Más suerte en todo.' },
   armando: { name: 'Don Velorio', gun: 'viejo', ab: 'Viejo zorro', desc: 'Una vez por partida, al morir se levanta otra vez con 30 % de vida.' },
-  lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.', req: { k: 'jefe', n: 0, t: 'Vence en el casino al jefe 1, el Crupier de Hielo y Fuego' } },
-  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.', req: { k: 'jefe', n: 3, t: 'Vence en el casino al jefe 4, la Escolta Zombi' } },
+  lilith: { name: 'Lilith', gun: 'uzi', ab: 'Hija de la noche', desc: 'Su Ojo Muerto se carga un 50 % más rápido y dura el doble.' },
+  carlos: { name: 'Geronimo', gun: 'cowboy', ab: 'Maestría', desc: 'Empieza con dos revólveres de acero .44, uno en cada mano. Disparan sin amartillar y no pierde puntería por llevar dos.' },
   ludo: { name: 'Ludo Cheng', gun: 'corto', ab: 'Cliente VIP', desc: 'Cada oleada recibe 2 fichas de miembro gratis para los juegos de azar. Empieza con dos revólveres cortos, uno en cada mano.', req: { k: 'jefe', n: 1, t: 'Vence en el casino al jefe 2, Ludo Cheng' } },
-  francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.', req: { k: 'jefe', n: 2, t: 'Vence en el casino al jefe 3, el Crupier Mayor' } }
+  francois: { name: 'Françoise', gun: 'magnum', ab: 'Precavida', desc: 'Al empezar cada oleada recibe 12 balas extra.' }
 };
+// requisito de cada personaje que se abre con el jefe de un mapa (las cifras salen de BAL.desbloqueo)
+for (const [id, n] of Object.entries(BAL.desbloqueo)) if (CHARS[id]) CHARS[id].req = { k: 'mapa', n, t: `Vence al jefe del mapa ${n} para abrirlo` };
 // Logros entre partidas para desbloquear personajes
 META.st = Object.assign({ gold: 0, kills: 0, bosses: 0, clean: 0, wins: 0 }, META.st || {});
-// Etapa 3: el Sheriff, Johnny R. y Don Velorio desde el inicio; los demás los abre su jefe del casino (con cualquier personaje y dificultad)
-const charOpen = id => !(id in CHAR_JEFE) || jefeHecho(CHAR_JEFE[id]);
-function charProgress(id) { const r = CHARS[id].req; return !r ? 0 : r.k === 'jefe' ? (jefeHecho(r.n) ? 1 : 0) : Math.min(META.st[r.k] | 0, r.n); }
+// Personajes (pedido del dueño, 20-oct-2026): solo el Sheriff desde el inicio; los demás se abren para siempre al vencer al jefe de su mapa
+// (BAL.desbloqueo; queda guardado en META.un['c:…'] y META.jefeMapa). Ludo Cheng sigue con el jefe 2 del casino.
+const charOpen = id => id === 'sheriff' || !!META.un['c:' + id] || (id in CHAR_JEFE && jefeHecho(CHAR_JEFE[id])) || (id in BAL.desbloqueo && (META.jefeMapa | 0) >= BAL.desbloqueo[id]);
+function charProgress(id) { const r = CHARS[id].req; return !r ? 0 : r.k === 'mapa' ? ((META.jefeMapa | 0) >= r.n ? 1 : 0) : r.k === 'jefe' ? (jefeHecho(r.n) ? 1 : 0) : Math.min(META.st[r.k] | 0, r.n); }
+// al vencer al jefe de un mapa (no el casino): se guarda el mapa más lejano y se abren los personajes de ese mapa y de los anteriores
+function mapaJefeFin(w) {
+  if (!game || tuto || !isMapEnd(w) || casN(w)) return;
+  const n = zoneOf(w) + 1; if (n <= (META.jefeMapa | 0)) return;
+  META.jefeMapa = n; const nuevos = [];
+  for (const [id, m] of Object.entries(BAL.desbloqueo)) if (CHARS[id] && m <= n && !META.un['c:' + id]) { META.un['c:' + id] = 1; nuevos.push(CHARS[id].name); }
+  saveMeta();
+  if (nuevos.length) setTimeout(() => { banner('¡Personaje desbloqueado!', `${nuevos.join(' y ')} ya se ${nuevos.length > 1 ? 'pueden' : 'puede'} elegir en el menú`, 3600, 'star'); Sfx.win(); }, 2500);
+}
 function checkUnlocks() {
   let any = false;
   for (const [id, C] of Object.entries(CHARS)) if (C.req && !META.un['c:' + id] && charOpen(id)) { META.un['c:' + id] = 1; any = true; banner('¡Personaje desbloqueado!', `${C.name} ya se puede elegir`, 3200, 'star'); Sfx.win(); }
@@ -36273,15 +36321,15 @@ const ARBOL = [
   { k: 'regen', req: 'vida', ram: 'def', ic: 'plus', name: 'Recuperación', d: 'Si pasan 4 s sin que te hagan daño, recuperas vida poco a poco.', paso: 0.1, x: 310, y: 250, f: v => `+${(Math.round(v * 10) / 10).toString().replace('.', ',')} de vida por segundo` },
   { k: 'vel', req: 'regen', ram: 'def', ic: 'spur', name: 'Velocidad', d: 'Caminas y corres un poco más rápido.', paso: 0.01, x: 220, y: 205, f: v => `+${pctTxt(v)} de velocidad` },
   { k: 'chaleco', req: 'regen', ram: 'def', ic: 'vest', name: 'Chaleco', d: 'Recibes un poco menos de daño.', paso: 0.01, x: 220, y: 295, f: v => `−${pctTxt(v)} de daño recibido` },
-  { k: 'slot', req: 'dano', ram: 'sue', ic: 'cards', name: 'Tragamonedas', d: 'La tragamonedas aparece más seguido en la Trastienda.', paso: 0.01, x: 600, y: 250 },
-  { k: 'ruleta', req: 'slot', ram: 'sue', ic: 'dice', name: 'Ruleta', d: 'La ruleta aparece más seguido en la Trastienda.', paso: 0.01, x: 690, y: 190 },
-  { k: 'bj', req: 'ruleta', ram: 'sue', ic: 'chip', name: 'Mesa de blackjack', d: 'La mesa de blackjack aparece más seguido en la Trastienda.', paso: 0.005, x: 780, y: 140 },
-  { k: 'gallina', req: 'slot', ram: 'sue', ic: 'star', name: 'Gallina dorada', d: 'La gallina dorada aparece más seguido.', paso: 0.002, x: 700, y: 305 },
+  { k: 'puertas', req: 'dano', ram: 'sue', ic: 'key', name: 'Puertas abiertas', d: 'Las puertas de las salas de la Trastienda se abren más seguido.', paso: BAL.arbolSuerte.puertas, x: 600, y: 250, f: v => `+${pctTxt(v)} de que cada puerta abra` },
+  { k: 'fichaIni', req: 'puertas', ram: 'sue', ic: 'chip', name: 'Fichas al empezar', d: 'Empiezas cada partida con fichas de miembro para la Trastienda.', paso: BAL.arbolSuerte.fichaIni, x: 690, y: 190, f: v => `${Math.round(v)} ${Math.round(v) === 1 ? 'ficha' : 'fichas'} de miembro al empezar` },
+  { k: 'interes', req: 'fichaIni', ram: 'eco', ic: 'coins', name: 'Amigo de Don Santino', d: 'Don Santino te cobra menos interés por la deuda en cada oleada.', paso: BAL.arbolSuerte.interes, x: 780, y: 140, f: v => `−${Math.round(v * 100)} puntos de interés (pagas ${Math.round(Math.max(0, BAL.deuda.interes - v) * 100)} % por oleada)` },
+  { k: 'gallina', req: 'puertas', ram: 'sue', ic: 'star', name: 'Gallina dorada', d: 'La gallina dorada aparece más seguido.', paso: 0.002, x: 700, y: 305 },
   { k: 'oro', req: 'gallina', ram: 'sue', ic: 'coins', name: 'Zombi de oro', d: 'El zombi de oro sale más seguido.', paso: 0.002, x: 790, y: 360 },
-  { k: 'suerteB', req: 'bj', ram: 'sue', ic: 'clover', name: 'Suerte en las balas', d: 'Todas las probabilidades de tus balas (críticos, congelar, efectos…) suben un poco.', paso: BAL.arbolSuerte.balas, x: 870, y: 90, f: v => `+${pctTxt(v)} a las probabilidades de tus balas` },
+  { k: 'suerteB', req: 'interes', ram: 'sue', ic: 'clover', name: 'Suerte en las balas', d: 'Todas las probabilidades de tus balas (críticos, congelar, efectos…) suben un poco.', paso: BAL.arbolSuerte.balas, x: 870, y: 90, f: v => `+${pctTxt(v)} a las probabilidades de tus balas` },
   { k: 'cofreX', req: 'oro', ram: 'sue', ic: 'chest', name: 'Más cofres', d: 'Sale un cofre más seguido en cada oleada.', paso: BAL.arbolSuerte.cofre, x: 880, y: 300, f: v => `+${pctTxt(v)} de cofres` },
   { k: 'cofreR', req: 'cofreX', ram: 'sue', ic: 'key', name: 'Mejores cofres', d: 'Los cofres salen dorados más seguido (y menos malditos).', paso: BAL.arbolSuerte.rango, x: 960, y: 230, f: v => `+${pctTxt(v)} de cofres dorados` },
-  { k: 'dinero', req: 'dano', ram: 'eco', ic: 'coins', name: 'Oro ganado', d: 'Ganas un poco más de oro por cada zombi.', paso: 0.01, x: 500, y: 335, f: v => `+${pctTxt(v)} de oro` },
+  { k: 'dinero', req: 'dano', ram: 'eco', ic: 'coins', name: 'Oro ganado', d: 'Ganas un poco más de oro en todo lo que cobras.', paso: 0.01, x: 500, y: 335, f: v => `+${pctTxt(v)} de oro` },
   { k: 'ficha', req: 'dinero', ram: 'eco', ic: 'chip', name: 'Fichas de miembro', d: 'Los zombis sueltan fichas de miembro más seguido.', paso: 0.004, x: 400, y: 410 },
   { k: 'espacio', req: 'dinero', ram: 'eco', ic: 'cards', name: 'Espacio en el slot', d: 'Un espacio más en tu slot de balas en todas tus partidas. Es la mejora más cara.', paso: 1, max: BAL.arbolEspacio.max, coste: BAL.arbolEspacio.coste, x: 520, y: 470, f: v => `+${Math.round(v)} ${Math.round(v) === 1 ? 'espacio' : 'espacios'} en el slot` },
   { k: 'ramen', req: 'dinero', ram: 'eco', ic: 'heart', name: 'Puesto de ramen', d: 'Un plato extra en el puesto de ramen de la Trastienda (el puesto ya sale siempre).', paso: 1, max: BAL.trastienda.ramenExtra.max, coste: BAL.trastienda.ramenExtra.coste, x: 600, y: 410, f: v => v ? `+${BAL.trastienda.ramenExtra.platos} plato` : 'Sin plato extra' },
@@ -36296,9 +36344,14 @@ const arbP = k => { const A = ARBOL.find(x => x.k === k); return A ? arb(k) * A.
 // G1b · el nodo «Puesto de ramen» pasó de 5 niveles a 1 («un plato extra»): se devuelven una sola vez las fichas de calavera de los niveles 2 a 5
 { const A = META.arbol || {}, lv = A.ramen | 0; if (lv > 1 && !META.ramenDev) { let dev = 0; for (let i = 1; i < Math.min(lv, ARBOL_COSTO.length); i++) dev += ARBOL_COSTO[i]; META.fichas = (META.fichas | 0) + dev; A.ramen = 1; META.ramenDev = dev; saveMeta(); } }
 const arbEsp = () => Math.min(BAL.arbolEspacio.max, ((META.arbol || {}).espacio) | 0);   // espacios de slot comprados en la Tienda calavera
-const UNLOCKS = [
-  { k: 't:maquinas', name: 'Casino de la Trastienda', what: 'La tragamonedas y la ruleta salen el doble de seguido', cost: 3 }
-];
+const UNLOCKS = [];
+// Tienda calavera al día (pedido del dueño, 20-oct-2026): lo que ya no hacía nada se quita y se devuelven sus fichas de calavera una sola vez:
+// Tragamonedas, Ruleta y Mesa de blackjack (ahora salen siempre), «Casino de la Trastienda» y los ayudantes (ya no se contratan en la partida).
+{ const A = META.arbol || {}; if (!META.arbDev2) { let dev = 0;
+    for (const k of ['slot', 'ruleta', 'bj']) { for (let i = 0; i < Math.min(A[k] | 0, ARBOL_COSTO.length); i++) dev += ARBOL_COSTO[i]; delete A[k]; }
+    if (META.un['t:maquinas']) { dev += 3; delete META.un['t:maquinas']; }
+    for (const k of Object.keys(META.un)) if (k.startsWith('a:')) { const D = ALLY[k.slice(2)]; dev += !D ? 3 : D.price >= 65 ? 5 : D.price >= 50 ? 4 : 3; delete META.un[k]; }
+    META.arbDev2 = dev || 1; if (dev) META.fichas = (META.fichas | 0) + dev; saveMeta(); } }
 // Tienda calavera (pedido del dueño, 15-oct-2026): el 40 % del contenido de la tienda se desbloquea con fichas de calavera, con precio según la rareza.
 // Los objetos ya no se venden aquí: desde el 16-oct-2026 se consiguen solo con logros.
 // Se eligen siempre los mismos (los más raros primero), así todos los jugadores ven la misma lista.
@@ -36308,7 +36361,6 @@ const UNLOCKS = [
   const ya = new Set(UNLOCKS.map(u => u.k));
   const add = (k, name, what, cost, cat) => { if (!ya.has(k)) { UNLOCKS.push({ k, name, what, cost, cat }); ya.add(k); } };
   for (const C of elige(COMIDAS, c => c.rar, 0.4)) add('c:' + C.id, C.name, C.desc || 'Plato del puesto de ramen', 2 + (C.rar | 0), 'comida');
-  for (const k of elige(ALLY_POOL.filter(k => !ALLY[k].maid), k => ALLY[k].price, 0.4)) add('a:' + k, ALLY[k].name, ALLY[k].desc, ALLY[k].price >= 65 ? 5 : ALLY[k].price >= 50 ? 4 : 3, 'ayud');
   for (const u of UNLOCKS) if (!u.cat) u.cat = u.k.startsWith('a:') ? 'ayud' : 'mejora';
 }
 const unl = k => !!META.un[k];
@@ -36362,7 +36414,7 @@ function jefeVencido(ch, n, diff) {
 // · visita de cada dificultad: el primer jefe 1..4 que todavía no venciste en ella (la 5.ª visita son los 5 seguidos);
 // · ganar el juego en una dificultad = vencer al jefe 5 en ella; ganar en Normal abre Difícil y en Difícil, Apocalipsis;
 // · mapas: 6 al empezar, +4 por cada jefe 1..4 vencido (en cualquier dificultad) y todos al ganar el juego;
-// · personajes: Lilith (jefe 1), Ludo Cheng (jefe 2), Françoise (jefe 3) y Geronimo (jefe 4), con cualquier personaje y dificultad.
+// · personajes: Ludo Cheng (jefe 2 del casino); los demás, con el jefe de un mapa (BAL.desbloqueo, pedido del dueño 20-oct-2026).
 const JEFES_NOMBRES = ['El Crupier de Hielo y Fuego', 'Ludo Cheng', 'El Crupier Mayor', 'Escolta Zombi', 'Big Big Slot Machine Zombie'];
 const MAPAS_INICIO = 6, MAPAS_POR_JEFE = 4;
 const aJefe = j => JEFES_NOMBRES[j].replace(/^El /, 'al ').replace(/^(?!al )/, 'a ');   // «al Crupier…», «a Ludo Cheng»
@@ -36376,7 +36428,7 @@ const DIFF_REQ = { dificil: 'Se abre al ganar el juego en Normal', apoc: 'Se abr
 function mapOrden() { const ok = [], obra = []; MAPS.forEach((m, i) => { if (i === ROOM_IDX || i === CASINO_IDX) return; (MAP_WIP.has(i) ? obra : ok).push(i); }); return ok.concat(obra); }
 const mapasCuenta = () => mapOrden().length;   // decisión del dueño (19-oct-2026): todos los mapas listos están abiertos desde el inicio (el Cementerio siempre es el primero)
 const mapasAbiertos = () => { const a = mapOrden().slice(0, mapasCuenta()).filter(i => !MAP_WIP.has(i)); return a.length ? a : [0]; };
-const CHAR_JEFE = { lilith: 0, ludo: 1, francois: 2, carlos: 3 };
+const CHAR_JEFE = { ludo: 1 };   // el resto de los personajes se abre con el jefe de un mapa (BAL.desbloqueo)
 // foto del avance para mostrar lo que se abrió al terminar una partida
 function progresoFoto() { return { mapas: mapasAbiertos(), cuenta: mapasCuenta(), pjs: Object.keys(CHARS).filter(charOpen), difs: DIFF_KEYS.filter(diffAbierta), jefes: [0, 1, 2, 3, 4].filter(n => jefeHecho(n)), gano: ganadoAlguna() }; }
 function visitaTxt(diff) { const v = visitaDe(diff); return v < 4 ? `Visita ${v + 1} de 5 · ${VISITA_MAPAS[v]} mapas y el casino · jefe: ${JEFES_NOMBRES[v]}` : `Visita final · ${VISITA_MAPAS[4]} mapas y los 5 jefes seguidos`; }
@@ -36441,7 +36493,7 @@ function renderCarousel(dir) {
       <span class="ch-gun">${id === 'ludo' && !open ? '<span class="gn">Arma secreta</span>' : `<img alt="" src="${gunPic(id === 'carlos' ? 'g629' : C.gun)}"><span class="gn">${id === 'carlos' ? G629_NAME : MODELS[C.gun].name}</span>`}</span>
       ${estrellasHtml(id)}
     </div>${sideCard(1)}<button class="car-nav" data-d="1" aria-label="Personaje siguiente">›</button></div>
-  <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t}${C.req.k === 'jefe' ? '' : ` · ${charProgress(id)}/${C.req.n}`}</span>`}${fichaPj(id)}</div>
+  <div class="car-info car-top ${dir > 0 ? 'reel' : dir < 0 ? 'reel up' : ''}">${open ? '' : `<span class="ch-req">${ico('lock')} ${C.req.t}${C.req.k === 'jefe' || C.req.k === 'mapa' ? '' : ` · ${charProgress(id)}/${C.req.n}`}</span>`}${fichaPj(id)}</div>
     <div class="car-info">${id === 'ludo' && !open ? '' : poderHtml(id, C.gun, false, true)}</div>
     <div class="car-bar"><div class="car-dots">${CAR_IDS.map((k, i) => `<i class="${i === carI ? 'on' : ''} ${carOpen(k) ? '' : 'lock'}"></i>`).join('')}</div></div>`;
   cl.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => carMove(+b.dataset.d)));
@@ -36580,10 +36632,7 @@ const uIco = u => { const [t, id] = [u.k.slice(0, 1), u.k.slice(2)];
   return { 't:maquinas': 'a_slot' }[u.k] || 'star'; };
 const uCol = u => null;
 const ARBOL_UN = [   // dónde cuelga cada grupo del árbol: req = mejora de la que sale; pts = casillas en el dibujo (1000 × 500)
-  { cat: 'mejora', keys: ['t:maquinas'], req: 'ruleta', pts: [[870, 195]] },
-  { cat: 'comida', req: 'ramen', pts: [[790, 460], [870, 460], [950, 460], [950, 380]] },
-  { cat: 'ayud', req: 'vel', pts: [[140, 205], [60, 205]] },
-  { cat: 'ayud', req: 'chaleco', pts: [[140, 295], [60, 295], [60, 380]] }
+  { cat: 'comida', req: 'ramen', pts: [[790, 460], [870, 460], [950, 460], [950, 380]] }
 ];
 let arbNodos = null;
 function nodosArbol() {   // se arma una vez: las mejoras del árbol más cada cosa desbloqueable colgando de su rama, de lo barato a lo caro
@@ -36663,8 +36712,8 @@ function altArbol(D) {
 }
 function awardFichas(win) {
   if (!game || game.awarded) return 0; game.awarded = true;
-  let n = Math.round((zoneOf(game.wave) + (game.bossKills || 0) + (win ? 5 : 0)) * (1 + 0.25 * (game.skull | 0)) * DF().fichas);
-  { const hoy = new Date().toDateString(); if (META.diaFicha !== hoy && (game.wave | 0) >= 3) { META.diaFicha = hoy; n += 3; game.fichaDia = 3; } }   // primera partida del día (desde la oleada 3): +3
+  const K = BAL.eco.calavera; let n = Math.round((zoneOf(game.wave) * K.lugar + (game.bossKills || 0) * K.jefe + (win ? K.ganar : 0)) * (1 + 0.25 * (game.skull | 0)) * DF().fichas);
+  { const hoy = new Date().toDateString(); if (META.diaFicha !== hoy && (game.wave | 0) >= 3) { META.diaFicha = hoy; n += K.diaria; game.fichaDia = K.diaria; } }   // primera partida del día (desde la oleada 3)
   META.fichas += n; if (win && (game.skull | 0) >= (META.skullMax | 0) && META.skullMax < SKULLS.length) { META.skullMax++; game.newSkull = META.skullMax; }
   saveMeta(); game.fichasWon = n; return n;
 }
@@ -36675,6 +36724,7 @@ function applyChar() {
   if (arbP('vida')) { player.maxHp = Math.round(player.maxHp * (1 + arbP('vida'))); player.hp = player.maxHp; }   // árbol: vida máxima en porcentaje de la vida del personaje (se nota al entrar a la partida, no en la elección)
   // cada personaje empieza con su bala C propia (docs/BALAS.md)
   if (BAL.balaInicial[c]) Balas.ganar(game, BAL.balaInicial[c], arbEsp());
+  if (!tuto && arbP('fichaIni')) game.poker = (game.poker | 0) + Math.round(arbP('fichaIni'));   // Tienda calavera: Fichas al empezar
   game.eliteMul = sk(3) ? 2 : 1;
 }
 // Retratos de los personajes para la pantalla de elección (dibujados una vez)
