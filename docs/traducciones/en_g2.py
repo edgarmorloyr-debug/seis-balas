@@ -93,6 +93,7 @@ DESP = {
  'Gran jackpot: los jefes siempre mueren como jackpot': 'Big Jackpot: bosses always die like a jackpot',
 }
 UI = {
+ 'Cartas en blanco': 'Blank cards', 'Saca 10 cartas en blanco de los sobres azules': 'Get 10 blank cards from blue packs',
  ': se abre tu inventario. Ahí ves tu cinturón de 8 balas (hacen efecto), tu reserva de 6 (no hacen efecto) y qué hace cada una, la caja y las familias. En la pestaña Juntar, 2 balas iguales del mismo nivel suben al nivel siguiente. En grupo también ves a tus compañeros. Ábrelo y vuelve al juego.': ': your inventory opens. There you see your belt of 8 bullets (they take effect), your reserve of 6 (no effect) and what each one does, the box and the families. In the Merge tab, 2 equal bullets of the same level go up to the next level. In a group you also see your teammates. Open it and go back to the game.',
  'Tu cinturón guarda 8 balas: todas te ayudan siempre (algunas por probabilidad, en cada disparo, golpe o muerte). Lo que no cabe va a tu reserva de 6, donde no hace efecto. 2 balas iguales del mismo nivel suben al nivel siguiente.': 'Your belt holds 8 bullets: they always help you (some by chance, on each shot, hit or kill). Whatever does not fit goes to your reserve of 6, where it has no effect. 2 equal bullets of the same level go up to the next level.',
  'Abre tu inventario: tu cinturón y tu reserva de balas, la caja, las familias y, en grupo, la tabla de jugadores': 'Opens your inventory: your bullet belt and reserve, the box, the families and, in a group, the player table',

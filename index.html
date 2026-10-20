@@ -2387,6 +2387,8 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
 #vm2 .escvid{grid-area:vid;min-height:0;cursor:default;border-radius:8px;background:radial-gradient(circle at 50% 45%,#1f5a3c,#0b2418 80%);box-shadow:inset 0 0 0 3px #c8ccd4,inset 0 0 22px #000c;display:flex;flex-direction:column;gap:4px;padding:4px}
 #vm2 .escvid .caja{width:calc(var(--u)*360);height:calc(var(--u)*200)}
 #vm2 .vm.abriendo .vidrio{visibility:hidden}
+#vm2 .vm.abriendo{grid-template-columns:1fr 0}
+#vm2 .vm.abriendo .panel2{display:none}
 #vm2 .leyenda{flex:none;min-height:42px;display:flex;align-items:center;gap:8px;padding:2px 8px;border-radius:8px;background:#05140dcc;border:1px solid #ffffff22;font:600 14px/1.2 var(--hud);color:var(--bone);overflow:hidden}
 #vm2 .leyenda .efecto{flex:1;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 #vm2 .leyenda .cupo{flex:none;font:700 15px/1 var(--hud);padding:5px 8px;border-radius:8px;background:#ffd27a;color:#140f0a;white-space:nowrap}
@@ -2464,6 +2466,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
 #vm2 .ranura{height:auto;width:56px;flex-direction:column;justify-content:center}
 #vm2 .bajo .main{min-width:130px}
 #vm2 .vm.abriendo .panel2{display:none}
+#vm2.abriendo .inv .ficha-info,#vm2.abriendo .inv .acc{display:none}
 
 }
 @media (orientation:portrait) and (max-height:700px){#vm2 .panel2{display:none}
@@ -37421,7 +37424,7 @@ const ACH = [
   { id: 'k_corto', ic: 'revolver', name: 'Rápido y ligero', d: 'Mata 150 zombis con el Revólver corto', n: 150, v: () => META.st.k_corto | 0 },
   { id: 'ultima50', ic: 'bullet', name: 'La última palabra', d: 'Mata 50 zombis con la última bala del tambor', n: 50, v: () => META.st.kUlt | 0 },
   { id: 'fichas20', ic: 'coins', name: 'Jugador de casino', d: 'Juega 20 fichas de miembro en la tragamonedas, la ruleta o la garra', n: 20, v: () => META.st.fichasJug | 0 },
-  { id: 'mojadas10', ic: 'rain', name: 'Pólvora mojada', d: 'Saca 10 balas mojadas de los sobres', n: 10, v: () => META.st.mojadas | 0 },
+  { id: 'mojadas10', ic: 'rain', name: 'Cartas en blanco', d: 'Saca 10 cartas en blanco de los sobres azules', n: 10, v: () => META.st.mojadas | 0 },   // G2: ya no hay balas mojadas; cuenta las cartas en blanco
   { id: 'col30', ic: 'bag', name: 'Despertar', d: 'Sube una bala al nivel 4', n: 1, run: () => (game.slot || []).some(e => e.lv >= BAL.nivelMax) ? 1 : 0 },
   { id: 'elite50', ic: 'medal', name: 'Cazador de élite', d: 'Mata 50 zombis élite sumando todas tus partidas', n: 50, v: () => META.st.elite | 0 },
   { id: 'correr2k', ic: 'spur', name: 'Piernas de acero', d: 'Corre 2 km sumando todas tus partidas', n: 2000, v: () => Math.floor(META.st.corre || 0) },
@@ -39459,7 +39462,7 @@ const ANIMS = {
       const t = tiras[i], id = k.balas[i], r = rareza(id); t.classList.remove('gira'); t.innerHTML = chipH(id); t.classList.add('fin');
       an(t, [{ transform: 'translateY(-95%)' }, { transform: 'translateY(-38%)', offset: .7 }, { transform: 'translateY(-50%)' }], 280, 'ease-out'); Son.clac();
       rods[i].classList.remove('espera'); rods[i].style.setProperty('--gc', RAREZA[r]); rods[i].classList.add('win');
-      labs[i].textContent = RNOM[r]; labs[i].style.color = RAREZA[r];
+      if (RORD[r] >= 2 || u >= 0.8) labs[i].textContent = RNOM[r]; labs[i].style.color = RAREZA[r];
       if (RORD[r] >= 2) { Son.campana(); FX.estallido(rods[i], RAREZA[r], 14, r === 'S'); }
     }
     clearInterval(tk);
@@ -39519,7 +39522,7 @@ async function animarCartas(c, cartas, o = {}) {
       else Son.ficha();
       FX.estallido(d, k.col, k.grande ? 26 : 10, !!k.grande);
     }
-    d.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${k.k === 'nada' ? '#cfc2a8' : k.col}">${k.corto}</span>`);
+    if (k.k !== 'bala' || k.grande || u >= 0.8) d.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${k.k === 'nada' ? '#cfc2a8' : k.col}">${k.corto}</span>`);
     o.alVoltear?.(i, k);
   }
   if (cartas.some(k => k.leg)) Son.acorde();
@@ -39607,7 +39610,7 @@ function revelarFinal(nodos, balas, etq = true) {
     const id = balas[i], r = rareza(id); if (RORD[r] > RORD[mejor]) mejor = r;
     n.style.setProperty('--gc', RAREZA[r]); n.classList.add('premio', 'glow');
     if (RORD[r] >= 2 && n.classList.contains('pz')) n.insertAdjacentHTML('afterbegin', '<i class="rayosp"></i>');
-    if (etq && n.classList.contains('pz')) n.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${RAREZA[r]}">${RNOM[r]}</span>`);
+    if (etq && n.classList.contains('pz') && (RORD[r] >= 2 || uu(n.parentNode) >= 0.8)) n.insertAdjacentHTML('beforeend', `<span class="etq" style="color:${RAREZA[r]}">${RNOM[r]}</span>`);
     setTimeout(() => FX.estallido(n, RAREZA[r], RORD[r] >= 2 ? 22 : 10, r === 'S'), i * 90);
   });
   // campanas de jackpot con una rara o una legendaria
@@ -39832,13 +39835,13 @@ function arrastre(root, o) {
 }
 // ---------- Apertura dentro de la ventana de productos ----------
 async function escena(cartas, o) {
-  const E = q('#escvid'); E.hidden = false; q('#vm').classList.add('abriendo');
+  const E = q('#escvid'); E.hidden = false; q('#vm').classList.add('abriendo'); R0().classList.add('abriendo');
   T.esc = { txt: `<b>${o.titulo}</b><span>Abriendo…</span>`, btn: 'Abriendo…', listo: false }; render();
   const ses = abrirSobreEn(E, { ...o, cartas, alBoton(t, listo, cupo) { T.esc.btn = t; T.esc.listo = listo; if (cupo) T.esc.txt = `<b>${o.titulo}</b><span>${cupo}</span>`; render(); } });
   T.esc.ses = ses;
   const r = await ses.fin;
   const des = r.elegidas.map(i => FX.centro(r.nodos[i].querySelector('.cara') || r.nodos[i]));
-  E.hidden = true; E.querySelector('.caja').innerHTML = ''; q('#vm').classList.remove('abriendo'); T.esc = null; render();
+  E.hidden = true; E.querySelector('.caja').innerHTML = ''; q('#vm').classList.remove('abriendo'); R0().classList.remove('abriendo'); T.esc = null; render();
   return { des, elegidas: r.elegidas };
 }
 // una bala que sale de una carta vuela a su lugar: cinturón, si no la reserva; si no hay lugar, a la bandeja
@@ -39902,6 +39905,7 @@ async function abrirAzul(l) {
   T.ocupado = true; const de = FX.centro(fichaEl(l)); const { z, i } = Z.L(l); Z.lista(z).splice(i, 1); S = []; render();
   await FX.volar(de, q('#vid'), sobreAzulSVG(), { w: 60, color: '#6fb0ff', arco: -80, ms: 520 });
   const ks = Balas.cartasAzul(game).map(cartaAzulObj);
+  stMas('mojadas', ks.filter(c => c.carta.k === 'nada').length);   // logro «Cartas en blanco»
   const { des, elegidas } = await escena(ks, { anim: 6, titulo: 'Sobre azul', packSVG: sobreAzulSVG(), dorso: 'azul', cupo: Balas.cupoSobre(game, 'azul') });
   for (let n = 0; n < elegidas.length; n++) { await cobrarCarta(des[n], ks[elegidas[n]]); await espera(120); }
   const buenas = elegidas.map(i => ks[i]).filter(c => c.carta.k !== 'nada');
