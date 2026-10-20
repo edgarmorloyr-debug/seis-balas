@@ -33936,15 +33936,17 @@ function decoPanel(map, w, h, x, y, z, ry, o = {}) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), o.basic ? new THREE.MeshBasicMaterial(Object.assign({ map, transparent: !!o.add, blending: o.add ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: !o.add, opacity: o.op == null ? 1 : o.op, fog: !o.add }, o.mat || {})) : lam(0xffffff, Object.assign({ map, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }, o.mat || {})));
   m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = !o.basic; m.castShadow = false; world.group.add(m); return m;
 }
-function decoHalo(x, y, z, col, s = 0.6, op = 0.5) { const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.set(s, s, 1); h.position.set(x, y, z); world.group.add(h); return h; }
+const decoLuz = () => sitHoy() === 'apagon' ? 0.12 : 1;   // en el Apagón la decoración casi no brilla
+function decoHalo(x, y, z, col, s = 0.6, op = 0.5) { op *= decoLuz(); const h = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); h.scale.set(s, s, 1); h.position.set(x, y, z); world.group.add(h); return h; }
 // un cono de luz falso (no calcula luz): para las lámparas colgantes y el haz sobre el teléfono
 function decoCono(x, y, z, r, alto, col, op = 0.07) {
+  op *= decoLuz();
   const c = new THREE.Mesh(new THREE.ConeGeometry(r, alto, 18, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   c.position.set(x, y - alto / 2, z); world.group.add(c); return c;
 }
 // la mancha de luz en el suelo bajo una lámpara (horneada: un círculo que suma luz)
 const decoManchaTex = () => decoTex('mancha', 128, 128, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
-function decoMancha(x, z, r, col, op = 0.35) { const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), new THREE.MeshBasicMaterial({ map: decoManchaTex(), color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -24 })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.07, z); world.group.add(m); return m; }
+function decoMancha(x, z, r, col, op = 0.35) { op *= decoLuz(); const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), new THREE.MeshBasicMaterial({ map: decoManchaTex(), color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -24 })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.07, z); world.group.add(m); return m; }
 // polvo, chispas o motas: un solo grupo de puntos que flotan (menos de 300; la mitad en calidad «rápido»)
 function decoPolvo(n, col, x0, x1, y0, y1, z0, z1, tam, op, sube) {
   n = Math.min(290, FAST() ? Math.round(n / 2) : n); const p = new Float32Array(n * 3), v = new Float32Array(n);
