@@ -36457,7 +36457,7 @@ function avatar3dMx(av, p, dt) {
 // juego de animaciones de cada ayudante según su arma
 const ALLY_SET = { rifle: 'r', smg: 'r', shotgun: 'r', machete: 'm', dynamite: 'u' };
 function ally3dMx(c, spd, dt) {
-  const I = c.p3d, D = c.D || ALLY.cop, set0 = c.kind === 'pandillero' ? 'p' : !D.gun ? 'u' : ALLY_SET[D.gun] || 'p', set = I.acts[set0 + '_idle'] ? set0 : 'p';
+  const I = c.p3d, D = c.D || ALLY.cop, sin = trSinArma(), set0 = sin ? 'u' : c.kind === 'pandillero' ? 'p' : !D.gun ? 'u' : ALLY_SET[D.gun] || 'p', set = I.acts[set0 + '_idle'] ? set0 : 'p';   // dueño, 20-oct-2026: en la Trastienda los ayudantes también descansan sin arma
   // machetazo y lanzamiento de dinamita
   if (c.swing > 0 && !(I.swingAntes > 0)) p3dUna(I, D.aoe ? 'u_throw' : pick(['m_atk1', 'm_atk2', 'm_atk3']), 0.1, D.aoe ? 1.6 : 1.5);
   I.swingAntes = c.swing;
@@ -36465,12 +36465,13 @@ function ally3dMx(c, spd, dt) {
   I.tiro = (I.tiro == null ? 9 : I.tiro) + dt;
   const vx = c.root.position.x - (c.px == null ? c.root.position.x : c.px), vz = c.root.position.z - (c.pz == null ? c.root.position.z : c.pz); c.px = c.root.position.x; c.pz = c.root.position.z;
   c.mvx = damp(c.mvx || 0, vx / Math.max(dt, 1e-3), 10, dt); c.mvz = damp(c.mvz || 0, vz / Math.max(dt, 1e-3), 10, dt);
-  p3dCombate(I, { set, vx: c.mvx, vz: c.mvz, apunta: c.aim > 0.5 && !!D.gun && D.gun !== 'machete', tiro: I.tiro }, dt);
+  p3dCombate(I, { set, sinArma: sin, vx: c.mvx, vz: c.mvz, apunta: !sin && c.aim > 0.5 && !!D.gun && D.gun !== 'machete', tiro: I.tiro }, dt);
   c.root.updateMatrixWorld(true);
   const gesto = I.una && I.unaR > 0;
   if (!gesto) p3dTorso(I, 0, I.kick);
   if (D.dual && c.aim > 0.5 && !gesto) { for (const s of ['R', 'L']) { const G = s === 'R' ? c.armRG : c.armLG; p3dApunta(I, s + '_Upperarm', G, -1, 0.8); p3dApunta(I, s + '_Forearm', G, -1, 0.8); } }
-  p3dDedos(I, 'R', (c.guns || []).length ? 1 : 0.3); p3dDedos(I, 'L', D.dual || set === 'r' ? 0.9 : 0.5);
+  p3dDedos(I, 'R', (c.guns || []).length && !sin ? 1 : 0.3); p3dDedos(I, 'L', !sin && (D.dual || set === 'r') ? 0.9 : 0.5);
+  for (const g of c.guns || []) g.visible = !sin; if (sin) { I.kick = 0; return; }
   (c.guns || []).forEach((g, i) => p3dArma(I, g, i === 0 ? 'R' : 'L', set === 'r', c.root, I.kick || 0, D.dual || gesto ? 0 : 1));
   I.kick = (I.kick || 0) * Math.exp(-14 * dt);
 }
