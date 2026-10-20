@@ -1994,6 +1994,13 @@ button.pulsa{animation:btnRebote .36s cubic-bezier(.3,1.6,.5,1)}@keyframes btnRe
   .touch #hud-br{right:calc(12px + env(safe-area-inset-right,0px));top:calc(160px + env(safe-area-inset-top,0px));bottom:auto}
 }
 body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
+/* pedido del dueño (20-oct-2026): sin el recuadro de la caja, sin «6 de 6» y sin el nombre ni el nivel del arma; el contador de la caja vuelve a ir encima del tambor, como al principio */
+#canon-w{flex-direction:column;align-items:flex-end;gap:6px}
+#caja-hud,.touch #caja-hud{position:static;padding:10px 2px 4px;border:0;background:none;text-align:right;font:600 14px/1.2 var(--hud,system-ui),sans-serif;color:var(--bone,#f3e6c8);text-shadow:0 1px 3px #000,0 0 6px #000;min-height:0}
+#wname,#ammo-n{display:none!important}
+#hud-br:not(.aviso) #ammo-h{display:none}
+#hud-br.aviso #ammo-txt{display:block!important}
+#ammo-h{font-size:14px}
 /* Inventario: slot, caja y familias, Fusionar (sin scroll: si no cabe, páginas) */
 .bal-inv{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;min-height:0;text-align:left}
 @media (max-width:640px){.bal-inv{grid-template-columns:1fr}}
@@ -2262,7 +2269,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
       <div id="ammo-row"><div id="ammo-txt"><div id="ammo-n">6</div><div id="ammo-h">de 6</div></div></div>
     </div>
     <div id="bal-hud" aria-hidden="true"><div id="fam-hud"></div><div id="slot-hud"></div><div id="armas-hud" hidden></div></div>
-    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Caja <b id="caja-n">50 / 50</b><br><span class="cj-l">activas dentro</span><span class="cj-c">activas</span>: <b id="caja-a">0</b></div><div id="canon"></div></div>
+    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Balas en la caja: <b id="caja-n">50</b><b id="caja-a" hidden>0</b></div><div id="canon"></div></div>
   </div>
 
   <div id="intro" hidden aria-live="polite"><i class="lb t" aria-hidden="true"></i><i class="lb b" aria-hidden="true"></i><div class="ic"><small id="intro-k"></small><b id="intro-t"></b><span id="intro-s"></span></div><em class="sk">Toca para saltar</em></div>
@@ -25259,7 +25266,7 @@ function balHud() {
 }
 function cajaHud() {
   const nn = Balas.normales(game), cap = Balas.cajaCap(game), na = Balas.activasDentro(game);
-  setText($('#caja-n'), 'cajan', `${nn} / ${cap}`); setText($('#caja-a'), 'cajaa', String(na));
+  setText($('#caja-n'), 'cajan', String(nn)); setText($('#caja-a'), 'cajaa', String(na));
   const low = nn < 12; if (cache.cajaLow !== low) { cache.cajaLow = low; $('#caja-hud').classList.toggle('low', low); }
   const sv = (game.slotV | 0) + 1; if (cache.slotV !== sv) { cache.slotV = sv; balHud(); }
 }
@@ -31221,6 +31228,7 @@ function updateHud(dt) {
   const act = activeHands(), tot = totalAmmo(), cap = act.reduce((s, h) => s + h.cap, 0);
   setText(el.ammoN, 'ammo', String(tot));
   setText(el.ammoH, 'ammoh', gs.reloading ? 'Recargando' : tot === 0 ? (IS_TOUCH ? 'Vacío' : 'Vacío · R') : (tot < cap && !IS_TOUCH ? `de ${cap} · R` : `de ${cap}`));
+  { const av = gs.reloading || tot === 0; if (el.ammoH._av !== av) { el.ammoH._av = av; $('#hud-br').classList.toggle('aviso', av); } }   // sin «6 de 6»: solo avisa al recargar o con el tambor vacío
   const warn = tot === 0 && !gs.reloading;
   if (cache.warn !== warn) { cache.warn = warn; el.ammoH.classList.toggle('warn', warn); }
   const gc = document.getElementById('gold-chip');
