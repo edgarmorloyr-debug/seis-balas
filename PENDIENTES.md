@@ -302,3 +302,7 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
   - 6 legendarias pasan a raras: Rey, Ángel, Espejo, Ave de la fortuna, Reflejo de fuego y Mesa de apuestas altas.
   - Quedan 23 comunes, 36 poco comunes, 17 raras y 18 legendarias. Las cifras se ajustan después.
 - Después: añadir efectos más sencillos, por ejemplo +10 balas al empezar cada oleada, +30 % de velocidad de recarga y curar 1 de vida al impactar.
+
+## Para el final (dueño, 20-oct-2026)
+- Caballero aliado en 3D con un modelo de Sketchfab (rama caballero3d, en pausa: «déjalo de último»).
+- Propuesta de diseño nuevo para las balas, después de las tareas de juego: que cada ficha tenga la forma de una bala de verdad (de revólver, de escopeta o de rifle), no un círculo, y cada una con su propio diseño. Ejemplos: bala de caramelo, de oro, de queso, de diamante, verde, etc. Enviar varias propuestas para elegir.
