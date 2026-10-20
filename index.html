@@ -24336,8 +24336,7 @@ const BR3_CFG = {
     pist: { p: [0.14, -0.105, -0.36], r: [0, 0] },
     mini: { p: [0.15, -0.115, -0.37], r: [0, 0] },
     larga: { p: [0.19, -0.1, -0.4], r: [0, 0.03], inclina: 0.35 },
-    m60: { p: [0.2, -0.12, -0.38], r: [0, 0.05], inclina: 0.3 },
-    gatling: { p: [0.2, -0.13, -0.37], r: [0, 0.05], inclina: 0.25 }
+    // (la M60 y la Gatling ya van más chicas en primera persona: ARMA3D.fp)
   },
   gatillo: 0.35,          // el índice aprieta un poco más justo al disparar
   // la mano izquierda en las acciones (cámara o arma)
@@ -24419,7 +24418,8 @@ function br3Look(ch) {
   if (L.sombra) { BRZ.mesh.material = SOMBRA.sk; return; }
   const t = br3Tex(ch); BRZ.mesh.material = BRZ.mat; if (t) { BRZ.mat.map = t; BRZ.mat.needsUpdate = true; }
 }
-// Trastienda (zona de paz): brazos sin arma, manos sueltas. Lo llama quien quita las armas; br3SinArma(false) las devuelve.
+// Manos sueltas, sin arma. Hoy no se usa: el dueño decidió (G1c) que en la Trastienda no se vean manos ni arma (trSinArma esconde
+// h.root y con él los brazos). Queda por si alguna vez se quieren las manos vacías: br3SinArma(true) / br3SinArma(false).
 function br3SinArma(on) { BRZ.sinArma = !!on; }
 const br3Clase = id => BR3_CFG.clase[id] || 'rev';
 function br3Agarre(id) { const c = br3Clase(id); return Object.assign({}, BR3_CFG.agarre[c], BR3_CFG.porArma[id] || {}); }
@@ -24428,7 +24428,8 @@ function br3Cadera(id) { const C = BR3_CFG.cadera; return BRZ.ok ? C[id] || C[br
 // al armar el arma de primera persona: busca el guardamanos (el punto de abajo del arma a esa altura del cañón)
 function br3Medir(h) {
   if (!hands.includes(h) || !h.muzzle || !h.gunG) return;
-  const A = br3Agarre(h.model); h.br3 = { A, fore: null };
+  const A = br3Agarre(h.model), fp = ARMA3D[h.model] && ARMA3D[h.model].fp; h.br3 = { A, fore: null };
+  if (fp) A.palma = [A.palma[0], A.palma[1] + fp[1], A.palma[2] + fp[2]];   // la empuñadura se movió con el arma más chica (ARMA3D.fp)
   if (A.ant == null) return;
   const z0 = A.palma[2], z1 = h.muzzle.position.z, z = z0 + (z1 - z0) * A.ant, y0 = h.muzzle.position.y;
   h.k.updateMatrixWorld(true); _bm.copy(h.k.matrixWorld).invert();
