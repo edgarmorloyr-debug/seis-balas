@@ -2224,6 +2224,7 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 </style>
 <style id="vm2-css">
 #vm2[hidden],#inv2[hidden]{display:none!important}
+.overlay,#vm2,#inv2,#apu-s{cursor:default}   /* sobre las ventanas la flecha del ratón siempre se ve (también en pantalla completa) */
 body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.vm2-on #canon-w{visibility:hidden}
 .bf.azul{--c:#6fb0ff;--f:#163f8f;padding:2px}.bf.azul .sa-mini{display:flex;height:100%;align-items:center;justify-content:center}.bf.azul svg{height:100%;width:auto}
 :is(#vm2,#inv2){--felt:#1f5a3c; --felt-d:#0f3322; --wood:#3a2412; --wood-d:#22140a; --leather:#6b3f1d; --leather-d:#4a2a12;
@@ -26513,7 +26514,8 @@ function armasHud() {
   box.hidden = !on || IS_TOUCH; const tnt = $('#b-tnt'); if (tnt) { tnt.hidden = !(game.dina > 0) || !IS_TOUCH; tnt.querySelector('b').textContent = game.dina | 0; }
   if (!on || IS_TOUCH) return;
   const nom = id => id ? MODELS[id].name : 'Vacío';
-  const it = [[1, nom(revolverDe()), MODEL_ORDER.includes(game.equip)], [2, nom(ar[0]), ar[0] && game.equip === ar[0]], [3, nom(ar[1]), ar[1] && game.equip === ar[1]], [4, `Dinamita ×${game.dina | 0}`, false]];
+  const mini = game.habMini && MODELS[game.equip];   // con un arma prestada por la ultimate, el espacio 1 dice cuál llevas
+  const it = [[1, mini ? `${mini.name} · ultimate` : nom(revolverDe()), mini || MODEL_ORDER.includes(game.equip)], [2, nom(ar[0]), !mini && ar[0] && game.equip === ar[0]], [3, nom(ar[1]), !mini && ar[1] && game.equip === ar[1]], [4, `Dinamita ×${game.dina | 0}`, false]];
   const keys = ['Digit1', 'Digit2', 'Digit3', 'Digit4'];
   const h = it.map(([n, t, sel], i) => `<span class="ah${sel ? ' on' : ''}"><kbd>${tecla(keys[i])}</kbd>${t}</span>`).join('');
   if (box._h !== h) { box._h = h; box.innerHTML = h; }
@@ -27137,10 +27139,11 @@ function precalentarHab() {
 }
 function habMinigun(H) { prestarArma('minigun', H.dur); banner(H.name, `¡${H.dur} segundos sin parar de disparar!`, 1800, 'gun'); Sfx.win(); }
 function finMinigun() {
-  const M = game.habMini; if (!M) return; game.habMini = null; gs.rafaga = null;
+  const M = game.habMini; if (!M) return; gs.rafaga = null;
   const id = M.id || 'minigun';
   if (M.owned === undefined) delete game.owned[id]; else game.owned[id] = M.owned;
-  equip(M.equip); if (M.mag === undefined) delete game.mag[id]; else game.mag[id] = M.mag;
+  equip(M.equip); game.habMini = null; armasHud();   // habMini se suelta DESPUÉS de cambiar de arma: las balas prestadas (escopeta, tommy, AK-47) ya no caen en tu caja
+  if (M.mag === undefined) delete game.mag[id]; else game.mag[id] = M.mag;
   feed(`Se acabó: ${MODELS[id].name}`, 'blue');
 }
 // Dado 2D (PENDIENTES 37): rueda cambiando de cara cada vez más despacio y cae en «n», el número que ya sacó la habilidad
@@ -27165,11 +27168,15 @@ function habDado(H) {
   dado2d(n, 900);
   game.habT = H.dur + 1;   // la barra queda ocupada mientras rueda
   const tok = game.habTok = (game.habTok | 0) + 1, run = game;
-  setTimeout(() => {
+  // Arreglo «salió el dado, sin armas»: antes, si la oleada no estaba en plena pelea (cuenta atrás, oleada recién limpiada, horda, Trastienda)
+  // el dado rodaba, la barra se gastaba y no llegaba ningún arma. Ahora el arma llega siempre; si abriste un menú mientras rodaba, llega al volver.
+  const entrega = () => {
     if (game !== run || game.habTok !== tok) return;
-    if (state !== 'play' || game.phase !== 'fight' || player.down) { game.habT = 0; return; }
-    prestarArma(id, H.dur); game.habMini.extra = (H.cargadores || 1) - 1; banner(`Dado: ${n}`, `${MODELS[id].name} · ${H.cargadores || 1} cargadores`, 2200, 'gun'); n === 1 ? Sfx.err() : Sfx.win();
-  }, 950);
+    if (player.down) { game.habT = 0; game.hab = Math.max(game.hab || 0, H.carga || 100); renderChips(); return; }   // caído: no se pierde la ultimate
+    if (state !== 'play') { setTimeout(entrega, 250); return; }
+    prestarArma(id, H.dur); game.habMini.extra = (H.cargadores || 1) - 1; armasHud(); banner(`Dado: ${n}`, `${MODELS[id].name} · ${H.cargadores || 1} cargadores`, 2200, 'gun'); n === 1 ? Sfx.err() : Sfx.win();
+  };
+  setTimeout(entrega, 950);
 }
 function dadoRecarga() {
   const M = game.habMini; if (!M || !(M.extra > 0)) return; M.extra--;
@@ -31435,7 +31442,7 @@ function unstick() {
   // al revés: se ve una ventana, pero el juego ya está jugando y sus botones no responden
   const ghost = game && state === 'play' && WIN_IDS.find(id => { const e = document.getElementById(id); return e && !e.hidden; });
   if (ghost) { const now = performance.now(); if (!ghostT) ghostT = now; else if (now - ghostT > 1500) { ghostT = 0; store.set('sb_stuck', { was: 'ventana ' + ghost + ' sin control', ph: game.phase, net: Net.on ? (Net.host ? 'anfitrión' : 'invitado') : 'solo', trail: showTrail.join(' > '), b: GAME_BUILD, t: Date.now() }); show(null); if (world.idx === ROOM_IDX && game.phase === 'room') backToRoom(); unstuckFix('ventana ' + ghost); } } else ghostT = 0;
-  if (!game || !WIN_STATES.includes(state) || document.querySelector('.overlay:not([hidden])')) { stuckT = 0; return; }
+  if (!game || !WIN_STATES.includes(state) || ventanaAbierta()) { stuckT = 0; return; }   // la máquina expendedora y el inventario nuevos (#vm2, #inv2) también cuentan como ventana: antes «destrababa» a los 1,5 s y te quitaba el ratón
   const now = performance.now(); if (!stuckT) { stuckT = now; return; } if (now - stuckT < 1500) return;
   stuckT = 0; const was = state; state = 'play';
   if (world.idx === ROOM_IDX && game.phase !== 'wait' && game.phase !== 'exit') game.phase = 'room';
@@ -37748,8 +37755,14 @@ function lockFailed() {
   if (lockFails >= 4) { noLock = true; hint('Tu navegador no presta el ratón: mantén pulsado y arrastra para mirar', 4000); }
   else hint('Espera un segundo y vuelve a hacer clic para apuntar', 2000);
 }
+// ¿Hay una ventana del juego a la vista? (las de siempre, la máquina expendedora y el inventario nuevos, las apuestas y el aviso de cinturón lleno)
+// Con una abierta el ratón NUNCA se presta al juego: en pantalla completa el navegador lo presta sin pedir clic y la flecha desaparecía.
+const VENTANA_SEL = '.overlay:not([hidden]), #vm2:not([hidden]), #inv2:not([hidden]), #apu-s:not([hidden])';
+const ESTADOS_VENTANA = ['pause', 'inv', 'lleno', 'tel', 'armeria', 'mis', 'items', 'bj', 'carrera', 'dados'];   // al cerrarse, cada una vuelve a 'play' ANTES de pedir el ratón
+const ventanaAbierta = () => !!document.querySelector(VENTANA_SEL);
 function requestLock(gesture) {
   if (IS_TOUCH || locked) return;
+  if (ventanaAbierta() || ESTADOS_VENTANA.includes(state)) return;
   lockGesture = !!gesture;
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(lockFailed); } catch (e) { lockFailed(); }
 }
@@ -39253,7 +39266,11 @@ for (const t of ['keydown', 'keyup']) window.addEventListener(t, e => {
   if (v) { e.preventDefault(); e.stopImmediatePropagation(); window.dispatchEvent(new KeyboardEvent(t, { code: v, key: e.key, repeat: e.repeat, bubbles: true, cancelable: true })); return; }
   if (KT.bloq.has(e.code)) { e.preventDefault(); e.stopImmediatePropagation(); }
 }, true);
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) { lockFails = 0; noLock = false; } if (!locked && state === 'play' && !noLock) pause(); });
+document.addEventListener('pointerlockchange', () => {
+  // red de seguridad: si el ratón llega a prestarse con una ventana abierta, se devuelve en el acto (la flecha vuelve a verse)
+  if (document.pointerLockElement && (ventanaAbierta() || ESTADOS_VENTANA.includes(state))) { document.exitPointerLock(); return; }
+  locked = document.pointerLockElement === canvas; if (locked) { lockFails = 0; noLock = false; } if (!locked && state === 'play' && !noLock) pause();
+});
 document.addEventListener('pointerlockerror', lockFailed);
 window.addEventListener('keydown', e => {
   if (e.repeat && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) { input.keys[e.code] = true; return; }
