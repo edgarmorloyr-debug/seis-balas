@@ -65,6 +65,10 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - *8 situaciones al azar (a lo sumo una por visita, igual para el grupo y guardada): Redada 5 %, Buen humor 5 %, Cobrador 3 %, Apagón 5 %, Noche de casino 5 %, El gato trae algo 5 %, Zombi colado 3 %, Liquidación 5 %.*
 - *Sin arma en la Trastienda (salvo el tiro al blanco y el zombi colado); teléfono que tiembla con timbre de campanas; frases nuevas de Don Santino y «Ya has pagado esta cuota»; entrada sin tirones; símbolos más pequeños en un dintel; decoración elegida (Salón del Prestamista, Capilla del Trato, Garito de Contrabando, Forja del Armero) con su sonido.*
 
+- *Cinemática de entrada (dueño, 20-oct-2026, reemplaza a «Lo perdiste todo…»): sin música, suena y tiembla el teléfono, se descuelga, Don Santino dice «Oí que perdiste todo lo que te presté… ¡TIENES 3 DÍAS!», botón «Continuar» (cuelga al instante), 3 s después 3 s de vuelo de la cámara sobre el lugar y empieza el juego con su música (BAL.intro). En grupo no sale (para no frenar a nadie).*
+- *Un día = una oleada: los textos «Oleada N» pasan a «Día N» (HUD, avisos, resumen, partida guardada, logros; inglés «Day N»). La lógica no cambia. «Oleada chica/grande/maldita» se quedan como nombres del tipo de oleada.*
+- *«Tienes 3 días»: el jefe del nivel 1 sale en la oleada 3 (3 por lugar), así que coincide. Tras vencer al jefe hay que pagar la cuota completa en el teléfono (cadenas hasta pagar; sin dinero, la sala de los dados para apostar; salir sin pagar = la escena de la paliza y se pierde). Con el Pagaré firmado se salta una vez.*
+
 **Tabla de la deuda (sin abonar nada; interés +30 % al terminar cada oleada desde la 3; redondeo a 5 $):**
 
 | Nivel | Base | Tras su 1.ª, 2.ª y 3.ª oleada (lo que pide el jefe) |
