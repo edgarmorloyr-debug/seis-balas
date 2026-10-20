@@ -55,6 +55,16 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - Ítems nuevos: Dado cargado (repite una tirada de ruleta o tragamonedas una vez por visita), Moneda de dos caras (1 de cada 10 apuestas perdidas cuenta como ganada), Pagaré firmado (saltas un pago, el siguiente se duplica), Amuleto del gato negro (más suerte; el gato te bufa), Llave maestra (abre una puerta cerrada de la Trastienda una vez).
 - Situaciones al azar en la Trastienda: Redada policial (5 %: dados cerrados, armas con descuento), Don Santino de buen humor (5 %: perdona el interés de esa oleada), Cobrador en persona (3 %: si le pagas ahí, −20 %; si no, la deuda sube 10 %), Apagón (5 %: a oscuras con linternas, se abre una puerta cerrada), Noche de casino (5 %: los juegos pagan el doble y cuestan lo mismo), El gato trae algo (5 %: ficha o sobre azul en el mostrador), Zombi colado (3 %: hay que matarlo antes de comprar, buen premio), Liquidación (5 %: el vendedor de armas rebaja todo 30 %).
 
+### G1d · Pedidos del dueño (20-oct-2026)
+- Transición suave después de la introducción (sin quedarse pegado unos 5 s).
+- Símbolos de las puertas más pequeños y sin hueco encima de la puerta.
+- Que no se trabe al entrar a la Trastienda.
+- El interés del 30 % empieza después de la oleada 2 (cambia lo de «después del jefe 1»).
+- El teléfono de Don Santino vibra y suena al empezar la llamada.
+- Carrera de caballos en vivo y en 3D en la sala, sin interfaz. Tragamonedas en vivo en la propia máquina, con la animación de paño rojo. Duelo de dados en vivo sobre la mesa.
+- En todos los juegos de azar se apuesta con fichas y se gana dinero.
+- Ambientación bonita en cada sala, sin personas: primero propuestas visuales para elegir.
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
