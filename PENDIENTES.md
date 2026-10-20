@@ -48,6 +48,13 @@ Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los err
 - El Ángel se queda junto al Diablo en la sala de intercambio; la galería de tiro pasa a la sala de balas; la mejora «ramen más seguido» pasa a ser «un plato extra».
 - Ametralladoras del vendedor: Thompson, M60 y Gatling de manivela (propuesta del boceto).
 
+### G1c · Elegido por el dueño del informe (20-oct-2026)
+- Interés: el 30 % por oleada empieza después del jefe 1 (la primera deuda queda en 100 $).
+- Mejoras: deuda siempre en pantalla (pequeña junto al oro; parpadea en rojo cerca del jefe); achicar M60 y Gatling en primera persona y aclarar la lata de frijoles; programar las 10 balas nuevas al llevar el cinturón al juego.
+- Tiendas nuevas: Casa de Empeño (vendes armas, chalecos o balas a la mitad de su precio) y Prestamista Rival (te presta para pagarle a Don Santino, con 50 % de interés).
+- Ítems nuevos: Dado cargado (repite una tirada de ruleta o tragamonedas una vez por visita), Moneda de dos caras (1 de cada 10 apuestas perdidas cuenta como ganada), Pagaré firmado (saltas un pago, el siguiente se duplica), Amuleto del gato negro (más suerte; el gato te bufa), Llave maestra (abre una puerta cerrada de la Trastienda una vez).
+- Situaciones al azar en la Trastienda: Redada policial (5 %: dados cerrados, armas con descuento), Don Santino de buen humor (5 %: perdona el interés de esa oleada), Cobrador en persona (3 %: si le pagas ahí, −20 %; si no, la deuda sube 10 %), Apagón (5 %: a oscuras con linternas, se abre una puerta cerrada), Noche de casino (5 %: los juegos pagan el doble y cuestan lo mismo), El gato trae algo (5 %: ficha o sobre azul en el mostrador), Zombi colado (3 %: hay que matarlo antes de comprar, buen premio), Liquidación (5 %: el vendedor de armas rebaja todo 30 %).
+
 ### G1 · Historia y deuda con el casino
 - Antes del primer nivel, 3 s en pantalla: «Lo perdiste todo y ahora debes. Mata zombis para pagarle al casino.»
 - Al terminar cada nivel de jefe, a los 10 s pasas a una habitación con un teléfono en el centro: «¿Tienes mi dinero?». Hay que pagar X monto.
