@@ -2006,6 +2006,11 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 #hud-br:not(.aviso) #ammo-h{display:none}
 #hud-br.aviso #ammo-txt{display:block!important}
 #ammo-h{font-size:14px}
+/* dueño, 21-oct-2026: botón de inventario al lado del tambor (también se abre con Tab) */
+.canon-fila{display:flex;align-items:center;gap:10px}
+#inv-hud{pointer-events:auto;cursor:pointer;min-height:48px;padding:0 14px;border-radius:24px;border:2px solid #b8893a;background:rgba(40,24,12,.88);color:#f3e6c8;font:700 14px/1 var(--hud,system-ui),sans-serif;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+#inv-hud kbd{font:700 13px var(--hud,system-ui);color:#1a0e06;background:#d8a838;border-radius:4px;padding:2px 5px}
+#inv-hud:hover{border-color:#ffd77a}
 #tambor-n{font:700 16px/1.1 var(--hud,system-ui),sans-serif;color:#ffd77a;text-shadow:0 1px 3px #000,0 0 6px #000;text-align:right}
 /* Inventario: slot, caja y familias, Fusionar (sin scroll: si no cabe, páginas) */
 .bal-inv{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;min-height:0;text-align:left}
@@ -2642,7 +2647,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
       <div id="ammo-row"><div id="ammo-txt"><div id="ammo-n">6</div><div id="ammo-h">de 6</div></div></div>
     </div>
     <div id="bal-hud" aria-hidden="true"><div id="fam-hud"></div><div id="slot-hud"></div><div id="armas-hud" hidden></div></div>
-    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Balas en la caja: <b id="caja-n">50</b><b id="caja-a" hidden>0</b></div><div id="tambor-n" aria-live="off">6 / 6 balas</div><div id="canon"></div></div>
+    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Balas en la caja: <b id="caja-n">50</b><b id="caja-a" hidden>0</b></div><div id="tambor-n" aria-live="off">6 / 6 balas</div><div class="canon-fila"><button id="inv-hud" type="button" aria-label="Abrir el inventario">Inventario</button><div id="canon"></div></div></div>
   </div>
 
   <div id="intro" hidden aria-live="polite"><i class="lb t" aria-hidden="true"></i><i class="lb b" aria-hidden="true"></i><div class="ic"><small id="intro-k"></small><b id="intro-t"></b><span id="intro-s"></span></div><em class="sk">Toca para saltar</em></div>
@@ -26109,7 +26114,8 @@ function invTab(t) {
   const fz = invTab.t === 'fuse'; $('#btn-fuse').hidden = !fz; $('#btn-fuse').className = fz ? 'btn' : 'btn2'; $('#btn-inv-close').className = fz ? 'btn2' : 'btn';
   pagTodas();
 }
-function closeInv() { if (state !== 'inv') return; if (game) game.fz = null; VM2.invCerrar(); show(null); state = 'play'; requestLock(); canvas.focus(); }
+// siempre se puede salir: aunque el estado haya cambiado mientras estaba abierto (pausa por perder el puntero, pantalla completa…), la canana se cierra (dueño, 21-oct-2026: «no puedo salir del inventario»)
+function closeInv() { const ab = VM2.invAbierto(); if (state !== 'inv' && !ab) return; if (game) game.fz = null; VM2.invCerrar(); show(null); if (state === 'inv' || state === 'pause') { state = 'play'; requestLock(); canvas.focus(); } }
 // la ficha de una bala del cinturón o de la reserva (el sobre azul se dibuja como un sobre)
 function balFichaE(e, cls = '') { return esSobreAzul(e) ? `<span class="bf azul ${cls}" title="Sobre azul">${typeof VM2 !== 'undefined' ? VM2.sobreAzulMini() : ''}</span>` : balFicha(e.k, e.lv, cls); }
 // G2 · Inventario (Tab): «Tu cinturón» (8 espacios, hacen efecto) y la reserva (6, sin efecto); «Juntar» sube de nivel 2 iguales del mismo nivel
@@ -32921,7 +32927,7 @@ function introDeuda(then) {
   const avanzar = () => { if (bt.hidden) return; if (fi < INTRO_FRASES.length - 1) decir(); else seguir(); };
   delete box.dataset.colgado; bt.onclick = avanzar; const sk = $('#gi-saltar'); sk.hidden = false; sk.onclick = seguir;
   // dueño, 20-oct-2026: Espacio sigue con la frase siguiente y Enter salta la llamada (en PC se ve la tecla en cada botón)
-  if (!IS_TOUCH) { bt.innerHTML = `${tx('Continuar')} <kbd>${tecla('Space')}</kbd>`; sk.innerHTML = `${tx('Saltar la llamada')} <kbd>${tecla('Enter')}</kbd>`; }
+  if (!IS_TOUCH) { bt.innerHTML = `${tx('Continuar')} <kbd>${tx('Espacio')}</kbd>`; sk.innerHTML = `${tx('Saltar la llamada')} <kbd>Enter</kbd>`; }
   const tecla_ = e => { if (e.code === 'Space') { e.preventDefault(); avanzar(); } else if (e.code === 'Enter' || e.code === 'Escape') { e.preventDefault(); seguir(); } };
   addEventListener('keydown', tecla_); introDeuda.quitar = () => removeEventListener('keydown', tecla_);
   introDeuda.seguir = seguir;   // para las pruebas
@@ -39104,6 +39110,7 @@ function startGameNow(sv) {
 }
 function pause() {
   if (state !== 'play') return;
+  if (VM2.invAbierto()) { state = 'inv'; return; }   // con la canana abierta no se pausa por debajo (por eso no se podía salir del inventario)
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
   syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
@@ -39172,7 +39179,8 @@ $('#btn-quit').addEventListener('click', () => { if (game && state === 'pause' &
 $('#btn-inv-close').addEventListener('click', closeInv);
 $('#b-inv').addEventListener('click', e => { e.preventDefault(); openInv(); });
 // sin el botón de la bolsa: tocar la fila de objetos o el contador de balas abre el inventario
-for (const id of ['#iicons', '#caja-hud']) $(id).addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openInv(); });
+{ const b = $('#inv-hud'); if (b && !IS_TOUCH) b.innerHTML = `${tx('Inventario')} <kbd>Tab</kbd>`; }
+for (const id of ['#iicons', '#caja-hud', '#inv-hud']) $(id).addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openInv(); });
 $('#btn-fuse').addEventListener('click', () => { if (game && invTab.t === 'fuse') balFusionar(); });
 $('#btn-lleno-no').addEventListener('click', () => { if (game && game.llenoQ && game.llenoQ.length) balLlenoRechazar(); });
 $('#btn-lleno-res').addEventListener('click', () => { if (game && game.llenoQ && game.llenoQ.length) balLlenoReserva(); });
@@ -39260,7 +39268,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Escape' && state === 'mis') { misCerrar(); return; }
   if (!$('#col-s').hidden && e.code === 'Escape') { show('inicio'); return; }
   if (state === 'dados' && e.code === 'Escape' && typeof cerrarDados === 'function') { cerrarDados(); return; }
-  if (state === 'inv' && ['KeyI', 'Tab', 'Escape'].includes(e.code)) { e.preventDefault(); closeInv(); return; }
+  if ((state === 'inv' || VM2.invAbierto()) && ['KeyI', 'Tab', 'Escape'].includes(e.code)) { e.preventDefault(); closeInv(); return; }
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (player.grab && (e.code === 'Space' || e.code === 'KeyE' || e.code === 'KeyF')) { e.preventDefault(); if (!e.repeat) grabTap(); return; }
@@ -39381,6 +39389,7 @@ function frame() {
   autoRes(Math.min(rawDt, 0.25));
   tAll += dt;
   if (input.tiro) hacerTiro();   // el tiro que pidió el clic o el toque (antes de mover nada: como si fuera dentro del clic)
+  if (game && (state === 'play' || state === 'pause') && VM2.invAbierto()) state = 'inv';   // la canana abierta manda: el estado vuelve a «inventario»
   if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (state === 'animp') animpPaso(dt);
