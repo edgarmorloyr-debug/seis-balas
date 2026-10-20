@@ -2895,6 +2895,17 @@ const Sfx = (() => {
   // para que una multitud no se vuelva ruido: como mucho 3 quejidos a la vez (con menos volumen cuantos más suenan),
   // 5 «chof» cada cuarto de segundo y cada zombi se queja otra vez solo pasado un rato
   const zhVoces = [], zhChof = [], zhCada = new WeakMap(); let zhUlt = 0;
+  // G0-8 · Tope de voces por sonido (cifras en BAL.voces: cuántas veces en «ventana» segundos). Una explosión que mata a 25 zombis pedía
+  // unos 580 nodos de sonido: 300 en el mismo cuadro (chof, combo y monedas de cada muerte) y 275 juntos medio segundo después, cuando
+  // los 25 cuerpos tocan el suelo a la vez. Crear y mezclar tantos nodos de golpe es lo que congelaba el teléfono; ahora suenan unos pocos
+  // (el oído no distingue 25 golpes iguales en el mismo instante) y los demás se callan
+  const cupoT = {};
+  function cupo(k) {
+    const c = ctx && BAL.voces[k]; if (!c) return true;
+    const t = ctx.currentTime, L = cupoT[k] || (cupoT[k] = []);
+    while (L.length && L[0] < t - c[1]) L.shift();
+    if (L.length >= c[0]) return false; L.push(t); return true;
+  }
   function zChof(pan, vol, w, head) {
     burst({ ftype: 'lowpass', f0: 950, f1: 170, q: 2.2, dur: 0.1 + 0.05 * w, vol: 0.32 * vol * Math.min(1.4, w), pan, wet: 0.12 });
     burst({ ftype: 'bandpass', f0: rand(1300, 1700), f1: rand(420, 560), q: 4, dur: 0.07, vol: 0.18 * vol * w, pan, wet: 0.08, delay: 0.012 });
@@ -3143,14 +3154,15 @@ const Sfx = (() => {
     },
     zDiag() { return { voces: zhVoces.filter(x => ctx && x >= ctx.currentTime).length, chof: zhChof.length }; },
     hit(head, pan) {
+      if (!cupo('hit')) return;
       burst({ ftype: 'lowpass', f0: 900, f1: 200, q: 1, dur: 0.12, vol: 0.45, pan, wet: 0.1 });
       if (head) { tone({ type: 'triangle', f0: 1300, f1: 900, dur: 0.12, vol: 0.18 }); burst({ f0: 2400, q: 1, dur: 0.07, vol: 0.25, pan });
         // «ding» seco de acierto en la cabeza
         tone({ type: 'sine', f0: 2093, dur: 0.22, vol: 0.13, wet: 0.08 }); tone({ type: 'sine', f0: 3136, dur: 0.14, vol: 0.06, wet: 0.08 }); tone({ type: 'triangle', f0: 4186, dur: 0.05, vol: 0.04, wet: 0 }); }
     },
     clang(pan) { if (smpOf('clang', 3, { vol: 0.5, pan, rate: rand(0.9, 1.1), wet: 0.3 })) return; tone({ type: 'square', f0: 1800, f1: 1400, dur: 0.12, vol: 0.12, pan, wet: 0.3 }); tone({ type: 'triangle', f0: 3100, f1: 2900, dur: 0.25, vol: 0.08, pan, wet: 0.3 }); },
-    splat(pan, vol = 0.5) { burst({ ftype: 'lowpass', f0: 600, f1: 120, q: 2, dur: 0.25, vol, pan, wet: 0.2 }); },
-    thud(pan) { smpOf('fall', 3, { vol: 0.8, pan, rate: rand(0.7, 0.85), wet: 0.3 }); tone({ f0: 90, f1: 30, dur: 0.4, vol: 0.6, pan, wet: 0.3 }); burst({ ftype: 'lowpass', f0: 400, dur: 0.3, vol: 0.4, pan }); },
+    splat(pan, vol = 0.5) { if (!cupo('splat')) return; burst({ ftype: 'lowpass', f0: 600, f1: 120, q: 2, dur: 0.25, vol, pan, wet: 0.2 }); },
+    thud(pan) { if (!cupo('thud')) return; smpOf('fall', 3, { vol: 0.8, pan, rate: rand(0.7, 0.85), wet: 0.3 }); tone({ f0: 90, f1: 30, dur: 0.4, vol: 0.6, pan, wet: 0.3 }); burst({ ftype: 'lowpass', f0: 400, dur: 0.3, vol: 0.4, pan }); },
     boom() { if (ctx) { if (ctx.currentTime - (this._boomT || -9) < BAL.explosion.sonidoGap) return; this._boomT = ctx.currentTime; } tone({ f0: 110, f1: 25, dur: 0.7, vol: 1, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 3000, f1: 100, dur: 0.8, vol: 0.9, wet: 0.6 }); },
     gas(pan) { this.boom(); burst({ ftype: 'highpass', f0: 2500, dur: 1.2, vol: 0.25, pan, wet: 0.4, attack: 0.05 }); },
     groan(pan, vol, pitch = 1, long = false) {
@@ -3208,7 +3220,7 @@ const Sfx = (() => {
     step() { if (smpOf('step_' + (room.step || 'grass'), 3, { vol: 0.32, rate: rand(0.9, 1.1), wet: 0.05 })) return; burst({ ftype: 'lowpass', f0: rand(300, 450), dur: 0.08, vol: 0.12, wet: 0.05 }); },
     land() { if (smpOf('step_' + (room.step || 'grass'), 3, { vol: 0.6, rate: 0.8, wet: 0.05 })) return; burst({ ftype: 'lowpass', f0: 380, dur: 0.14, vol: 0.3, wet: 0.05 }); },
     pickup() { [660, 880, 1320].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.18, delay: i * 0.06, wet: 0.4 })); },
-    coin() { if (smp('coins', { vol: 0.35, rate: rand(1, 1.2), wet: 0.1 })) return; tone({ type: 'square', f0: 1320, dur: 0.06, vol: 0.05, wet: 0.1 }); tone({ type: 'square', f0: 1760, dur: 0.12, vol: 0.05, delay: 0.06, wet: 0.2 }); },
+    coin() { if (!cupo('coin')) return; if (smp('coins', { vol: 0.35, rate: rand(1, 1.2), wet: 0.1 })) return; tone({ type: 'square', f0: 1320, dur: 0.06, vol: 0.05, wet: 0.1 }); tone({ type: 'square', f0: 1760, dur: 0.12, vol: 0.05, delay: 0.06, wet: 0.2 }); },
     cash() { smp('chips', { vol: 0.5, wet: 0.2 }); if (smp('coins2', { vol: 0.5, wet: 0.2, delay: 0.05 })) return; tone({ type: 'triangle', f0: 1568, dur: 0.12, vol: 0.2, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.4, vol: 0.2, delay: 0.1, wet: 0.5 }); burst({ f0: 5000, q: 2, dur: 0.15, vol: 0.2 }); },
     bell() { [196, 392, 588, 784, 1176].forEach((f, i) => tone({ f0: f, dur: 3.2 - i * 0.4, vol: 0.22 / (i + 1), wet: 0.8, attack: 0.004 })); },
     // G1 · el teléfono negro: timbre de campanilla doble (pan: de dónde suena; vol: lo lejos que está)
@@ -3287,7 +3299,7 @@ const Sfx = (() => {
     garra(d = 3) { tone({ type: 'square', f0: 340, f1: 360, dur: d * 0.3, vol: 0.025, wet: 0.1, attack: 0.03 }); tone({ type: 'square', f0: 300, f1: 260, dur: d * 0.2, vol: 0.025, delay: d * 0.32, wet: 0.1 }); tone({ type: 'square', f0: 260, f1: 320, dur: d * 0.2, vol: 0.025, delay: d * 0.6, wet: 0.1 }); },   // motores de la garra
     canje() { this.cash(); [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.35, vol: 0.12, delay: 0.08 + i * 0.07, wet: 0.6 })); [2093, 2637].forEach((f, i) => tone({ f0: f, dur: 0.9, vol: 0.04, delay: 0.38 + i * 0.05, wet: 0.9, attack: 0.004 })); },   // canjear una mejora
     win() { [392, 494, 587, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.5, vol: 0.14, delay: i * 0.12, wet: 0.6 })); },
-    combo(n) { const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
+    combo(n) { if (!cupo('combo')) return; const st = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(10, Math.max(0, n - 1))], f = 523.25 * Math.pow(2, st / 12); tone({ type: 'triangle', f0: f, dur: 0.18, vol: 0.13, wet: 0.35 }); tone({ type: 'sine', f0: f * 2, dur: 0.1, vol: 0.05, wet: 0.2 }); if (n >= 5) tone({ type: 'sine', f0: f * 1.5, dur: 0.22, vol: 0.05, delay: 0.04, wet: 0.4 }); },
     deadeye(on) {
       if (!ctx) return; const t = ctx.currentTime;
       lp.frequency.cancelScheduledValues(t); lp.frequency.setTargetAtTime(on ? 800 : room.lp, t, on ? 0.08 : 0.25);
@@ -5344,7 +5356,7 @@ function buildMap(i) {
   m3dSembrar(i);   // hierba, matas y flores de adorno (sin choque)
   L3.fin();
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
-  holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
+  holes.forEach(h => h.visible = false); hideSplats();
   buildNav();
   secretosLugar(i);   // el patito de oro y la trampilla secreta (PENDIENTES 46)
   llvHud();
@@ -23165,12 +23177,24 @@ const splatTex = [0, 1, 2].map(kind => canvasTex(128, 128, (g, w, h) => {
   else if (kind === 1) { blob(64, 64, 20); for (let i = 0; i < 26; i++) { const a = rand(0, TAU), r = rand(20, 58); blob(64 + Math.cos(a) * r, 64 + Math.sin(a) * r, rand(2, 7)); } }
   else { for (let i = 0; i < 5; i++) blob(30 + i * 16 + rand(-4, 4), 64 + rand(-14, 14), rand(9, 18)); for (let i = 0; i < 12; i++) blob(rand(12, 116), rand(30, 98), rand(2, 5)); }
 }));
-const splatMats = [];
-for (const c of [0x3d0507, 0x4a0709, 0x2e0405, 0x55080a]) for (const t of splatTex) splatMats.push(new THREE.MeshBasicMaterial({ color: c, map: t, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }));
-const splats = []; let splatI = 0;
-for (let i = 0; i < (IS_TOUCH ? 110 : 180); i++) { const m = new THREE.Mesh(splatGeo, pick(splatMats)); m.rotation.x = -Math.PI / 2; m.visible = false; scene.add(m); splats.push(m); }
-function addSplat(x, z, s) { const m = splats[splatI++ % splats.length]; m.visible = true; m.position.set(x + rand(-0.3, 0.3), 0.016 + (splatI % 7) * 0.0015, z + rand(-0.3, 0.3)); m.scale.set(s * rand(0.7, 1.2), s, 1); m.rotation.z = rand(0, TAU); m.material = pick(splatMats); }
-function hideSplats() { for (const m of splats) m.visible = false; }
+// G0-8 · Las manchas van en 3 mallas instanciadas (una por forma; el color va en cada copia). Antes cada mancha era una pieza aparte:
+// cada muerte deja 3 y, tras un par de matanzas, el suelo sumaba de 110 a 180 llamadas de dibujo más en cada cuadro. Ahora son 3, siempre
+// las mismas, y se dibujan desde que carga la página (las que sobran tienen tamaño 0), así su sombreador no se prepara en plena explosión
+const SPLAT_COL = [0x3d0507, 0x4a0709, 0x2e0405, 0x55080a].map(c => new THREE.Color(c));
+const SPLAT_N = Math.ceil((IS_TOUCH ? 110 : 180) / splatTex.length), _spCero = new THREE.Matrix4().makeScale(0, 0, 0);
+const _spM = new THREE.Matrix4(), _spP = new THREE.Vector3(), _spQ = new THREE.Quaternion(), _spE = new THREE.Euler(), _spS = new THREE.Vector3();
+const splatIM = splatTex.map(t => {
+  const im = new THREE.InstancedMesh(splatGeo, new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }), SPLAT_N);
+  for (let i = 0; i < SPLAT_N; i++) { im.setMatrixAt(i, _spCero); im.setColorAt(i, SPLAT_COL[0]); }
+  im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.instanceColor.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.n = 0; scene.add(im); return im;
+});
+let splatI = 0;
+function addSplat(x, z, s) {
+  const im = pick(splatIM), i = im.n++ % SPLAT_N; splatI++;
+  _spP.set(x + rand(-0.3, 0.3), 0.016 + (splatI % 7) * 0.0015, z + rand(-0.3, 0.3)); _spQ.setFromEuler(_spE.set(-Math.PI / 2, 0, rand(0, TAU))); _spS.set(s * rand(0.7, 1.2), s, 1);
+  im.setMatrixAt(i, _spM.compose(_spP, _spQ, _spS)); im.setColorAt(i, pick(SPLAT_COL)); im.instanceMatrix.needsUpdate = im.instanceColor.needsUpdate = true;
+}
+function hideSplats() { for (const im of splatIM) { if (!im.n) continue; for (let i = 0; i < SPLAT_N; i++) im.setMatrixAt(i, _spCero); im.n = 0; im.instanceMatrix.needsUpdate = true; } }
 const tracerGeo = new THREE.CylinderGeometry(0.006, 0.006, 1, 4); tracerGeo.translate(0, 0.5, 0);
 const tracers = [];
 for (let i = 0; i < 40; i++) { const m = new THREE.Mesh(tracerGeo, new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.visible = false; scene.add(m); tracers.push({ m, t: 0 }); }
@@ -23265,6 +23289,8 @@ const BAL = {
   // G0-7 · Explosiones sin tirones: partículas de cada explosión (fuego y humo; en el teléfono se multiplican por tel), cuántas explosiones con todo su efecto
   // caben en «ventana» segundos (las que pasan de ahí solo hacen daño y un poco de humo), espera mínima entre dos estruendos y charcos de ácido a la vez
   explosion: { fuego: 50, humo: 14, tel: 0.5, ventana: 0.35, maxPc: 6, maxTel: 3, extra: 6, sonidoGap: 0.07, charcosPc: 14, charcosTel: 7 },
+  // G0-8 · Tope de voces: [veces, ventana en segundos] que puede sonar cada golpe (una matanza ya no crea cientos de sonidos en el mismo cuadro)
+  voces: { splat: [4, 0.12], thud: [3, 0.15], combo: [2, 0.08], coin: [3, 0.1], hit: [5, 0.06] },
   vozDolor: { vol: 1.8, volOtro: 1.3, esperaSuave: 2.2, espera: 0.85, esperaFuerte: 1.1, entre: 0.35, agacha: 0.45, agachaT: 0.4, musica: 0.55, musicaT: 0.6 },
   slotBase: 6,
   slotPersonaje: { sheriff: 6, johnny: 7, armando: 6, lilith: 5, carlos: 6, francois: 6, ludo: 6 },   // carlos = Geronimo
@@ -25302,6 +25328,24 @@ function pkModelo(type, amount) {
   else for (let i = 0; i < 3; i++) { const b = new THREE.Group(); b.add(new THREE.Mesh(cyl(0.035, 0.035, 0.16, 10), mat)); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 10), mat); tip.position.y = 0.12; b.add(tip); b.position.x = (i - 1) * 0.09; g.add(b); }
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   halo.scale.set(type === 'moneda' ? 0.9 : 1.3, type === 'moneda' ? 0.9 : 1.3, 1); if (type === 'moneda') halo.material.opacity = 0.12; g.add(halo);
+  return pkFundir(g);
+}
+// G0-8: cada premio queda en una pieza por material (la munición eran 7 piezas, la ficha 8): una matanza deja una docena de premios
+// en el suelo de 18 a 40 s y cada pieza era una llamada de dibujo más en cada cuadro (12 premios: de 88 piezas a unas 25)
+const _pkM = new THREE.Matrix4();
+function pkFundir(g) {
+  g.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), lotes = new Map();
+  g.traverse(o => { if (o.isMesh && !Array.isArray(o.material) && o.geometry.attributes.normal) { let L = lotes.get(o.material); if (!L) lotes.set(o.material, L = []); L.push(o); } });
+  for (const [mat, L] of lotes) {
+    if (L.length < 2) continue;
+    let n = 0; const conUv = L.every(m => m.geometry.attributes.uv);
+    const parts = L.map(m => { const q = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); q.applyMatrix4(_pkM.multiplyMatrices(inv, m.matrixWorld)); n += q.attributes.position.count; return q; });
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = conUv ? new Float32Array(n * 2) : null; let o = 0;
+    for (const q of parts) { const c = q.attributes.position.count; pos.set(q.attributes.position.array, o * 3); nor.set(q.attributes.normal.array, o * 3); if (uv) uv.set(q.attributes.uv.array, o * 2); o += c; q.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); if (uv) geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.computeBoundingSphere();
+    for (const m of L) m.parent.remove(m);
+    g.add(new THREE.Mesh(geo, mat));
+  }
   return g;
 }
 
@@ -25960,7 +26004,7 @@ function clearActors() {
   puddles.forEach(charcoSoltar); puddles.length = 0;
   pickups.forEach(p => scene.remove(p.g)); pickups.length = 0;
   wells.forEach(w => scene.remove(w.m)); wells.length = 0; traps.forEach(t => scene.remove(t.g)); traps.length = 0; strikes.length = 0;
-  holes.forEach(h => h.visible = false); splats.forEach(s => s.visible = false);
+  holes.forEach(h => h.visible = false); hideSplats();
   P.clear(); PA.clear();
 }
 const isLoaded = s => typeof s === 'string';
