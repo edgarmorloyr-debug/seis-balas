@@ -23833,6 +23833,10 @@ const BAL = {
   // queda atorado «atascado» segundos a más de «lejos» metros sin acercarse, aparece cerca de ti (a «cerca» metros por un camino libre).
   // pie: en la Trastienda (sin arma) el modelo se levanta lo justo para que la punta del pie quede a esta altura y no se hunda en el piso (m)
   ayudantes: { atascado: 2.5, lejos: 10, avance: 0.6, cerca: [2, 4], pie: 0.05 },
+  // G4 · El jefe Espejo (pedido del dueño, 21-oct-2026: «es demasiado fuerte»): antes de cada disparo se ve una línea blanca hacia donde apunta
+  // y tienes «aviso» segundos para salirte; solo te da si sigues a menos de «radio» metros de ese punto. cada: segundos entre disparos;
+  // dano: parte del daño de tu arma que copia (con un mínimo «min»)
+  jefeEspejo: { cada: 2.0, aviso: 0.6, radio: 0.9, dano: 0.3, min: 16 },
   // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
   // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
   // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
@@ -28663,9 +28667,10 @@ const BOSSES = [
     look(z) { bRecolor(z, 0, 0xc8ccd4); z.mats[0].emissive = new THREE.Color(0x202428); bRecolor(z, 1, PONCHO[0]); bRecolor(z, 2, 0x2a2723); addHat(z.head, 'cowboy'); if (z.armR) { const g = revolverMini(game && game.equip || 'paci'); g.position.set(0, -0.68, 0.03); g.scale.setScalar(1.35); z.armR.add(g); z.bossGun = g; } },
     tick(z, dt, c) {
       z.bt += dt;
-      if (z.bt > 1.4 && c.canAttack && c.dist < 30 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1)) {
-        z.bt = 0; const dmg = Math.max(16, (MODELS[game.equip] || MODELS.paci).dmg * 0.3) * (1 + 0.08 * zoneOf(game.wave));
-        bossEv('mshot', c.pos.x, 1.5 * z.s, c.pos.z, c.tp.x, 1.3, c.tp.z, c.pid, Math.random() < 0.5 ? Math.round(dmg) : 0);
+      const J = BAL.jefeEspejo;   // G4 · 10: cada disparo se avisa con una línea y deja tiempo para esquivarlo
+      if (z.bt > J.cada && c.canAttack && c.dist < 30 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1)) {
+        z.bt = 0; const dmg = Math.max(J.min, (MODELS[game.equip] || MODELS.paci).dmg * J.dano) * (1 + 0.08 * zoneOf(game.wave));
+        bossEv('laser', c.pos.x, c.pos.z, c.tp.x, c.tp.z, Math.round(dmg), J.aviso, J.radio, 0xd0e0ff);
       }
       return bKeepAway(c, 8, 14);
     } },
@@ -29891,8 +29896,8 @@ function bfxSpawn(kind, ...a) {
     const sx = x2 - x1, sz = z2 - z1, sL = sx * sx + sz * sz || 1, sk = clamp(((player.pos.x - x1) * sx + (player.pos.z - z1) * sz) / sL, 0, 1), enLinea = Math.hypot(player.pos.x - (x1 + sx * sk), player.pos.z - (z1 + sz * sk)) < 1.3;
     if (me && enLinea && (pid === Net.id || !Net.on)) { const dx = player.pos.x - x1, dz = player.pos.z - z1, d = Math.hypot(dx, dz) || 1; hurtPlayer(12, { x: player.pos.x + dx / d, z: player.pos.z + dz / d }, { knock: Math.min(22, d * 1.4), k: 'cut' }); feed('¡Te engancharon!', 'red'); }
   } else if (kind === 'laser') {
-    const [x1, z1, x2, z2, dmg] = a, A = new THREE.Vector3(x1, 2.0, z1), Bv = new THREE.Vector3(x2, 1.2, z2);
-    BFX.push({ k: kind, m: bfxBeam(A, Bv, 0xff1010, 0.75), t: 1.1, A, B: Bv, dmg });
+    const [x1, z1, x2, z2, dmg, t = 1.1, r = 1.4, col = 0xff1010] = a, A = new THREE.Vector3(x1, 2.0, z1), Bv = new THREE.Vector3(x2, 1.2, z2);   // G4: el Espejo usa su propio aviso, radio y color
+    BFX.push({ k: kind, m: bfxBeam(A, Bv, col, 0.75), t, A, B: Bv, dmg, r });
   } else if (kind === 'drop') {
     const [x1, z1, x2, z2] = a, m = new THREE.Mesh(bfxBombGeo, new THREE.MeshLambertMaterial({ color: 0x3a3028 })); m.scale.set(1, 1.6, 1); m.position.set(x1, 9, z1); scene.add(m); BFX.push({ k: kind, m, x: x2, z: z2, a: [x1, z1], t: 0.8, d: 0.8 }); Sfx.whoosh(panOf({ x: x2, z: z2 }));
   } else if (kind === 'tent') {
@@ -29968,7 +29973,7 @@ function bossFx(dt) {
     else if (f.k === 'drop') { const e = 1 - Math.max(0, f.t) / f.d; f.m.position.set(f.a[0] + (f.x - f.a[0]) * e, 9 * (1 - e * e) + 0.4, f.a[1] + (f.z - f.a[1]) * e); f.m.rotation.x += dt * 8; if (f.t <= 0) { dirtBurst(f.x, 0.05, f.z, 18, 3); Sfx.thud(panOf(f)); } }
     else if (f.k === 'tent') { f.m.material.opacity = 0.25 + 0.25 * Math.sin(f.t * 25); if (f.t <= 0) { for (let k = 0; k < 24; k++) P.add(f.x, 0.2, f.z, rand(-2, 2), rand(3, 7), rand(-2, 2), 1, 0.12, 0.4, 0.05, 0.08, 1, 9.8, 0.5, 0, 0); bloodBurst(new THREE.Vector3(f.x, 0.3, f.z), new THREE.Vector3(0, 1, 0), 14, true); Sfx.thud(panOf(f)); Sfx.splat(panOf(f), volOf(f, 1)); if (me && d < 2.2) hurtPlayer(f.dmg, f, { knock: 9 }); } }
     else if (f.k === 'web') { f.m.material.opacity = 0.45 * Math.min(1, f.t); if (me && d < 2.2) player.webT = 0.25; }
-    else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < 1.4 && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4, k: 'bullet' }); } }
+    else if (f.k === 'laser') { f.m.material.opacity = 0.4 + 0.4 * Math.sin(f.t * 30); if (f.t <= 0) { addTracer(f.A, f.B, 0xffd0a0, 2.2); Sfx.pistol(panOf(f.A), volOf(f.A, 1.6)); const dd = Math.hypot(player.pos.x - f.B.x, player.pos.z - f.B.z); if (me && dd < (f.r || 1.4) && lineClear(f.A.x, f.A.z, player.pos.x, player.pos.z, 0.1)) hurtPlayer(f.dmg, { x: f.A.x, z: f.A.z }, { knock: 4, k: 'bullet' }); } }
     if (f.t <= 0) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } BFX.splice(i, 1); }
   }
   cfxStep(dt); CF.tag = '';
