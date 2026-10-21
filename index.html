@@ -3149,7 +3149,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=21').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=22').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -33405,7 +33405,7 @@ function rotulo(w = 0.34, h = 0.17) {
   return { spr, pon(txt, col = '#fbf4e2') {
     const k = txt + col; if (k === ult) return; ult = k; spr.visible = !!txt; if (!txt) return;
     g.clearRect(0, 0, 128, 64); g.beginPath(); if (g.roundRect) g.roundRect(4, 4, 120, 56, 14); else g.rect(4, 4, 120, 56); g.fillStyle = 'rgba(20,12,6,.85)'; g.fill(); g.strokeStyle = col; g.lineWidth = 4; g.stroke();
-    const t_ = tx(String(txt)); g.fillStyle = col; g.font = `900 ${t_.length > 3 ? 24 : 40}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t_, 64, 35, 112); tex.needsUpdate = true;
+    const t_ = tx(String(txt)); g.fillStyle = col; g.font = `900 ${t_.length > 4 ? 24 : t_.length > 3 ? 32 : 40}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t_, 64, 35, 112); tex.needsUpdate = true;
   } };
 }
 // chispas doradas que salen de un juego al ganar (en coordenadas del mundo)
@@ -33508,7 +33508,9 @@ function renderBj() {
   else if (B.f === 'jugada') pie = b('bj-pedir', 'Pedir carta', 'btn', !!yo) + b('bj-plantar', 'Plantarse', 'btn2', !!yo);
   else if (B.f === 'resultado') pie = b('bj-otra', 'Otra mano', 'btn', !!yo) + b('bj-ret', 'Retirarse', 'btn2', !!yo);
   else pie = b('bj-up', 'Volver', 'btn');
-  apuPinta('Blackjack', B.f === 'apuesta' && f < BAL.juegos.bj.apuestas[0] ? 'No tienes fichas de miembro: puedes mirar la mano o salir.' : B.msg, grupo, pie);
+  // G4: durante la mano también se lee la carta que muestra la banca (o su total, si tienes el objeto que deja ver la tapada)
+  const banca = B.f === 'jugada' && B.banca && B.banca.length ? (S('bjVer') ? ` La banca suma ${bjValor(B.banca)}.` : (r => r === String(bjValor([B.banca[0]])) ? ` La banca muestra ${r}.` : ` La banca muestra ${r} (${bjValor([B.banca[0]])}).`)(BJ.rangos[B.banca[0].r])) : '';
+  apuPinta('Blackjack', B.f === 'apuesta' && f < BAL.juegos.bj.apuestas[0] ? 'No tienes fichas de miembro: puedes mirar la mano o salir.' : B.msg + banca, grupo, pie);
   apuOn('bj-up', cerrarBj);
   for (const a of BAL.juegos.bj.apuestas) apuOn('bj-a' + a, () => bjMandar('bet', a));
   apuOn('bj-pedir', () => bjMandar('act', 'pedir')); apuOn('bj-plantar', () => bjMandar('act', 'plantarse'));
@@ -33830,7 +33832,8 @@ function buildBlackjack(x, z) {
     // los totales flotan junto a cada mano cuando las cartas ya cayeron
     const tm = bjValor(B.mano), tb = bjValor(B.banca), fin = B.f === 'resultado' || B.f === 'fin';
     const cM = fin ? (B.res === 'gana' || B.res === 'natural' ? '#ffd27a' : B.res === 'empate' ? '#fbf4e2' : '#a89a88') : '#fbf4e2', cB = fin ? (B.res === 'pierde' ? '#ffd27a' : B.res === 'empate' ? '#fbf4e2' : '#a89a88') : '#fbf4e2';
-    rM.pon(quietas && B.mano.length ? String(tm) : '', cM); rB.pon(quietas && B.banca.length && !oc ? String(tb) : '', cB);
+    // G4: la banca también muestra su número mientras juegas: la carta destapada y un «?» por la tapada (pedido del dueño)
+    rM.pon(quietas && B.mano.length ? String(tm) : '', cM); rB.pon(quietas && B.banca.length ? (oc ? bjValor([B.banca[0]]) + '+?' : String(tb)) : '', cB);
   });
   return o;
 }
