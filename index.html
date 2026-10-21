@@ -23829,6 +23829,10 @@ const BAL = {
   // el último, uno de los últimos. Orden por dificultad real: vida efectiva (vida × lo que hay que hacer para herirlo, vidas extra y divisiones),
   // daño y ataques, y los zombis que suelta. ventana: cuántos puestos alrededor del que le toca al mapa pueden salir (para que no sea siempre el mismo)
   jefes: { orden: ['proj', 'mirror', 'clown', 'spider', 'sniper', 'bride', 'rider', 'shark', 'digger', 'fire', 'saw', 'plague', 'tamer', 'colossus', 'hive', 'grandpa', 'mass', 'twins', 'rats', 'butcher'], ventana: 1 },
+  // G4 · Ayudantes que te siguen (pedido del dueño, 21-oct-2026): siguen la ruta de los zombis hacia ti (rodean muros y puertas); si uno se
+  // queda atorado «atascado» segundos a más de «lejos» metros sin acercarse, aparece cerca de ti (a «cerca» metros por un camino libre).
+  // pie: en la Trastienda (sin arma) el modelo se levanta lo justo para que la punta del pie quede a esta altura y no se hunda en el piso (m)
+  ayudantes: { atascado: 2.5, lejos: 10, avance: 0.6, cerca: [2, 4], pie: 0.05 },
   // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
   // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
   // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
@@ -31920,6 +31924,18 @@ function hurtCop(c, dmg) {
     feed(`¡Devoraron ${(c.D || ALLY.cop).al}!`, 'red'); Sfx.copDown(panOf(c.root.position)); renderChips();
   }
 }
+// G4 · 9: un ayudante que te sigue y no logra acercarse (muros, muebles, puertas) aparece cerca de ti, en un lugar al que se llega caminando
+function copAtorado(c, dP, dt) {
+  const A = BAL.ayudantes; if (state !== 'play' || player.down || dP < A.lejos) { c.atT = 0; c.atD = dP; return; }
+  if (c.atD == null || dP < c.atD - A.avance) { c.atD = dP; c.atT = 0; return; }
+  if ((c.atT = (c.atT || 0) + dt) < A.atascado) return;
+  c.atT = 0; c.atD = null;
+  for (let k = 0; k < 12; k++) {
+    const q = bSpot(player.pos.x, player.pos.z, A.cerca[0], A.cerca[1]); if (!q) continue;
+    const d = nav.mainDist[cellOf(q.x, q.z)] * nav.cs; if (!(d < A.cerca[1] * 2.5)) continue;   // del lado de la pared donde estás tú
+    bfxSpawn('puff', c.root.position.x, c.root.position.z); c.root.position.set(q.x, 0, q.z); bfxSpawn('puff', q.x, q.z); return;
+  }
+}
 function updateCops(dt) {
   nav.dist = nav.mainDist;
   updateAllyThrows(dt);
@@ -31975,7 +31991,8 @@ function updateCops(dt) {
     else if (dP > (D.heal ? 3 : 5.5)) {
       if (lineClear(pos.x, pos.z, player.pos.x, player.pos.z, 0.35)) { mx = dxp / dP; mz = dzp / dP; } else if (flowDir(pos.x, pos.z, 0.35)) { mx = FD.x; mz = FD.z; } else { mx = dxp / dP; mz = dzp / dP; }
       spd = c.speed * (dP > 10 ? 1.2 : 1);
-    }
+      copAtorado(c, dP, dt);   // G4 · 9: si se queda atorado lejos de ti, aparece cerca por un camino libre
+    } else c.atT = 0;
     for (const o of cops) { if (o === c || o.dead) continue; const ox = pos.x - o.root.position.x, oz = pos.z - o.root.position.z, d = Math.hypot(ox, oz); if (d < 1.4 && d > 0.001) { pos.x += ox / d * (1.4 - d) * 0.5; pos.z += oz / d * (1.4 - d) * 0.5; } }
     if (dP < 1.2 && dP > 0.001) { pos.x -= dxp / dP * (1.2 - dP); pos.z -= dzp / dP * (1.2 - dP); }
     if (c.indep && threat) spd *= 0.5;
@@ -37772,9 +37789,21 @@ function ally3dMx(c, spd, dt) {
   (c.guns || []).forEach((g, i) => p3dArma(I, g, i === 0 ? 'R' : 'L', set === 'r', c.root, I.kick || 0, D.dual || gesto ? 0 : 1));
   I.kick = (I.kick || 0) * Math.exp(-14 * dt);
 }
+// G4 · 9: en la Trastienda (sin arma) las animaciones bajan un poco el cuerpo: se levanta el modelo para que los pies no se hundan en el piso
+function allyPies(c, dt) {
+  const I = c.p3d; if (!I || !I.m) return;
+  if (I.y0 == null) I.y0 = I.m.position.y; I.pieOff = I.pieOff || 0;   // y0: la altura con la que se colocó el modelo (sus pies en el suelo)
+  let off = 0;
+  if (trSinArma()) {
+    c.root.updateMatrixWorld(true); let mn = 9; const sy = c.body.getWorldScale(_zv).y || 1;
+    for (const k of ['L_ToeBase', 'R_ToeBase', 'L_Foot', 'R_Foot']) { const b = I.B[k]; if (!b) continue; b.getWorldPosition(_zp); if (_zp.y < mn) mn = _zp.y; }
+    if (mn < 9) off = Math.max(0, BAL.ayudantes.pie - (mn - I.pieOff * sy)) / sy;
+  }
+  I.pieOff = damp(I.pieOff, off, 12, dt); I.m.position.y = I.y0 + I.pieOff;
+}
 function ally3dPaso(c, spd, dt) {
   const I = c.p3d;
-  if (I.acts.p_idle) { ally3dMx(c, spd, dt); return; }
+  if (I.acts.p_idle) { ally3dMx(c, spd, dt); allyPies(c, dt); return; }
   if (c.hpAntes != null && c.hp < c.hpAntes - 3 && spd < 0.3) p3dUna(I, 'hurt');
   c.hpAntes = c.hp;
   if (I.una && I.unaR > 0 && spd < 0.3) I.unaR -= dt;
@@ -37789,6 +37818,7 @@ function ally3dPaso(c, spd, dt) {
   }
   I.kick = (I.kick || 0) * Math.exp(-14 * dt);
   (c.guns || []).forEach((g, i) => avAgarre(I, g, i === 0 ? 'R' : 'L', c));
+  allyPies(c, dt);
 }
 function removeRemote(p) { if (p.av) { scene.remove(p.av.root); p.av.mats.forEach(m => m.dispose()); p.av.label.material.map.dispose(); p.av.label.material.dispose(); p.av = null; } }
 // ---- Movimiento fluido de los compañeros: se guardan las posiciones que llegan y se muestra al compañero un instante «en el pasado»,
