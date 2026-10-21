@@ -23837,6 +23837,9 @@ const BAL = {
   // y tienes «aviso» segundos para salirte; solo te da si sigues a menos de «radio» metros de ese punto. cada: segundos entre disparos;
   // dano: parte del daño de tu arma que copia (con un mínimo «min»)
   jefeEspejo: { cada: 2.0, aviso: 0.6, radio: 0.9, dano: 0.3, min: 16 },
+  // G4 · Zombis atorados (Isla de los Náufragos): tras «veces» revisiones seguidas sin avanzar (una cada 1,1 s) aunque intentó rodear,
+  // el zombi avanza «celdas» casillas por la ruta (cada casilla mide 1 m)
+  zombiAtasco: { veces: 3, celdas: 3 },
   // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
   // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
   // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
@@ -31850,6 +31853,14 @@ function updateZombies(dt, canAttack) {
     if (z.chkT <= 0) {
       const moved = Math.hypot(pos.x - z.lastX, pos.z - z.lastZ);
       if (moving && moved < 0.3 * spd && dist > reach + 0.6 && z.unstuck <= 0) { const s = Math.random() < 0.5 ? 1 : -1; z.ux = -mz * s; z.uz = mx * s; z.unstuck = 0.7; z.tgtT = 0; }
+      // G4 · 12: si rodear no basta (sigue clavado varias veces seguidas siguiendo la ruta), avanza unas celdas por la ruta: así ningún zombi
+      // se queda trabado en un hueco que la ruta da por bueno pero su cuerpo no cabe (pasó en la Isla de los Náufragos)
+      const nd = nav.dist[cellOf(pos.x, pos.z)];   // lo que le falta por la ruta: si no baja y casi no anda, está trabado
+      if (moving && !direct && dist > reach + 0.6 && moved < 0.9 * spd && !(nd < (z.navMin == null ? 1e9 : z.navMin) - 0.5)) z.atN = (z.atN | 0) + 1; else { z.atN = 0; z.navMin = nd; }
+      if (z.atN >= BAL.zombiAtasco.veces && !direct && z.boss == null) {
+        let n = cellOf(pos.x, pos.z); for (let k = 0; k < BAL.zombiAtasco.celdas; k++) { const b = bestNeighbor(n); if (b < 0) break; n = b; }
+        const nx_ = cellX(n), nz_ = cellZ(n); if (nav.dist[n] < 1e9 && !pointBlocked(nx_, nz_, z.r)) { pos.x = nx_; pos.z = nz_; z.atN = 0; z.navMin = nav.dist[n]; }
+      }
       z.chkT = 1.1; z.lastX = pos.x; z.lastZ = pos.z;
     }
     const face = (direct || dist < 5) ? Math.atan2(dx, dz) : Math.atan2(mx, mz);
