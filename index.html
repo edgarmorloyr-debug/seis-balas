@@ -2656,7 +2656,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
       <div id="ammo-row"><div id="ammo-txt"><div id="ammo-n">6</div><div id="ammo-h">de 6</div></div></div>
     </div>
     <div id="bal-hud" aria-hidden="true"><div id="fam-hud"></div><div id="slot-hud"></div><div id="armas-hud" hidden></div></div>
-    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario">Balas en la caja: <b id="caja-n">50</b><b id="caja-a" hidden>0</b></div><div id="tambor-n" aria-live="off">6 / 6 balas</div><div class="canon-fila"><button id="inv-hud" type="button" aria-label="Abrir el inventario">Inventario</button><div id="canon"></div></div></div>
+    <div id="canon-w"><div id="caja-hud" role="button" aria-label="Abrir el inventario"><span id="caja-l">Balas en la caja</span>: <b id="caja-n">50</b><b id="caja-a" hidden>0</b></div><div id="tambor-n" aria-live="off">6 / 6 balas</div><div class="canon-fila"><button id="inv-hud" type="button" aria-label="Abrir el inventario">Inventario</button><div id="canon"></div></div></div>
   </div>
 
   <div id="intro" hidden aria-live="polite"><i class="lb t" aria-hidden="true"></i><i class="lb b" aria-hidden="true"></i><div class="ic"><small id="intro-k"></small><b id="intro-t"></b><span id="intro-s"></span></div><em class="sk">Toca para saltar</em></div>
@@ -3149,7 +3149,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=23').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=24').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -23817,6 +23817,16 @@ const BAL = {
     blindajeMax: 150,   // el blindaje se suma hasta este tope; para primero los golpes y no vuelve solo
     dinamita: { precio: 100, n: 3, max: 9, dano: 160, radio: 4.2, propio: 25, alcance: 18, vuelo: 0.75 }
   },
+  // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
+  // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
+  // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
+  // de la munición del arma que llevas en la mano · paquetes: lo que vende la Armería
+  municion: {
+    tipos: { escopeta: 'escopeta', doble: 'escopeta', ak47: 'fusil', m16: 'fusil', tommy: 'fusil', m60: 'fusil', gatling: 'fusil', sniper: 'fusil' },
+    nombre: { pistola: 'Balas en la caja', escopeta: 'Cartuchos', fusil: 'Balas de fusil' },
+    alComprar: { escopeta: 24, fusil: 90 }, max: { escopeta: 60, fusil: 300 }, recoger: { escopeta: 0.5, fusil: 2 }, bajo: { escopeta: 6, fusil: 30 },
+    paquetes: { escopeta: { n: 12, precio: 40 }, fusil: { n: 60, precio: 50 } }
+  },
   // Personajes (pedido del dueño, 20-oct-2026): al empezar solo está el Sheriff. Cada uno se abre para siempre al vencer al jefe
   //   del mapa N de una partida (N = el lugar 1, 2, 3… de la partida; el Cementerio siempre es el 1), con cualquier personaje y dificultad.
   //   Vencer al jefe de un mapa más adelante abre también a los de los mapas anteriores. Ludo Cheng sigue saliendo del jefe 2 del casino.
@@ -26106,9 +26116,10 @@ function balHud() {
   $('#fam-hud').innerHTML = Balas.familias(game).map(f => `<span>Familia ${BAL.familia[f].name} ${Math.min(BAL.familiaMin, Balas.famCuenta(game, f))}/${BAL.familiaMin} · ${BAL.familia[f].bono}</span>`).join('');
 }
 function cajaHud() {
-  const nn = Balas.normales(game), cap = Balas.cajaCap(game), na = Balas.activasDentro(game);
+  const t = munTipo(game.equip), nn = munN(t), cap = Balas.cajaCap(game), na = t === 'pistola' ? Balas.activasDentro(game) : 0;   // G4: la munición del arma que llevas en la mano
+  setText($('#caja-l'), 'cajal', BAL.municion.nombre[t]); if (cache.cajaT !== t) { cache.cajaT = t; $('#caja-hud').dataset.mun = t; }
   setText($('#caja-n'), 'cajan', String(nn)); setText($('#caja-a'), 'cajaa', String(na));
-  const low = nn < 12; if (cache.cajaLow !== low) { cache.cajaLow = low; $('#caja-hud').classList.toggle('low', low); }
+  const low = nn < (t === 'pistola' ? 12 : BAL.municion.bajo[t]); if (cache.cajaLow !== low) { cache.cajaLow = low; $('#caja-hud').classList.toggle('low', low); }
   const sv = (game.slotV | 0) + 1; if (cache.slotV !== sv) { cache.slotV = sv; balHud(); }
 }
 
@@ -26453,22 +26464,35 @@ function newBox() { game.box = new Array(BAL.caja).fill('normal'); game.queue = 
 function shuffled(a) { const q = a.slice(); for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = q[i]; q[i] = q[j]; q[j] = t; } return q; }
 function shuffleBox() {}
 function refreshQueueAfterShop() {}
-// Sacas una bala al azar de tu caja; si está vacía, el hueco queda sin bala
-function drawBullet() {
+// G4 · munición por tipo de arma: 'pistola' es la caja de balas normales; 'escopeta' y 'fusil' se cuentan aparte en game.mun
+const munTipo = id => BAL.municion.tipos[id] || 'pistola';
+function munN(t) { return t === 'pistola' ? Balas.normales(game) : ((game.mun || {})[t] | 0); }
+const munHay = (id = game.equip) => munN(munTipo(id)) > 0;
+function munAdd(t, n, sinTope) {
+  if (t === 'pistola') return Balas.addNormales(game, n);
+  game.mun = game.mun || {}; const a = game.mun[t] | 0, b = sinTope ? a + Math.max(0, Math.round(n)) : Math.max(a, Math.min(BAL.municion.max[t], a + Math.max(0, Math.round(n))));
+  game.mun[t] = b; return b - a;
+}
+// ¿te queda munición para alguna de tus armas? (la caja de la pistola o la de un arma de tus espacios)
+const munAlguna = () => Balas.normales(game) > 0 || (game.armas || []).some(id => id && munTipo(id) !== 'pistola' && munN(munTipo(id)) > 0);
+const munNombre = (t, n) => t === 'escopeta' ? `${n} ${n === 1 ? 'cartucho' : 'cartuchos'}` : t === 'fusil' ? `${n} ${n === 1 ? 'bala' : 'balas'} de fusil` : `${n} ${n === 1 ? 'bala' : 'balas'}`;
+// Sacas una bala al azar de tu caja; si está vacía, el hueco queda sin bala (las escopetas y los fusiles, de su propia munición)
+function drawBullet(model) {
+  const t = munTipo(model || game.equip); if (t !== 'pistola') { if (!munN(t)) return null; game.mun[t]--; return 'normal'; }
   if (!Balas.normales(game)) return null;   // sin normales en la caja no se carga nada (las activas no salen solas)
   const i = Math.floor(Math.random() * game.box.length);
   if (game.box[i] === 'normal' && gs.reloading && balD('cinturon') && Math.random() < BD.cinturon.p) return 'normal';   // Cinturón infinito: esta no se gasta
   return game.box.splice(i, 1)[0];
 }
 function loadChamber(h, i) {
-  const b = drawBullet(); if (b == null) return false;
+  const b = drawBullet(h.model); if (b == null) return false;
   h.loaded[i] = b; h.ammo++;
   balAlCargar(h, i);   // Tahúr, Crupier mecánico y Bolsa sin fondo
   return true;
 }
 function resetHand(h, id) { const m = MODELS[id]; h.loaded = new Array(m.cap).fill(0); h.idx = 0; h.ammo = 0; if (h.active) for (let i = 0; i < m.cap; i++) if (h.loaded[i] === 0) loadChamber(h, i); h.full = true; h.cShots = h.cKills = 0; h.cd = 0; h.streak = 0; }
 function equip(id, quiet) {
-  if (game.equip && ARMERIA_IDS.includes(game.equip) && !game.habMini) { for (const h of hands) if (h.active) for (const b of h.loaded || []) if (isLoaded(b) && !String(b).endsWith('*')) game.box.push(b); game.mag[game.equip] = undefined; }   // G1b: al soltar un arma comprada, sus balas vuelven a la caja (nunca quedan atrapadas en un cargador de 150)
+  if (game.equip && ARMERIA_IDS.includes(game.equip) && !game.habMini) { const t = munTipo(game.equip); for (const h of hands) if (h.active) for (const b of h.loaded || []) if (isLoaded(b) && !String(b).endsWith('*')) { if (t === 'pistola') game.box.push(b); else munAdd(t, 1, true); } game.mag[game.equip] = undefined; }   // G1b: al soltar un arma comprada, sus balas vuelven a la caja (nunca quedan atrapadas en un cargador de 150)
   else if (game.equip) game.mag[game.equip] = hands.map(h => ({ loaded: h.loaded.slice(), idx: h.idx, ammo: h.ammo }));
   game.equip = id; game.dual = (game.owned[id] || 0) >= 2; if (MODEL_ORDER.includes(id)) game.rev = id;
   hands.forEach((h, i) => {
@@ -26536,7 +26560,7 @@ function armasHud() {
   if (box._h !== h) { box._h = h; box.innerHTML = h; }
 }
 const SAVE_KEY = 'sbB_save';
-const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV', 'armas', 'rev', 'dina', 'blindaje', 'deuda', 'deudaN', 'pasillo', 'abono', 'saldo', 'interesW', 'objMis', 'rival', 'pagareX', 'interesUlt', 'cobradorG', 'angelVida', 'negraSig', 'apuPend'];
+const SAVE_FIELDS = ['mun', 'visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 'diff', 'route', 'zmod', 'keys', 'poker', 'rascadas', 'negraDada', 'llv', 'dareWave', 'clumsyWave', 'debilWave', 'slotExtra', 'retos', 'mapStart', 'mapHurt', 'wave', 'kills', 'heads', 'shots', 'hits', 'time', 'de', 'gold', 'goldTotal', 'gold5', 'perks', 'owned', 'vest', 'silver', 'endless', 'box', 'powder', 'wxp', 'nextRescue', 'rescued', 'npcLost', 'sixes', 'copsLost', 'allyLv', 'allyGun', 'devilDmg', 'char', 'skull', 'bossKills', 'relics', 'contract', 'cleanW', 'colls', 'eliteKills', 'specShots', 'veloUsed', 'forge', 'hab', 'forjas', 'prohibida', 'bossSeen', 'nextMod', 'olaFija', 'salidaOpts', 'casV', 'armas', 'rev', 'dina', 'blindaje', 'deuda', 'deudaN', 'pasillo', 'abono', 'saldo', 'interesW', 'objMis', 'rival', 'pagareX', 'interesUlt', 'cobradorG', 'angelVida', 'negraSig', 'apuPend'];
 // G0-2 · Puntos de guardado (pedido del dueño, 19-oct-2026). sv.punto dice dónde se retoma:
 //   'ola'    al empezar una oleada (y al cruzar la puerta hacia la siguiente): se vuelve a jugar desde su inicio, con el MISMO jefe y la misma regla especial
 //   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
@@ -28300,7 +28324,7 @@ function startReload() {
   if (game.habMini && game.habK === 'dado') { if (game.habMini.extra > 0 && activeHands().some(h => h.ammo < h.cap)) dadoRecarga(); return; }   // el arma del dado trae sus propios cargadores
   for (const h of hands) h.cocked = false;
   if (!activeHands().some(h => h.loaded.some(x => x === 0 || x === 2))) return;
-  if (!Balas.normales(game)) { hint('No te quedan balas en la caja', 2200); return; }
+  if (!munHay()) { const t = munTipo(game.equip); hint(t === 'pistola' ? 'No te quedan balas en la caja' : t === 'escopeta' ? 'No te quedan cartuchos: cámbiate de arma o recoge balas' : 'No te quedan balas de fusil: cámbiate de arma o recoge balas', 2200); return; }
   if (game.plumaYa && balD('pluma')) {   // Ráfaga: recarga instantánea
     game.plumaYa = false; for (const h of activeHands()) { for (let i = 0; i < h.cap; i++) if (h.loaded[i] === 0 || h.loaded[i] === 2) { h.loaded[i] = 0; loadChamber(h, i); } h.plumaFallo = false; }
     Sfx.insert(); Sfx.close && Sfx.close(); feed('¡Ráfaga! Recarga instantánea', 'gold'); refreshChambers(); return;
@@ -28318,13 +28342,13 @@ function reloadStep(dt) {
     if (spent) { Sfx.shells(); let k = 0; for (const h of act) { h.cylG.getWorldPosition(_mp); const n = Math.min(h.cap, 12); for (let i = 0; i < n && k < spent; i++, k++) ejectCasing(_mp.clone().add(new THREE.Vector3(rand(-0.02, 0.02), rand(-0.03, 0.01), rand(-0.02, 0.02))), h.side ? -1 : 1); } }
     refreshChambers(); gs.phase = 'insert'; gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'insert') {
-    const h = Balas.normales(game) ? act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] : null;
+    const h = munHay() ? act.filter(x => x.loaded.includes(0)).sort((a, b) => a.ammo - b.ammo)[0] : null;
     if (h) {
       const batch = h.cap > 12 ? 12 : 1; let n = 0;
       for (let j = 0; j < h.cap && n < batch; j++) { const i = (h.idx + j) % h.cap; if (h.loaded[i] === 0) { loadChamber(h, i); n++; } }
       Sfx.insert(); refreshChambers(); h.kick = 0.15;
     }
-    const full = !act.some(x => x.loaded.includes(0)) || !Balas.normales(game);
+    const full = !act.some(x => x.loaded.includes(0)) || !munHay();
     if (full || gs.wantStop) { gs.phase = 'close'; gs.pt = (gs.wantStop ? 0.14 : 0.26) / Math.min(rs, 1.5); } else gs.pt = gs.ptMax = 0.4 / rs;
   } else if (gs.phase === 'close') {
     gs.reloading = false; gs.phase = ''; Sfx.close();
@@ -30502,8 +30526,8 @@ function policiasDeGuardia() {
 // Sin balas: si no hay ninguna en el suelo, a los 6 s se acaba (en grupo, caes y te levantas en la próxima oleada)
 function ammoCheck(dt) {
   if (!game || game.phase !== 'fight' || player.down) return;
-  if (Net.on && totalAmmo() === 0 && !Balas.normales(game) && !gs.reloading) { banner('Sin balas', 'Caíste: mira a tu equipo hasta que termine la oleada', 3000); player.hp = 0; die(); return; }
-    if (totalAmmo() === 0 && !Balas.normales(game) && !gs.reloading) {
+  if (Net.on && totalAmmo() === 0 && !munAlguna() && !gs.reloading) { banner('Sin balas', 'Caíste: mira a tu equipo hasta que termine la oleada', 3000); player.hp = 0; die(); return; }
+    if (totalAmmo() === 0 && !munAlguna() && !gs.reloading) {
     if (pickups.some(p => p.type === 'ammo' || p.type === 'bala')) { game.noAmmoT = 0; if (!game.noAmmoHint) { game.noAmmoHint = 1; hint('¡Sin balas! Recoge las del suelo', 2600); } }
     else { if (!game.noAmmoT) banner('¡Sin balas!', 'Si no consigues ninguna, se acaba la partida', 2600); game.noAmmoT = (game.noAmmoT || 0) + dt; if (game.noAmmoT > 6) { game.noAmmoT = 0; if (Net.on) { feed('Te quedaste sin balas', 'red'); player.hp = 0; die(); } else { game.outAmmo = true; gameOver(); } return; } }
   } else { game.noAmmoT = 0; game.noAmmoHint = 0; }
@@ -32105,7 +32129,7 @@ function updatePickups(dt) {
       else if (p.type === 'deadeye') { game.de = Math.min(100, game.de + 45); feed('Tónico de Ojo Muerto', 'gold'); }
       else if (p.type === 'bala') { const k = BKEYS[p.amount]; if (BALAS[k]) balGanar(k); Sfx.insert(); }
       else if (p.type === 'sobreazul') { balSobreAzul(); }
-      else if (p.type === 'ammo') { const n = Balas.addNormales(game, p.amount); Sfx.insert(); feed(n ? `+${n} balas` : 'Tu caja está llena', 'gold'); }
+      else if (p.type === 'ammo') { const t = munTipo(game.equip), n = munAdd(t, t === 'pistola' ? p.amount : p.amount * BAL.municion.recoger[t]); Sfx.insert(); feed(n ? '+' + munNombre(t, n) : t === 'pistola' ? 'Tu caja está llena' : 'Ya llevas el máximo de esa munición', 'gold'); }   // G4: da munición del arma que llevas en la mano
       else if (p.type === 'key') { game.keys = (game.keys || 0) + 1; Sfx.coin(); feed(`Llave · tienes ${game.keys}`, 'gold'); renderChips(); }
       else if (p.type === 'ficha') { game.poker = (game.poker | 0) + 1; Sfx.coin(); feed(`Ficha de miembro · tienes ${game.poker}`, 'gold'); if (S('fichaOro')) addGold(S('fichaOro'), true); }
       else if (p.type === 'bag') { addGold(p.amount, true); Sfx.cash(); feed(`Bolsa de oro · +${p.amount} $`, 'gold'); }
@@ -33288,6 +33312,8 @@ function linternaPon(on) {
 }
 /* ===== G1b · El vendedor de armas que se atiende solo (boceto vendedor_armas aprobado, 19-oct-2026) ===== */
 const ARM_SVG = {
+  mun_escopeta: `${[0, 1, 2, 3, 4].map(i => `<g transform="translate(${30 + i * 13} 12)"><rect width="10" height="30" rx="2" fill="#c0302a" stroke="#5a1410" stroke-width="1.5"/><rect y="28" width="10" height="9" fill="#d8a838" stroke="#6a4a10" stroke-width="1.5"/></g>`).join('')}`,
+  mun_fusil: `<rect x="22" y="30" width="76" height="22" rx="3" fill="#4f6b3a" stroke="#22301a" stroke-width="2"/>${[0, 1, 2, 3, 4, 5].map(i => `<g transform="translate(${30 + i * 11} 6)"><rect width="7" height="26" rx="3" fill="#d9a441" stroke="#7a5a18" stroke-width="1.2"/><path d="M0 4 Q3.5 -4 7 4Z" fill="#b87333"/></g>`).join('')}`,
   doble: `<rect x="8" y="22" width="78" height="6" rx="2" fill="#2a2a2a"/><rect x="8" y="29" width="78" height="6" rx="2" fill="#3a3a3a"/><path d="M84 20 h14 l14 10 v10 l-18 -2 l-10 4 z" fill="#8a5a30"/><rect x="70" y="35" width="8" height="10" fill="#6a4020"/>`,
   escopeta: `<rect x="4" y="24" width="86" height="7" rx="2" fill="#2a2a2a"/><rect x="18" y="32" width="30" height="8" rx="3" fill="#8a5a30"/><path d="M88 22 h10 l16 8 v10 l-20 -2 l-6 4 z" fill="#8a5a30"/><rect x="74" y="31" width="6" height="12" fill="#222"/>`,
   ak47: `<rect x="4" y="24" width="56" height="5" fill="#2a2a2a"/><rect x="30" y="29" width="22" height="7" rx="2" fill="#8a5a30"/><rect x="52" y="22" width="34" height="12" fill="#333"/><path d="M60 34 q2 14 12 18 l6 -3 q-8 -6 -8 -15 z" fill="#222"/><rect x="80" y="34" width="7" height="12" fill="#5a3418"/><path d="M86 24 h10 l18 6 v8 l-22 -2 z" fill="#8a5a30"/>`,
@@ -33300,11 +33326,13 @@ const ARM_SVG = {
   acero: `<path d="M38 6 l10 4 q12 6 24 0 l10 -4 l12 10 l-6 16 v24 h-56 v-24 l-6 -16 z" fill="#7a8088" stroke="#3a3e44" stroke-width="2"/><rect x="42" y="20" width="16" height="14" fill="#a8b0b8"/><rect x="62" y="20" width="16" height="14" fill="#a8b0b8"/><rect x="42" y="38" width="36" height="12" fill="#a8b0b8"/>`,
   dinamita: `<g transform="rotate(-12 60 34)"><rect x="34" y="16" width="14" height="38" rx="3" fill="#d9533f"/><rect x="52" y="16" width="14" height="38" rx="3" fill="#c0402e"/><rect x="70" y="16" width="14" height="38" rx="3" fill="#d9533f"/><rect x="32" y="30" width="54" height="6" fill="#3a2412"/></g><path d="M58 14 q6 -10 16 -8" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="76" cy="6" r="4" fill="#ffd27a"/>`
 };
-const ARM_COL = { Escopeta: '#ffb36a', 'Fusil de asalto': '#c9a0ff', Pistola: '#f6ead7', Ametralladora: '#6ae08a', Chaleco: '#ffd27a', Explosivo: '#ff9a88' };
+const ARM_COL = { 'Munición': '#e8c06a', Escopeta: '#ffb36a', 'Fusil de asalto': '#c9a0ff', Pistola: '#f6ead7', Ametralladora: '#6ae08a', Chaleco: '#ffd27a', Explosivo: '#ff9a88' };
 const armSvg = k => { const u = armPic(k); return u ? `<img class="a3p" src="${u}" alt="" aria-hidden="true">` : `<svg viewBox="0 0 120 60" aria-hidden="true">${ARM_SVG[k] || ''}</svg>`; };
 function armProductos() {
   const A = BAL.armeria, rb = armRebaja(), pr = v => Math.round(v * rb), L = A.armas.map(a => ({ k: a.id, t: 'arma', name: MODELS[a.id].name, tipo: a.tipo, precio: pr(a.precio), d: MODELS[a.id].desc, b: a.b }));
   for (const c of A.chalecos) L.push({ k: c.id, t: 'chaleco', name: c.name, tipo: 'Chaleco', precio: pr(c.precio), d: `+${c.blindaje} de blindaje: para los golpes antes que tu vida (hasta ${A.blindajeMax}).`, bl: c.blindaje });
+  for (const [t, P_] of Object.entries(BAL.municion.paquetes)) L.push({ k: 'mun_' + t, t: 'municion', mun: t, name: `${BAL.municion.nombre[t]} ×${P_.n}`, tipo: 'Munición', precio: pr(P_.precio), n: P_.n,
+    d: `Para ${Object.keys(BAL.municion.tipos).filter(id => BAL.municion.tipos[id] === t && MODELS[id]).map(id => MODELS[id].name).join(', ')}.` });   // G4: munición de escopeta y de fusil
   L.push({ k: 'dinamita', t: 'dinamita', name: `Dinamita ×${A.dinamita.n}`, tipo: 'Explosivo', precio: pr(A.dinamita.precio), d: `Pulsa ${IS_TOUCH ? 'el botón TNT' : 'la tecla ' + tecla('Digit4')} para lanzarla donde miras. Cuidado: de cerca también te quema.` });
   return L;
 }
@@ -33322,6 +33350,7 @@ function armPorQueNo(p) {
   if (p.t === 'arma' && (game.armas || []).includes(p.k)) return 'Ya la tienes';
   if (p.t === 'chaleco' && (game.blindaje | 0) >= A.blindajeMax) return 'Blindaje al máximo';
   if (p.t === 'dinamita' && (game.dina | 0) >= A.dinamita.max) return `Ya llevas ${A.dinamita.max}`;
+  if (p.t === 'municion' && munN(p.mun) >= BAL.municion.max[p.mun]) return 'Ya llevas el máximo';
   return '';
 }
 function armEspacio() { const ar = game.armas || [null, null]; if (!ar[0]) return 0; if (!ar[1]) return 1; const i = ar.indexOf(game.equip); return i >= 0 ? i : 0; }
@@ -33333,8 +33362,10 @@ function armRender() {
   $('#arm-grid').querySelectorAll('.arm-it').forEach(b => b.addEventListener('click', () => { armSel = b.dataset.k; Sfx.clink && Sfx.clink(); armRender(); }));
   const no = armPorQueNo(P), ar = game.armas || [null, null], esp = armEspacio();
   let nota = '';
-  if (P.t === 'arma') nota = ar[esp] && !ar.includes(P.k) ? `Va en tu espacio ${esp + 2} (tecla ${tecla('Digit' + (esp + 2))}) y reemplaza a ${MODELS[ar[esp]].name}.` : `Va en tu espacio ${esp + 2}: lo eliges con la tecla ${tecla('Digit' + (esp + 2))}${IS_TOUCH ? ' o con el botón ARMA' : ''}. El 1 es siempre tu revólver.`;
+  if (P.t === 'arma' && munTipo(P.k) !== 'pistola') nota = `Trae ${munNombre(munTipo(P.k), BAL.municion.alComprar[munTipo(P.k)])}. `;
+  if (P.t === 'arma') nota += ar[esp] && !ar.includes(P.k) ? `Va en tu espacio ${esp + 2} (tecla ${tecla('Digit' + (esp + 2))}) y reemplaza a ${MODELS[ar[esp]].name}.` : `Va en tu espacio ${esp + 2}: lo eliges con la tecla ${tecla('Digit' + (esp + 2))}${IS_TOUCH ? ' o con el botón ARMA' : ''}. El 1 es siempre tu revólver.`;
   else if (P.t === 'chaleco') nota = `Blindaje ahora: ${Math.ceil(game.blindaje || 0)} de ${BAL.armeria.blindajeMax}.`;
+  else if (P.t === 'municion') nota = `Trae ${munNombre(P.mun, P.n)}. Llevas ${munN(P.mun)} (máximo ${BAL.municion.max[P.mun]}).`;
   else nota = `Llevas ${game.dina | 0} (máximo ${BAL.armeria.dinamita.max}).`;
   const barra = (n, v) => `<div class="arm-bar"><span>${n}</span><i>${[0, 1, 2, 3, 4].map(i => `<u class="${i < v ? 'si' : ''}"></u>`).join('')}</i></div>`;
   $('#arm-det').innerHTML = `<div class="arm-img">${armSvg(P.k)}</div><em style="color:${ARM_COL[P.tipo] || '#ffd27a'}">${P.tipo}</em><b class="arm-n">${P.name}</b><p>${P.d}</p>`
@@ -33345,7 +33376,8 @@ function armRender() {
 function armComprar() {
   const P = armProductos().find(p => p.k === armSel); if (!P || armPorQueNo(P)) { Sfx.err(); return; }
   game.gold -= P.precio; Sfx.cash();
-  if (P.t === 'arma') { a3dArchivo(P.k); game.armas = (game.armas || [null, null]).slice(0, 2); while (game.armas.length < 2) game.armas.push(null); const i = armEspacio(); const viejo = game.armas[i]; game.armas[i] = P.k; if (game.equip === viejo) game.mag[viejo] = undefined; game.mag[P.k] = undefined; feed(`Compraste ${P.name} · espacio ${i + 2}`, 'gold'); }
+  if (P.t === 'arma') { a3dArchivo(P.k); game.armas = (game.armas || [null, null]).slice(0, 2); while (game.armas.length < 2) game.armas.push(null); const i = armEspacio(); const viejo = game.armas[i]; game.armas[i] = P.k; if (game.equip === viejo) game.mag[viejo] = undefined; game.mag[P.k] = undefined; const mt = munTipo(P.k); if (mt !== 'pistola') munAdd(mt, BAL.municion.alComprar[mt]); feed(`Compraste ${P.name} · espacio ${i + 2}`, 'gold'); }
+  else if (P.t === 'municion') { const n = munAdd(P.mun, P.n); feed(`+${munNombre(P.mun, n)}`, 'gold'); }
   else if (P.t === 'chaleco') { game.blindaje = Math.min(BAL.armeria.blindajeMax, (game.blindaje || 0) + P.bl); feed(`${P.name} · blindaje ${Math.ceil(game.blindaje)}`, 'gold'); }
   else { game.dina = Math.min(BAL.armeria.dinamita.max, (game.dina | 0) + BAL.armeria.dinamita.n); feed(`Dinamita · llevas ${game.dina}`, 'gold'); }
   renderChips(); armasHud(); armRender(); saveGame({ punto: 'sala' });
@@ -40520,7 +40552,7 @@ async function cobrarCarta(de, K) {
   if (c.k === 'miembro') { const p = q('#pMie').parentNode; await FX.volar(de, p, ico, { w: 40, color: c.col }); const a = game.poker | 0; game.poker = a + 1; FX.flotar(p, '+1 ficha de miembro', c.col); Son.ficha(); await FX.contar(q('#pMie'), a, game.poker, 300, true); return; }
   if (c.oro) { const p = q('#pOro').parentNode; await FX.volar(de, p, ico, { w: 40, color: c.col }); const a = game.gold; game.gold += c.oro; FX.flotar(p, `+${c.oro} $`, '#ffd27a'); Son.moneda(); await FX.contar(q('#pOro'), a, game.gold, 400, true); return; }
   await FX.volar(de, q('#info'), ico, { w: 52, color: c.col });
-  if (c.arma) { if (typeof a3dArchivo === 'function') a3dArchivo(c.arma); game.armas = (game.armas || [null, null]).slice(0, 2); while (game.armas.length < 2) game.armas.push(null); const i = armEspacio(), viejo = game.armas[i]; game.armas[i] = c.arma; if (game.equip === viejo) game.mag[viejo] = undefined; game.mag[c.arma] = undefined; armasHud(); feed(`Del sobre azul: ${c.nom} · espacio ${i + 2}`, 'gold'); }
+  if (c.arma) { if (typeof a3dArchivo === 'function') a3dArchivo(c.arma); game.armas = (game.armas || [null, null]).slice(0, 2); while (game.armas.length < 2) game.armas.push(null); const i = armEspacio(), viejo = game.armas[i]; game.armas[i] = c.arma; if (game.equip === viejo) game.mag[viejo] = undefined; game.mag[c.arma] = undefined; { const mt = munTipo(c.arma); if (mt !== 'pistola') munAdd(mt, BAL.municion.alComprar[mt]); } armasHud(); feed(`Del sobre azul: ${c.nom} · espacio ${i + 2}`, 'gold'); }
   if (c.plato) { const P = COMIDAS.find(x => x.id === c.plato); player.hp = Math.min(player.maxHp, player.hp + P.cura); feed(`Te comiste ${P.name}: +${P.cura} de vida`, 'gold'); }
   T.recibidos.push(c.nom); render(); Son.campana(); FX.flotar(q('#info'), 'Recibiste: ' + c.nom, c.col);
 }
