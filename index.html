@@ -2106,6 +2106,9 @@ body.vend-on #bal-hud,body.vend-on #canon-w{display:none}
 /* Juegos en vivo (pedido del dueño, 20-oct-2026): la apuesta es un recuadro pequeño abajo; el juego se ve en la sala */
 #apu-s{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:21;width:min(600px,calc(100% - 32px));box-sizing:border-box;background:rgba(20,12,6,.9);border:2px solid rgba(216,168,56,.85);border-radius:14px;padding:10px 12px;color:var(--bone);font-family:var(--hud);display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 24px #000a}
 #apu-s[hidden]{display:none}
+body.garra-on #xh,body.garra-on #touch,body.garra-on #bal-hud{display:none}
+.gr-fl{display:flex;gap:6px;flex:none}.gr-fl .gr-b{min-width:48px;min-height:52px;padding:0;display:grid;place-items:center;touch-action:none}.gr-fl .gr-b svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+@media (orientation:portrait){.gr-fl{flex:1 1 100%}.gr-fl .gr-b{flex:1}}
 .apu-cab{display:flex;align-items:center;gap:8px}.apu-cab b{font:400 20px var(--display);color:var(--gold);flex:1;min-width:0}
 .apu-f{display:inline-flex;align-items:center;gap:4px;font:800 18px var(--hud);color:#ffd27a}.apu-f .ico{width:20px;height:20px}
 .apu-msg{margin:0;font:600 15px/1.35 var(--hud);color:#f4ead8}.apu-msg:empty{display:none}
@@ -3146,7 +3149,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=20').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=21').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -23725,6 +23728,13 @@ const BAL = {
       vidaMax: { t: '+{n} de vida máxima', n: 10 }, nivel: { t: 'una bala de tu slot sube 1 nivel', oro: 60 }, normales: { t: '+{n} balas normales', n: 25 }
     }
   },
+  // G4 · La Garra en vivo (pedido del dueño, 20-oct-2026): ya no vende retos; se juega moviendo la garra y bajándola. Entre los premios hay mucha basura.
+  // ficha: fichas de miembro por intento · tiempo: segundos para colocarla (luego baja sola) · vel: lo que se mueve por segundo (m)
+  // radio: hasta dónde alcanza a agarrar desde su centro (m) · agarre: probabilidad de que no se le resbale (premio / basura), que baja hasta
+  // «centro» × lo que estés descentrado · premios: cuántos hay de cada uno en la vitrina por visita y lo que dan · basura: piezas inútiles
+  garra: { ficha: 1, tiempo: 15, vel: 0.45, radio: 0.13, agarre: { premio: 0.6, basura: 0.85, centro: 0.6 },
+    premios: { oro: { n: 3, oro: 60 }, fichas: { n: 1, n2: 2 }, normales: { n: 2, balas: 20 } }, basura: 14, escala: 1.3,
+    vista: { d: 1.9, alto: 0.45 } },   // vista: a cuántos metros de la vitrina te paras y cuánto más arriba miras (m)
   // Máquinas de cartas de la Trastienda (pedido del dueño, 18-oct-2026). p = probabilidad de salir en cada visita (en la versión de prueba, 1 = siempre)
   // Trastienda (bocetos aprobados por el dueño, 19-oct-2026): carrera de caballos 6 % y duelo de dados 5 %; se apuestan fichas de miembro
   carrera: { p: 0.06, pagos: [1, 1.5, 2, 3], dur: 8, oleaje: 0.045, remonta: 0.06, celebra: 4 },   // oleaje: cuánto se adelantan y se atrasan los caballos al correr; remonta: el ganador suele venir de atrás; celebra: segundos de festejo · pago = floor(apuesta × x); la probabilidad de cada caballo va al revés de lo que paga (devuelve 0,4 de media). Sin tope de apuesta ni de carreras (decisión del dueño, 19-oct-2026)
@@ -26531,7 +26541,7 @@ const SAVE_FIELDS = ['visita', 'nMap', 'slot', 'reserva', 'balTemp', 'balCont', 
 //   'limpia' al vencer la oleada o al jefe: el oro, las balas y el botín ya son tuyos; al volver salen las mismas puertas de camino
 //   'sala'   en la Trastienda (al entrar y tras cada compra): las máquinas, las ofertas y lo comprado quedan igual
 // Salir al menú fuera de pelea guarda en ese mismo punto; salir en plena pelea vuelve al inicio de la oleada. Así no se puede repetir ni volver a tirar nada.
-const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb', 'puertasRoll', 'sit', 'sitHecho', 'cobro', 'zombiCol', 'gatoRegalo', 'dadoW'];
+const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'garraV', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb', 'puertasRoll', 'sit', 'sitHecho', 'cobro', 'zombiCol', 'gatoRegalo', 'dadoW'];
 function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
@@ -31246,7 +31256,7 @@ function renderShop() {
   }
   // ---- Balas (G2: los sobres y las balas sueltas se compran en la máquina expendedora nueva, con tu cinturón al lado) ----
   const bl = $('#shop-bullets'); bl.innerHTML = '';
-  const RT = VD && (game.shopVend === 'capsulas' || game.shopVend === 'garra');   // estas dos venden retos
+  const RT = VD && game.shopVend === 'capsulas';   // la de cápsulas vende retos (G4: La Garra se juega en vivo)
   $('#shop').classList.remove('vt-balas', 'vt-normales');
   if (!VD) {
     const h = document.createElement('div'); h.className = 'sh-sec'; h.innerHTML = 'Balas normales<small>Se suman a tu caja</small>'; bl.appendChild(h);
@@ -31378,7 +31388,7 @@ function travel(ni, w, then) {
   if (game && game.tiro) tiroEnd();
   { const H = game && habDe(); if (H && game.habT > 0 && H.dur) game.hab = Math.min(100, (game.hab || 0) + (H.carga || 100) * clamp(game.habT / H.dur, 0, 1)); }   // si la ultimate seguía activa al cambiar de lugar, se devuelve la carga que no alcanzó a usarse
   habFin(); useCur = null; showUse(null); // la tarjeta de «Usar» (tragamonedas, ruleta…) no se queda en el mapa nuevo
-  if (['shop', 'items', 'cards', 'inv', 'pause', 'bj', 'carrera', 'dados', 'tel', 'armeria', 'mis'].includes(state)) show(null);
+  if (['shop', 'items', 'cards', 'inv', 'pause', 'bj', 'carrera', 'dados', 'tel', 'armeria', 'mis', 'garra'].includes(state)) show(null);
   linternaPon(false);
   state = 'trans'; const room = ni === ROOM_IDX;
   const M_ = MAPS[ni], z = zoneOf(w || game.wave + 1), C = game.zmod && game.zmod.z === z ? ROUTE_MODS[game.zmod.k] : null;
@@ -32626,7 +32636,7 @@ function prepRoom() {
   game.puertasRoll = {}; for (const S_ of TR.salas) game.puertasRoll[S_.k] = rr() < BAL.trastienda.puertaAbierta + (Net.on ? 0 : arbP('puertas'));   // Tienda calavera: Puertas abiertas (en grupo no cuenta: las puertas tienen que salir igual para todos)
   // sala del misterio: Madame, el Diablo o el Ángel (mitad y mitad), Cápsulas y La Garra
   game.roomMadame = true; game.roomDva = rr() < BAL.maquinas.diabloAngel.diablo ? 'diablo' : 'angel'; game.maqOf = {}; game.retoOf = {};
-  game.roomVendCap = true; game.roomVendGarra = true;
+  game.roomVendCap = true; game.roomVendGarra = true; game.garraV = null;   // G4: La Garra se vuelve a llenar en cada visita
   rollOffers(); game.reroll = 5; game.sobre = null;   // las 3 balas sueltas de la expendedora: las mismas toda la visita (se ven dentro de la máquina)
   game.lastDoor = null;
   // sala de los dados: todos los juegos de azar
@@ -34633,7 +34643,7 @@ function wheelGira(o, k, j, mio, nota = '', otra = null) {
 const VEND = {
   espiral: { name: 'Expendedora Apocalipsis', sub: 'Sobres y balas sueltas', cuerpo: 0x0e3a30, borde: 0x2a9a6a, luz: 0x7affc0, css: '#6ae08a', letrero: 'APOCALIPSIS' },
   capsulas: { name: 'Cápsulas del Fin del Mundo', sub: 'Retos en cápsula: cúmplelos y gana premios', cuerpo: 0x7a1450, borde: 0xe85aa8, luz: 0xff8ad8, css: '#ff8ad8', letrero: 'CÁPSULAS', p: 0.5 },
-  garra: { name: 'La Garra', sub: 'La garra te alcanza un reto: cúmplelo y gana premios', cuerpo: 0x16245a, borde: 0x4a7ae0, luz: 0x8ac0ff, css: '#8ac0ff', letrero: 'LA GARRA', p: 0.5 }
+  garra: { name: 'La Garra', sub: 'Juego de garra en vivo: agarra premios entre la basura', cuerpo: 0x16245a, borde: 0x4a7ae0, luz: 0x8ac0ff, css: '#8ac0ff', letrero: 'LA GARRA', p: 0.5 }
 };
 // lo que vende cada máquina: los 3 sobres y las 3 balas sueltas de la visita
 const vendProd = () => SOBRES.map(S_ => ({ t: 'sobre', k: S_.k, col: S_.col })).concat(((game && game.offers) || []).map((o, i) => ({ t: 'bala', i, k: o.id, col: BULLETS[o.id] ? BULLETS[o.id].col : '#cccccc' })));
@@ -34800,6 +34810,150 @@ function buildVendCapsulas(x, z) {
   return o;
 }
 
+/* ===== G4 · La Garra en vivo (pedido del dueño, 20-oct-2026: «deja de ser igual que las Cápsulas») =====
+   Echas 1 ficha de miembro, mueves la garra con las flechas (o los botones) y la bajas. Agarra lo que quede más cerca de su centro:
+   casi siempre es basura (latas, huesos, piedras, zapatos) y, a veces, un premio (oro, fichas de miembro o balas normales).
+   Si la bajas descentrada, se le resbala más. Lo que sacas (premio o basura) ya no vuelve en esta visita. Todas las cifras: BAL.garra. */
+const GARRA_BASURA = ['lata', 'hueso', 'piedra', 'zapato'];
+// la vitrina de esta visita: dónde está cada cosa (la semilla se guarda con la sala: si vuelves a entrar, todo sigue igual)
+function garraPila(W, fz, HX_, HZ_) {
+  const C = BAL.garra; if (!game) return [];
+  if (!game.garraV || !game.garraV.s) game.garraV = { s: 1 + Math.floor(Math.random() * 1e9), fuera: [] };
+  const r = mulberry32(game.garraV.s), R = (a, b) => a + (b - a) * r(), L = [];
+  for (const k in C.premios) for (let i = 0; i < C.premios[k].n; i++) L.push({ k, premio: true });
+  for (let i = 0; i < C.basura; i++) L.push({ k: GARRA_BASURA[i % GARRA_BASURA.length], premio: false });
+  const lejosHueco = (x, z) => Math.hypot(x - HX_, z - HZ_) > 0.3, x0 = -W / 2 + 0.1, x1 = W / 2 - 0.1, z0 = -fz + 0.1, z1 = fz - 0.1;
+  const prem = [];
+  L.forEach((it, i) => {
+    let x, z, n = 0;
+    do {
+      if (!it.premio && prem.length && r() < 0.6) { const p = prem[Math.floor(r() * prem.length)], a = R(0, TAU), d = R(0.07, 0.16); x = p.x + Math.cos(a) * d; z = p.z + Math.sin(a) * d; }   // la basura tapa los premios
+      else { x = R(x0, x1); z = R(z0, z1); }
+    } while ((!lejosHueco(x, z) || x < x0 || x > x1 || z < z0 || z > z1) && ++n < 40);
+    Object.assign(it, { i, x, z, y: it.premio ? 1.03 : R(1.05, 1.1), rx: R(-0.6, 0.6), ry: R(0, TAU), rz: R(-0.4, 0.4) });
+    if (it.premio) prem.push(it);
+  });
+  return L.filter(it => !game.garraV.fuera.includes(it.i));
+}
+// la figura de cada cosa de la vitrina
+function garraFigura(k) {
+  const g = new THREE.Group(), o = { p: g, cast: false };
+  if (k === 'oro') { for (let i = 0; i < 3; i++) M(cyl(0.05, 0.05, 0.016, 14), lam(0xffc83a, { emissive: 0x5a3a00 }), (i - 1) * 0.012, i * 0.017, 0, o); }
+  else if (k === 'fichas') { M(cyl(0.055, 0.055, 0.02, 14), lam(0x6a2fb0, { emissive: 0x2a0a50 }), 0, 0, 0, o); M(cyl(0.035, 0.035, 0.022, 14), lam(0xf6ead7, { emissive: 0x2a2620 }), 0, 0, 0, o); }
+  else if (k === 'normales') { M(bx(0.13, 0.08, 0.08), lam(0x4f6b3a, { emissive: 0x101808 }), 0, 0, 0, o); for (let i = 0; i < 4; i++) M(cyl(0.01, 0.01, 0.05, 6), lam(0xd9a441, { emissive: 0x3a2a04 }), -0.045 + i * 0.03, 0.06, 0, o); }
+  else if (k === 'lata') M(cyl(0.035, 0.035, 0.1, 10), lam(0x8a9098), 0, 0, 0, { ...o, rz: Math.PI / 2 });
+  else if (k === 'hueso') { M(cyl(0.014, 0.014, 0.13, 6), lam(0xe8e0c8), 0, 0, 0, { ...o, rz: Math.PI / 2 }); for (const s of [-1, 1]) M(new THREE.SphereGeometry(0.024, 8, 6), lam(0xe8e0c8), s * 0.065, 0, 0, o); }
+  else if (k === 'piedra') M(new THREE.DodecahedronGeometry(0.05, 0), lam(0x4a4640), 0, 0, 0, o);
+  else { M(bx(0.13, 0.05, 0.06), lam(0x5a3418), 0, 0, 0, o); M(bx(0.05, 0.06, 0.06), lam(0x5a3418), -0.04, 0.04, 0, o); }   // zapato viejo
+  return g;
+}
+const garraNombre = { oro: 'oro', fichas: 'fichas de miembro', normales: 'balas normales', lata: 'una lata', hueso: 'un hueso', piedra: 'una piedra', zapato: 'un zapato viejo' };
+let GARRA = null;
+function garraPremios(o) { return o.vivo.items.filter(it => it.premio).length; }
+function garraAbrir(o) {
+  if (!o || !o.vivo || (GARRA && state === 'garra')) return;
+  GARRA = { o, fase: 'listo', t: 0, x: o.vivo.HX_, z: o.vivo.HZ_, dx: 0, dz: 0, msg: '' };
+  apuAbrir('garra');
+  // te paras de frente a la vitrina (una sola vez, al empezar); la cámara no se mueve sola mientras juegas
+  const hf = Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect), vf = camera.fov * Math.PI / 360, d = Math.max(BAL.garra.vista.d, 0.85 / Math.tan(hf), 1.0 / Math.tan(vf));
+  GARRA.vuelta = { x: player.pos.x, z: player.pos.z, yaw: player.yaw, pitch: player.pitch };
+  const alto = BAL.garra.vista.alto;   // un poco más arriba (como asomándote) para ver bien dónde está cada cosa
+  player.pos.set(o.mx, alto, o.cz + d); player.vx = player.vz = 0; player.yaw = 0; player.pitch = Math.atan2(1.1 - 1.65 - alto, d);
+  document.body.classList.add('garra-on'); garraPinta(); Sfx.open();
+}
+function garraCerrar() {
+  const G = GARRA; if (!G || state !== 'garra') return;
+  if (G.fase !== 'listo') { hint('Espera a que la garra termine', 1200); return; }
+  GARRA = null; const v = G.vuelta; if (v) { player.pos.set(v.x, 0, v.z); player.yaw = v.yaw; player.pitch = v.pitch; } else player.pos.y = 0;
+  document.body.classList.remove('garra-on'); apuCerrar(); if (world.idx === ROOM_IDX) saveGame({ punto: 'sala' });
+}
+const GARRA_FL = { izq: [-1, 0, 'M15 5 8 12l7 7', 'Izquierda'], der: [1, 0, 'M9 5l7 7-7 7', 'Derecha'], fondo: [0, -1, 'M5 15l7-7 7 7', 'Al fondo'], frente: [0, 1, 'M5 9l7 7 7-7', 'Al frente'] };
+function garraPinta() {
+  const G = GARRA; if (!G || state !== 'garra') return; const C = BAL.garra, f = game.poker | 0, quedan = garraPremios(G.o);
+  if (G.fase === 'mover') {
+    apuPinta('La Garra', `Mueve la garra (el punto rojo marca dónde baja) y bájala: tienes ${Math.ceil(G.t)} s.`, '',
+      `<div class="gr-fl">${Object.entries(GARRA_FL).map(([k, v]) => `<button type="button" class="btn2 gr-b" data-gf="${k}" aria-label="${v[3]}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${v[2]}"/></svg></button>`).join('')}</div><button type="button" class="btn" id="gr-bajar">Bajar la garra</button>`);
+    for (const b of document.querySelectorAll('#apu-pie [data-gf]')) {
+      const [dx, dz] = GARRA_FL[b.dataset.gf], suelta = () => { if (GARRA && GARRA.dx === dx && GARRA.dz === dz) GARRA.dx = GARRA.dz = 0; };
+      b.addEventListener('pointerdown', e => { e.preventDefault(); if (GARRA) { GARRA.dx = dx; GARRA.dz = dz; } });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, suelta);
+    }
+    apuOn('gr-bajar', garraBajar); return;
+  }
+  if (G.fase !== 'listo') { apuPinta('La Garra', G.msg || 'La garra baja…', '', ''); return; }
+  const ok = f >= C.ficha && quedan > 0;
+  apuPinta('La Garra', (G.msg ? G.msg + ' ' : '') + (quedan ? `Quedan ${quedan} premios entre la basura. Cada intento cuesta ${C.ficha} ficha de miembro.` : 'Ya no quedan premios: vuelve en otra visita.'), '',
+    '<button type="button" class="btn2" id="gr-out">Volver</button>' + `<button type="button" class="btn" id="gr-go"${ok ? '' : ' disabled'}>${!quedan ? 'Sin premios' : f >= C.ficha ? `Jugar · ${C.ficha} ficha` : 'Sin fichas de miembro'}</button>`);
+  apuOn('gr-out', garraCerrar); apuOn('gr-go', garraJugar);
+}
+function garraJugar() {
+  const G = GARRA; if (!G || G.fase !== 'listo' || !garraPremios(G.o)) return;
+  if ((game.poker | 0) < BAL.garra.ficha) { Sfx.err(); return; }
+  for (let i = 0; i < BAL.garra.ficha; i++) if (!pagaFicha()) return;
+  renderChips(); G.fase = 'mover'; G.t = BAL.garra.tiempo; G.msg = ''; G.dx = G.dz = 0; Sfx.garra(1); garraPinta();
+}
+function garraBajar() {
+  const G = GARRA; if (!G || G.fase !== 'mover') return;
+  G.fase = 'baja'; G.t = 0; G.dx = G.dz = 0; G.msg = ''; Sfx.garra(2); garraPinta();
+}
+// qué agarra: lo más cercano al centro de la garra; si está descentrado, se le resbala más
+function garraAgarra(G) {
+  const C = BAL.garra, V = G.o.vivo; let mejor = null, dm = C.radio;
+  for (const it of V.items) { const d = Math.hypot(it.x - G.x, it.z - G.z); if (d < dm) { dm = d; mejor = it; } }
+  if (!mejor) return { it: null };
+  const p = (mejor.premio ? C.agarre.premio : C.agarre.basura) * (1 - C.agarre.centro * dm / C.radio);
+  return { it: mejor, tiene: Math.random() < p };
+}
+function garraCobra(it) {
+  const C = BAL.garra, P_ = C.premios[it.k]; let txt;
+  if (it.k === 'oro') { addGold(P_.oro, true); txt = `+${P_.oro} $`; }
+  else if (it.k === 'fichas') { game.poker = (game.poker | 0) + P_.n2; txt = `+${P_.n2} fichas de miembro`; }
+  else if (it.k === 'normales') { Balas.addNormales(game, P_.balas); txt = `+${P_.balas} balas normales`; }
+  if (txt) { Sfx.win(); feed(`La Garra: ${txt}`, 'gold'); banner('¡Premio!', txt, 2200, 'coins'); stMas('garra'); juegoEstallido(G_boca(), 24, 0.8); }
+  else { Sfx.ouch(0, 0.5); feed(`La Garra: sacaste ${garraNombre[it.k]}. Basura.`, 'blue'); }
+  renderChips(); return txt || `Sacaste ${garraNombre[it.k]}: basura.`;
+}
+function G_boca() { const G = GARRA, V = G.o.vivo, w = new THREE.Vector3(V.HX_, 0.4, V.fz + 0.1); return G.o.P.localToWorld(w); }
+// cada cuadro mientras juegas: mover, bajar, cerrar, subir, volver al hueco y soltar
+function garraPaso(dt) {
+  const G = GARRA; if (!G || state !== 'garra') return; const V = G.o.vivo, C = BAL.garra, ease = k => k * k * (3 - 2 * k);
+  if (G.fase === 'mover') {
+    const k = input.keys, dx = G.dx || ((k.ArrowRight || k.KeyD) ? 1 : 0) - ((k.ArrowLeft || k.KeyA) ? 1 : 0), dz = G.dz || ((k.ArrowDown || k.KeyS) ? 1 : 0) - ((k.ArrowUp || k.KeyW) ? 1 : 0);
+    G.x = clamp(G.x + dx * C.vel * dt, V.minX, V.maxX); G.z = clamp(G.z + dz * C.vel * dt, V.minZ, V.maxZ);
+    V.palanca.rotation.z = -dx * 0.35; V.palanca.rotation.x = dz * 0.35;
+    const s0 = Math.ceil(G.t); G.t -= dt; if (Math.ceil(G.t) !== s0) garraPinta();
+    if (G.t <= 0) garraBajar();
+  } else if (G.fase === 'baja') {
+    G.t += dt; const k = Math.min(1, G.t / 0.8); V.largo(0.12 + 0.8 * ease(k)); V.abrir(0.35 + 0.3 * k); V.palanca.rotation.set(0, 0, 0);
+    if (k >= 1) { G.fase = 'cierra'; G.t = 0; }
+  } else if (G.fase === 'cierra') {
+    G.t += dt; const k = Math.min(1, G.t / 0.35); V.abrir(0.65 - 0.6 * k);
+    if (k >= 1) {
+      const r = garraAgarra(G); G.it = r.it; G.tiene = r.tiene; G.fase = 'sube'; G.t = 0;
+      if (G.it) { const f = G.it.g; f.position.set(0, -0.15, 0); f.rotation.set(0, f.rotation.y, 0); V.cabeza.add(f); }
+    }
+  } else if (G.fase === 'sube') {
+    G.t += dt; const k = Math.min(1, G.t / 0.7); V.largo(0.92 - 0.8 * ease(k));
+    if (G.it && !G.tiene && k > 0.45) {   // se le resbala y cae a la vitrina (no muy lejos de donde estaba)
+      const f = G.it.g; V.cabeza.remove(f); G.it.x = clamp(G.x + rand(-0.06, 0.06), V.minX, V.maxX); G.it.z = clamp(G.z + rand(-0.06, 0.06), V.minZ, V.maxZ);
+      if (Math.hypot(G.it.x - V.HX_, G.it.z - V.HZ_) < 0.3) G.it.x = clamp(G.it.x - 0.3, V.minX, V.maxX);
+      f.position.set(G.it.x, G.it.y, G.it.z); f.rotation.set(rand(-0.6, 0.6), rand(0, TAU), 0); G.o.P.add(f); Sfx.dry();
+      G.msg = `Se le resbaló ${G.it.premio ? 'el premio' : garraNombre[G.it.k]}.`; G.it = null; garraPinta();
+    }
+    if (k >= 1) { G.fase = 'vuelve'; G.t = 0; G.x0 = G.x; G.z0 = G.z; if (!G.it && !G.msg) G.msg = 'No agarró nada.'; }
+  } else if (G.fase === 'vuelve') {
+    G.t += dt; const k = Math.min(1, G.t / 0.9); G.x = G.x0 + (V.HX_ - G.x0) * ease(k); G.z = G.z0 + (V.HZ_ - G.z0) * ease(k);
+    if (k >= 1) {
+      G.fase = 'suelta'; G.t = 0; V.abrir(0.6);
+      if (G.it) { const f = G.it.g; V.cabeza.remove(f); f.position.set(V.HX_, 0.95, V.HZ_); G.o.P.add(f); G.vy = 0; Sfx.vendThunk(); }
+    }
+  } else if (G.fase === 'suelta') {
+    G.t += dt;
+    if (G.it) { const f = G.it.g; G.vy -= 9.8 * dt; f.position.y = Math.max(0.3, f.position.y + G.vy * dt); f.rotation.x += dt * 5; if (f.position.y <= 0.3 && !G.cobrado) { G.cobrado = true; f.position.z = V.fz + 0.06; f.rotation.set(0, 0, 0); G.msg = garraCobra(G.it); game.garraV.fuera.push(G.it.i); V.items.splice(V.items.indexOf(G.it), 1); garraPinta(); } }
+    if (G.t > 1.4) { if (G.it) G.o.P.remove(G.it.g); G.it = null; G.cobrado = false; V.abrir(0.35); G.fase = 'listo'; garraPinta(); if (world.idx === ROOM_IDX) saveGame({ punto: 'sala' }); }
+  }
+  V.puente.position.x = G.x; V.carro.position.z = G.z; V.mira.visible = G.fase === 'mover'; V.mira.position.set(G.x, 1.14, G.z);
+}
 /* --- Máquina de la garra: vitrina con premios, una garra que baja, agarra y lo suelta por el hueco --- */
 function buildVendGarra(x, z) {
   const V = VEND.garra, W = 1.25, D = 1.05, fz = D / 2, P = Grp(x, z, 0), q = { p: P };
@@ -34813,8 +34967,9 @@ function buildVendGarra(x, z) {
   M(new THREE.PlaneGeometry(W - 0.06, 1.15), vid, 0, 1.55, fz - 0.01, { p: P, cast: false });
   for (const s of [-1, 1]) M(new THREE.PlaneGeometry(D - 0.06, 1.15), vid, s * (W / 2 - 0.01), 1.55, 0, { p: P, cast: false, ry: s * Math.PI / 2 });
   // montón de premios y el hueco de salida (adelante a la derecha)
-  const HX_ = W / 2 - 0.22, HZ_ = fz - 0.22, prods = RETO_FIG;   // premios de papel: los retos
-  for (let i = 0; i < 16; i++) { const f = vendFigura(prods[i % prods.length] || { t: 'caja' }, 1.15); let px, pz; do { px = rand(-W / 2 + 0.12, W / 2 - 0.12); pz = rand(-fz + 0.12, fz - 0.12); } while (Math.hypot(px - HX_, pz - HZ_) < 0.3); f.position.set(px, 1.04 + rand(0, 0.06), pz); f.rotation.set(rand(-1.2, 1.2), rand(0, TAU), rand(-0.5, 0.5)); P.add(f); }
+  const HX_ = W / 2 - 0.22, HZ_ = fz - 0.22;
+  // G4 · los premios y la basura de esta visita (siempre en el mismo lugar durante la visita; lo que ya salió no vuelve)
+  const items = garraPila(W, fz, HX_, HZ_).map(it => { const f = garraFigura(it.k); f.scale.setScalar(BAL.garra.escala); f.position.set(it.x, it.y, it.z); f.rotation.set(it.rx, it.ry, it.rz); P.add(f); return { ...it, g: f }; });
   for (const [w, d, xx, zz] of [[0.32, 0.02, HX_, HZ_ - 0.16], [0.32, 0.02, HX_, HZ_ + 0.16], [0.02, 0.32, HX_ - 0.16, HZ_], [0.02, 0.32, HX_ + 0.16, HZ_]]) M(bx(w, 0.22, d), new THREE.MeshBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0.3, depthWrite: false }), xx, 1.08, zz, { p: P, cast: false });
   M(bx(0.3, 0.01, 0.3), negro, HX_, 0.98, HZ_, q);
   // riel, carro y garra
@@ -34833,7 +34988,9 @@ function buildVendGarra(x, z) {
   vendRanura(P, -0.3, 0.68, fz + 0.005);
   M(bx(0.3, 0.24, 0.02), negro, HX_, 0.36, fz + 0.002, q); M(bx(0.32, 0.03, 0.12), metal, HX_, 0.23, fz + 0.06, q);
   lampLight(0, 1.9, fz + 0.5, V.luz, 0.6, 3.2, P);
-  const o = { kind: 'vend', v: 'garra', x, z: z + fz + 0.8, r: 1.0, mx: x, mz: z + fz, P };
+  const o = { kind: 'vend', v: 'garra', x, z: z + fz + 0.8, r: 1.0, mx: x, mz: z + fz, cz: z, P };
+  const mira = M(new THREE.RingGeometry(0.035, 0.055, 20), bsc(0xff3a2a, { transparent: true, opacity: 0.85, depthWrite: false }), HX_, 1.14, HZ_, { p: P, rx: -Math.PI / 2, cast: false }); mira.visible = false;   // G4: el punto rojo bajo la garra
+  o.vivo = { puente, carro, cabeza, largo, abrir, palanca, boton, mira, HX_, HZ_, W, fz, items, minX: -W / 2 + 0.12, maxX: W / 2 - 0.12, minZ: -fz + 0.12, maxZ: fz - 0.12 };
   vendCola(o); o.surtir = () => {};
   o.vender = pr => {
     let t = 0, fase = 0, fig = null, vy = 0; const ox = rand(-0.4, 0.15), oz = rand(-0.3, 0.15), mov = (a, b, k) => a + (b - a) * (k * k * (3 - 2 * k));
@@ -35371,7 +35528,7 @@ function useLabel0(o) {
     return { key: 'rv' + o.opt.k + v, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' ' + v, b: null }; }
   if (o.kind === 'route') { const C = ROUTE_MODS[o.opt.k]; return { key: 'rt' + o.opt.k, t: MAPS[o.opt.map].name, r: `<span style="color:${C.col}">${C.name}</span>`, d: C.desc + (o.opt.skip ? ' · Atajo: te saltas un lugar.' : '') + ' Camina hacia la puerta para cruzarla.', b: null }; }
   if ((o.kind === 'slot' || o.kind === 'wheel') && (o.busy || o.win > 0)) return null;   // mientras gira y mientras festeja, nada tapa la máquina
-  if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: o.v === 'espiral' ? 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.' : `Retos para la próxima oleada: si lo cumples, ganas un premio (oro, fichas, vida o un nivel). Cada reto cuesta ${BAL.retos.fichas} ficha de miembro (tienes ${game.poker | 0}). Máximo ${BAL.retos.max} a la vez.`, b: o.v === 'espiral' ? 'Comprar' : 'Ver retos', ok: true }; }
+  if (o.kind === 'vend') { const V = VEND[o.v]; return { key: 'vd' + o.v, t: V.name, r: `<span style="color:${V.css}">Máquina expendedora</span>`, d: o.v === 'garra' ? `Juego de garra en vivo: mueve la garra y bájala. Hay premios (oro, fichas, balas) entre mucha basura. Cada intento cuesta ${BAL.garra.ficha} ficha de miembro (tienes ${game.poker | 0}).` : o.v === 'espiral' ? 'Sobres de balas y 3 balas especiales sueltas. Elige y mira cómo cae a la bandeja.' : `Retos para la próxima oleada: si lo cumples, ganas un premio (oro, fichas, vida o un nivel). Cada reto cuesta ${BAL.retos.fichas} ficha de miembro (tienes ${game.poker | 0}). Máximo ${BAL.retos.max} a la vez.`, b: o.v === 'espiral' ? 'Comprar' : o.v === 'garra' ? 'Jugar' : 'Ver retos', ok: true }; }
   if (o.kind === 'maq') { if (o.busy) return null; const V = MAQ[o.m], C = BAL.maquinas[o.m], of = (game.maqOf || {})[o.m], f = game.poker | 0, hecha = !!(of && of.hecha);
     return { key: 'mq' + o.m + f + !!of + hecha, t: V.name, r: `<span style="color:${V.css}">${V.sub}</span>`, d: `${MAQ_DESC[o.m]} Una vez por visita. Cuesta ${C.fichas} ficha de miembro (tienes ${f}).`, b: hecha ? 'Ya elegiste' : of ? 'Ver tus cartas' : f >= C.fichas ? `Sacar cartas · ${C.fichas} ficha` : 'Sin fichas de miembro', ok: !hecha && (!!of || f >= C.fichas) }; }
   if (o.kind === 'tel') { if (deudaPend()) { const D = game.deuda; return { key: 'tel' + D.bote + !!D.colgado, t: 'Teléfono negro', r: `<span style="color:#ff8a7a">${D.colgado ? 'Esperando tu dinero' : '¡Suena!'}</span>`, d: `Alguien quiere su dinero: ${deudaFalta()} $ del nivel ${D.n}. Las puertas tienen cadenas hasta que pagues.`, b: D.colgado ? 'Volver a llamar' : 'Contestar', ok: true }; }
@@ -35454,7 +35611,7 @@ function useObj(o) {
     useCur = null; showUse(null);
     playWheel(o);
   } else if (o.kind === 'vend') {
-    useCur = null; showUse(null); openVend(o);
+    useCur = null; showUse(null); if (o.v === 'garra' && o.vivo) garraAbrir(o); else openVend(o);   // G4: La Garra se juega en vivo
   } else if (o.kind === 'exit') {
     o.used = true; leaveTogether();
   } else if (o.kind === 'route') {
@@ -39021,7 +39178,7 @@ const TU_STEPS = [
     keys: () => IS_TOUCH ? 'Inventario: toca CAJA' : 'Inventario: Tab o I',
     step() { const ok = tuto.inv && state === 'play'; return { p: ok ? 'Inventario visto' : tuto.inv ? 'Vuelve al juego' : (IS_TOUCH ? 'Toca CAJA' : 'Pulsa Tab'), done: ok }; } },
   { n: 8, t: 'La Trastienda', info: 6,
-    txt: () => 'Al terminar cada oleada pasas a la Trastienda: compra balas en la expendedora, acepta retos en la de cápsulas y en La Garra, prueba suerte con Madame, el diablo o el ángel y en los juegos, y vuelve a la pelea.',
+    txt: () => 'Al terminar cada oleada pasas a la Trastienda: compra balas en la expendedora, acepta retos en la de cápsulas, juega a La Garra, prueba suerte con Madame, el diablo o el ángel y en los juegos, y vuelve a la pelea.',
     keys: () => '' }
 ];
 { let k = 0; for (const st of TU_STEPS) if (!(st.pc && IS_TOUCH)) st.n = ++k; TU_N = k; }
@@ -39290,6 +39447,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Escape' && state === 'mis') { misCerrar(); return; }
   if (!$('#col-s').hidden && e.code === 'Escape') { show('inicio'); return; }
   if (state === 'dados' && e.code === 'Escape' && typeof cerrarDados === 'function') { cerrarDados(); return; }
+  if (state === 'garra') { if (e.code === 'Escape') garraCerrar(); else if ((e.code === 'Space' || e.code === 'Enter') && GARRA && GARRA.fase === 'mover' && !e.repeat) { e.preventDefault(); garraBajar(); } else if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); return; }
   if ((state === 'inv' || VM2.invAbierto()) && ['KeyI', 'Tab', 'Escape'].includes(e.code)) { e.preventDefault(); closeInv(); return; }
   if (state !== 'play') return;
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
@@ -39412,10 +39570,11 @@ function frame() {
   tAll += dt;
   if (input.tiro) hacerTiro();   // el tiro que pidió el clic o el toque (antes de mover nada: como si fuera dentro del clic)
   if (game && (state === 'play' || state === 'pause') && VM2.invAbierto()) state = 'inv';   // la canana abierta manda: el estado vuelve a «inventario»
-  if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno') && game)) { menuT += dt; updatePlay(dt); }
+  if (state === 'play' || state === 'dying' || (Net.on && (state === 'pause' || state === 'inv' || state === 'lleno' || state === 'garra') && game)) { menuT += dt; updatePlay(dt); }
   else if (state === 'menu') updateMenu(dt);
   else if (state === 'animp') animpPaso(dt);
-  else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
+  else if (game && (state === 'perks' || state === 'shop' || state === 'trans' || state === 'win' || state === 'garra')) { menuT += dt; updateGun(dt); updateCamera(dt); updateTracers(dt); P.update(dt); PA.update(dt); }
+  if (state === 'garra') garraPaso(dt);   // G4: La Garra en vivo
   if (game && state === 'play' && !tuto && game.phase === 'fight' && (game.wave | 0) >= 2 && (game.wave | 0) > (game.sentWave | 0)) { submitRun(); saveBest(); }
   unstick();
   { const nx = !!(game && !tuto && state !== 'menu' && DF().noXh); if (app._nx !== nx) { app._nx = nx; app.classList.toggle('noxh', nx); } }
