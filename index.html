@@ -3149,7 +3149,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=24').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=25').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -23817,6 +23817,14 @@ const BAL = {
     blindajeMax: 150,   // el blindaje se suma hasta este tope; para primero los golpes y no vuelve solo
     dinamita: { precio: 100, n: 3, max: 9, dano: 160, radio: 4.2, propio: 25, alcance: 18, vuelo: 0.75 }
   },
+  // G4 · Zombis nuevos por días (pedido del dueño, 20-oct-2026): el día 1 solo el caminante (y, a veces, el zombi de oro); el día 2 llegan los
+  // corredores, el día 3 el escupidor, y así, uno nuevo cada día: el primer mapa trae 3 y cada mapa siguiente, 3 más.
+  // dia: el día en que aparece cada uno · rampa: días que tarda en salir con su frecuencia normal (el primer día sale poco)
+  // adelanto: en Difícil y Apocalipsis llegan antes (días) · oro: probabilidad del zombi de oro en cada día (como mucho uno por día; el árbol suma)
+  zombisDia: {
+    dia: { walker: 1, runner: 2, spitter: 3, crawler: 4, dog: 5, axer: 6, enfermera: 7, maton: 8, caballero: 9, screamer: 10, saw: 11, armored: 12, knight: 13, conjurador: 14, bloater: 15, brute: 16 },
+    rampa: 2, adelanto: { normal: 0, dificil: 1, apoc: 2 }, oro: { p: 0.12 }
+  },
   // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
   // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
   // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
@@ -25301,7 +25309,7 @@ function buildZombie(type) {
 // probabilidades de cada variante del caballero (se suman a 1 dentro de cada grupo)
 const CAB_ARMA = [['nada', 0.8], ['hacha', 0.1], ['espada', 0.1]];
 const CAB_ARMADURA = [['escudo y casco', 0.25], ['casco', 0.25], ['escudo', 0.2], ['nada', 0.3]];
-const ZN = { orop: 0.01, conjurarCada: 10, conjurarN: 2, conjurarMax: 6, escudoHp: 260, cascoHp: 160, armaDano: 6 };
+const ZN = { conjurarCada: 10, conjurarN: 2, conjurarMax: 6, escudoHp: 260, cascoHp: 160, armaDano: 6 };
 const swordG = { hoja: new THREE.BoxGeometry(0.035, 0.75, 0.09), guarda: new THREE.BoxGeometry(0.05, 0.05, 0.3), mango: new THREE.CylinderGeometry(0.025, 0.025, 0.18, 6) };
 const shieldG = new THREE.CylinderGeometry(0.34, 0.34, 0.05, 16), knifeG = new THREE.BoxGeometry(0.02, 0.32, 0.05), hornG = new THREE.ConeGeometry(0.05, 0.22, 6);
 const steelM = new THREE.MeshPhongMaterial({ color: 0xb8bcc4, specular: 0xffffff, shininess: 90 }), shieldM = new THREE.MeshPhongMaterial({ color: 0x6a4a2a, specular: 0x332211, shininess: 20 }), shieldRim = new THREE.MeshPhongMaterial({ color: 0x9aa0aa, specular: 0xffffff, shininess: 80 });
@@ -26700,7 +26708,7 @@ function startWave(n) {
   else if (casJefe(n) >= 0) { casJefeOla(n); sub = `¡Jefe del casino: ${JEFES_NOMBRES[casJefe(n)]}!`; }
   else if (wavePos(n) === 1 && n >= 5) { const b = Math.min(4, 1 + Math.floor(zoneOf(n) / 3)); for (let i = 0; i < b; i++) game.bossQ.push('brute'); sub = (b > 1 ? `¡Llegan ${b} Carniceros!` : '¡Llega el Carnicero!') ; }
   else sub = n === 1 ? 'Que no te rodeen' : pick(['Vienen más', 'La tierra se mueve', 'Huele a muerto', 'No bajes el arma', 'Cuenta tus balas']);
-  game.toSpawn += game.bossQ.length;
+  game.toSpawn += game.bossQ.length; game.olaN = game.toSpawn;   // G4: para repartir la probabilidad del zombi de oro del día
   game.miniAt = null; if (wavePos(n) === 1 && !casN(n) && !Net.client && MINIS[world.idx]) { game.miniAt = Math.max(1, Math.floor(game.toSpawn * 0.55)); game.toSpawn++; }
   j3dPrecargarOla();   // los modelos 3D del jefe y del minijefe de esta oleada se bajan ahora
   if (!isMapEnd(n)) sub = `${wavePos(n) === 0 ? 'Oleada chica' : 'Oleada grande'} · ${sub}`;
@@ -26708,6 +26716,7 @@ function startWave(n) {
   if (needsRescue(n + 1)) setTimeout(() => { if (game && game.wave === n && state === 'play') { banner('Aviso del rescate', `Tras el jefe de la próxima oleada, el helicóptero cobra ${rescueFee(n + 1)} $. Tú tienes ${game.gold} $.`, 4200, 'heli'); Sfx.bell(); } }, 3400);
   banner(`Día ${n}`, sub, game.bossQ.length ? 3000 : 2400, game.waveMod && game.waveMod.ic ? game.waveMod.ic : isMapEnd(n) ? 'skull' : null);
   Sfx.bell();
+  { const nv = casN(n) ? [] : zdNuevos(n); if (nv.length) setTimeout(() => { if (game && game.wave === n) feed(`Zombi nuevo: ${nv.map(k => ZDEF[k].name).join(', ')}`, 'red'); }, 2600); }   // G4 · 8: el día que llega uno nuevo, se avisa
   if (n >= 2) saveGame();   // «Continuar» solo tiene sentido si ya pasaste la primera oleada
 }
 // Jefe del casino en la oleada n (sale con la horda de esa oleada)
@@ -26727,20 +26736,24 @@ function irAlCasino(ola = 1) {
   clearActors(); buildMap(CASINO_IDX); player.pos.set(world.start.x, 0, world.start.z); player.yaw = 0;
   game.alive = 0; game.routeWave = casIni() - 1; startWave(casIni() + ola - 1); return true;
 }
+// G4 · 8: cuánto sale un tipo de zombi el día n: 0 antes de su día, poco el primer día y normal a los «rampa» días (antes en Difícil y Apocalipsis)
+function zdDia(k) { const ZD = BAL.zombisDia, d = ZD.dia[k]; return d == null ? 1 : Math.max(1, d - ((ZD.adelanto[game && game.diff] | 0))); }
+function zdHay(k, n) { const ZD = BAL.zombisDia; if (ZD.dia[k] == null) return 1; return clamp((n - zdDia(k) + 1) / ZD.rampa, 0, 1); }
+const zdNuevos = n => Object.keys(BAL.zombisDia.dia).filter(k => k !== 'walker' && zdDia(k) === n && ZDEF[k]);
 function chooseType(n) {
   if (game.bossQ.length) return game.bossQ.shift();
   if (game.waveMod && game.waveMod.only) return pick(game.waveMod.only);
-  const mx = k => world.mix[k] || 1;
-  // desde la primera oleada: corredores y que se arrastran; y un 5 % de motosierras antes de que salgan solas
-  if (Math.random() < ZN.orop + arbP('oro')) return 'oro'; // 1 de cada 100: el zombi de oro
-  if (n < 6 && Math.random() < 0.05) return 'saw';
-  if (n < 7 && !Net.on && Math.random() < 0.04) return 'knight';
+  // G4 · 8: cada tipo sale desde su día (BAL.zombisDia) y los primeros días con poca frecuencia; el zombi de oro, como mucho uno por día
+  const mx = k => (world.mix[k] || 1) * zdHay(k, n);
+  const ZD = BAL.zombisDia;
+  if (game.oroDia !== n && Math.random() < ZD.oro.p / Math.max(4, game.olaN || 12)) { game.oroDia = n; return 'oro'; }
+  if (Math.random() < arbP('oro')) return 'oro';   // árbol: más zombis de oro
   const w = [['walker', 10], ['crawler', (2 + n * 0.25) * mx('crawler')], ['runner', (2.5 + n * 0.4) * mx('runner')],
-    ['dog', n >= 4 ? (1.5 + n * 0.25) * mx('dog') : 0], ['spitter', (1.2 + n * 0.22) * mx('spitter')], ['screamer', n >= 6 ? (0.7 + n * 0.1) * mx('screamer') : 0],
-    ['copz', world.mix.copz && n >= 3 ? world.mix.copz * (1 + n * 0.05) : 0], ['armored', n >= 8 ? (1 + n * 0.2) * mx('armored') : 0],
-    ['axer', (0.6 + n * 0.15) * mx('axer')], ['knight', n >= 6 && !Net.on ? (0.5 + n * 0.08) * mx('saw') : 0], ['saw', n >= 6 ? (0.5 + n * 0.08) * mx('saw') : 0],
-    ['caballero', n >= 4 ? (0.8 + n * 0.12) * mx('caballero') : 0], ['enfermera', n >= 3 ? (0.9 + n * 0.12) * mx('enfermera') : 0], ['conjurador', n >= 8 ? (0.3 + n * 0.04) * mx('conjurador') : 0],
-    ['bloater', n >= 9 ? (0.7 + n * 0.12) * mx('bloater') : 0], ['brute', n >= 11 ? 0.3 + n * 0.06 : 0], ['maton', n >= 4 ? (0.6 + n * 0.1) * mx('maton') : 0]];
+    ['dog', (1.5 + n * 0.25) * mx('dog')], ['spitter', (1.2 + n * 0.22) * mx('spitter')], ['screamer', (0.7 + n * 0.1) * mx('screamer')],
+    ['copz', world.mix.copz && n >= 3 ? world.mix.copz * (1 + n * 0.05) : 0], ['armored', (1 + n * 0.2) * mx('armored')],
+    ['axer', (0.6 + n * 0.15) * mx('axer')], ['knight', !Net.on ? (0.5 + n * 0.08) * (world.mix.saw || 1) * zdHay('knight', n) : 0], ['saw', (0.5 + n * 0.08) * mx('saw')],
+    ['caballero', (0.8 + n * 0.12) * mx('caballero')], ['enfermera', (0.9 + n * 0.12) * mx('enfermera')], ['conjurador', (0.3 + n * 0.04) * mx('conjurador')],
+    ['bloater', (0.7 + n * 0.12) * mx('bloater')], ['brute', (0.3 + n * 0.06) * zdHay('brute', n)], ['maton', (0.6 + n * 0.1) * mx('maton')]];
   let tot = 0; w.forEach(x => tot += x[1]); let r = Math.random() * tot;
   for (const [k, v] of w) { if ((r -= v) < 0) return k; }
   return 'walker';
