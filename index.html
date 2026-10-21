@@ -35173,7 +35173,9 @@ const deudaHoy = () => !!(game && game.deuda && game.deuda.w === game.routeWave)
 const deudaPend = () => deudaHoy() && !game.deuda.pagada;
 const salaAbierta = k => !deudaPend() || (k === 'dados' && game.deuda.dados);
 // la puerta salió cerrada con llave en esta visita (50 %); la de los dados se abre si colgaste sin el dinero de la deuda
-const salaConLlave = k => !!(game && game.puertasRoll && game.puertasRoll[k] === false) && !(k === 'dados' && deudaHoy() && game.deuda.dados);
+// G4 · 11: tras el jefe, con la deuda del nivel ya pagada, las 3 puertas quedan siempre abiertas (salvo la sala de los dados el día de la redada)
+const deudaYaPagada = () => !!(deudaHoy() && game.deuda.pagada);
+const salaConLlave = k => !!(game && game.puertasRoll && game.puertasRoll[k] === false) && !(k === 'dados' && deudaHoy() && game.deuda.dados) && !(deudaYaPagada() && !(k === 'dados' && sitHoy() === 'redada'));
 const tx = t => { if (LANG !== 'en' || !I18N.d || !t) return t; const r = i18nTxt(t); return r == null ? t : r; };   // textos de los lienzos en el idioma del jugador
 function trSimbolo(k, col) {
   return canvasTex(256, 256, (g, w, h) => {
@@ -35513,7 +35515,7 @@ function buildShopRoom() {
     const sim = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.48), new THREE.MeshBasicMaterial({ map: trSimbolo(S_.k, S_.col) })); sim.position.set(S_.px, 3.47, SEP + T / 2 + 0.132); world.group.add(sim);   // el símbolo, pequeño
     for (const s of [-1, 1]) M(bx(0.2, 3.0, T + 0.12), lam(0x3a2414), S_.px + s * (HU / 2 + 0.1), 1.5, SEP, { cast: false });
     M(bx(HU + 0.4, 0.25, T + 0.12), lam(0x3a2414), S_.px, 3.0, SEP, { cast: false });
-    const abierta = !!(game && game.puertasAb && game.puertasAb[S_.k]), door = trPuerta(S_, abierta);
+    const abierta = !!(game && ((game.puertasAb && game.puertasAb[S_.k]) || (deudaYaPagada() && !salaConLlave(S_.k)))), door = trPuerta(S_, abierta);   // G4 · 11: deuda pagada: abiertas de par en par
     if (!salaAbierta(S_.k)) {
       const cad = lam(0x9a9aa2, { emissive: 0x101010 });
       for (const s of [-1, 1]) M(bx(2.9, 0.07, 0.07), cad, S_.px, 1.5, SEP + 0.34, { rz: s * 0.78, cast: false });
