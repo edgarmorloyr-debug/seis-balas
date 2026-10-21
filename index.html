@@ -23825,6 +23825,10 @@ const BAL = {
     dia: { walker: 1, runner: 2, spitter: 3, crawler: 4, dog: 5, axer: 6, enfermera: 7, maton: 8, caballero: 9, screamer: 10, saw: 11, armored: 12, knight: 13, conjurador: 14, bloater: 15, brute: 16 },
     rampa: 2, adelanto: { normal: 0, dificil: 1, apoc: 2 }, oro: { p: 0.12 }
   },
+  // G4 · Jefes de mapa del más débil al más fuerte (pedido del dueño, 21-oct-2026): en el primer mapa sale uno de los primeros de la lista y en
+  // el último, uno de los últimos. Orden por dificultad real: vida efectiva (vida × lo que hay que hacer para herirlo, vidas extra y divisiones),
+  // daño y ataques, y los zombis que suelta. ventana: cuántos puestos alrededor del que le toca al mapa pueden salir (para que no sea siempre el mismo)
+  jefes: { orden: ['proj', 'mirror', 'clown', 'spider', 'sniper', 'bride', 'rider', 'shark', 'digger', 'fire', 'saw', 'plague', 'tamer', 'colossus', 'hive', 'grandpa', 'mass', 'twins', 'rats', 'butcher'], ventana: 1 },
   // G4 · Munición por tipo de arma (pedido del dueño, 20-oct-2026). Las pistolas y los revólveres usan la caja de balas normales de siempre;
   // las escopetas usan cartuchos y los fusiles y ametralladoras, balas de fusil. tipos: qué munición usa cada arma (las que no están: la caja)
   // alComprar: lo que trae el arma al comprarla · max: lo más que puedes llevar · recoger: una caja de balas del suelo da su cantidad × esto
@@ -29671,11 +29675,15 @@ function zeroPerch(tp) {
   }
   return { x: tp.x + 12, z: tp.z };
 }
+// G4 · 8b: el jefe de cada mapa sale según su lugar en la partida: los más débiles en los primeros mapas y los más fuertes al final (BAL.jefes)
 function pickBoss() {
   const all = BOSSES.map((b, i) => i).filter(i => !BOSSES[i].helper && !BOSSES[i].casino);
   game.bossSeen = (game.bossSeen || []).filter(i => all.includes(i));
   let pool = all.filter(i => !game.bossSeen.includes(i)); if (!pool.length) { game.bossSeen = []; pool = all; }
-  const i = pick(pool); game.bossSeen.push(i); return i;
+  const ord = BAL.jefes.orden.map(id => BOSSES.findIndex(b => b.id === id)).filter(i => all.includes(i)); for (const i of all) if (!ord.includes(i)) ord.push(i);
+  const N = runN() || MAP_COUNT, z = zoneOf(game.wave), t = N > 1 ? Math.min(1, z / (N - 1)) * (ord.length - 1) : 0;
+  const lejos = i => Math.abs(ord.indexOf(i) - t), mejor = Math.min(...pool.map(lejos));
+  const i = pick(pool.filter(i => lejos(i) <= mejor + BAL.jefes.ventana)); game.bossSeen.push(i); return i;
 }
 function bossHpFor(B) { return B.hp * 0.38 * 3 * DF().hp *   // jefes con el triple de vida
    (sk(1) ? 1.25 : 1) * zoneHp(zoneOf(game.wave)) * (1 + 0.75 * (Net.host ? Net.peers.size : 0)); }
