@@ -322,3 +322,7 @@ Lo que está puesto por ahora (se cambia fácil si el dueño quiere otra cosa):
 10. El jefe espejo es demasiado fuerte: sus disparos dejan una brecha pequeña para esquivar.
 11. Si la deuda del nivel ya está pagada, las 3 puertas de la Trastienda después del jefe están siempre abiertas.
 12. Playa de Náufragos: hay una zona que los zombis no pueden cruzar.
+
+## Nuevo camino (dueño, 24-oct-2026): lo que se rescata
+- **Se queda:** Don Santino y la deuda; personajes que se abren venciendo jefes; economía con reto; zombis y jefes por día; salas de la Trastienda y Sala del Misterio; situaciones al azar; juegos de azar en vivo (con la Garra); las maids Imo, Miso y Dango; 94 balas con cinturón y reserva; expendedora tipo Balatro; inventario Canana; brazos 3D en primera persona; munición por tipo de arma.
+- **Descartado del plan:** diseño nuevo de las balas con forma de bala; barra de armas 1-2-3 con dinamita en la 4; caballero aliado en 3D. (Antes de quitar del juego algo que ya existe, se le pregunta al dueño.)
