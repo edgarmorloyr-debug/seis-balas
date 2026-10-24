@@ -51,7 +51,7 @@ Todo lo que sigue es propuesta. Las cifras irán en BAL para poder ajustarlas.
 ## 3. Habitaciones variables
 | Habitación | Tamaño | Guardias | Qué hay | Repetición |
 |---|---|---|---|---|
-| **Bodega de cajas** | mediana | 2 | 5 a 8 cajas y barriles que se rompen a balazos. Cada uno: 50 % nada, 30 % oro (3–8 $), 15 % balas (6), 5 % ficha de miembro. | se repite |
+| **Bodega de cajas** | mediana | 2 | 5 a 8 cajas y barriles que se rompen a balazos. Cada uno (tacaño, decidido): 65 % nada, 25 % oro (3–8 $), 10 % balas (6). | se repite |
 | **Cuarto de guardia** | mediana | 4 o 5 | Un cofre. Uno de ellos guarda la **llave de la salida**; los demás, 20–40 $ o una bala común. | se repite |
 | **Cuarto de guardado** | chica | 0 | Una caja fuerte: guarda la partida y cura 20 de vida. Se usa 1 vez. | 1 por mapa |
 | **Cuarto del minijuego** | chica | 0 | Una máquina pequeña: 1 ficha por tirada; premios 0 / 10 / 25 / 60 $. | máx. 2 |
@@ -74,7 +74,7 @@ Habitaciones con **llave de plata**: 1 por cada 4 (de 2 a 4). Se cierran con lla
 - **Barriles**: solo en el Cuarto oscuro. Te metes si ningún zombi te está viendo; dentro no te encuentran; sales cuando quieras. Si te vieron al entrar, el barril no sirve.
 - **Campana**: distrae; los zombis van al Campanario y olvidan al jugador mientras suena.
 
-## 6. Arma que cambia en cada partida
+## 6. Arma que cambia en cada partida (las 6 piezas aprobadas)
 - Empiezas con tu revólver normal.
 - Cada **pieza** cambia un número del arma: cañón largo (+15 % daño), gatillo fino (+12 % rapidez), tambor extra (+1 bala), mira (−20 % dispersión), culata (−20 % retroceso), cargador rápido (+20 % recarga).
 - Se consiguen en el Taller y, a veces, en los cofres. Se pierden al terminar la partida.
@@ -82,7 +82,10 @@ Habitaciones con **llave de plata**: 1 por cada 4 (de 2 a 4). Se cierran con lla
 ## 7. Lo que se mantiene del juego actual
 Reglas de las balas (cinturón de 8 y reserva de 6), la deuda con Don Santino, la expendedora y el inventario Canana, la munición por tipo de arma y los brazos 3D.
 
-## 8. Duración y reto
+## 8. Duración y reto (aprobado: de 8 a 18 minutos según el tamaño)
 - Mapa de 9 habitaciones: unos 8–10 minutos. Mapa de 18: unos 15–18 minutos.
 - Oro esperado en el Nivel 1: 120–200 $ (la primera cuota es 110–140 $).
 - Vida al empezar: 100. Curaciones del piso: Despensa, Guardado y las comidas de la Trastienda.
+
+
+Siguiente paso decidido (24-oct-2026): boceto del mapa visto desde arriba (bocetos/nivel1_mapa.html) antes de construir.
