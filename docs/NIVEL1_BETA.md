@@ -17,7 +17,11 @@ Se juega en espacios cerrados y estrechos, con tensión como en The House of the
 - Repeticiones con límite: se repiten Bodega de cajas, Cuarto de guardia y Cuarto oscuro; máximo 1 por mapa: Cuarto de guardado, Taller de armas, Despensa y Campanario; máximo 2: Cuarto del minijuego.
 - Habitaciones con llave de plata: 1 por cada 4 habitaciones (de 2 a 4).
 
+- Zombis que cuidan habitaciones (según la habitación): Cuarto de guardia 4 o 5 (tiene la llave), Taller de armas 3, Bodega de cajas 2, Cuarto oscuro 1 escondido que sale de sorpresa; Despensa, Minijuego y Guardado sin guardias.
+- Pasillos: un grupito de 3 zombis que camina; si los matas, no vuelven.
+- Ruido: al disparar dentro de una habitación, los zombis de las habitaciones vecinas oyen y vienen (por eso sirven la campana y el escondite).
+
 ## Propuesta (por confirmar)
-- Zombis: solo el básico y, a veces, el de oro; 3 o 4 cuidando cada habitación importante y un grupito que recorre los pasillos.
+- Tipos de zombi: solo el básico y, a veces, el de oro.
 - Jefe: el más débil (Proyeccionista).
 - Al ganar: se abre la salida, pagas la primera cuota a Don Santino y subes al Nivel 2.
