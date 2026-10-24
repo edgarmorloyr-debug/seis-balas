@@ -89,3 +89,7 @@ Reglas de las balas (cinturón de 8 y reserva de 6), la deuda con Don Santino, l
 
 
 Siguiente paso decidido (24-oct-2026): boceto del mapa visto desde arriba (bocetos/nivel1_mapa.html) antes de construir.
+
+## Estado de la beta jugable (24-oct-2026)
+Ya se juega como modo aparte: botón «Beta: Las Bodegas» de la portada o `?beta=bodegas` en la dirección. No cambia la partida normal ni su partida guardada (la caja fuerte guarda en su propio lugar).
+Simplificado en la beta: todas las habitaciones ocupan una casilla (chica 6 m, mediana 8 m, la del jefe 10 m) y los pasillos miden lo que queda hasta la casilla vecina; los muebles son de geometría sencilla; al ganar sale la pantalla «Nivel 1 superado» y se vuelve al menú (el Nivel 2 todavía no existe). Las cifras están en `BAL.bodegas`.
