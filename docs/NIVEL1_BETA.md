@@ -21,7 +21,7 @@ Se juega en espacios cerrados y estrechos, con tensión como en The House of the
 - Pasillos: un grupito de 3 zombis que camina; si los matas, no vuelven.
 - Ruido: al disparar dentro de una habitación, los zombis de las habitaciones vecinas oyen y vienen (por eso sirven la campana y el escondite).
 
-- Espacios abiertos (24-oct-2026): en cada nivel puede haber **1 o 2 habitaciones al aire libre** (sin techo) que **unen varias habitaciones** a la vez. Son el respiro entre tanto encierro y abren más caminos. Los tipos se eligen en la encuesta de espacios abiertos.
+- Espacios abiertos (24-oct-2026): en cada nivel puede haber **1 o 2 habitaciones al aire libre** (sin techo) que **unen varias habitaciones** a la vez. Son el respiro entre tanto encierro y abren más caminos. Tipos aprobados (encuesta del 24-oct-2026): **Callejón trasero** (largo y angosto, con lluvia, basureros y escaleras de incendio; une dos puntas lejanas), **Patio interior con pozo de luz** (cruce al centro con fuente seca y columnas; une 4 habitaciones), **Jardín de los fumadores** (bancas, faroles y arbustos; une 2 o 3) y **Canal de desagüe** (agua que te hace ir más lento y puentecitos; une 2, una de cada orilla). Son **solo de paso**: lugares tranquilos para orientarse y llegar a otros lados, sin guardias ni premio. Descartados: Patio de carga, Desguace de tragamonedas, Estacionamiento y Cementerio de deudores.
 
 ## Propuesta (por confirmar)
 - Tipos de zombi: solo el básico y, a veces, el de oro.
