@@ -2717,7 +2717,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
   <div class="overlay" id="inicio">
     <div class="ini-brasas" aria-hidden="true"></div>
     <div class="ini-top">
-      <div></div><div class="r"><button class="ini-mini" id="btn-col-ini" aria-label="Colección"><i data-ic="book"></i><span class="ilbl">Colección</span></button></div>
+      <div><button class="ini-mini" id="btn-beta-bod" aria-label="Beta: Las Bodegas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21M18 12v3M15.5 12v2.5"/></svg><span class="ilbl">Beta: Las Bodegas</span></button></div><div class="r"><button class="ini-mini" id="btn-col-ini" aria-label="Colección"><i data-ic="book"></i><span class="ilbl">Colección</span></button></div>
     </div>
     <div class="ini-mid">
       <button class="ini-ach" id="ini-ach" aria-haspopup="dialog" aria-expanded="false" aria-controls="ini-ach-pop"><span class="ia-in"><span class="ia-h">Por conseguir</span><span class="ia-i"></span><b class="ia-n"></b></span></button>
@@ -3089,6 +3089,15 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
       <div class="stats" id="win-stats"></div>
       <p class="note" id="win-note">Puedes seguir sin fin: los lugares vuelven a empezar y los zombis siguen haciéndose más duros.</p>
       <div class="row"><button class="btn" id="btn-endless">Seguir sin fin</button><button class="btn2" id="btn-win-menu">Menú</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="bod-fin" hidden>
+    <div class="card">
+      <h2 class="title sm" id="bf-t">Nivel 1 superado</h2>
+      <p class="tag" id="bf-tag"></p>
+      <div class="stats" id="bf-stats"></div>
+      <div class="row"><button class="btn" id="bf-a">Volver al menú</button><button class="btn2" id="bf-b" hidden>Menú</button></div>
     </div>
   </div>
 
@@ -3854,7 +3863,8 @@ const MAPS = [
   { name: 'Atlantis', desc: 'La ciudad perdida duerme bajo el mar. El tridente todavía brilla y sus ciudadanos vuelven a caminar por la plaza.' },
   { name: 'El Maid Café', desc: 'Lazos rosas, tartas de fresa y neón de Akihabara. Imo, Miso y Dango no cerraron: ahora sirven a balazos.' },
   { name: 'BIG NEON CASINO', casino: true, desc: 'La ciudad casino que nunca duerme. Aquí te esperan los jefes: la casa siempre gana… hasta esta noche.' },
-  { name: 'Los Backrooms: Nivel 3', desc: 'Ladrillo, cables y un zumbido eléctrico que no para. Las máquinas siguen encendidas; los técnicos, no.' }   // después del casino para no mover los números de los demás
+  { name: 'Los Backrooms: Nivel 3', desc: 'Ladrillo, cables y un zumbido eléctrico que no para. Las máquinas siguen encendidas; los técnicos, no.' },   // después del casino para no mover los números de los demás
+  { name: 'Las Bodegas del casino', beta: true, desc: 'El sótano de piedra de Don Santino: barriles, cajas y máquinas viejas. Muchos zombis cuidan sus cuartos.' }   // BETA · Nivel 1 (modo aparte: no sale en los caminos)
 ];
 function lam(color, o) { return new THREE.MeshLambertMaterial(Object.assign({ color }, o || {})); }
 function bsc(color, o) { return new THREE.MeshBasicMaterial(Object.assign({ color }, o || {})); }
@@ -5756,8 +5766,8 @@ function buildMap(i) {
   world.idx = i; world.maidSpots = null; world.m3d = null; world.m3dCaja = null; srand = mulberry32(1866 + i * 977);
   const L3 = world.m3dL = m3dLote();   // modelos 3D del mapa: cada constructor anota dónde va cada uno
   if (typeof META !== 'undefined' && game && i !== ROOM_IDX && state !== 'menu') { META.pl = META.pl || {}; META.pl[i] = 1; }
-  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
-  moonMesh.visible = moonHalo.visible = !world.noMoon;
+  ([buildCemetery, buildFarm, null, buildMarket, buildCircus, null, null, buildChaos, buildPark, buildRooftop, null, buildISS, buildBackrooms, null, buildZoo, buildMoon, null, buildShopRoom, buildHeaven, buildIsland, buildFairy, null, buildOcean, buildPolice, null, buildTokyo, null, buildArcade, buildPipes, buildAtlantis, buildMaidCafe, buildCasino, buildBackrooms3, buildBodegas][i] || buildFarm)();   // los huecos son mapas quitados (Las Calles, Cine, Playa, Centro de la Tierra, Universidad, Ártico, Chocolate, Pueblo Sumergido, Las Vegas)
+  moonMesh.visible = moonHalo.visible = !world.noMoon; moon.castShadow = i !== BOD_IDX;   // en las Bodegas (bajo tierra) la luna no da sombras: menos trabajo en el teléfono
   m3dSembrar(i);   // hierba, matas y flores de adorno (sin choque)
   L3.fin();
   Sfx.setRoom(Object.assign({ echo: ECHO[i] }, ACOUSTIC[i] || {}));
@@ -26606,6 +26616,7 @@ const SAVE_FIELDS = ['mun', 'visita', 'nMap', 'slot', 'reserva', 'balTemp', 'bal
 const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'garraV', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb', 'puertasRoll', 'sit', 'sitHecho', 'cobro', 'zombiCol', 'gatoRegalo', 'dadoW'];
 function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
+  if (game.bod && !(o && o.bodCaja)) return;   // BETA · Las Bodegas: nunca toca la partida normal guardada
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
   for (const k of SAVE_FIELDS) sv[k] = game[k];
   const punto = (o && o.punto) || 'ola'; sv.punto = punto; game.puntoAct = punto;
@@ -26614,6 +26625,7 @@ function saveGame(o) {
   // las balas que tienes cargadas vuelven a la caja: al retomar se recargan de ella (no se pierden ni se duplican)
   { const box = (game.box || []).slice(); for (const L of balManos()) for (const b of L || []) if (isLoaded(b) && !String(b).endsWith('*')) box.push(b); sv.box = box; }
   if (game.habMini) { const M = game.habMini, id = M.id || 'minigun'; sv.owned = Object.assign({}, game.owned); if (M.owned === undefined) delete sv.owned[id]; else sv.owned[id] = M.owned; sv.mag = undefined; }
+  if (game.bod) { sv.bod = JSON.parse(JSON.stringify(game.bod)); sv.wave = 1; store.set(BOD_SAVE, sv); return; }
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
@@ -26631,6 +26643,7 @@ function newGame(sv, run) {
   };
   newBox();
   if (sv) for (const k of SAVE_FIELDS) if (sv[k] !== undefined) game[k] = JSON.parse(JSON.stringify(sv[k]));
+  if (sv && sv.bod) game.bod = JSON.parse(JSON.stringify(sv.bod)); else if (!sv && run && run.bod) game.bod = { seed: run.bod, st: null };   // BETA · Las Bodegas
   const punto = sv && sv.punto ? sv.punto : 'ola';
   if (sv && punto === 'sala') for (const k of SALA_FIELDS) if (sv[k] !== undefined) game[k] = sv[k];
   if (sv) apuPendiente();   // juegos de azar: se cobra lo que quedó apartado y nada se queda rodando
@@ -26653,7 +26666,7 @@ function newGame(sv, run) {
   const w0 = sv ? sv.wave : 1, mi = punto === 'sala' ? ROOM_IDX : mapForWave(w0);
   if (punto !== 'ola') game.wave = w0;
   if (punto === 'sala') game.routeWave = w0;   // G1: antes de dibujar la Trastienda (la deuda pendiente y sus cadenas dependen de esto)
-  buildMap(mi);   // siempre de cero: barriles, puertas y objetos vuelven a estar como nuevos
+  buildMap(game.bod ? BOD_IDX : mi);   // siempre de cero: barriles, puertas y objetos vuelven a estar como nuevos
   player.pos.set(world.start.x, 0, world.start.z);
   if (sv) { player.maxHp = sv.maxHp; player.hp = Math.min(sv.hp, sv.maxHp); player.maxSt = sv.maxSt; }
   Object.assign(gs, { reloading: false, phase: '', aim: 0, aiming: false, bloom: 0, fan: 0, autoT: -1, swing: 0, pose: 0, next: 0, draw: 0 });
@@ -26665,7 +26678,8 @@ function newGame(sv, run) {
     setTimeout(() => { if (game && game.phase === 'room') { linternaPon(sitHoy() === 'apagon'); zombiColSale(); sitBanner(true); hint(deudaPend() ? 'De vuelta en la Trastienda · la deuda sigue sin pagar: contesta el teléfono' : 'De vuelta en la Trastienda · todo sigue como lo dejaste', 3000); deudaHud(); } }, 400);
   } else if (punto === 'limpia') {   // la oleada ya está vencida: se sigue con las mismas puertas
     game.phase = 'cleared'; game.countT = 0; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'limpia'; afterClear();
-  } else {
+  } else if (game.bod) bodArranque(sv);   // BETA · Las Bodegas: sin oleadas
+  else {
     startWave(w0);
     if (!sv && !tuto && !Net.on) { game.spawnT = Math.max(game.spawnT, 30); introDeuda(() => {}); }   // G1c: la cinemática (solo; en grupo no, para no frenar a nadie)   // G1: «Lo perdiste todo y ahora debes…» antes del nivel 1 de cada partida
   }
@@ -26847,6 +26861,7 @@ function statsRows() {
 }
 function saveBest() { const best = store.get('sbB_best', null), isRec = !best || game.wave > best.wave || (game.wave === best.wave && game.kills > best.kills); if (isRec) { store.set('sbB_best', { wave: game.wave, kills: game.kills, gold: game.goldTotal }); game.newRec = true; } return isRec || !!game.newRec; }
 function gameOver() {
+  if (game && game.bod) { bodFin(false); return; }   // BETA · Las Bodegas: su propia pantalla (y no borra la partida normal guardada)
   muerte3dFin(); Golpes.limpiar();
   if (tuto) { toMenu(); return; }
   checkUnlocks();
@@ -27052,7 +27067,7 @@ function spread() {
   const m = MODELS[game.equip], sp = Math.hypot(player.vx, player.vz) / 5, aim = game.dual ? gs.aim * 0.4 : gs.aim;
   let s = lerp(0.022, 0.0035, aim) * m.spread + sp * lerp(0.016, 0.006, aim) + (player.onGround ? 0 : 0.03) + gs.bloom;
   if (game.dual && game.char !== 'carlos') s *= 1.2;
-  return s * (1 - 0.22 * lv('steady')) * ST.spreadX * (sigOn(game.equip, 'mira') ? 0.6 : 1) * Math.pow(0.88, forjaLv('pulir'));
+  return s * (1 - 0.22 * lv('steady')) * ST.spreadX * (sigOn(game.equip, 'mira') ? 0.6 : 1) * Math.pow(0.88, forjaLv('pulir')) * bodX(game.equip, 'disp');
 }
 // En el teléfono, con el botón de mira prendido, cada disparo sube a la mirilla un instante.
 function touchFire() {
@@ -27358,7 +27373,7 @@ function gainXp(id) {
     if (game.equip === id) el.wname.textContent = gunName(id) + (game.dual ? ' · a dos manos' : '') + ' · nivel ' + after;
   }
 }
-function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game && game.novaT > 0 ? BD.supernova.x : 1) * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.debilWave === game.wave ? BAL.maquinas.madame.castigos.debil.x : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)); }
+function bulletDmg(h) { const m = MODELS[h.model], l = wlv(h.model); return balDmg() * (game && game.novaT > 0 ? BD.supernova.x : 1) * (game.char === 'sheriff' ? 1.1 : 1) * m.dmg * ((h.model === 'cowboy' || h.model === 'uzi') && l >= 3 ? 1.2 : 1) * (1 + (game.devilDmg || 0)) * (game.debilWave === game.wave ? BAL.maquinas.madame.castigos.debil.x : 1) * (game.goldT > 0 ? 2 : 1) * (game.habK === 'furia' && game.habT > 0 ? HAB.armando.dano : 1) * (game.silver ? 1.25 : 1) * (1 + (l >= 2 ? 0.15 : 0) + (l >= 4 ? 0.15 : 0)) * bodX(h.model, 'dano'); }
 function nearestZombies(p, n, maxD, except) {
   const arr = [];
   for (const o of zombies) { if (o.dead || o.state === 'rise' || except.has(o)) continue; const dd = Math.hypot(o.root.position.x - p.x, o.root.position.z - p.z); if (dd < maxD) arr.push([dd, o]); }
@@ -27387,7 +27402,7 @@ function shoot(h, fanned, yawOff = 0) {
   if (h.model === 'paci' && wlv('paci') >= 3 && Math.random() < 0.12) vuelve();
   h.hudRot -= 360 / h.cap; if (h.hudG) h.hudG.style.transform = `rotate(${h.hudRot}deg)`;
   const adren = balT('segundoaire') && player.hp < player.maxHp * balV('segundoaire', 'hp') ? 1 + balV('segundoaire', 'cad') : 1;   // Segundo aire
-  h.cdMax = m.cd / adren / ST.rateX; if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
+  h.cdMax = m.cd / adren / ST.rateX / bodX(h.model, 'cad'); if (m.burst && h.streak % (m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0)) === m.burst + (h.model === 'mp5' && wlv('mp5') >= 3 ? 1 : 0) - 1) h.cdMax = m.burstGap / adren; h.cd = h.cdMax; h.kick = m.auto ? 0.35 : 1; h.fl = 0.05; h.streak = (h.streak || 0) + 1; h.idleT = 0;
   game.shots++; game.w.shots++; stMas('tiros');
   if (type !== 'normal' && type !== 'mala') { game.specShots = (game.specShots || 0) + 1; stMas('tirosEsp'); if (!tuto && BULLETS[type]) { META.bt = META.bt || {}; META.bt[type] = 1; META.btN = META.btN || {}; META.btN[type] = (META.btN[type] | 0) + 1; } }
   if (type !== 'normal' && type !== 'mala' && game.time - lastBulletFeed > 0.5) { feed(BULLETS[type].name + (kLv > 1 ? ' · nivel ' + kLv : ''), 'gold'); lastBulletFeed = game.time; }
@@ -27397,7 +27412,7 @@ function shoot(h, fanned, yawOff = 0) {
   _r.setFromMatrixColumn(camera.matrixWorld, 0); _u.setFromMatrixColumn(camera.matrixWorld, 1);
   if (yawOff) { cam.applyAxisAngle(_ejeY, yawOff); _r.applyAxisAngle(_ejeY, yawOff); _u.applyAxisAngle(_ejeY, yawOff); }
   gs.fovKick = Math.max(gs.fovKick || 0, 1.7 * m.recoil * (1 - gs.aim * 0.5)); player.rollKick = (Math.random() < 0.5 ? -1 : 1) * 0.011 * m.recoil;
-  player.recoil += (fanned ? 0.035 : 0.05) * m.recoil * (1 - gs.aim * 0.35) * st * (game.dual ? 0.8 : 1);
+  player.recoil += (fanned ? 0.035 : 0.05) * m.recoil * (1 - gs.aim * 0.35) * st * (game.dual ? 0.8 : 1) * bodX(game.equip, 'retro');
   player.yaw += rand(-0.012, 0.012) * st * (fanned ? 2 : 1) * m.recoil;
   gs.bloom = Math.min(0.09, gs.bloom + 0.03 * st * m.recoil);
   player.shake = Math.min(1, player.shake + 0.1 * m.recoil);
@@ -28241,7 +28256,7 @@ function damageZombie(z, amount, info) {
     if (z.shieldHp <= 0) { const sh = z.shield; z.shield = null; dropHit(z, sh); detach(sh, new THREE.Vector3((info.dir ? info.dir.x : 0) * 3, rand(2, 4), (info.dir ? info.dir.z : 0) * 3)); if (!info.ally) feed('¡Escudo roto!', 'blue'); }
     info.part = 'body';
   }
-  z.hp -= amount; z.flash = 0.1;
+  z.hp -= amount; z.flash = 0.1; if (z.bod && !z.bod.alerta && game && game.bod) bodAlerta(z, true);
   if (info.bullet && info.dir && !armorHit && z.boss == null && !Net.client && amount > 0) { const v = Math.min(BAL.empuje.max, BAL.empuje.k * amount / Math.max(1, z.maxHp)) * (z.def.big ? BAL.empuje.grandes : 1); z.kbx = (z.kbx || 0) + info.dir.x * v; z.kbz = (z.kbz || 0) + info.dir.z * v; }   // golpes que empujan (PENDIENTES 47)
   const head = info.part === 'head';
   if (info.bullet && info.point) {
@@ -28286,6 +28301,7 @@ function killZombie(z, info) {
   if (z.boss != null && !z.net && bossPreDeath(z, info)) return;
   const ardia = z.burn > 0;
   z.dead = true; z.deadT = 0; z.burn = 0; z.windup = 0; z.eating = false;
+  if (game && game.bod && !z.net) bodAlMorir(z, info);   // BETA · se levantan, llaves de plata y el jefe
   if (z.colado) zombiColMuere(z);   // G1c: el zombi colado de la Trastienda
   const inGame = !!game && state !== 'menu';
   if (inGame && !z.noCuenta) { game.alive--; game.kills++; }
@@ -28372,11 +28388,11 @@ function startReload() {
     Sfx.insert(); Sfx.close && Sfx.close(); feed('¡Ráfaga! Recarga instantánea', 'gold'); refreshChambers(); return;
   }
   gs.tactic = lv('tactic') && totalAmmo() > 0 ? 1.5 : 1;
-  gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul() / ST.reloadX / (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
+  gs.reloading = true; gs.phase = 'open'; gs.pt = 0.3 / (1 + 0.25 * lv('reload')) / recMul() / ST.reloadX / bodX(game.equip, 'rec') / (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1); gs.wantStop = false; gs.aiming = false; gs.autoT = -1;
   Sfx.open(); stMas('recargas'); if (Net.on) Net.ev(['anim', 'rec']);   // los compañeros ven a tu personaje recargar
 }
 function reloadStep(dt) {
-  const rs = ST.reloadX * (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * (game.clumsyWave === game.wave ? 0.7 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1) * (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1), act = activeHands();
+  const rs = ST.reloadX * bodX(game.equip, 'rec') * (1 + 0.25 * lv('reload')) * (rl('cinturon') ? 1.4 : 1) * (game.clumsyWave === game.wave ? 0.7 : 1) * recMul() * MODELS[game.equip].reload * (wlv(game.equip) >= 4 ? 1.2 : 1) * (gs.tactic || 1) * (game.equip === sigGun() ? 1 + 0.3 * sigLv('cargador') : 1), act = activeHands();
   gs.pt -= dt; if (gs.pt > 0) return;
   if (gs.phase === 'open') {
     let spent = 0;
@@ -30580,6 +30596,7 @@ function ammoCheck(dt) {
   } else { game.noAmmoT = 0; game.noAmmoHint = 0; }
 }
 function updateWave(dt) {
+  if (game.bod && game.phase === 'fight') { bodStep(dt); trAmbiente(dt); return; }   // BETA · Las Bodegas: los zombis cuidan sus cuartos
   if (game.phase === 'fight') {
     game.waveT += dt;
     // Rescates: una rareza, 25 % por oleada desde la segunda
@@ -30758,7 +30775,7 @@ function routeGift(k) {
 }
 const MAP_QUITADOS = [2, 4, 5, 6, 7, 9, 10, 13, 14, 16, 21, 24, 26];   // los mapas quitados por el dueño (15-oct-2026; Calles en Caos, el 7, el 18-oct-2026; Circo 4, Rascacielos 9 y Zoológico 14, el 19-oct-2026)
 const MAP_EN_OBRA = [];   // guardados hasta que tengan su versión grande con llaves (pedido del dueño, 16-oct-2026); al terminar uno, se saca de esta lista
-const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA]);   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
+const MAP_WIP = new Set([...MAP_QUITADOS, ...MAP_EN_OBRA, MAPS.findIndex(m => m.beta)]);   // (la beta de las Bodegas tampoco sale en los caminos)   // lugares que no salen en el camino (el 9, el rascacielos final, se queda: ahí está el jefe final)
 const MAPA_PRIMERO = 0;   // el Cementerio abre todas las partidas (pedido del dueño, 19-oct-2026)
 const primerMapa = () => MAP_WIP.has(MAPA_PRIMERO) ? mapasAbiertos()[0] : MAPA_PRIMERO;
 function routeOptions() {
@@ -31449,6 +31466,7 @@ function leaveTogether() {
 }
 function hostProceed() {
   Net.waiting = false;
+  if (game.bod) { bodVolver(); return; }   // BETA · de la Trastienda se vuelve a las Bodegas
   if (game.pendingRoute) { const o = game.pendingRoute; game.pendingRoute = null; takeRoute(o); return; }
   if (isMapEnd(game.wave) && game.routeWave !== game.wave && !(game.wave >= lastWave() && !game.endless)) { openRoute(); return; }
   const ni = mapForWave(game.wave + 1);
@@ -31673,6 +31691,7 @@ function updateGun(dt) {
 }
 function retarget(z, canAttack) {
   z.tgtT = rand(0.35, 0.55);
+  if (z.bod && game && game.bod && bodRetarget(z)) return;   // BETA · guardias, patrulla, campana y barriles
   const p = z.root.position, np_ = nearestPlayer(p); z.tpos = np_.pos; z.pid = np_.id;
   const dP = Math.hypot(np_.pos.x - p.x, np_.pos.z - p.z);
   z.tk = 'p'; z.tobj = null;
@@ -31755,7 +31774,7 @@ function updateZombies(dt, canAttack) {
     const tp = z.tk === 'p' ? (z.tpos || chase) : z.tobj.root.position;
     const dx = tp.x - pos.x, dz = tp.z - pos.z, dist = Math.hypot(dx, dz) || 0.001;
     let mx = dx / dist, mz = dz / dist, direct = true;
-    nav.dist = z.tk === 'p' ? flowArr(z.pid) : nav.mainDist;
+    nav.dist = z.tk === 'p' ? flowArr(z.pid) : (z.flowD || nav.mainDist);
     if (dist > 2.2 && ((z.tk === 'p' && !z.los) || (z.tk !== 'p' && !lineClear(pos.x, pos.z, tp.x, tp.z, z.r * 0.9)))) { if (flowDir(pos.x, pos.z, z.r * 0.9)) { mx = FD.x; mz = FD.z; direct = false; } }
     // 2 de cada 10 zombis te rodean: buscan ponerse a tu espalda antes de atacar
     if (z.flanker && z.tk === 'p' && dist > 3 && dist < 26 && z.state === 'chase') {
@@ -32227,6 +32246,7 @@ function updateAmbient(dt, t) {
 }
 const ZCOL = { walker: '#e8d36a', crawler: '#e8a040', runner: '#ff4040', spitter: '#a6ff4a', brute: '#ff7a2a', dog: '#ff6060', bloater: '#c8ff40', screamer: '#ff70ff', armored: '#70b8ff', copz: '#e8d36a', abom: '#ff2a00', boss: '#ff2a00', saw: '#ff7a30', bandit: '#ffd090', axer: '#ff9a50', knight: '#9ab8ff', caballero: '#c8d0e0', conjurador: '#c040ff', esqueleto: '#f0e8d0', oro: '#ffd040', enfermera: '#ff8ab0' };   // cada tipo de zombi con su color en el minimapa
 function drawMap() {
+  if (game && game.bod && world.idx === BOD_IDX) return bodMinimapa();   // BETA · solo las habitaciones exploradas
   const c = mapCtx, W = 260, R = 130, sc = R / 32;
   c.clearRect(0, 0, W, W);
   c.save(); c.beginPath(); c.arc(R, R, R - 2, 0, TAU); c.clip();
@@ -32264,11 +32284,11 @@ function updateHud(dt) {
   if (cache.der !== ready) { cache.der = ready; el.de.classList.toggle('ready', ready); el.bDe.classList.toggle('ready', ready); }
   habHud();
   setText(el.mapname, 'mapn', MAPS[world.idx].name);
-  setText(el.wave, 'wave', tuto ? 'Tutorial' : `Día ${game.wave}`);
+  setText(el.wave, 'wave', tuto ? 'Tutorial' : game.bod ? 'Nivel 1 · beta' : `Día ${game.wave}`);
   const left = game.toSpawn + Math.max(0, game.alive);
-  setText(el.waveSub, 'wsub', game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : tuto ? tuto.sub : 'Despejado');
+  setText(el.waveSub, 'wsub', game.bod && game.phase === 'fight' ? bodSub() : game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : tuto ? tuto.sub : 'Despejado');
   { const ct = $('#contract'), tx = contractText(); setText(ct, 'ctr', tx); const ci = $('#ctr-ic'); if (!!tx !== !!ci.innerHTML) ci.innerHTML = tx ? ico('scroll') : ''; const cl = game.contract ? (game.contract.done ? 'done' : game.contract.fail ? 'fail' : '') : ''; if (ct.className !== cl) ct.className = cl; if (game.phase === 'fight' && !(game.time % 0.5 < 0.02)) contractStep(false); }
-  setText(el.fee, 'fee', game.phase === 'room' ? 'La Trastienda' : game.phase === 'exit' ? 'Elige una puerta para seguir' : '');
+  setText(el.fee, 'fee', game.bod && game.phase === 'fight' ? bodFee() : game.phase === 'room' ? 'La Trastienda' : game.phase === 'exit' ? 'Elige una puerta para seguir' : '');
   setText(el.gold, 'gold', `$ ${game.gold}`); deudaMini();
   cajaHud();
   { const npc = cops.find(c => c.npc && !c.dead);
@@ -32536,7 +32556,7 @@ function calcStats() {
 calcStats();
 const S = k => ST[k] || 0;
 for (const k in MODELS) MODELS[k].cap0 = MODELS[k].cap;
-function sigApply() { for (const k in MODELS) MODELS[k].cap = MODELS[k].cap0; }
+function sigApply() { for (const k in MODELS) MODELS[k].cap = MODELS[k].cap0 + (game && game.bod ? bodCap(k) : 0); }
 function capChanged() {
   if (!game || !game.equip) return;
   sigApply();
@@ -32861,7 +32881,8 @@ function deudaPagada() {
   setTimeout(() => { if (!game || state !== 'tel') return; telCerrar(); }, 2600);
   Sfx.cadena(); deudaHud();
   trRehacer();
-  banner('Las puertas se abren', 'Pagaste la deuda: las salas sin llave y el pasillo de los caminos están abiertos', 3000, 'key');
+  if (game.bod) banner('Cuota pagada', 'Don Santino te deja salir: usa la llave en la puerta de salida', 3000, 'key');
+  else banner('Las puertas se abren', 'Pagaste la deuda: las salas sin llave y el pasillo de los caminos están abiertos', 3000, 'key');
   if (Net.client) Net.ev(['ready', game.wave]);
   saveGame({ punto: 'sala' });
 }
@@ -32950,7 +32971,8 @@ function telCerrar(silencio) {
   const D = game && game.deuda;
   if (D && deudaPend() && !silencio) {
     D.colgado = true;
-    if (!D.dados && game.gold < deudaFalta()) { D.dados = true; Sfx.cadena(); trRehacer(); banner('La sala de los dados se abre', 'El casino te deja apostar para juntar lo que falta. Vuelve al teléfono cuando lo tengas.', 3400, 'dice'); }
+    if (game.bod) hint('Junta lo que falta y vuelve a llamar: rompe cajas, abre cofres o pasa por la Trastienda', 3400);
+    else if (!D.dados && game.gold < deudaFalta()) { D.dados = true; Sfx.cadena(); trRehacer(); banner('La sala de los dados se abre', 'El casino te deja apostar para juntar lo que falta. Vuelve al teléfono cuando lo tengas.', 3400, 'dice'); }
     else hint('Vuelve al teléfono cuando tengas el dinero', 2200);
     saveGame({ punto: 'sala' });
   }
@@ -33018,9 +33040,9 @@ const INTRO_FRASE = 'Oí que perdiste todo lo que te presté. Más te vale pagar
 // dueño, 20-oct-2026: habla por frases; cada BAL.intro.frase segundos sale la siguiente (y el nombre del mapa sale después de la llamada)
 const INTRO_FRASES = ['Oí que perdiste todo lo que te presté.', 'Más te vale pagarme o atente a las consecuencias.', 'Ah, por cierto, el apocalipsis zombi llegó;', 'no vayas a pensar que eso te exenta de tu deuda.', '¡TIENES 3 DÍAS!'];
 let cineT = [];
-function introDeuda(then) {
+function introDeuda(then, o = {}) {
   const box = $('#g1-intro'); if (!box || tuto || store.get('sb_sinCine', 0)) { if (game && game.phase === 'fight') game.spawnT = Math.min(game.spawnT, BAL.deuda.introSale); then(); return; }   // (sb_sinCine: solo para las pruebas automáticas)
-  const I = BAL.intro, f = $('#gi-frase'), bt = $('#gi-cont'); for (const t of cineT) clearTimeout(t); cineT = [];
+  const I = BAL.intro, f = $('#gi-frase'), bt = $('#gi-cont'), FR = o.frases || INTRO_FRASES; for (const t of cineT) clearTimeout(t); cineT = [];
   const bPend = el.banner.classList.contains('on') ? [el.bT.textContent, el.bS.textContent].filter(Boolean) : null; clearTimeout(bannerTO); el.banner.classList.remove('on');   // el anuncio del día espera a después de la llamada
   game.cineOn = true; state = 'cine'; el.hud.hidden = true; $('#touch').hidden = true; if (document.pointerLockElement) document.exitPointerLock();
   f.textContent = ''; bt.hidden = true; box.hidden = false; box.classList.remove('sale', 'sale-t', 'descolgado'); void box.offsetWidth; box.classList.add('entra', 'suena');
@@ -33031,16 +33053,16 @@ function introDeuda(then) {
   // dueño, 20-oct-2026: cada frase sigue cuando tocas «Continuar» (así da tiempo de leer); tras la última, «Continuar» cuelga
   let fi = -1;
   const decir = () => {
-    fi++; const t_ = tx(INTRO_FRASES[fi]); f.textContent = `«${t_}»`; f.classList.remove('fr-in'); void f.offsetWidth; f.classList.add('fr-in');
+    fi++; const t_ = tx(FR[fi]); f.textContent = `«${t_}»`; f.classList.remove('fr-in'); void f.offsetWidth; f.classList.add('fr-in');
     Sfx.santino(clamp(t_.length * I.letra, 0.8, 4)); bt.hidden = false; bt.focus();
   };
   at(tDesc + 0.5, decir);
   const seguir = () => {
     if (!game || !game.cineOn || box.dataset.colgado === '1') return; box.dataset.colgado = '1';
-    for (const t of cineT) clearTimeout(t); cineT = []; Sfx.colgar(); bt.hidden = true; $('#gi-saltar').hidden = true; f.textContent = `«${tx(INTRO_FRASES[INTRO_FRASES.length - 1])}»`; box.classList.remove('descolgado', 'suena'); box.classList.add('sale-t');
-    at(I.espera, () => { box.classList.add('sale'); const M_ = MAPS[world.idx]; if (M_) banner(M_.name, bPend ? bPend.join(' · ') : `Día ${game.wave}`, (I.vuelo + 1.5) * 1000); cineVuelo(() => { box.hidden = true; box.classList.remove('entra', 'sale', 'sale-t', 'suena'); delete box.dataset.colgado; cineFin(then); }); });
+    for (const t of cineT) clearTimeout(t); cineT = []; Sfx.colgar(); bt.hidden = true; $('#gi-saltar').hidden = true; f.textContent = `«${tx(FR[FR.length - 1])}»`; box.classList.remove('descolgado', 'suena'); box.classList.add('sale-t');
+    at(I.espera, () => { box.classList.add('sale'); const M_ = MAPS[world.idx]; if (M_) banner(M_.name, o.sub || (bPend ? bPend.join(' · ') : `Día ${game.wave}`), (I.vuelo + 1.5) * 1000); (o.vuelo === false ? fin => fin() : cineVuelo)(() => { box.hidden = true; box.classList.remove('entra', 'sale', 'sale-t', 'suena'); delete box.dataset.colgado; cineFin(then); }); });
   };
-  const avanzar = () => { if (bt.hidden) return; if (fi < INTRO_FRASES.length - 1) decir(); else seguir(); };
+  const avanzar = () => { if (bt.hidden) return; if (fi < FR.length - 1) decir(); else seguir(); };
   delete box.dataset.colgado; bt.onclick = avanzar; const sk = $('#gi-saltar'); sk.hidden = false; sk.onclick = seguir;
   // dueño, 20-oct-2026: Espacio sigue con la frase siguiente y Enter salta la llamada (en PC se ve la tecla en cada botón)
   if (!IS_TOUCH) { bt.innerHTML = `${tx('Continuar')} <kbd>${tx('Espacio')}</kbd>`; sk.innerHTML = `${tx('Saltar la llamada')} <kbd>Enter</kbd>`; }
@@ -38635,7 +38657,7 @@ const ganadoAlguna = () => DIFF_KEYS.some(juegoGanado);
 const diffAbierta = d => d === 'normal' || (d === 'dificil' ? juegoGanado('normal') : d === 'apoc' ? juegoGanado('dificil') : false);
 const DIFF_REQ = { dificil: 'Se abre al ganar el juego en Normal', apoc: 'Se abre al ganar el juego en Difícil' };
 // orden en que se abren los mapas: primero los que ya están terminados, después los que siguen en obra (esos no salen hasta estar listos)
-function mapOrden() { const ok = [], obra = []; MAPS.forEach((m, i) => { if (i === ROOM_IDX || i === CASINO_IDX) return; (MAP_WIP.has(i) ? obra : ok).push(i); }); return ok.concat(obra); }
+function mapOrden() { const ok = [], obra = []; MAPS.forEach((m, i) => { if (i === ROOM_IDX || i === CASINO_IDX || m.beta) return; (MAP_WIP.has(i) ? obra : ok).push(i); }); return ok.concat(obra); }
 const mapasCuenta = () => mapOrden().length;   // decisión del dueño (19-oct-2026): todos los mapas listos están abiertos desde el inicio (el Cementerio siempre es el primero)
 const mapasAbiertos = () => { const a = mapOrden().slice(0, mapasCuenta()).filter(i => !MAP_WIP.has(i)); return a.length ? a : [0]; };
 const CHAR_JEFE = { ludo: 1 };   // el resto de los personajes se abre con el jefe de un mapa (BAL.desbloqueo)
@@ -39473,7 +39495,7 @@ $('#btn-tu-menu').addEventListener('click', () => toMenu());
 // (antes el menú se quedaba congelado uno o dos segundos mientras se armaba). En grupo se arma enseguida, como antes, y solo se aclara con un fundido.
 let arrancando = false;
 function fundidoAntes(sv) {
-  const w0 = sv && sv.wave ? sv.wave : 1, M_ = MAPS[sv && sv.punto === 'sala' ? ROOM_IDX : mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])] || MAPS[0];
+  const w0 = sv && sv.wave ? sv.wave : 1, M_ = (BOD.pide || (sv && sv.bod) ? MAPS[BOD_IDX] : MAPS[sv && sv.punto === 'sala' ? ROOM_IDX : mapForWave(w0, sv && sv.route ? sv.route : [primerMapa()])]) || MAPS[0];
   const cine = !sv && !Net.on && !tuto && !store.get('sb_sinCine', 0);   // con la llamada de Don Santino el nombre del mapa sale después (dueño, 20-oct-2026)
   $('#fade-s').textContent = cine ? '' : sv && sv.wave ? `Día ${w0}` : 'Nivel 1'; $('#fade-t').textContent = cine ? '' : M_.name; $('#fade-d').textContent = cine ? '' : M_.desc || '';
   el.fade.style.transition = 'none'; el.fade.classList.add('on'); void el.fade.offsetWidth; el.fade.style.transition = '';
@@ -39491,9 +39513,9 @@ function startGame(sv) {
   requestAnimationFrame(() => requestAnimationFrame(() => { arrancando = false; startGameNow(sv); fundidoDespues(); }));   // dos cuadros: el negro ya se pintó
 }
 function startGameNow(sv) {
-  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : Object.assign({ char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff }, Net.on && Net.run0 ? Net.run0 : {}));
+  Sfx.init(); Music.init(); newGame(sv && sv.wave ? sv : null, sv && sv.wave ? null : Object.assign({ char: charElegido(), skull: 0, diff: Net.client ? (Net.diff || 'normal') : Net.on ? (Net.diffSel || META.diff) : META.diff }, Net.on && Net.run0 ? Net.run0 : {}, !Net.on && BOD.pide ? { bod: BOD.pide } : {})); BOD.pide = 0;
   if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint(`${META.azar ? 'Te tocó: ' : ''}${CHARS[game.char].name} · ${gunName(CHARS[game.char].gun)}${game.skull ? ' · Calavera ' + game.skull : ''}`, 2500); }, 300);
-  if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
+  if (!(sv && sv.wave)) setTimeout(() => { if (game && game.wave === 1 && !game.bod) hint('Junta oro: al terminar la oleada pasas a la Trastienda.', 4000); }, 2800);
   if (PRUEBA_CASINO && !(sv && sv.wave) && !Net.client && !tuto) irAlCasino(PRUEBA_CASINO.ola);
   if (state !== 'trans') state = 'play'; show(null); el.hud.hidden = false; $('#touch').hidden = !IS_TOUCH;
   if (game && game.cineOn) { state = 'cine'; el.hud.hidden = true; $('#touch').hidden = true; }   // G1c: la cinemática de entrada sigue
@@ -39931,6 +39953,777 @@ $('#btn-keys-reset').addEventListener('click', () => { keyMap = {}; store.set('s
 teclasRefrescar();
 $('#idioma').value = LANG;
 $('#idioma').addEventListener('change', e => { store.set('sb_lang', e.target.value); if (!game || state === 'menu') location.reload(); else { I18N.pend = 1; $('#pause-note').textContent = 'El idioma cambia al volver al menú.'; } });
+
+/* ===================== BETA · NIVEL 1: LAS BODEGAS DEL CASINO (docs/NIVEL1_BETA.md y bocetos/nivel1_mapa.html, 24-oct-2026) =====================
+   Un modo aparte: se entra con el botón «Beta: Las Bodegas» de la portada o con ?beta=bodegas en la dirección. No toca la partida normal:
+   todo lo de este modo vive en game.bod (el mapa sale de una semilla y su estado en game.bod.st) y en el objeto BOD (mallas y cosas vivas).
+   El mapa se arma como el boceto: habitaciones prediseñadas en una cuadrícula que crece como un árbol desde el Inicio. Todas las cifras en BAL.bodegas. */
+BAL.bodegas = {
+  hab: [9, 18], bordes: [5, 3], limite: { guardado: 1, taller: 1, despensa: 1, campana: 1, mini: 2 },
+  paso: 12, alto: 3.2, muro: 0.3, vano: 2, tam: { chica: 6, mediana: 8, grande: 10, puerta: 4 },   // casilla de 8 × 8 m más el pasillo de 2 m de ancho
+  plata: { cada: 4, min: 2, max: 4 }, atajos: [1, 2],
+  guardias: { guardia: [4, 5], taller: [3, 3], bodega: [2, 2], oscuro: [1, 1] }, patrulla: 3, oro: 0.12,
+  vista: 8, ruido: 1,
+ levantarse: { p: 0.4, t: 5 },
+  rompibles: { n: [5, 8], golpes: 2, nada: 0.65, oro: 0.25, oroN: [3, 8], balas: 6 },
+  cofre: { oro: [20, 40], bala: 0.35, pieza: 0.15 },
+  inicio: { balas: 12 }, caja: { cura: 20 }, mini: { premios: [0, 10, 25, 60], p: [0.5, 0.28, 0.16, 0.06], giro: 1.4 },
+  despensa: { platos: 2, cura: [15, 30] }, campana: { t: 8, casillas: 2 }, oscuro: { premio: [15, 25], centro: 1.8 },
+  piezas: { canon: 0.15, gatillo: 0.12, tambor: 1, mira: 0.2, culata: 0.2, cargador: 0.2 },
+  jefe: { vida: 0.4, llamada: 6 }, cuota: [110, 140], trastienda: { fichas: 1 },
+  luces: 3, lucesTel: 2, luz: { color: 0xffb060, i: 1.6, d: 13 }, verHab: 2
+};
+const BOD_IDX = MAPS.findIndex(m => m.beta), BOD_SAVE = 'sbB_bod';
+ECHO[BOD_IDX] = [0.09, 0.32, 0.45, 2800];
+const BOD = { L: null, pide: 0, grp: [], puertas: [], lamp: [], luces: [], usos: {}, lev: [], suelo: [], cebo: null, flowC: null, oculto: null, aqui: null, t: 0, tiros: 0, llamaT: 0, ruta: [], fin: false };
+const BOD_T = {
+  inicio: { n: 'Inicio · el ascensor roto', c: '#5fc27a', tam: 'chica' }, jefe: { n: 'Sala del jefe', c: '#d9533f', tam: 'grande' }, tras: { n: 'Trastienda · puerta verde', c: '#2fa86a', tam: 'puerta' },
+  bodega: { n: 'Bodega de cajas', c: '#a8783e', tam: 'mediana' }, guardia: { n: 'Cuarto de guardia', c: '#c08a2a', tam: 'mediana' }, guardado: { n: 'Cuarto de guardado', c: '#5a8ad0', tam: 'chica' },
+  mini: { n: 'Cuarto del minijuego', c: '#b05ad0', tam: 'chica' }, despensa: { n: 'Despensa', c: '#d0a05a', tam: 'chica' }, taller: { n: 'Taller de armas', c: '#8a8f99', tam: 'mediana' },
+  campana: { n: 'Campanario', c: '#d8c050', tam: 'chica' }, oscuro: { n: 'Cuarto oscuro con barriles', c: '#3a3a4a', tam: 'mediana' }
+};
+const BOD_VAR = ['bodega', 'guardia', 'guardado', 'mini', 'despensa', 'taller', 'campana', 'oscuro'];
+const BOD_PIEZAS = ['canon', 'gatillo', 'tambor', 'mira', 'culata', 'cargador'];
+function bodPiezaInfo(k) {
+  const P = BAL.bodegas.piezas, pc = v => Math.round(v * 100) + ' %';
+  return { canon: { n: 'Cañón largo', d: `+${pc(P.canon)} de daño` }, gatillo: { n: 'Gatillo fino', d: `+${pc(P.gatillo)} de rapidez` }, tambor: { n: 'Tambor extra', d: `+${P.tambor} bala en el tambor` },
+    mira: { n: 'Mira', d: `−${pc(P.mira)} de dispersión` }, culata: { n: 'Culata', d: `−${pc(P.culata)} de retroceso` }, cargador: { n: 'Cargador rápido', d: `+${pc(P.cargador)} de rapidez al recargar` } }[k];
+}
+const BOD_FRASES = ['Bienvenido a las Bodegas de mi casino.', 'Aquí abajo guardo lo que nadie debe ver… y ahora te guardo a ti.', 'Busca la llave: la salida está en la sala del jefe.', 'Y cuando salgas, me pagas la primera cuota.'];
+const BOD_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+// ---- 1. El mapa: el mismo generador del boceto, con semilla (así se puede repetir) y comprobado; si una semilla no cumple las reglas, se prueba otra
+function bodGenerar(seed, nHab) {
+  const B = BAL.bodegas, R = mulberry32(seed), rnd = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const mez = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const total = nHab || rnd(B.hab[0], B.hab[1]), cuenta = { guardia: 1 }, lista = ['guardia'];   // siempre hay al menos un Cuarto de guardia (guarda la llave)
+  for (let k = 0; lista.length < total - 3 && k < 999; k++) { const t = BOD_VAR[rnd(0, BOD_VAR.length - 1)]; if (B.limite[t] && (cuenta[t] | 0) >= B.limite[t]) continue; cuenta[t] = (cuenta[t] | 0) + 1; lista.push(t); }
+  mez(lista);
+  const ocup = new Map(), rooms = [], key = (x, y) => x + ',' + y;
+  const libre = (x, y) => !ocup.has(key(x, y)) && Math.abs(x) <= B.bordes[0] && Math.abs(y) <= B.bordes[1];
+  const poner = (t, x, y, p) => { const r = { i: rooms.length, t, x, y, p: p ? p.i : -1, d: p ? p.d + 1 : 0, hijos: 0 }; if (p) p.hijos++; rooms.push(r); ocup.set(key(x, y), r); return r; };
+  poner('inicio', 0, 0, null);
+  for (const t of lista) {
+    let ok = false;
+    for (let k = 0; k < 400 && !ok; k++) { const b = rooms[rnd(0, rooms.length - 1)], d = BOD_DIRS[rnd(0, 3)]; if (libre(b.x + d[0], b.y + d[1])) { poner(t, b.x + d[0], b.y + d[1], b); ok = true; } }
+    if (!ok) return null;
+  }
+  const vecLibre = r => mez(BOD_DIRS.slice()).map(d => [r.x + d[0], r.y + d[1]]).find(([x, y]) => libre(x, y));
+  const maxD = Math.max(...rooms.map(r => r.d));
+  // la Trastienda (puerta verde) cuelga de una rama a mitad de camino
+  let tras = null;
+  for (const r of rooms.filter(r => r.t !== 'inicio').sort((a, b) => Math.abs(a.d - maxD / 2) - Math.abs(b.d - maxD / 2))) { const v = vecLibre(r); if (v) { tras = poner('tras', v[0], v[1], r); break; } }
+  if (!tras) return null;
+  // la sala del jefe se pega a la habitación más lejana del Inicio
+  let jefe = null;
+  for (const r of rooms.filter(r => r.t !== 'tras').sort((a, b) => b.d - a.d)) { const v = vecLibre(r); if (v) { jefe = poner('jefe', v[0], v[1], r); break; } }
+  if (!jefe || rooms.some(r => r !== jefe && r.d >= jefe.d)) return null;
+  // la llave de la salida: en el Cuarto de guardia más lejano
+  const guard = rooms.filter(r => r.t === 'guardia').sort((a, b) => b.d - a.d); guard[0].llave = true;
+  // habitaciones con llave de plata: 1 por cada 4 (de 2 a 4), solo las que tienen premio y no tienen salida a otras (así nunca tapan el camino)
+  const nPl = clamp(Math.round(rooms.length / B.plata.cada), B.plata.min, B.plata.max);
+  const cand = mez(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave && r.hijos === 0));
+  if (cand.length < nPl) return null;
+  cand.slice(0, nPl).forEach(r => r.plata = true);
+  // atajos: puertas que unen dos ramas vecinas (nunca el jefe, la Trastienda ni las cerradas)
+  const atajos = [];
+  for (const r of rooms) for (const d of BOD_DIRS) { const o = ocup.get(key(r.x + d[0], r.y + d[1])); if (o && o.i > r.i && o.p !== r.i && r.p !== o.i && !['jefe', 'tras'].includes(r.t) && !['jefe', 'tras'].includes(o.t) && !r.plata && !o.plata) atajos.push([r.i, o.i]); }
+  if (!atajos.length) return null;
+  const nAt = Math.min(atajos.length, rnd(B.atajos[0], B.atajos[1])), at = mez(atajos).slice(0, nAt);
+  // de dónde salen las llaves de plata: el grupo de los pasillos y cada Bodega; si no alcanzan, algún cofre de guardia abierto guarda una
+  const nBod = rooms.filter(r => r.t === 'bodega').length; let falta = nPl - 1 - nBod;
+  for (const r of rooms) if (falta > 0 && r.t === 'guardia' && !r.llave && !r.plata) { r.cofrePlata = true; falta--; }
+  if (falta > 0) return null;
+  // lo que tiene cada habitación (sale de la semilla: el mismo mapa trae lo mismo)
+  for (const r of rooms) {
+    const G = B.guardias[r.t]; r.g = G ? rnd(G[0], G[1]) : 0; r.tam = BOD_T[r.t].tam;
+    if (r.t === 'bodega') r.cajas = rnd(B.rompibles.n[0], B.rompibles.n[1]);
+    if (r.t === 'despensa') r.platos = Array.from({ length: B.despensa.platos }, () => rnd(B.despensa.cura[0], B.despensa.cura[1]));
+    if (r.t === 'taller') r.pieza = BOD_PIEZAS[rnd(0, BOD_PIEZAS.length - 1)];
+    if (r.t === 'oscuro') r.premio = rnd(B.oscuro.premio[0], B.oscuro.premio[1]);
+    if (r.t === 'guardia' && !r.llave) { r.cofre = r.cofrePlata ? { plata: 1 } : R() < B.cofre.pieza ? { pieza: BOD_PIEZAS[rnd(0, BOD_PIEZAS.length - 1)] } : R() < B.cofre.bala ? { bala: 1 } : { oro: rnd(B.cofre.oro[0], B.cofre.oro[1]) }; }
+    r.sem = rnd(1, 1e6);
+  }
+  // el grupito de los pasillos: un paseo por las habitaciones abiertas (ida y vuelta)
+  const ok = r => !r.plata && r.t !== 'jefe' && r.t !== 'tras';
+  const vec = i => { const out = []; for (const r of rooms) if (r.p === i || rooms[i].p === r.i) out.push(r.i); for (const [a, b] of at) { if (a === i) out.push(b); if (b === i) out.push(a); } return out.filter(j => ok(rooms[j])); };
+  const ini = rooms.filter(r => ok(r) && r.d >= 2 && vec(r.i).length); let ruta = [];
+  if (ini.length) { let c = ini[rnd(0, ini.length - 1)].i, prev = -1; ruta = [c]; for (let k = 0; k < 6; k++) { const v = vec(c).filter(j => j !== prev && j !== 0); if (!v.length) break; prev = c; c = v[rnd(0, v.length - 1)]; ruta.push(c); } }
+  if (ruta.length < 2) return null;
+  const oroR = R() < B.oro ? rooms.filter(r => ok(r) && r.t !== 'inicio')[0] : null;
+  return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1 };
+}
+function bodMapa(seed) {   // la semilla decide cuántas habitaciones (de 9 a 18, todas igual de probables); si el armado no cumple, se reintenta con el mismo número
+  const B = BAL.bodegas, n = B.hab[0] + Math.floor(mulberry32(seed ^ 0x5bd1)() * (B.hab[1] - B.hab[0] + 1));
+  for (let k = 0; k < 600; k++) { const L = bodGenerar((seed + k * 7919) >>> 0, k < 500 ? n : 0); if (L) { L.seed0 = seed; return L; } } return null;
+}
+
+// Comprueba las reglas del boceto (lo usan las pruebas): devuelve la lista de problemas (vacía si todo está bien)
+function bodRevisar(L) {
+  const B = BAL.bodegas, mal = [], R = L.rooms, n = R.length, c = t => R.filter(r => r.t === t).length;
+  if (n < B.hab[0] || n > B.hab[1]) mal.push('habitaciones ' + n);
+  if (c('inicio') !== 1 || c('jefe') !== 1 || c('tras') !== 1) mal.push('fijas');
+  for (const k in B.limite) if (c(k) > B.limite[k]) mal.push('límite ' + k);
+  const J = R.find(r => r.t === 'jefe'); if (R.some(r => r !== J && r.d >= J.d)) mal.push('jefe no es la más lejana');
+  const g = R.filter(r => r.t === 'guardia'), ll = R.filter(r => r.llave); if (ll.length !== 1 || ll[0].t !== 'guardia' || g.some(r => r.d > ll[0].d)) mal.push('llave');
+  const np = R.filter(r => r.plata).length, want = clamp(Math.round(n / B.plata.cada), B.plata.min, B.plata.max); if (np !== want) mal.push('plata ' + np + '/' + want);
+  if (R.some(r => r.plata && !['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t))) mal.push('plata en tipo');
+  if (L.atajos.length < B.atajos[0] || L.atajos.length > B.atajos[1]) mal.push('atajos ' + L.atajos.length);
+  const keys = 1 + c('bodega') + R.filter(r => r.cofre && r.cofre.plata).length; if (keys < np) mal.push('faltan llaves de plata');
+  const pos = new Set(R.map(r => r.x + ',' + r.y)); if (pos.size !== n) mal.push('casillas repetidas');
+  for (const r of R) if (r.p >= 0) { const p = R[r.p]; if (Math.abs(p.x - r.x) + Math.abs(p.y - r.y) !== 1) mal.push('pasillo largo'); }
+  for (const r of R) if (r.t !== 'inicio' && r.p < 0) mal.push('suelta');
+  return mal;
+}
+// ---- medidas en el mundo: centro y mitad de cada habitación (los centros caen en medio de una celda de la ruta de los zombis)
+const bodC = r => ({ x: r.x * BAL.bodegas.paso + 0.5, z: r.y * BAL.bodegas.paso + 0.5 });
+const bodH = r => BAL.bodegas.tam[r.tam] / 2;
+function bodHabDe(x, z, m = 0.2) { if (!BOD.L) return null; for (const r of BOD.L.rooms) { const c = bodC(r), h = bodH(r) + m; if (Math.abs(x - c.x) <= h && Math.abs(z - c.z) <= h) return r; } return null; }
+function bodUniones(L) { const E = []; for (const r of L.rooms) if (r.p >= 0) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); return E; }
+function bodPasilloDe(x, z) {
+  const L = BOD.L; if (!L) return []; const out = [];
+  for (const [a, b] of bodUniones(L)) { const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); if (x >= Math.min(A.x, Bc.x) - 1.3 && x <= Math.max(A.x, Bc.x) + 1.3 && z >= Math.min(A.z, Bc.z) - 1.3 && z <= Math.max(A.z, Bc.z) + 1.3) out.push(L.rooms[a], L.rooms[b]); }
+  return out;
+}
+const bodSt = () => game && game.bod && game.bod.st;
+function bodEstado(L) {
+  const B = BAL.bodegas;
+  return { vis: { 0: 1 }, abiertas: {}, rotos: {}, usados: {}, vivos: L.rooms.map(r => r.g), patrulla: B.patrulla, oro: L.oro >= 0 ? 1 : 0, plata: 0, llave: 0, suelo: [], piezas: [], trasN: 0, jefe: 0, sorpresa: {}, volver: 0, caja: 0, cuota: 0, inicio: 0 };
+}
+
+// ---- 2. Construir el sótano en 3D: paredes de piedra, suelo, techo, puertas y lámparas cálidas.
+// Para el teléfono: todas las paredes son UNA sola malla, pocas luces de verdad (se mueven a las lámparas más cercanas) y brillos en vez de luces.
+function bodFundir(boxes, m) {
+  const pos = [], nor = [], uv = [], idx = []; let base = 0;
+  for (const [x, y, z, w, h, d] of boxes) {
+    const g = new THREE.BoxGeometry(w, h, d), P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
+    for (let i = 0; i < P.count; i++) {
+      pos.push(P.getX(i) + x, P.getY(i) + y, P.getZ(i) + z); nor.push(N.getX(i), N.getY(i), N.getZ(i));
+      const ax = Math.abs(N.getX(i)), ay = Math.abs(N.getY(i)); uv.push(U.getX(i) * (ax > 0.5 ? d : w) / m, U.getY(i) * (ay > 0.5 ? d : h) / m);
+    }
+    for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base);
+    base += P.count; g.dispose();
+  }
+  const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); G.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); G.setIndex(idx); G.computeBoundingSphere();
+  return G;
+}
+const BODM = {};
+function bodMats() {
+  const piedra = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#4a3f34'; g.fillRect(0, 0, w, h);
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 4; c++) { const x = c * 64 + (r % 2 ? 32 : 0), y = r * 32; g.fillStyle = pick(['#5a4c3e', '#54473a', '#615242', '#4e4236', '#665645']); g.fillRect(x + 2, y + 2, 60, 28); g.fillRect(x - 256 + 2, y + 2, 60, 28); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = pick(['rgba(0,0,0,.18)', 'rgba(255,230,190,.06)']); g.fillRect(rand(0, w), rand(0, h), 2, 2); }
+    const gr = g.createLinearGradient(0, h * 0.75, 0, h); gr.addColorStop(0, 'rgba(20,14,8,0)'); gr.addColorStop(1, 'rgba(20,14,8,.45)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  }, 1);
+  const suelo = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#2c241c'; g.fillRect(0, 0, w, h);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { g.fillStyle = pick(['#3a3026', '#352b22', '#40352a', '#30281f']); g.fillRect(c * 64 + 2, r * 64 + 2, 60, 60); }
+    for (let i = 0; i < 1400; i++) { g.fillStyle = pick(['rgba(0,0,0,.25)', 'rgba(255,220,170,.05)']); g.fillRect(rand(0, w), rand(0, h), 2, 2); }
+  }, 1);
+  const techo = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#1e1610'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 32) { g.fillStyle = '#2e2218'; g.fillRect(x + 2, 0, 26, h); g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(x + 28, 0, 4, h); }
+  }, 1);
+  BODM.muro = lam(0xc8b8a8, { map: piedra });
+ BODM.suelo = lam(0xffffff, { map: suelo }); BODM.techo = lam(0xffffff, { map: techo });
+  BODM.madera = lam(0x6a4424); BODM.madera2 = lam(0x4a2e18); BODM.hierro = lam(0x3a3c40); BODM.plata = lam(0xc8d0d8, { emissive: 0x30343a }); BODM.oro = lam(0xd8a838, { emissive: 0x3a2804 });
+  BODM.barril = lam(0x5a3a1e); BODM.aro = lam(0x2a2a2c); BODM.verde = lam(0x1f7a46, { emissive: 0x0a3018 }); BODM.rojo = lam(0x8a2a22); BODM.tela = lam(0x6a1a1a);
+  BODM.foco = bsc(0xffd8a0); BODM.negro = bsc(0x050403);
+}
+function bodGlow(x, y, z, col, s, op, p) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); (p || world.group).add(sp); return sp; }
+function bodCartel(txt, sub, w = 2.4, h = 1.2) {
+  const t = canvasTex(512, 256, (g, W, H) => {
+    g.fillStyle = '#e8dcc0'; g.fillRect(0, 0, W, H); g.strokeStyle = '#5a3a1a'; g.lineWidth = 14; g.strokeRect(7, 7, W - 14, H - 14);
+    g.fillStyle = '#2a1a0a'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 44px Georgia, serif';
+    const words = tx(txt).split(' '), lines = []; let cur = ''; for (const wd of words) { const tst = cur ? cur + ' ' + wd : wd; if (g.measureText(tst).width > W - 60 && cur) { lines.push(cur); cur = wd; } else cur = tst; } if (cur) lines.push(cur);
+    lines.forEach((l, i) => g.fillText(l, W / 2, H / 2 - (lines.length - 1) * 26 + i * 52 - (sub ? 18 : 0)));
+    if (sub) { g.font = '600 30px sans-serif'; g.fillStyle = '#6a2a1a'; g.fillText(tx(sub), W / 2, H - 40); }
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t }));
+}
+function buildBodegas() {
+  const B = BAL.bodegas, G = game && game.bod;
+  const L = BOD.L = bodMapa(G ? G.seed : 20261024); if (!L) return;
+  if (G && !G.st) G.st = bodEstado(L);
+  const st = G ? G.st : bodEstado(L);
+  if (st.jefe === 1) st.jefe = 0;   // al rehacer el mapa el jefe no está: la pelea vuelve a empezar al entrar
+  const S = B.paso, H = B.alto, T = B.muro, V = B.vano / 2;
+  world.indoor = true; world.noMoon = true; world.shirts = [0x3a2e24, 0x4a3b2c, 0x2a2420, 0x5a4a3a, 0x3d3530]; world.mix = {};
+  const ax = L.rooms.map(r => Math.abs(bodC(r).x)), az = L.rooms.map(r => Math.abs(bodC(r).z));
+  world.arena = { t: 'r', hx: Math.ceil(Math.max(...ax) + 7), hz: Math.ceil(Math.max(...az) + 7) };
+  env({ fog: 0x0e0906, dens: 0.05, top: 0x050302, sky: false, hemiS: 0xffd2a0, hemiG: 0x2a1a10, hemiI: 0.42, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
+  bodMats();
+  BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = [];
+  // suelo y techo: una sola pieza cada uno
+  const A = world.arena, fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.suelo); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = false;
+  { const u = fl.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 2, u.getY(i) * A.hz / 2); }
+  world.group.add(fl); world.ground = fl;
+  const ce = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.techo); ce.rotation.x = Math.PI / 2; ce.position.y = H;
+  { const u = ce.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 1.6, u.getY(i) * A.hz / 1.6); }
+  world.group.add(ce);
+  // qué lados de cada habitación tienen hueco: hacia sus uniones, la salida del jefe y la puerta verde
+  const E = bodUniones(L), lados = L.rooms.map(() => ({}));
+  const lado = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y; return dx === 1 ? 'e' : dx === -1 ? 'o' : dy === 1 ? 's' : 'n'; };
+  for (const [a, b] of E) { lados[a][lado(L.rooms[a], L.rooms[b])] = b; lados[b][lado(L.rooms[b], L.rooms[a])] = a; }
+  const opuesto = { e: 'o', o: 'e', n: 's', s: 'n' }, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
+  const jefe = L.rooms.find(r => r.t === 'jefe'), tras = L.rooms.find(r => r.t === 'tras');
+  const ladoUnico = r => Object.keys(lados[r.i])[0];
+  const jEnt = ladoUnico(jefe), jSal = opuesto[jEnt], tEnt = ladoUnico(tras), tVerde = opuesto[tEnt];
+  lados[jefe.i][jSal] = 'salida'; lados[tras.i][tVerde] = 'verde';
+  BOD.jefeEnt = jEnt;
+  // paredes de cada habitación (con un hueco de 2 m en cada lado con unión)
+  const boxes = [];
+  const pared = (cx, cz, h, k, hueco) => {   // k: lado; la pared va por fuera del cuarto
+    const [dx, dz] = DV[k], px = cx + dx * (h + T / 2), pz = cz + dz * (h + T / 2), largo = 2 * h + 2 * T;
+    if (!hueco) { if (dx) { boxes.push([px, H / 2, pz, T, H, largo]); addBox(px, pz, T / 2, largo / 2); } else { boxes.push([px, H / 2, pz, largo, H, T]); addBox(px, pz, largo / 2, T / 2); } return; }
+    const tramo = (largo - 2 * V) / 2, off = V + tramo / 2;
+    for (const s of [-1, 1]) { if (dx) { boxes.push([px, H / 2, pz + s * off, T, H, tramo]); addBox(px, pz + s * off, T / 2, tramo / 2); } else { boxes.push([px + s * off, H / 2, pz, tramo, H, T]); addBox(px + s * off, pz, tramo / 2, T / 2); } }
+    if (dx) boxes.push([px, H - 0.3, pz, T, 0.6, 2 * V]); else boxes.push([px, H - 0.3, pz, 2 * V, 0.6, T]);   // dintel
+  };
+  for (const r of L.rooms) { const c = bodC(r), h = bodH(r); for (const k of ['e', 'o', 'n', 's']) pared(c.x, c.z, h, k, lados[r.i][k] != null); }
+  // pasillos de 2 m entre habitaciones vecinas (en el hueco de afuera de la salida y la puerta verde hay un nicho oscuro)
+  for (const [a, b] of E) {
+    const ra = L.rooms[a], rb = L.rooms[b], ca = bodC(ra), cb = bodC(rb), k = lado(ra, rb), [dx, dz] = DV[k];
+    const s0 = bodH(ra) + T, s1 = S - bodH(rb) - T, len = s1 - s0, mid = (s0 + s1) / 2;
+    for (const sd of [-1, 1]) { if (dx) { const x = ca.x + dx * mid, z = ca.z + sd * (V + T / 2); boxes.push([x, H / 2, z, len, H, T]); addBox(x, z, len / 2, T / 2); } else { const x = ca.x + sd * (V + T / 2), z = ca.z + dz * mid; boxes.push([x, H / 2, z, T, H, len]); addBox(x, z, T / 2, len / 2); } }
+  }
+  for (const [r, k] of [[jefe, jSal], [tras, tVerde]]) {   // nicho detrás de la puerta (la puerta tapa el paso)
+    const c = bodC(r), h = bodH(r), [dx, dz] = DV[k], p0 = h + T, nx = c.x + dx * (p0 + 0.6), nz = c.z + dz * (p0 + 0.6);
+    if (dx) { boxes.push([nx, H / 2, nz - V - T / 2, 1.2, H, T], [nx, H / 2, nz + V + T / 2, 1.2, H, T], [c.x + dx * (p0 + 1.2 + T / 2), H / 2, nz, T, H, 2 * V + 2 * T]); }
+    else { boxes.push([nx - V - T / 2, H / 2, nz, T, H, 1.2], [nx + V + T / 2, H / 2, nz, T, H, 1.2], [nx, H / 2, c.z + dz * (p0 + 1.2 + T / 2), 2 * V + 2 * T, H, T]); }
+  }
+  const muros = new THREE.Mesh(bodFundir(boxes, 2), BODM.muro); muros.receiveShadow = false; muros.castShadow = false; world.group.add(muros); solids.push(muros);
+  // ---- puertas
+  const puerta = (r, k, tipo) => {
+    const c = bodC(r), h = bodH(r), [dx, dz] = DV[k], x = c.x + dx * (h + T / 2), z = c.z + dz * (h + T / 2);
+    const g = new THREE.Group(), ix = -dx, iz = -dz, alongZ = !!dx;   // la hoja gira hacia dentro del cuarto
+    g.position.set(alongZ ? x : x - V, 0, alongZ ? z - V : z); world.group.add(g);
+    const mat = tipo === 'verde' ? BODM.verde : tipo === 'salida' ? BODM.madera2 : BODM.madera;
+    const hoja = new THREE.Mesh(alongZ ? bx(0.12, 2.5, 2 * V) : bx(2 * V, 2.5, 0.12), mat); hoja.position.set(alongZ ? 0 : V, 1.25, alongZ ? V : 0); g.add(hoja); solids.push(hoja);
+    const banda = tipo === 'plata' ? BODM.plata : tipo === 'salida' ? BODM.oro : BODM.hierro;
+    for (const y of [0.5, 2.0]) { const b = new THREE.Mesh(alongZ ? bx(0.15, 0.12, 2 * V) : bx(2 * V, 0.12, 0.15), banda); b.position.set(alongZ ? 0 : V, y, alongZ ? V : 0); g.add(b); }
+    if (tipo === 'plata' || tipo === 'salida') { const ck = new THREE.Mesh(bx(alongZ ? 0.2 : 0.3, 0.34, alongZ ? 0.3 : 0.2), banda); ck.position.set(alongZ ? 0 : V * 1.6, 1.15, alongZ ? V * 1.6 : 0); g.add(ck); bodGlow(alongZ ? x : x + V * 0.6, 1.2, alongZ ? z + V * 0.6 : z, tipo === 'plata' ? 0xc8e0ff : 0xffd060, 0.9, 0.35); }
+    addBox(x, z, alongZ ? T / 2 + 0.05 : V, alongZ ? V : T / 2 + 0.05); const col = colliders[colliders.length - 1];
+    const D = { r: r.i, k, x, z, g, col, tipo, abierta: false, ang: alongZ ? ix * Math.PI / 2 * 0.95 : -iz * Math.PI / 2 * 0.95, a: 0, dx, dz };
+    BOD.puertas.push(D); return D;
+  };
+  for (const r of L.rooms) if (r.plata) for (const k in lados[r.i]) { const D = puerta(r, k, 'plata'); if (st.abiertas[r.i]) bodAbrir(D, true); }
+  BOD.pJefe = puerta(jefe, jEnt, 'jefe'); if (!(st.jefe === 1)) bodAbrir(BOD.pJefe, true);
+  BOD.pSalida = puerta(jefe, jSal, 'salida'); BOD.pVerde = puerta(tras, tVerde, 'verde');
+  world.anims.push(dt => { for (const D of BOD.puertas) { const obj = D.abierta ? D.ang : 0; if (Math.abs(D.a - obj) > 0.001) { D.a = damp(D.a, obj, 6, dt); D.g.rotation.y = D.a; } } });
+  // ---- lámparas, adornos y lo de cada habitación
+  BOD.luces = []; const nL = IS_TOUCH || FAST() ? B.lucesTel : B.luces;
+  for (let i = 0; i < nL; i++) { const l = new THREE.PointLight(B.luz.color, B.luz.i, B.luz.d, 1.6); l.position.set(0, -50, 0); world.group.add(l); BOD.luces.push(l); }
+  for (const r of L.rooms) {
+    const gR = new THREE.Group(); world.group.add(gR); BOD.grp[r.i] = gR;
+    const c = bodC(r), h = bodH(r);
+    if (r.t !== 'oscuro') {
+      const ly = H - 0.55; M(cyl(0.012, 0.012, 0.5, 4), BODM.aro, c.x, H - 0.25, c.z, { p: gR, cast: false, recv: false });
+      M(new THREE.SphereGeometry(0.13, 8, 6), BODM.foco, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.aro, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
+      const halo = bodGlow(c.x, ly, c.z, 0xffb060, 2.6, 0.55, gR); BOD.lamp.push({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo });
+    }
+    bodAdornos(r, c, h, gR, lados[r.i], st);
+  }
+  // ---- llaves que quedaron en el suelo
+  for (const k of st.suelo) bodLlaveSuelo(k, true);
+  // puntos de aparición (para lo que los pida: en las Bodegas los zombis salen de sus cuartos)
+  for (const r of L.rooms) if (r.t !== 'inicio' && r.t !== 'tras') { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
+  const ini = st.volver ? tras : L.rooms[st.caja && st.cajaR != null ? st.cajaR : 0], ci = bodC(ini);
+  world.start = { x: ci.x, z: ci.z + (st.volver ? 0 : 0.8) };
+  BOD.tiros = game ? game.shots : 0;
+  if (G) bodPuertasUso();
+}
+// lo que tiene cada habitación (geometría sencilla de la beta)
+function bodAdornos(r, c, h, gR, lados, st) {
+  const B = BAL.bodegas, H = B.alto, R = mulberry32(r.sem), q = (a, b) => a + R() * (b - a);
+  const id = k => r.i + ':' + k, usado = k => !!st.usados[id(k)];
+  const libres = ['e', 'o', 'n', 's'].filter(k => lados[k] == null), DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
+  // esquinas libres (lejos de los pasos en cruz)
+  const esq = [[1, 1], [-1, 1], [1, -1], [-1, -1]].sort(() => R() - 0.5), e = (i, m = 1.25) => ({ x: c.x + esq[i % 4][0] * (h - m), z: c.z + esq[i % 4][1] * (h - m) });
+  const uso = (k, o) => { o.bodK = id(k); if (usado(k)) o.off = true; BOD.usos[o.bodK] = o; return mapUse(Object.assign({ r: 1.7, cd: 0.6 }, o)); };
+  const caja = (x, z, s, rot) => M(bx(s, s, s), BODM.madera, x, s / 2, z, { p: gR, ry: rot, cast: false });
+  if (r.t === 'inicio') {
+    // el ascensor roto en una pared libre
+    const k = libres[0];
+    if (k) { const [dx, dz] = DV[k], px = c.x + dx * (h - 0.08), pz = c.z + dz * (h - 0.08), ry = dx ? -dx * Math.PI / 2 : dz > 0 ? Math.PI : 0, g = Grp(px, pz, ry, gR);
+      M(bx(2.6, 3.0, 0.3), BODM.hierro, 0, 1.5, 0, { p: g, cast: false }); for (const s of [-1, 1]) M(bx(0.95, 2.4, 0.08), lam(0x7a7c80, { emissive: 0x101010 }), s * 0.52, 1.2, 0.18, { p: g, cast: false, ry: s * 0.05 });
+      M(bx(0.5, 0.3, 0.05), bsc(0xff3020), 0, 2.75, 0.18, { p: g, cast: false }); bodGlow(px - dx * 0.4, 2.75, pz - dz * 0.4, 0xff4020, 0.8, 0.5, gR);
+      addBox(px, pz, dx ? 0.25 : 1.3, dx ? 1.3 : 0.25);
+      uso('ascensor', { x: px - dx * 1.2, z: pz - dz * 1.2, t: 'El ascensor roto', d: 'Está trabado: de aquí no se sube. La salida está en la sala del jefe.', b: 'Pulsar el botón', cd: 2, use() { Sfx.err(); hint('El ascensor no se mueve. Busca la llave: la salida está en la sala del jefe', 3000); } });
+      const k2 = libres[1]; if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas'); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
+      else { const s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas', 1.6, 0.8); s_.position.set(0, 3.2, 0.17); g.add(s_); }
+    }
+    const p = e(0); caja(p.x, p.z, 0.8, 0.3); addCircle(p.x, p.z, 0.55); if (!usado('balas')) M(bx(0.5, 0.2, 0.35), lam(0xe8b860, { emissive: 0x3a2808 }), p.x, 0.9, p.z, { p: gR, cast: false });
+    uso('balas', { x: p.x, z: p.z, t: 'Caja de balas', d: `${B.inicio.balas} balas normales para tu caja.`, b: 'Tomar las balas', use(o) { const n = munAdd('pistola', B.inicio.balas); feed(`+${n} balas normales`, 'gold'); Sfx.insert(); bodUsado(o); } });
+  }
+  if (r.t === 'bodega') {
+    const pts = [];
+    for (let k = 0; k < 60 && pts.length < r.cajas; k++) { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1, x = c.x + sx * q(1.6, h - 0.6), z = c.z + sz * q(1.6, h - 0.6); if (pts.every(p => Math.hypot(p.x - x, p.z - z) > 1.15)) pts.push({ x, z }); }
+    pts.forEach((p, k) => { if (!st.rotos[id('c' + k)]) bodRompible(gR, p.x, p.z, R() < 0.5 ? 'caja' : 'barril', id('c' + k)); });
+  }
+  if (r.t === 'guardia') {
+    const p = e(0, 1.0), rot = Math.atan2(c.x - p.x, c.z - p.z); bodCofre(gR, p.x, p.z, rot, r, uso, usado('cofre'));
+    const t = e(1, 1.7); M(bx(1.4, 0.08, 0.8), BODM.madera, t.x, 0.78, t.z, { p: gR, cast: false }); for (const [a, b_] of [[-0.6, -0.32], [0.6, -0.32], [-0.6, 0.32], [0.6, 0.32]]) M(bx(0.07, 0.78, 0.07), BODM.madera2, t.x + a, 0.39, t.z + b_, { p: gR, cast: false }); addBox(t.x, t.z, 0.72, 0.42);
+    M(bx(0.3, 0.05, 0.2), bsc(0xf0e0b0), t.x + 0.2, 0.85, t.z, { p: gR, cast: false });   // naipes
+  }
+  if (r.t === 'guardado') {
+    const p = e(0, 1.0); M(bx(0.9, 1.1, 0.8), lam(0x2a3a4a, { emissive: 0x060a10 }), p.x, 0.55, p.z, { p: gR, cast: false, ry: Math.atan2(c.x - p.x, c.z - p.z) }); addCircle(p.x, p.z, 0.6);
+    const dial = M(cyl(0.14, 0.14, 0.06, 14), BODM.oro, p.x + (c.x - p.x) * 0.22, 0.7, p.z + (c.z - p.z) * 0.22, { p: gR, cast: false, rx: Math.PI / 2, ry: Math.atan2(c.x - p.x, c.z - p.z) });
+    bodGlow(p.x, 1.3, p.z, 0x80b0ff, 1.2, usado('caja') ? 0.08 : 0.35, gR);
+    uso('caja', { x: p.x, z: p.z, t: 'Caja fuerte', d: `Guarda la partida y te cura ${B.caja.cura} de vida. Se usa una sola vez.`, b: 'Abrir la caja fuerte', use(o) { const h_ = Math.min(B.caja.cura, player.maxHp - player.hp); player.hp += h_; dial.rotation.z += 2; bodUsado(o); const s_ = bodSt(); s_.caja = 1; s_.cajaR = r.i; Sfx.cash(); saveGame({ bodCaja: 1, punto: 'ola' }); banner('Partida guardada', h_ > 0 ? `Vida +${Math.round(h_)}` : 'Si caes, vuelves aquí', 2400, 'key'); } });
+  }
+  if (r.t === 'mini') {
+    const p = e(0, 1.0), ry = Math.atan2(c.x - p.x, c.z - p.z), g = Grp(p.x, p.z, ry, gR);
+    M(bx(0.8, 1.5, 0.6), lam(0x6a1a5a, { emissive: 0x200818 }), 0, 0.75, 0, { p: g, cast: false }); M(bx(0.86, 0.12, 0.66), BODM.oro, 0, 1.56, 0, { p: g, cast: false });
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const ctx = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
+    const pinta = (txt, col) => { ctx.fillStyle = '#100810'; ctx.fillRect(0, 0, 256, 128); ctx.fillStyle = col || '#ffe27a'; ctx.font = 'bold 54px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 128, 66); tex.needsUpdate = true; };
+    pinta('7 7 7'); const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshBasicMaterial({ map: tex })); scr.position.set(0, 1.12, 0.31); g.add(scr);
+    M(cyl(0.03, 0.03, 0.4, 6), BODM.hierro, 0.45, 1.1, 0, { p: g, cast: false }); M(new THREE.SphereGeometry(0.07, 8, 6), bsc(0xd02020), 0.45, 1.32, 0, { p: g, cast: false });
+    bodGlow(p.x, 1.2, p.z, 0xff60d0, 1.6, 0.35, gR); addCircle(p.x, p.z, 0.55);
+    const Pm = B.mini; let gira = 0;
+    uso('mini' + r.i, { x: p.x, z: p.z, t: 'Máquina pequeña', d: `1 ficha de miembro por tirada. Premios: ${Pm.premios.filter(v => v).map(v => v + ' $').join(' · ')}.`, b: 'Tirar', ficha: true, cd: Pm.giro + 0.3, use() {
+      if (gira) return; gira = 1; Sfx.reel && Sfx.reel(); let t0 = 0; const roll = setInterval(() => { pinta(`${1 + Math.floor(Math.random() * 9)} ${1 + Math.floor(Math.random() * 9)} ${1 + Math.floor(Math.random() * 9)}`, '#ffffff'); if ((t0 += 0.08) > Pm.giro) { clearInterval(roll); fin(); } }, 80);
+      const fin = () => { gira = 0; if (!game) return; let u = Math.random(), k = 0; for (; k < Pm.p.length - 1; k++) { if (u < Pm.p[k]) break; u -= Pm.p[k]; } const v = Pm.premios[k]; pinta(v ? `+${v} $` : '0 $', v ? '#ffe27a' : '#a08890'); if (v) { addGold(v, true); Sfx.cash(); feed(`Máquina pequeña: +${v} $`, 'gold'); } else { Sfx.err(); feed('Máquina pequeña: nada', ''); } };
+    } });
+  }
+  if (r.t === 'despensa') {
+    const t = e(0, 1.5), ry = Math.atan2(c.x - t.x, c.z - t.z);
+    M(bx(1.6, 0.08, 0.9), BODM.madera, t.x, 0.8, t.z, { p: gR, cast: false, ry }); for (const [a, b_] of [[-0.7, -0.38], [0.7, -0.38], [-0.7, 0.38], [0.7, 0.38]]) M(bx(0.07, 0.8, 0.07), BODM.madera2, t.x + a * Math.cos(ry) + b_ * Math.sin(ry), 0.4, t.z - a * Math.sin(ry) + b_ * Math.cos(ry), { p: gR, cast: false }); addCircle(t.x, t.z, 0.85);
+    const s2 = e(1, 0.5); M(bx(1.2, 1.8, 0.4), BODM.madera2, s2.x, 0.9, s2.z, { p: gR, cast: false, ry: Math.atan2(c.x - s2.x, c.z - s2.z) }); addCircle(s2.x, s2.z, 0.6);
+    for (let k = 0; k < 6; k++) M(cyl(0.07, 0.07, 0.16, 8), pick([BODM.rojo, BODM.oro, BODM.verde]), s2.x + (k % 3 - 1) * 0.3 * Math.cos(Math.atan2(c.x - s2.x, c.z - s2.z)), 0.7 + Math.floor(k / 3) * 0.55, s2.z - (k % 3 - 1) * 0.3 * Math.sin(Math.atan2(c.x - s2.x, c.z - s2.z)), { p: gR, cast: false });
+    r.platos.forEach((cura, k) => {
+      const ox = (k - 0.5) * 0.7, px = t.x + ox * Math.cos(ry), pz = t.z - ox * Math.sin(ry), col = [0xd06030, 0x80a040, 0xe0c060][k % 3];
+      const plato = M(cyl(0.2, 0.17, 0.04, 14), lam(0xf0ece0), px, 0.86, pz, { p: gR, cast: false }), comida = M(new THREE.SphereGeometry(0.12, 10, 6), lam(col, { emissive: 0x201008 }), px, 0.93, pz, { p: gR, cast: false }); comida.scale.y = 0.6;
+      if (usado('plato' + k)) { comida.visible = false; }
+      uso('plato' + k, { x: px, z: pz, r: 1.3, t: 'Plato de la despensa', d: `Cura ${cura} de vida.`, b: 'Comer', use(o) { const h_ = Math.min(cura, player.maxHp - player.hp); player.hp += h_; comida.visible = false; Sfx.heart(); feed(`Vida +${Math.round(h_)}`, 'red'); bodUsado(o); } });
+    });
+  }
+  if (r.t === 'taller') {
+    const t = e(0, 1.6), ry = Math.atan2(c.x - t.x, c.z - t.z);
+    M(bx(1.8, 0.12, 0.9), BODM.madera2, t.x, 0.9, t.z, { p: gR, cast: false, ry }); M(bx(1.7, 0.8, 0.8), BODM.hierro, t.x, 0.42, t.z, { p: gR, cast: false, ry }); addCircle(t.x, t.z, 0.95);
+    const pz_ = M(bx(0.36, 0.1, 0.12), lam(0xb8bcc4, { emissive: 0x404448 }), t.x, 1.02, t.z, { p: gR, cast: false, ry }); const halo = bodGlow(t.x, 1.1, t.z, 0x9ad0ff, 1.0, 0.45, gR);
+    if (usado('pieza')) { pz_.visible = false; halo.visible = false; }
+    const I = bodPiezaInfo(r.pieza);
+    uso('pieza', { x: t.x, z: t.z, t: 'Mesa de armas', d: `${I.n}: ${I.d}. Se pone en el arma que llevas y dura hasta el final de la partida.`, b: 'Poner la pieza', use(o) { bodPieza(r.pieza); pz_.visible = false; halo.visible = false; bodUsado(o); } });
+  }
+  if (r.t === 'campana') {
+    M(bx(0.16, 0.16, 2 * h), BODM.madera2, c.x, H - 0.25, c.z, { p: gR, cast: false });
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.5, 0.7, 14, 1, true), lam(0xc89838, { emissive: 0x3a2808, side: THREE.DoubleSide })); bell.position.set(c.x + 1.4, H - 0.85, c.z + 1.4); gR.add(bell);
+    M(cyl(0.02, 0.02, 0.5, 4), BODM.aro, c.x + 1.4, H - 0.35, c.z + 1.4, { p: gR, cast: false }); bodGlow(c.x + 1.4, H - 0.9, c.z + 1.4, 0xffd060, 1.4, 0.3, gR);
+    let sw = 0; world.anims.push(dt => { if (sw > 0) { sw = Math.max(0, sw - dt * 0.12); bell.rotation.z = Math.sin(performance.now() / 120) * 0.5 * sw; } });
+    shootable(bell, () => { sw = 1; bodCampana(bell.position); });
+  }
+  if (r.t === 'oscuro') {
+    for (let k = 0; k < 3; k++) {
+      const p = e(k, 1.1), bar = new THREE.Group(); bar.position.set(p.x, 0, p.z); gR.add(bar);
+      const cuerpo = new THREE.Mesh(cyl(0.48, 0.42, 1.15, 14), BODM.barril); cuerpo.position.y = 0.58; bar.add(cuerpo); for (const y of [0.2, 0.95]) { const a = new THREE.Mesh(cyl(0.5, 0.5, 0.06, 14), BODM.aro); a.position.y = y; bar.add(a); }
+      addCircle(p.x, p.z, 0.5); const col = colliders[colliders.length - 1], B_ = { x: p.x, z: p.z, g: bar, col };
+      BOD.barriles.push(B_);
+      uso('barril' + k, { x: p.x, z: p.z, r: 1.5, t: 'Barril', d: 'Métete si ningún zombi te está viendo: dentro no te encuentran.', b: 'Esconderte', cd: 0.5, use(o) { bodEsconder(B_, o); } });
+    }
+    const p = e(3, 1.0); M(new THREE.SphereGeometry(0.28, 10, 8), lam(0x8a6a3a, { emissive: 0x2a1a08 }), p.x, 0.26, p.z, { p: gR, cast: false });
+    const saco = gR.children[gR.children.length - 1]; if (usado('premio')) saco.visible = false;
+    uso('premio', { x: p.x, z: p.z, t: 'Bolsa olvidada', d: `Hay ${r.premio} $ dentro.`, b: 'Tomar la bolsa', use(o) { addGold(r.premio, true); Sfx.cash(); feed(`+${r.premio} $`, 'gold'); saco.visible = false; bodUsado(o); } });
+  }
+  if (r.t === 'tras') {
+    const k = Object.keys(lados).find(k => lados[k] === 'verde'), [dx, dz] = DV[k];
+    const s_ = bodCartel('Trastienda', 'Puerta verde', 1.4, 0.6); s_.position.set(c.x + dx * (h - 0.02), 2.85, c.z + dz * (h - 0.02)); s_.rotation.y = dx ? -dx * Math.PI / 2 : dz > 0 ? Math.PI : 0; gR.add(s_);
+    bodGlow(c.x + dx * (h - 0.3), 1.4, c.z + dz * (h - 0.3), 0x40ff90, 2.2, 0.35, gR);
+    const n = st.trasN | 0, fi = n > 0 ? BAL.bodegas.trastienda.fichas : 0;
+    mapUse({ x: c.x + dx * (h - 0.9), z: c.z + dz * (h - 0.9), r: 1.8, cd: 1, t: fi ? 'Trastienda · 1 ficha' : 'Trastienda', d: fi ? `Cada visita cuesta ${fi} ficha de miembro. Compras, juegos con Imo y Miso, Dango y el teléfono.` : 'La primera visita es gratis. Compras, juegos con Imo y Miso, Dango y el teléfono.', b: fi ? 'Entrar' : 'Entrar gratis', ficha: !!fi, use() { bodTrastienda(); } });
+  }
+  if (r.t === 'jefe') {
+    const k = BOD.jefeEnt, [dx, dz] = DV[k], p = { x: c.x - dx * (h - 1.2) + dz * 2.6, z: c.z - dz * (h - 1.2) + dx * 2.6 };
+    M(bx(0.9, 0.7, 0.6), BODM.hierro, p.x, 1.6, p.z, { p: gR, cast: false }); M(cyl(0.12, 0.16, 0.3, 10), BODM.negro, p.x - dx * 0.4, 1.6, p.z - dz * 0.4, { p: gR, cast: false, rz: dx ? Math.PI / 2 : 0, rx: dz ? Math.PI / 2 : 0 }); M(bx(0.5, 1.25, 0.5), BODM.madera2, p.x, 0.62, p.z, { p: gR, cast: false }); addCircle(p.x, p.z, 0.5);
+    for (const s of [-1, 1]) M(cyl(0.35, 0.35, 0.08, 16), BODM.aro, p.x, 2.15, p.z + s * 0.3 * (dx ? 1 : 0) + 0, { p: gR, cast: false, rx: dx ? Math.PI / 2 : 0, rz: dz ? Math.PI / 2 : 0 });
+    bodGlow(p.x - dx * 0.5, 1.6, p.z - dz * 0.5, 0xfff0c0, 1.4, 0.5, gR);
+    const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks];
+    uso('salida', { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9), r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
+  }
+}
+function bodUsado(o) { const s = bodSt(); if (s && o.bodK) s.usados[o.bodK] = 1; o.off = true; useCur = null; showUse(null); }
+function bodRompible(gR, x, z, tipo, idk) {
+  const B = BAL.bodegas.rompibles, caja = tipo === 'caja', s = caja ? rand(0.75, 0.95) : 0.5;
+  const m = caja ? M(bx(s, s, s), BODM.madera, x, s / 2, z, { p: gR, ry: rand(0, 1), cast: false }) : M(cyl(0.42, 0.38, 1.05, 12), BODM.barril, x, 0.53, z, { p: gR, cast: false });
+  if (!caja) for (const y of [0.18, 0.88]) M(cyl(0.44, 0.44, 0.05, 12), BODM.aro, x, y, z, { p: gR, cast: false });
+  const aros = caja ? [] : gR.children.slice(-2);
+  addCircle(x, z, caja ? s * 0.62 : 0.45); const col = colliders[colliders.length - 1]; let golpes = B.golpes;
+  shootable(m, pt => {
+    if (!m.parent) return; sparks(pt || m.position, 5, null); Sfx.thud && Sfx.thud(panOf(m.position)); if (--golpes > 0) return;
+    m.parent.remove(m); for (const a of aros) if (a.parent) a.parent.remove(a);
+    for (const Lst of [solids, world.shoots, colliders]) { const i = Lst.indexOf(Lst === colliders ? col : m); if (i >= 0) Lst.splice(i, 1); }
+    for (let i = 0; i < 18; i++) P.add(x + rand(-0.3, 0.3), 0.5, z + rand(-0.3, 0.3), rand(-3, 3), rand(1, 4), rand(-3, 3), rand(0.6, 1.2), rand(0.06, 0.14), 0.45, 0.3, 0.16, 1, 9.8, 0.4, 0, 1);
+    const st = bodSt(); if (st) st.rotos[idk] = 1;
+    const u = Math.random();   // tacaño (decisión del dueño): 65 % nada, 25 % oro, 10 % balas
+    if (u < B.nada) return;
+    if (u < B.nada + B.oro) { const n = B.oroN[0] + Math.floor(Math.random() * (B.oroN[1] - B.oroN[0] + 1)); makePickup('bag', x, z, n); }
+    else makePickup('ammo', x, z, B.balas);
+  });
+  return m;
+}
+function bodCofre(gR, x, z, ry, r, uso, abierto) {
+  const g = Grp(x, z, ry, gR); M(bx(1.0, 0.55, 0.62), BODM.madera, 0, 0.28, 0, { p: g, cast: false }); for (const s of [-0.4, 0.4]) M(bx(0.08, 0.57, 0.64), BODM.hierro, s, 0.28, 0, { p: g, cast: false });
+  const tapa = new THREE.Group(); tapa.position.set(0, 0.56, -0.31); g.add(tapa); M(bx(1.02, 0.18, 0.64), BODM.madera2, 0, 0.09, 0.31, { p: tapa, cast: false }); M(bx(0.16, 0.2, 0.06), r.llave ? BODM.oro : BODM.hierro, 0, 0, 0.64, { p: tapa, cast: false });
+  if (abierto) tapa.rotation.x = -1.6; addCircle(x, z, 0.6);
+  const halo = bodGlow(x, 0.9, z, r.llave ? 0xffd060 : 0xffb070, 1.1, abierto ? 0 : 0.3, gR);
+  uso('cofre', { x, z, t: r.llave ? 'Cofre del guardia' : 'Cofre', d: 'Ábrelo para ver qué guarda.', b: 'Abrir el cofre', use(o) {
+    tapa.rotation.x = -1.6; halo.material.opacity = 0; bodUsado(o); Sfx.open();
+    const st = bodSt(), C = r.cofre || {};
+    if (r.llave) { st.llave = 1; banner('¡La llave de la salida!', 'Ve a la sala del jefe: la puerta de salida tiene 1 cerrojo', 3200, 'key'); Sfx.win(); }
+    else if (C.plata) { st.plata++; banner('Llave de plata', `Abre una habitación cerrada · tienes ${st.plata}`, 2600, 'key'); Sfx.coin(); }
+    else if (C.pieza) bodPieza(C.pieza);
+    else if (C.bala) { const ks = Object.keys(BALAS).filter(k => BALAS[k].r === 'C' && BKEYS.includes(k)); makePickup('bala', x, z + 0.9, BKEYS.indexOf(pick(ks))); feed('El cofre tenía una bala', 'gold'); }
+    else { addGold(C.oro | 0, true); Sfx.cash(); feed(`El cofre tenía ${C.oro} $`, 'gold'); }
+  } });
+}
+function bodLlaveSuelo(k, ya) {
+  const st = bodSt(); if (!st) return; if (!ya) st.suelo.push(k);
+  const g = new THREE.Group(); g.position.set(k.x, 0.7, k.z); world.group.add(g);
+  const m = k.t === 'llave' ? BODM.oro : BODM.plata, ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.035, 8, 16), m); ring.position.y = 0.18; g.add(ring);
+  const sh = new THREE.Mesh(bx(0.05, 0.38, 0.05), m); sh.position.y = -0.06; g.add(sh); for (const y of [-0.18, -0.08]) { const t = new THREE.Mesh(bx(0.11, 0.05, 0.05), m); t.position.set(0.06, y, 0); g.add(t); }
+  bodGlow(0, 0, 0, k.t === 'llave' ? 0xffd060 : 0xc8e0ff, 1.4, 0.55, g);
+  BOD.suelo.push({ k, g });
+  if (!ya) { feed(k.t === 'llave' ? '¡Cayó una llave!' : 'Cayó una llave de plata', 'gold'); Sfx.coin(); }
+}
+function bodPieza(k) {
+  const st = bodSt(), I = bodPiezaInfo(k), arma = game.equip; st.piezas.push({ k, a: arma });
+  banner(`Pieza: ${I.n}`, `${I.d} · ${MODELS[arma] ? MODELS[arma].name : ''}`, 3000, 'gear'); Sfx.insert && Sfx.insert();
+  if (k === 'tambor') capChanged();
+}
+function bodX(m, k) {
+  const st = bodSt(); if (!st || !st.piezas || !st.piezas.length) return 1;
+  const P = BAL.bodegas.piezas; let x = 1;
+  for (const p of st.piezas) { if (p.a !== m) continue; if (k === 'dano' && p.k === 'canon') x *= 1 + P.canon; else if (k === 'cad' && p.k === 'gatillo') x *= 1 + P.gatillo; else if (k === 'disp' && p.k === 'mira') x *= 1 - P.mira; else if (k === 'retro' && p.k === 'culata') x *= 1 - P.culata; else if (k === 'rec' && p.k === 'cargador') x *= 1 + P.cargador; }
+  return x;
+}
+function bodCap(m) { const st = bodSt(); if (!st || !st.piezas) return 0; return st.piezas.filter(p => p.a === m && p.k === 'tambor').length * BAL.bodegas.piezas.tambor; }
+function bodAbrir(D, ya) {
+  if (D.abierta) return; D.abierta = true; if (ya) { D.a = D.ang; D.g.rotation.y = D.ang; }
+  const i = colliders.indexOf(D.col); if (i >= 0) colliders.splice(i, 1);
+  if (!ya) { Sfx.open(); bodNavZona(D.x, D.z, 2.5); }
+}
+function bodCerrar(D) { if (!D.abierta) return; D.abierta = false; if (!colliders.includes(D.col)) colliders.push(D.col); bodNavZona(D.x, D.z, 2.5); Sfx.thud && Sfx.thud(panOf(new THREE.Vector3(D.x, 0, D.z))); }
+// rehace la ruta de los zombis solo alrededor de una puerta que se abrió o se cerró (rehacer todo el mapa tarda demasiado en el teléfono)
+function bodNavZona(x, z, r) {
+  if (!nav.blk) return;
+  for (let j = 0; j < nav.nz; j++) { const cz = nav.oz + (j + 0.5) * nav.cs; if (Math.abs(cz - z) > r) continue; for (let i = 0; i < nav.nx; i++) { const cx = nav.ox + (i + 0.5) * nav.cs; if (Math.abs(cx - x) > r) continue; nav.blk[j * nav.nx + i] = (!insideArena(cx, cz, 0.35) || pointBlocked(cx, cz, 0.42)) ? 1 : 0; } }
+  nav.tx = 1e9; BOD.navV++;
+}
+// puerta con llave de plata: se usa desde el pasillo
+function bodPuertasUso() {
+  const st = bodSt(); if (!st) return;
+  for (const D of BOD.puertas) {
+    if (D.tipo !== 'plata' || D.abierta || D.uso) continue;
+    const o = mapUse({ x: D.x + D.dx * 1.1, z: D.z + D.dz * 1.1, r: 1.7, cd: 0.6, t: 'Puerta con llave de plata', d: 'Detrás hay algo de valor. Las llaves de plata caen de los zombis de los pasillos y de las Bodegas.', b: 'Abrir', use(o_) {
+      const s = bodSt(); if (s.abiertas[D.r]) return;
+      if ((s.plata | 0) < 1) { Sfx.err(); hint('Necesitas una llave de plata', 2000); o_.readyT = 0; return; }
+      s.plata--; s.abiertas[D.r] = 1; for (const E of BOD.puertas) if (E.r === D.r && E.tipo === 'plata') { bodAbrir(E); if (E.uso) E.uso.off = true; }
+      useCur = null; showUse(null); feed(`Usaste una llave de plata · te quedan ${s.plata}`, 'gold'); Sfx.cadena && Sfx.cadena();
+    } });
+    D.uso = o;
+  }
+}
+
+// ---- 3. Zombis: guardias de cada cuarto, el grupito de los pasillos, ruido, campana, barriles y los que se levantan
+function bodSpawn(tipo, x, z, b, rise = false) {
+  const n = spawnZombie(tipo, x, z, diffW(game.wave), rise); game.alive++;
+  n.bod = Object.assign({ r: -1, g: 'h', alerta: false, obj: { root: { position: new THREE.Vector3(x, 0, z) }, dead: false }, w: 0, espera: 0 }, b);
+  if (!n.bod.obj || !n.bod.obj.root) n.bod.obj = { root: { position: new THREE.Vector3(x, 0, z) }, dead: false };
+  n.tgtT = 0; return n;
+}
+function bodPunto(r, m = 1.0) { const c = bodC(r), h = bodH(r) - m; return { x: c.x + rand(-h, h), z: c.z + rand(-h, h) }; }
+function bodPoblar() {
+  const st = bodSt(), L = BOD.L; if (!st || !L) return;
+  for (const r of L.rooms) {
+    const n = st.vivos[r.i] | 0; if (!n || r.t === 'oscuro') continue;
+    for (let k = 0; k < n; k++) { const p = bodPunto(r, 1.2); bodSpawn('walker', p.x, p.z, { r: r.i, g: 'h' }); }
+  }
+  if (st.patrulla > 0 && L.ruta.length > 1) {
+    const way = bodRutaPuntos(L.ruta), p0 = way[0];
+    for (let k = 0; k < st.patrulla; k++) bodSpawn('walker', p0.x + (k - 1) * 0.6, p0.z + (k % 2) * 0.6, { r: -1, g: 'p', w: 0, dir: 1, way });
+  }
+  if (st.oro > 0 && L.oro >= 0) { const p = bodPunto(L.rooms[L.oro], 1.4); bodSpawn('oro', p.x, p.z, { r: L.oro, g: 'o' }); }
+}
+function bodRutaPuntos(ruta) {
+  const L = BOD.L, out = [];
+  for (let k = 0; k < ruta.length; k++) {
+    const r = L.rooms[ruta[k]], c = bodC(r);
+    if (k > 0) { const a = L.rooms[ruta[k - 1]], ca = bodC(a), dx = Math.sign(r.x - a.x), dz = Math.sign(r.y - a.y); out.push({ x: ca.x + dx * (bodH(a) - 0.4), z: ca.z + dz * (bodH(a) - 0.4) }); out.push({ x: c.x - dx * (bodH(r) - 0.4), z: c.z - dz * (bodH(r) - 0.4) }); }
+    out.push({ x: c.x, z: c.z });
+  }
+  return out;
+}
+function bodVe(z) {
+  if (BOD.oculto || player.down) return false;
+  const p = z.root.position, d = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
+  if (d > BAL.bodegas.vista) return false; if (d < 2.2) return true;
+  if (BOD.aqui && BOD.aqui.t === 'inicio') return false;   // el Inicio es tranquilo: desde ahí no te ven
+  return lineClear(p.x, p.z, player.pos.x, player.pos.z, 0.15);
+}
+function bodAlerta(z, porVista) {
+  if (!z.bod || z.bod.alerta) return; z.bod.alerta = true; z.tgtT = 0; z.bod.campana = false;
+  if (porVista) for (const o of zombies) if (o !== z && o.bod && !o.dead && !o.bod.alerta && ((z.bod.g === 'h' && o.bod.g === 'h' && o.bod.r === z.bod.r) || (z.bod.g === 'p' && o.bod.g === 'p'))) { o.bod.alerta = true; o.tgtT = 0; }
+  if (Math.random() < 0.6) Sfx.groan(panOf(z.root.position), volOf(z.root.position, 0.9), 1);
+}
+function bodRetarget(z) {
+  const b = z.bod; if (z.boss != null || b.g === 's') return false;
+  const p = z.root.position; z.flowD = null;
+  if (BOD.cebo && BOD.cebo.eatT > 0 && b.campana) { z.tk = 'e'; z.tobj = BOD.cebo; z.los = false; z.flowD = BOD.flowC; return true; }
+  if (BOD.oculto) { b.alerta = false; }
+  else if (!b.alerta && bodVe(z)) { if (b.g === 'o') b.huye = 1; else bodAlerta(z, true); }
+  if (b.alerta) return false;   // te persigue como siempre (la ruta de los zombis)
+  z.atkCd = Math.max(z.atkCd, 1);   // de guardia no golpea al aire
+  const tp = b.obj.root.position, d = Math.hypot(tp.x - p.x, tp.z - p.z);
+  if (b.g === 'p' && b.way) {   // el grupito de los pasillos: ida y vuelta por su ruta
+    const W = b.way; if (d < 1.3 || !b.ini) { b.ini = 1; b.w += b.dir; if (b.w >= W.length || b.w < 0) { b.dir *= -1; b.w += 2 * b.dir; } b.w = clamp(b.w, 0, W.length - 1); tp.set(W[b.w].x, 0, W[b.w].z); }
+  } else if (b.g === 'o' && b.huye) {   // el zombi de oro huye hacia el cuarto vecino más lejos de ti
+    const L = BOD.L, r = bodHabDe(p.x, p.z, 1) || L.rooms[Math.max(0, b.r)]; let best = null, bd = -1;
+    for (const o of L.rooms) if (Math.abs(o.x - r.x) + Math.abs(o.y - r.y) === 1 && !o.plata && o.t !== 'jefe') { const c = bodC(o), dd = Math.hypot(c.x - player.pos.x, c.z - player.pos.z); if (dd > bd && bodUnidas(r.i, o.i)) { bd = dd; best = c; } }
+    if (best && d < 1.5) tp.set(best.x, 0, best.z); else if (!best) tp.set(p.x + (p.x - player.pos.x), 0, p.z + (p.z - player.pos.z));
+    if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) > 16) b.huye = 0;
+  } else if (d < 1.4) {   // da vueltas por su cuarto, con pausas
+    const r = BOD.L.rooms[b.r >= 0 ? b.r : 0];
+    if (Math.random() < 0.45) tp.set(p.x, 0, p.z);
+    else for (let k = 0; k < 6; k++) { const q = bodPunto(r, 1.1); if (lineClear(p.x, p.z, q.x, q.z, z.r)) { tp.set(q.x, 0, q.z); break; } }
+    z.tgtT = rand(1.2, 3);
+  } else if (b.r >= 0 && !bodHabDe(p.x, p.z, 0) && !b.vuelve) { const c = bodC(BOD.L.rooms[b.r]); tp.set(c.x, 0, c.z); b.vuelve = 1; }
+  if (b.vuelve && bodHabDe(p.x, p.z, 0) === BOD.L.rooms[b.r]) b.vuelve = 0;
+  z.tk = 'b'; z.tobj = b.obj; z.los = false;
+  if (b.vuelve) { z.flowD = bodFlowA(b.r); }
+  return true;
+}
+function bodUnidas(a, b) { for (const [x, y] of bodUniones(BOD.L)) if ((x === a && y === b) || (x === b && y === a)) { const r = BOD.L.rooms[x].plata ? x : BOD.L.rooms[y].plata ? y : -1; return r < 0 || !!bodSt().abiertas[r]; } return false; }
+// ruta hacia el centro de un cuarto (para volver a su puesto o ir a la campana): se calcula una vez y se guarda
+const bodFlows = {};
+function bodFlowHacia(x, z, k) {
+  if (bodFlows[k] && bodFlows[k].n === nav.blk) return bodFlows[k].d;
+  const prev = nav.dist; nav.dist = new Float32Array(nav.nx * nav.nz); computeFlow(x, z); const d = nav.dist; nav.dist = prev; nav.tx = 1e9;
+  bodFlows[k] = { d, n: nav.blk }; return d;
+}
+function bodFlowA(i) { const c = bodC(BOD.L.rooms[i]); return bodFlowHacia(c.x, c.z, 'r' + i + ':' + BOD.navV); }
+function bodRuido() {
+  if (BOD.oculto) { bodSalirBarril(true); }
+  const L = BOD.L, h = bodHabDe(player.pos.x, player.pos.z), rs = h ? [h] : bodPasilloDe(player.pos.x, player.pos.z), B = BAL.bodegas;
+  for (const z of zombies) {
+    if (z.dead || !z.bod || z.bod.alerta) continue;
+    if (z.bod.g === 'p' || z.bod.g === 'o') { if (Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 16) { if (z.bod.g === 'o') z.bod.huye = 1; else bodAlerta(z); } continue; }
+    const r = L.rooms[z.bod.r]; if (r && rs.some(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) <= B.ruido)) bodAlerta(z);
+  }
+}
+function bodCampana(pos) {
+  const B = BAL.bodegas.campana, L = BOD.L, r0 = bodHabDe(pos.x, pos.z); if (!r0) return;
+  Sfx.bell(); feed(`¡La campana suena! Los zombis cercanos van hacia ella ${B.t} s`, 'gold');
+  BOD.cebo = { root: { position: new THREE.Vector3(pos.x, 0, pos.z) }, eatT: B.t, dead: false };
+  BOD.flowC = bodFlowHacia(pos.x, pos.z, 'campana:' + BOD.navV);
+  for (const z of zombies) {
+    if (z.dead || !z.bod || z.boss != null) continue;
+    const r = z.bod.r >= 0 ? L.rooms[z.bod.r] : bodHabDe(z.root.position.x, z.root.position.z, 1.5);
+    const cerca = r ? Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= B.casillas : Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z) < B.casillas * BAL.bodegas.paso;
+    if (cerca) { z.bod.campana = true; z.bod.alerta = false; z.tgtT = 0; }
+  }
+}
+function bodEsconder(B_, o) {
+  if (BOD.oculto) { bodSalirBarril(); return; }
+  const te = zombies.some(z => !z.dead && z.bod && z.bod.alerta && Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 20 && lineClear(z.root.position.x, z.root.position.z, player.pos.x, player.pos.z, 0.15));
+  if (te) { Sfx.err(); hint('Te están viendo: el barril no sirve', 2200); o.readyT = 0; return; }
+  BOD.oculto = { B: B_, o, x: player.pos.x, z: player.pos.z };
+  const i = colliders.indexOf(B_.col); if (i >= 0) colliders.splice(i, 1);
+  for (const z of zombies) if (z.bod) { z.bod.alerta = false; z.tgtT = 0; }
+  o.t = 'Dentro del barril'; o.b = 'Salir'; o.d = 'Aquí dentro no te encuentran. Si disparas, te descubren.'; showUse(null);
+  hint('Estás escondido · los zombis te pierden de vista', 2400); Sfx.thud && Sfx.thud(0);
+}
+function bodSalirBarril(ruido) {
+  const O = BOD.oculto; if (!O) return; BOD.oculto = null;
+  if (!colliders.includes(O.B.col)) colliders.push(O.B.col);
+  player.pos.x = O.B.x + (O.x - O.B.x >= 0 ? 1 : -1) * 0.95; player.pos.z = O.B.z; player.pos.y = 0;
+  O.o.t = 'Barril'; O.o.b = 'Esconderte'; O.o.d = 'Métete si ningún zombi te está viendo: dentro no te encuentran.'; showUse(null);
+  if (ruido) hint('¡Disparaste! Ya saben dónde estás', 2000);
+}
+function bodAlMorir(z, info) {
+  if (z.boss != null) { bodJefeMuere(z); return; }
+  const b = z.bod; if (!b) return;
+  const B = BAL.bodegas.levantarse, p = z.root.position;
+  if (!(info && info.part === 'head') && !b.lev && b.g !== 'o' && Math.random() < B.p) { BOD.lev.push({ t: game.time + B.t, z, b, x: p.x, zz: p.z }); return; }
+  bodBaja(b, p.x, p.z);
+}
+function bodBaja(b, x, z) {
+  const st = bodSt(), L = BOD.L; if (!st) return;
+  if (b.g === 'o') { st.oro = 0; return; }
+  if (b.g === 'p') { st.patrulla = Math.max(0, st.patrulla - 1); if (st.patrulla === 0) bodLlaveSuelo({ t: 'plata', x, z, id: 'p' }); return; }
+  if (b.r >= 0) { st.vivos[b.r] = Math.max(0, (st.vivos[b.r] | 0) - 1); const r = L.rooms[b.r]; if (st.vivos[b.r] === 0) { if (r.t === 'bodega') bodLlaveSuelo({ t: 'plata', x, z, id: 'b' + r.i }); feed(`${BOD_T[r.t].n}: despejado`, 'gold'); } }
+}
+function bodEntra(r) {
+  const T_ = BOD_T[r.t]; if (r.i === 0 && !bodSt().inicio) return;
+  if (r.t === 'oscuro') hint('Cuarto oscuro: solo tu linterna. Los barriles sirven para esconderte', 3200);
+  else if (r.t === 'campana') hint('Campanario: dispárale a la campana para atraer a los zombis cercanos', 3200);
+  else if (r.t === 'tras') hint('La puerta verde lleva a la Trastienda', 2600);
+  else if (r.t !== 'jefe') hint(T_.n, 1800);
+}
+function bodLlaveRecoger(dt) {
+  const st = bodSt();
+  for (let i = BOD.suelo.length - 1; i >= 0; i--) {
+    const S_ = BOD.suelo[i]; S_.g.rotation.y += dt * 2; S_.g.position.y = 0.7 + Math.sin(performance.now() / 300) * 0.08;
+    if (Math.hypot(player.pos.x - S_.k.x, player.pos.z - S_.k.z) < 1.4 && !player.down) {
+      world.group.remove(S_.g); BOD.suelo.splice(i, 1); const j = st.suelo.indexOf(S_.k); if (j >= 0) st.suelo.splice(j, 1);
+      if (S_.k.t === 'llave') { st.llave = 1; banner('¡La llave de la salida!', 'Ve a la sala del jefe', 2800, 'key'); }
+      else { st.plata++; banner('Llave de plata', `Abre una habitación cerrada · tienes ${st.plata}`, 2400, 'key'); }
+      Sfx.coin(); Sfx.pickup && Sfx.pickup();
+    }
+  }
+}
+// las lámparas de verdad (2 o 3) se mueven a las más cercanas; el resto son brillos
+function bodLuces() {
+  const px = player.pos.x, pz = player.pos.z, Ls = BOD.lamp.slice().sort((a, b) => Math.hypot(a.x - px, a.z - pz) - Math.hypot(b.x - px, b.z - pz));
+  BOD.luces.forEach((l, i) => { const q = Ls[i]; if (q) l.position.set(q.x, q.y, q.z); else l.position.set(0, -50, 0); });
+}
+function bodVisibles() {
+  const L = BOD.L, r0 = BOD.aqui || bodHabDe(player.pos.x, player.pos.z, 3) || (bodPasilloDe(player.pos.x, player.pos.z)[0]) || L.rooms[0], V = BAL.bodegas.verHab;
+  for (const r of L.rooms) { const g = BOD.grp[r.i]; if (g) g.visible = Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= V; }
+  for (const z of zombies) { if (!z.bod) continue; const r = bodHabDe(z.root.position.x, z.root.position.z, 1); z.root.visible = z.dead || !r || Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= V; }   // los zombis de cuartos lejanos no se dibujan
+}
+function bodStep(dt) {
+  const st = bodSt(), L = BOD.L, B = BAL.bodegas; if (!st || !L || world.idx !== BOD_IDX) return;
+  const h = bodHabDe(player.pos.x, player.pos.z, -0.3); BOD.aqui = h || null;
+  if (h && !st.vis[h.i]) { st.vis[h.i] = 1; bodEntra(h); }
+  if ((BOD.t -= dt) <= 0) { BOD.t = 0.25; bodLuces(); bodVisibles(); }
+  if (game.shots !== BOD.tiros) { BOD.tiros = game.shots; bodRuido(); }
+  for (let i = BOD.lev.length - 1; i >= 0; i--) {   // se levantan a los 5 s
+    const E = BOD.lev[i]; if (game.time < E.t) continue; BOD.lev.splice(i, 1);
+    if (E.z) E.z.deadT = 99;
+    const n = bodSpawn('walker', E.x, E.zz, Object.assign({}, E.b, { lev: 1, alerta: true, obj: null }), true); n.riseDur = 1.0;
+    feed('¡Un zombi se levantó!', 'red'); Sfx.groan(panOf(n.root.position), volOf(n.root.position, 1.2), 0.9);
+  }
+  bodLlaveRecoger(dt);
+  if (BOD.oculto) { const O = BOD.oculto; player.pos.x = O.B.x; player.pos.z = O.B.z; player.vx = player.vz = 0; player.pos.y = Math.min(player.pos.y, -0.55); }
+  if (BOD.cebo && BOD.cebo.eatT > 0) { BOD.cebo.eatT -= dt; if (BOD.cebo.eatT <= 0) { for (const z of zombies) if (z.bod && z.bod.campana) { z.bod.campana = false; z.bod.vuelve = 0; z.tgtT = 0; } BOD.cebo = null; } }
+  // la linterna en el cuarto oscuro; el zombi escondido sale cuando estás en el centro
+  { const osc = !!(h && h.t === 'oscuro'); if (BOD.linterna !== osc) { BOD.linterna = osc; linternaPon(osc); } }
+  if (h && h.t === 'oscuro' && (st.vivos[h.i] | 0) > 0 && !st.sorpresa[h.i]) {
+    const c = bodC(h); if (Math.hypot(player.pos.x - c.x, player.pos.z - c.z) < B.oscuro.centro) {
+      st.sorpresa[h.i] = 1; const a = player.yaw, x = player.pos.x + Math.sin(a) * 2.2, z = player.pos.z + Math.cos(a) * 2.2;
+      bodSpawn('walker', x, z, { r: h.i, g: 's', alerta: true }, true); Sfx.roar && Sfx.roar(panOf(new THREE.Vector3(x, 0, z)), 1.4); hint('¡Estaba escondido!', 1800); player.shake = Math.min(1, player.shake + 0.3);
+    }
+  }
+  // sala del jefe: la puerta se cierra detrás de ti y el jefe sale al cruzar la mitad
+  const J = L.rooms.find(r => r.t === 'jefe');
+  if (h === J && st.jefe === 0) {
+    const c = bodC(J), DVv = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[BOD.jefeEnt], dentro = (player.pos.x - c.x) * DVv[0] + (player.pos.z - c.z) * DVv[1];   // > 0: del lado de la entrada
+    if (BOD.pJefe.abierta && dentro < bodH(J) - 1.6) { bodCerrar(BOD.pJefe); banner('La puerta se cerró', 'No hay vuelta atrás', 2200, 'lock'); }
+    if (dentro < 0) bodJefeSale(J, DVv);
+  }
+  if (st.jefe === 2 && BOD.llamaT && game.time >= BOD.llamaT && state === 'play') { BOD.llamaT = 0; bodLlamada(); }
+}
+function bodJefeSale(J, DVv) {
+  const st = bodSt(), c = bodC(J), h = bodH(J), x = c.x - DVv[0] * (h - 1.5), z = c.z - DVv[1] * (h - 1.5);
+  st.jefe = 1; const idx = BOSSES.findIndex(b => b.id === 'proj');
+  const n = spawnZombie('boss', x, z, diffW(game.wave), false); game.alive++; spawnBoss(n, idx);
+  n.maxHp = n.hp = Math.round(n.maxHp * BAL.bodegas.jefe.vida); n.bod = { r: J.i, g: 'j', alerta: true, obj: { root: { position: new THREE.Vector3(x, 0, z) }, dead: false } };
+  BOD.jefeZ = n;
+}
+function bodJefeMuere(z) {
+  const st = bodSt(); st.jefe = 2; BOD.jefeZ = null;
+  bodAbrir(BOD.pJefe);
+  BOD.llamaT = game.time + BAL.bodegas.jefe.llamada;
+  setTimeout(() => { if (game && game.bod) banner('¡Jefe vencido!', 'Recoge el botín · el teléfono va a sonar', 3000, 'skull'); }, 1500);
+}
+// G1: la primera cuota con Don Santino (el mismo teléfono y la misma deuda del juego)
+function bodLlamada() {
+  if (!game.deuda || game.deuda.w !== game.wave) { const monto = deudaSaldo(); game.deudaN = 1; game.deuda = { w: game.wave, n: 1, monto, bote: 0, pagada: monto <= 0, prepago: monto <= 0, abonado: game.abono | 0 }; if (monto <= 0) deudaReinicia(); }
+  game.routeWave = game.wave; bodSt().cuota = 1;
+  banner('¡Riiing!', 'Llamada de Don Santino', 2200, 'lock'); telAbrir();
+}
+function bodSalida() {
+  const st = bodSt();
+  if (st.jefe !== 2) { Sfx.err(); hint('Primero vence al jefe', 2000); return; }
+  if (!st.llave) { Sfx.err(); hint('Necesitas la llave de la salida: está en un Cuarto de guardia', 2600); return; }
+  if (!st.cuota) { BOD.llamaT = 0; bodLlamada(); return; }
+  if (deudaPend()) { hint('Don Santino no te deja salir sin pagar la cuota', 2400); telAbrir(); return; }
+  bodAbrir(BOD.pSalida); Sfx.win(); BOD.fin = true;
+  setTimeout(() => { if (game && game.bod) bodFin(true); }, 1400);
+}
+// ---- la Trastienda: la misma de siempre; la primera vez gratis y luego 1 ficha (la paga el uso de la puerta)
+function bodTrastienda() {
+  const st = bodSt(); if (!st) return;
+  if (BOD.oculto) bodSalirBarril();
+  st.trasN = (st.trasN | 0) + 1; st.volver = 1; BOD.abono0 = game.abono | 0; BOD.rw = game.routeWave; if (deudaHoy()) game.routeWave = 0;   // dentro es una visita normal (la cuota se paga aquí abajo)
+  BOD.lev = []; linternaPon(false); BOD.linterna = false;
+  enterRoom();
+  $('#fade-s').textContent = tx('Las Bodegas'); $('#fade-t').textContent = MAPS[ROOM_IDX].name; $('#fade-d').textContent = MAPS[ROOM_IDX].desc;
+}
+function bodVolver() {
+  const st = bodSt(); st.volver = 1; showUse(null);
+  if (BOD.rw) game.routeWave = BOD.rw;
+  travel(BOD_IDX, game.wave, () => {
+    state = 'play'; game.phase = 'fight'; st.volver = 0; bodPoblar(); renderChips(); requestLock(); canvas.focus();
+    const ex = (game.abono | 0) - (BOD.abono0 | 0); if (ex > 0 && deudaPend()) deudaSuma(ex, '');
+    hint('De vuelta en las Bodegas', 2400);
+  });
+  $('#fade-s').textContent = tx('Nivel 1'); $('#fade-t').textContent = MAPS[BOD_IDX].name; $('#fade-d').textContent = MAPS[BOD_IDX].desc;
+}
+// ---- empezar, retomar y terminar
+function bodEmpezar(seed) {
+  if (Net.on || arrancando) return;
+  try { localStorage.removeItem(BOD_SAVE); } catch (e) {}
+  BOD.pide = seed || (1 + Math.floor(Math.random() * 1e6)); BOD.sv = null;
+  startGame();
+}
+function bodArranque(sv) {
+  const B = BAL.bodegas;
+  game.phase = 'fight'; game.toSpawn = 0; game.alive = 0; game.bossQ = []; game.wave = 1; game.routeWave = 1;
+  if (!sv) { game.saldo = deudaRed5(B.cuota[0] + Math.random() * (B.cuota[1] - B.cuota[0])); game.abono = 0; }
+  if (!game.bod.st) game.bod.st = bodEstado(BOD.L);
+  const st = game.bod.st; st.volver = 0;
+  bodPoblar(); BOD.tiros = game.shots;
+  const bien = () => { if (!game || !game.bod) return; st.inicio = 1; banner('Nivel 1 · Las Bodegas', 'Busca la llave · la salida está en la sala del jefe', 3200, 'key'); };
+  if (!sv && !tuto && !store.get('sb_sinCine', 0)) introDeuda(bien, { frases: BOD_FRASES, vuelo: false, sub: 'Nivel 1' });
+  else setTimeout(bien, 600);
+}
+function bodFin(gano) {
+  if (!game || !game.bod || BOD.finT) return; BOD.finT = 1; setTimeout(() => BOD.finT = 0, 800);
+  try { if (!gano) muerte3dFin(); Golpes.limpiar(); } catch (e) {}
+  const st = bodSt(), L = BOD.L, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60), D = game.deuda;
+  const caja = (() => { try { return !gano && !!localStorage.getItem(BOD_SAVE); } catch (e) { return false; } })();
+  state = 'over'; if (document.pointerLockElement) document.exitPointerLock(); linternaPon(false);
+  show(null); showUse(null); el.hud.hidden = true; $('#touch').hidden = true;
+  const vis = L ?
+ Object.keys(st.vis).length : 0, deuda = D && D.pagada ? `Pagada · ${D.monto} $` : D ? `Faltan ${deudaFalta()} $` : `${deudaSaldo()} $ por pagar`;
+  $('#bf-t').textContent = gano ? 'Nivel 1 superado' : 'Caíste en las Bodegas';
+  $('#bf-tag').textContent = gano ? 'Saliste de las Bodegas del casino. El Nivel 2 todavía no existe: esta es la beta.' : caja ? 'Puedes volver a la última caja fuerte que abriste.' : 'Cada partida arma un mapa nuevo.';
+  $('#bf-stats').innerHTML = [['Oro', game.gold + ' $'], ['Zombis', game.kills], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`], ['Deuda', deuda], ['Habitaciones', `${vis} de ${L ? L.rooms.length : 0}`]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  const a = $('#bf-a'), b = $('#bf-b');
+  a.textContent = gano ? 'Volver al menú' : caja ? 'Volver a la caja fuerte' : 'Otra vez'; b.hidden = gano;
+  a.onclick = () => { $('#bod-fin').hidden = true; if (gano) toMenu('inicio'); else if (caja) { const sv = store.get(BOD_SAVE, null); toMenu('inicio'); if (sv) { BOD.pide = 0; startGame(sv); } } else { toMenu('inicio'); bodEmpezar(); } };
+  b.onclick = () => { $('#bod-fin').hidden = true; toMenu('inicio'); };
+  if (gano) { try { localStorage.removeItem(BOD_SAVE); } catch (e) {} if (Sfx.jingle) Sfx.jingle('boss'); }
+  $('#bod-fin').hidden = false; setTimeout(() => a.focus(), 60);
+}
+// ---- el HUD y el minimapa (solo las habitaciones exploradas)
+function bodSub() { const st = bodSt(), L = BOD.L; if (!st || !L) return ''; return `Habitaciones ${Object.keys(st.vis).length} de ${L.rooms.length}`; }
+function bodFee() { const st = bodSt(); if (!st) return ''; return `Llaves de plata: ${st.plata | 0} · Llave de salida: ${st.llave ? 'sí' : 'no'}`; }
+function bodMinimapa() {
+  const c = mapCtx, W = 260, R = 130, sc = R / 32, st = bodSt(), L = BOD.L; if (!L || !st) return;
+  c.clearRect(0, 0, W, W); c.save(); c.beginPath(); c.arc(R, R, R - 2, 0, TAU); c.clip(); c.fillStyle = 'rgba(8,6,4,.72)'; c.fillRect(0, 0, W, W);
+  const yaw = player.yaw, fx_ = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const tr = (x, z) => { const dx = x - player.pos.x, dz = z - player.pos.z; return [R + (dx * rx + dz * rz) * sc, R - (dx * fx_ + dz * fz) * sc]; };
+  const caja = (x, z, hw, hd) => { const p = [[x - hw, z - hd], [x + hw, z - hd], [x + hw, z + hd], [x - hw, z + hd]].map(([a, b]) => tr(a, b)); c.beginPath(); p.forEach(([a, b], i) => i ? c.lineTo(a, b) : c.moveTo(a, b)); c.closePath(); };
+  c.lineWidth = 2;
+  for (const [a, b] of bodUniones(L)) { if (!st.vis[a] && !st.vis[b]) continue; const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); const vert = A.x === Bc.x; caja((A.x + Bc.x) / 2, (A.z + Bc.z) / 2, vert ? 1 : Math.abs(A.x - Bc.x) / 2, vert ? Math.abs(A.z - Bc.z) / 2 : 1); c.fillStyle = 'rgba(120,100,80,.55)'; c.fill(); }
+  for (const r of L.rooms) {
+    if (!st.vis[r.i]) continue; const cc = bodC(r), h = bodH(r);
+    caja(cc.x, cc.z, h, h); c.fillStyle = BOD_T[r.t].c + 'aa'; c.fill(); c.strokeStyle = r.plata && !st.abiertas[r.i] ? '#dfe8f0' : 'rgba(0,0,0,.6)'; c.stroke();
+  }
+  for (const D of BOD.puertas) { if (!st.vis[D.r] && !(D.tipo === 'plata')) continue; if (D.tipo === 'plata' && !L.rooms.some(r => st.vis[r.i] && bodUnidas2(r.i, D.r))) continue; const [x, y] = tr(D.x, D.z); c.fillStyle = D.tipo === 'plata' ? (D.abierta ? '#6a6a6a' : '#dfe8f0') : D.tipo === 'salida' ? '#ffd060' : D.tipo === 'verde' ? '#40ff90' : D.abierta ? '#6a5a4a' : '#ff5a4a'; c.beginPath(); c.arc(x, y, 5, 0, TAU); c.fill(); }
+  for (const S_ of BOD.suelo) { const [x, y] = tr(S_.k.x, S_.k.z); c.fillStyle = S_.k.t === 'llave' ? '#ffd060' : '#dfe8f0'; c.fillRect(x - 4, y - 4, 8, 8); }
+  for (const z of zombies) { if (z.dead || !z.bod || !(z.bod.alerta || z.boss != null)) continue; const [x, y] = tr(z.root.position.x, z.root.position.z); c.fillStyle = z.boss != null ? '#ff2a00' : '#e8d36a'; c.beginPath(); c.arc(x, y, z.boss != null ? 7 : 4.5, 0, TAU); c.fill(); }
+  for (const p of pickups) { const [x, y] = tr(p.g.position.x, p.g.position.z); c.fillStyle = '#' + PK[p.type].color.toString(16).padStart(6, '0'); c.fillRect(x - 3, y - 3, 6, 6); }
+  c.restore();
+  c.fillStyle = '#ece2cb'; c.beginPath(); c.moveTo(R, R - 10); c.lineTo(R - 7, R + 7); c.lineTo(R, R + 3); c.lineTo(R + 7, R + 7); c.closePath(); c.fill();
+}
+function bodUnidas2(a, b) { for (const [x, y] of bodUniones(BOD.L)) if ((x === a && y === b) || (x === b && y === a)) return true; return false; }
+BOD.navV = 0;
+// entrada: botón de la portada y ?beta=bodegas
+{ const b = document.getElementById('btn-beta-bod'); if (b) b.addEventListener('click', () => { Sfx.init(); Music.init(); bodEmpezar(); }); }
+const BOD_URL = (() => { try { return new URLSearchParams(location.search).get('beta') === 'bodegas'; } catch (e) { return false; } })();
 
 buildMap(0);
 try { renderer.compile(scene, camera); } catch (e) {}
@@ -41058,7 +41851,8 @@ return { invAbrir, invCerrar, invAbrirAzul, invRender, invAbierto: () => !!I0() 
 $('#loading').remove();
 frame();
 setTimeout(() => $('#btn-jugar').focus(), 50);
-if (ANIMP_URL) setTimeout(animpEntrar, 300);   // ?animaciones en el enlace: entra directo al modo de prueba de animaciones
+if (ANIMP_URL) setTimeout(animpEntrar, 300);
+if (BOD_URL) setTimeout(() => { Sfx.init(); bodEmpezar(); }, 400);   // ?beta=bodegas: entra directo a la beta de las Bodegas   // ?animaciones en el enlace: entra directo al modo de prueba de animaciones
 })();
 </script>
 
