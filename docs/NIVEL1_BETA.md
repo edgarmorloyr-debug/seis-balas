@@ -27,7 +27,8 @@ Se juega en espacios cerrados y estrechos, con tensión como en The House of the
 - Al ganar: se abre la salida, pagas la primera cuota a Don Santino y subes al Nivel 2.
 
 ---
-# Propuesta detallada del Nivel 1 (para revisar con el dueño)
+# Propuesta detallada del Nivel 1
+Aprobado por el dueño (24-oct-2026): Trastienda con la primera entrada gratis y luego 1 tarjeta de miembro; las piezas del arma se pierden al terminar la partida; la caja fuerte guarda y cura 20 de vida, 1 vez; el jefe aparece al cruzar la mitad de su sala con la puerta cerrada detrás. El resto del detalle sigue como propuesta.
 Todo lo que sigue es propuesta. Las cifras irán en BAL para poder ajustarlas.
 
 ## 1. Cómo se arma el mapa
