@@ -1,0 +1,107 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nivel 1 · Las Bodegas (boceto del mapa)</title>
+<style>
+:root{--fondo:#15100b;--piedra:#2a2119;--linea:#5a4632;--hueso:#f1e3c8;--tenue:#bba98c;--oro:#e0a93c}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--fondo);color:var(--hueso);font:15px/1.35 system-ui,sans-serif}
+.app{display:flex;height:100%;gap:12px;padding:12px}
+.mapa{flex:1;min-width:0;display:flex;flex-direction:column}
+canvas{flex:1;min-height:0;width:100%;background:#0d0a07;border:1px solid var(--linea);border-radius:10px}
+.lado{width:300px;display:flex;flex-direction:column;gap:10px;min-height:0}
+h1{margin:0;font-size:20px;color:var(--oro)}
+.sub{margin:0;color:var(--tenue);font-size:14px}
+.res{flex:none;background:var(--piedra);border:1px solid var(--linea);border-radius:10px;padding:10px;font-size:14px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.res b{color:var(--oro)}
+.ley{flex:1;display:grid;align-content:start;grid-template-columns:1fr 1fr;gap:6px;font-size:14px;overflow:hidden;min-height:0}
+.ley span{display:flex;align-items:center;gap:6px}
+.ley i{width:16px;height:16px;border-radius:3px;flex:none;border:1px solid #0008}
+.det{flex:none;background:var(--piedra);border:1px solid var(--linea);border-radius:10px;padding:10px;font-size:14px;min-height:96px}
+.det b{color:var(--oro);display:block;margin-bottom:4px;font-size:15px}
+button{min-height:48px;border-radius:24px;border:0;background:#f08a24;color:#1a0f05;font:700 16px system-ui;cursor:pointer;padding:0 18px}
+@media (max-width:760px),(max-height:480px){.app{flex-direction:row}.lado{width:260px}.ley,.sub,.res{display:none}}
+</style></head><body>
+<div class="app">
+ <div class="mapa"><canvas id="c"></canvas></div>
+ <div class="lado">
+  <h1>Nivel 1 · Las Bodegas</h1>
+  <p class="sub">Boceto del mapa visto desde arriba. Cada mapa nuevo cambia la cantidad (de 9 a 18) y el orden de las habitaciones. Toca una habitación para ver qué tiene.</p>
+  <div class="res" id="res"></div>
+  <div class="det" id="det"><b>Toca una habitación</b>Verás qué tiene, cuántos zombis la cuidan y si necesita llave de plata.</div>
+  <div class="ley" id="ley"></div>
+  <button id="gen" type="button">Generar otro mapa</button>
+ </div>
+</div>
+<script>
+const T = {
+  inicio:   { n: 'Inicio · ascensor roto', c: '#5fc27a', g: 0, d: 'Sin zombis. El ascensor está trabado. Cartel: «Busca la llave; la salida está en la sala del jefe». Caja con 12 balas.' },
+  jefe:     { n: 'Sala del jefe', c: '#d9533f', g: 'el jefe', d: 'La puerta se cierra al entrar. El Proyeccionista aparece al cruzar la mitad. Al fondo, la salida con 1 cerrojo.' },
+  tras:     { n: 'Trastienda (puerta verde)', c: '#2fa86a', g: 0, d: 'Primera entrada gratis; luego 1 tarjeta de miembro. Juegos con Imo y Miso, Dango y el teléfono.' },
+  bodega:   { n: 'Bodega de cajas', c: '#a8783e', g: 2, d: '5 a 8 cajas y barriles que se rompen: 65 % nada, 25 % oro (3–8 $), 10 % balas.' },
+  guardia:  { n: 'Cuarto de guardia', c: '#c08a2a', g: '4 o 5', d: 'Un cofre: en uno está la llave de la salida; en los demás 20–40 $ o una bala común.' },
+  guardado: { n: 'Cuarto de guardado', c: '#5a8ad0', g: 0, d: 'Caja fuerte: guarda la partida y cura 20 de vida, 1 vez.' },
+  mini:     { n: 'Cuarto del minijuego', c: '#b05ad0', g: 0, d: 'Máquina pequeña: 1 ficha por tirada; premios 0 / 10 / 25 / 60 $.' },
+  despensa: { n: 'Despensa', c: '#d0a05a', g: 0, d: '2 platos al azar que curan de 15 a 30 de vida.' },
+  taller:   { n: 'Taller de armas', c: '#8a8f99', g: 3, d: '1 pieza al azar: cañón largo, gatillo fino, tambor extra, mira, culata o cargador rápido.' },
+  campana:  { n: 'Campanario', c: '#d8c050', g: 0, d: 'Dispárale a la campana: atrae 8 s a los zombis de las habitaciones cercanas.' },
+  oscuro:   { n: 'Cuarto oscuro con barriles', c: '#3a3a4a', g: '1 sorpresa', d: 'Sin luz. 3 barriles para esconderte si nadie te ve. Un zombi sale de sorpresa. Premio 15–25 $.' }
+};
+const CORTO = { inicio: 'Inicio', jefe: 'JEFE', tras: 'Trastienda', bodega: 'Bodega', guardia: 'Guardia', guardado: 'Guardado', mini: 'Minijuego', despensa: 'Despensa', taller: 'Taller', campana: 'Campana', oscuro: 'Oscuro' };
+const LIM = { guardado: 1, taller: 1, despensa: 1, campana: 1, mini: 2 };
+const VAR = ['bodega', 'guardia', 'guardado', 'mini', 'despensa', 'taller', 'campana', 'oscuro'];
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const mezclar = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let M = null, sel = null, geo = null;
+function generar() {
+  const total = rnd(9, 18), cuenta = { guardia: 1 }, lista = ['guardia'];   // siempre hay al menos un cuarto de guardia (guarda la llave)
+  while (lista.length < total - 3) { const k = VAR[rnd(0, VAR.length - 1)]; if (LIM[k] && (cuenta[k] | 0) >= LIM[k]) continue; cuenta[k] = (cuenta[k] | 0) + 1; lista.push(k); }
+  mezclar(lista);
+  const ocup = new Map(), rooms = [], key = (x, y) => x + ',' + y, dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const poner = (t, x, y, p) => { const r = { t, x, y, p, i: rooms.length }; rooms.push(r); ocup.set(key(x, y), r); return r; };
+  poner('inicio', 0, 0, null);
+  for (const t of lista.concat(['tras'])) for (let k = 0; k < 400; k++) { const b = rooms[rnd(0, rooms.length - 1)], d = dirs[rnd(0, 3)], x = b.x + d[0], y = b.y + d[1]; if (!ocup.has(key(x, y)) && Math.abs(x) <= 5 && Math.abs(y) <= 3) { poner(t, x, y, b); break; } }
+  const prof = r => { let n = 0; while (r.p) { n++; r = r.p; } return n; };
+  // la sala del jefe se pega a la habitación más lejana del inicio
+  const orden = rooms.slice().sort((a, b) => prof(b) - prof(a));
+  for (const lejos of orden) { const libre = dirs.map(d => [lejos.x + d[0], lejos.y + d[1]]).find(([x, y]) => !ocup.has(key(x, y))); if (libre) { poner('jefe', libre[0], libre[1], lejos); break; } }
+  let llave = null; for (const r of rooms) if (r.t === 'guardia' && (!llave || prof(r) > prof(llave))) llave = r; if (llave) llave.llave = true;
+  const nPlata = Math.max(2, Math.min(4, Math.round(rooms.length / 4)));
+  mezclar(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave)).slice(0, nPlata).forEach(r => r.plata = true);
+  const atajos = []; for (const r of rooms) for (const d of dirs) { const o = ocup.get(key(r.x + d[0], r.y + d[1])); if (o && o.i > r.i && o.p !== r && r.p !== o && !['jefe', 'tras'].includes(r.t) && !['jefe', 'tras'].includes(o.t)) atajos.push([r, o]); }
+  M = { rooms, atajos: mezclar(atajos).slice(0, rnd(1, 2)), nPlata: rooms.filter(r => r.plata).length };
+  sel = null; resumen(); dibujar();
+  document.getElementById('det').innerHTML = '<b>Toca una habitación</b>Verás qué tiene, cuántos zombis la cuidan y si necesita llave de plata.';
+}
+function resumen() {
+  const r = M.rooms, z = 3 + r.reduce((s, x) => s + ({ bodega: 2, guardia: 4.5, taller: 3, oscuro: 1 }[x.t] || 0), 0);
+  document.getElementById('res').innerHTML = `<span>Habitaciones</span><b>${r.length}</b><span>Llave de salida</span><b>1 (en un Cuarto de guardia)</b><span>Llaves de plata</span><b>${M.nPlata}</b><span>Zombis aprox.</span><b>${Math.round(z)}</b><span>Duración aprox.</span><b>${Math.round(8 + (r.length - 9) * 10 / 9)} min</b>`;
+}
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+function dibujar() {
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const xs = M.rooms.map(r => r.x), ys = M.rooms.map(r => r.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const s = Math.min((W - 30) / (x1 - x0 + 1), (H - 30) / (y1 - y0 + 1)), ox = (W - s * (x1 - x0 + 1)) / 2, oy = (H - s * (y1 - y0 + 1)) / 2;
+  const cx = r => ox + (r.x - x0 + 0.5) * s, cy = r => oy + (r.y - y0 + 0.5) * s; geo = { cx, cy, s };
+  g.lineCap = 'round';
+  const pas = (a, b, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(cx(a), cy(a)); g.lineTo(cx(b), cy(b)); g.stroke(); };
+  for (const r of M.rooms) if (r.p) pas(r, r.p, '#4a3a28', s * 0.16);
+  g.setLineDash([6, 6]); for (const [a, b] of M.atajos) pas(a, b, '#8a7a5a', s * 0.07); g.setLineDash([]);
+  for (const r of M.rooms) {
+    const t = T[r.t], w = s * 0.72, x = cx(r) - w / 2, y = cy(r) - w / 2;
+    g.fillStyle = t.c; g.strokeStyle = r === sel ? '#fff' : r.plata ? '#c8d0d8' : '#0008'; g.lineWidth = r === sel ? 4 : r.plata ? 3 : 1.5;
+    g.beginPath(); g.roundRect ? g.roundRect(x, y, w, w, 8) : g.rect(x, y, w, w); g.fill(); g.stroke();
+    g.fillStyle = r.t === 'oscuro' || r.t === 'jefe' ? '#f4ece0' : '#140c06'; g.font = `700 ${Math.max(11, Math.min(16, s * 0.14))}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const extra = r.llave ? 'llave salida' : r.plata ? 'llave plata' : '';
+    g.fillText(CORTO[r.t], cx(r), cy(r) - (extra ? s * 0.08 : 0));
+    if (extra) { g.font = `600 ${Math.max(10, Math.min(13, s * 0.11))}px system-ui`; g.fillText(extra, cx(r), cy(r) + s * 0.13); }
+  }
+}
+cv.addEventListener('click', e => {
+  if (!geo) return; const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top;
+  const r = M.rooms.find(r => Math.abs(mx - geo.cx(r)) < geo.s * 0.36 && Math.abs(my - geo.cy(r)) < geo.s * 0.36); if (!r) return;
+  sel = r; const t = T[r.t];
+  document.getElementById('det').innerHTML = `<b>${t.n}</b>${t.d}<br>Zombis que la cuidan: ${t.g === 0 ? 'ninguno' : t.g}.${r.llave ? ' Aquí está la llave de la salida.' : ''}${r.plata ? ' Necesita llave de plata.' : ''}`;
+  dibujar();
+});
+document.getElementById('ley').innerHTML = Object.values(T).map(t => `<span><i style="background:${t.c}"></i>${t.n}</span>`).join('') + '<span><i style="background:transparent;border:3px solid #c8d0d8"></i>Llave de plata</span><span><i style="background:transparent;border:2px dashed #8a7a5a"></i>Atajo</span>';
+document.getElementById('gen').onclick = generar;
+addEventListener('resize', () => M && dibujar());
+generar();
+</script></body></html>
