@@ -116,3 +116,9 @@ Simplificado en la beta: todas las habitaciones ocupan una casilla (chica 6 m, m
 - **Menos zombis** (como la primera beta): guardia 4–5, taller 3, bodega 2, oscuro 1; patrulla de 3.
 - **Teclas**: I = inventario; Tab = «Cómo vas» (tiempo, nivel, habitaciones, zombis, a la cabeza, oro ganado, balas usadas, daño recibido, ping y FPS; en grupo, también cada jugador). En el teléfono, «Cómo vas» está en la pausa.
 - **La Tienda y las salas propias**: la Trastienda pasa a ser la **Tienda** (puerta verde, 1 por mapa, siempre gratis): la Expendedora Apocalipsis, el vendedor de armas con armas **al azar** en cada visita y la gata. Aparte (0 o 1 cada una, `BAL.bodegas.salas`, no cuentan entre las 9 a 18 habitaciones): **Herrero** (El Viejo Sam vende piezas de arma), **Sala de juegos de azar** (Imo, Miso y Dango, que reparte los dados; también la gata), **Cápsulas del Fin del Mundo** y **La Garra**, cada una con su puerta de color. Ninguna tiene guardias.
+
+## Jardín del cementerio (hecho, 25-oct-2026)
+- La partida empieza afuera, en el jardín: noche con estrellas, luna llena y luciérnagas; detrás, la torrecita con el ascensor roto («FUERA DE SERVICIO», chispas); enfrente, la mansión de 44 m de ancho que sube 170 m y se pierde entre dos capas de nubes. Bancas, fuente con agua, lápidas, árboles secos y 5 esqueletos. Sin zombis.
+- 4 carteles con los controles (Moverse; Disparar y recargar; Habilidades y armas; Usar, inventario y partida), con versión de computadora y de teléfono.
+- Al cruzar la puerta de la mansión empieza el Nivel 1 en el cuarto de inicio. La puerta es de un solo sentido (no se puede volver al jardín para escapar de los zombis).
+- Todas las cifras en BAL.bodegas.jardin.
