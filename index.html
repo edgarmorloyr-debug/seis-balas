@@ -3195,7 +3195,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=32').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=33').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -3727,6 +3727,11 @@ const Sfx = (() => {
     kaching() { tone({ type: 'triangle', f0: 1568, dur: 0.09, vol: 0.18, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.5, vol: 0.2, delay: 0.08, wet: 0.45 }); tone({ type: 'sine', f0: 3136, dur: 0.4, vol: 0.06, delay: 0.08, wet: 0.5 }); },
     vidrio(pan = 0, vol = 1) { burst({ ftype: 'highpass', f0: 3600, q: 0.8, dur: 0.16, vol: 0.38 * vol, pan, wet: 0.25 }); for (let i = 0; i < 6; i++) tone({ type: 'triangle', f0: rand(2600, 5400), dur: rand(0.05, 0.12), vol: 0.06 * vol, pan, wet: 0.3, delay: i * rand(0.012, 0.04) }); },   // decorados: vidrio o foco roto
     gota(pan = 0, vol = 1) { tone({ type: 'sine', f0: rand(900, 1300), f1: rand(1900, 2700), dur: 0.05, vol: 0.08 * vol, pan, wet: 0.55 }); },   // una gotera
+    // mundo vivo (25-oct-2026): sonidos lejanos de los espacios abiertos (un perro, una radio en una ventana, la lluvia en el metal, palomas que se van volando)
+    perro(pan = 0, vol = 1) { const n = 2 + Math.floor(Math.random() * 2); for (let i = 0; i < n; i++) { const d = i * rand(0.22, 0.32); tone({ type: 'sawtooth', f0: rand(420, 520), f1: rand(230, 280), dur: 0.11, vol: 0.05 * vol, pan, wet: 0.7, delay: d }); burst({ f0: 900, q: 1.4, dur: 0.09, vol: 0.06 * vol, pan, wet: 0.7, delay: d }); } },
+    radio(pan = 0, vol = 1) { burst({ ftype: 'bandpass', f0: 2400, q: 0.6, dur: 1.6, vol: 0.012 * vol, pan, wet: 0.5, attack: 0.3 }); const N = [392, 440, 494, 440, 392, 330, 349, 392], d0 = rand(0, 0.2); N.forEach((f, i) => { tone({ type: 'triangle', f0: f, dur: 0.2, vol: 0.022 * vol, pan, wet: 0.55, delay: d0 + i * 0.2 }); if (i % 2 === 0) tone({ type: 'sine', f0: f / 2, dur: 0.36, vol: 0.016 * vol, pan, wet: 0.5, delay: d0 + i * 0.2 }); }); },
+    lata(pan = 0, vol = 1) { const n = 1 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) tone({ type: 'triangle', f0: rand(1700, 3200), f1: rand(1200, 1600), dur: 0.035, vol: 0.03 * vol, pan: clamp(pan + rand(-0.4, 0.4), -1, 1), wet: 0.35, delay: rand(0, 0.25) }); },
+    palomas(pan = 0, vol = 1) { for (let i = 0; i < 14; i++) burst({ f0: rand(900, 1600), q: 1.2, dur: 0.035, vol: 0.07 * vol, pan, wet: 0.3, delay: i * 0.045 + rand(0, 0.015) }); tone({ type: 'sine', f0: 380, f1: 300, dur: 0.25, vol: 0.03 * vol, pan, wet: 0.4, delay: 0.1 }); },
     rata(pan = 0, vol = 1) { for (let i = 0; i < 3; i++) tone({ type: 'triangle', f0: rand(3200, 4200), f1: rand(2600, 3000), dur: 0.035, vol: 0.05 * vol, pan, wet: 0.2, delay: i * 0.06 }); },   // una rata que huye
     cadena() { for (let i = 0; i < 6; i++) burst({ f0: rand(2600, 4200), q: 6, dur: 0.07, vol: 0.12, delay: i * 0.06 + Math.random() * 0.03, wet: 0.4 }); },
     // el calíope de la feria: una frase de vals con sus tubos (cuadrada y triangular) y el bajo
@@ -40033,7 +40038,11 @@ $('#idioma').addEventListener('change', e => { store.set('sb_lang', e.target.val
 BAL.bodegas = {
   hab: [9, 18], bordes: [5, 3], limite: { taller: 1, despensa: 1, campana: 1, mini: 2 },   // dueño (25-oct-2026): «elimina el punto de guardado» (ya no hay Cuarto de guardado)
   paso: 20.4, alto: 4, muro: 0.3, vano: 2.4, tam: { chica: 10.2, mediana: 13.6, grande: 17, puerta: 4 },   // dueño (24-oct-2026): habitaciones 70 % más grandes (antes chica 6, mediana 8, grande 10; paso 12)
-  plata: { cada: 4, min: 2, max: 4 }, atajos: [1, 2],
+  plata: { cada: 4, min: 2, max: 4 },
+  // mapa en forma de árbol, con ramas y callejones sin salida, como en The Binding of Isaac (dueño, 25-oct-2026: «el mundo no debe estar tan interconectado»):
+  // atajos: de 0 a 1 puerta que une dos ramas (antes 1 o 2) · vueltas: cuántas vueltas (caminos de más, contando atajos y espacios abiertos) puede tener el mapa como mucho;
+  // los espacios abiertos se vuelven parte del camino: se quita el pasillo que hacía la vuelta (antes cada uno sumaba 1 a 3 vueltas)
+  atajos: [0, 1], vueltas: 1,
   guardias: { guardia: [4, 5], taller: [3, 3], bodega: [2, 2], oscuro: [1, 1] }, patrulla: 3, oro: 0.12,   // dueño (25-oct-2026): «menos zombis, como en la primera beta» (el 24-oct se había subido a 6-7 / 4-5 / 3-4 / 2 y patrulla de 5)
   vista: 12, ruido: 2,   // antes vista 8 m y ruido a 1 casilla
  levantarse: { p: 0.4, t: 5 },
@@ -40064,12 +40073,16 @@ BAL.bodegas = {
   juegos: { dango: 'dados' },
   niveles: 1,   // cuántos niveles existen: al salir del último se ve la pantalla «¡Saliste del Nivel N!» (el Nivel 2 todavía no existe)
   luces: 3, lucesTel: 2, luz: { color: 0xffb060, i: 1.6, d: 13 }, verHab: 2,
-  // espacios abiertos (dueño, 24-oct-2026): 1 o 2 por mapa, al aire libre (sin techo), unen varias habitaciones; solo de paso (sin guardias ni premio)
+  // espacios abiertos (dueño, 24-oct-2026): al aire libre (sin techo), unen habitaciones; solo de paso (sin guardias ni premio)
+  // mundo vivo (dueño, 25-oct-2026): de 2 a 3 por mapa (antes 1 o 2); unen 2 habitaciones (a veces 3: tres); el callejón sale más (peso: cuánto más fácil sale cada tipo);
+  // apartar: los tipos que se apartan antes de armar el mapa (como mucho «reserva» de ellos)
   abiertos: {
-    n: [1, 2], tipos: ['callejon', 'patio', 'jardin', 'canal'], apartar: ['patio', 'callejon'], cerca: 2, busca: 1200, intentos: 4000, alto: 9, ventanas: [3, 6],
+    n: [2, 3], tipos: ['callejon', 'patio', 'jardin', 'canal'], peso: { callejon: 8, patio: 1.2, jardin: 1, canal: 1 }, tres: 0.3, reserva: { n: 1, hab: 13 },   // se aparta 1 (o «n» en los mapas de «hab» habitaciones o más; con 2 casi nunca cabe)
+    apartar: ['patio', 'callejon'], cerca: 2, busca: 2000, intentos: 4000, alto: 9, ventanas: [3, 6],
     luna: { color: 0x9ab8ff, i: 1.5, d: 24, alto: 2 }, farol: { color: 0xffc070, i: 1.4, d: 11 },
-    callejon: { largo: [2, 3], ancho: 6, margen: 2.6, lejos: 4, basureros: [3, 5], latas: 2, escaleras: 2, pisos: [3.2, 5.6, 8.0], lluvia: 260, lluviaTel: 110, gota: [9, 13], charcos: 3 },
-    patio: { tam: 15, columnas: 4, fuente: 1.7, pozo: 2.4, hojas: 18 },
+    callejon: { largo: [1, 3], apartado: [2, 3], ancho: 6, margen: 2.6, lejos: 2,   // largo: casillas (el de 1 es un callejón corto, entre dos habitaciones enfrentadas); apartado: el que se aparta antes, más largo
+      basureros: [3, 5], latas: 2, escaleras: 2, pisos: [3.2, 5.6, 8.0], lluvia: 260, lluviaTel: 110, gota: [9, 13], charcos: 3 },
+    patio: { tam: 15, une: [2, 3], columnas: 4, fuente: 1.7, pozo: 2.4, hojas: 18 },   // antes unía siempre 4
     jardin: { tam: 14, une: [2, 3], bancas: 3, faroles: 2, arbustos: [6, 9] },
     canal: { tam: 14, ancho: 3.2, lento: 0.55, puentes: [-0.5, 0.5], puente: 1.8 }
   }
@@ -40126,8 +40139,13 @@ function bodGenerar(seed, nHab, pide, salas) {
   const poner = (t, x, y, p) => { const r = { i: rooms.length, t, x, y, p: p ? p.i : -1, d: p ? p.d + 1 : 0, hijos: 0 }; if (p) p.hijos++; rooms.push(r); ocup.set(key(x, y), r); return r; };
   poner('inicio', 0, 0, null);
   // el patio y el callejón casi nunca caben en un mapa ya armado: se apartan antes y el árbol crece primero hacia sus lados
-  const res = pide && B.abiertos.apartar.includes(pide) ? bodApartar(pide, rnd, ocup) : null, junto = new Set(res ? res.junto.map(c => key(c[0], c[1])) : []);
-  if (pide && B.abiertos.apartar.includes(pide) && !res) return null;
+  // pide: la lista de tipos de espacio abierto que se buscan (bodMapa la saca de la semilla); los que se apartan van primero (como mucho «reserva»)
+  const plan = [], A_ = B.abiertos;
+  if (pide) {
+    for (const t of pide) if (A_.apartar.includes(t) && plan.length < (total >= A_.reserva.hab ? A_.reserva.n : 1)) { const rs = bodApartar(t, rnd, ocup); if (!rs) return null; plan.push({ t, res: rs }); }
+    const quedan = pide.slice(); for (const q of plan) quedan.splice(quedan.indexOf(q.t), 1); for (const t of quedan) plan.push({ t, res: null });
+  }
+  const ress = plan.filter(q => q.res).map(q => q.res), junto = new Set(ress.flatMap(rs => rs.junto.map(c => key(c[0], c[1]))));
   for (const t of lista) {
     let ok = false;
     const falta = [...junto].filter(kj => !ocup.has(kj)).map(kj => kj.split(',').map(Number));
@@ -40149,23 +40167,24 @@ function bodGenerar(seed, nHab, pide, salas) {
   let jefe = null;
   for (const r of rooms.filter(r => !bodEsSala(r.t)).sort((a, b) => b.d - a.d)) { const v = vecLibre(r); if (v) { jefe = poner('jefe', v[0], v[1], r); break; } }
   if (!jefe || rooms.some(r => r !== jefe && r.d >= jefe.d)) return null;
-  if (res) { for (const c of res.cel) ocup.delete(key(c[0], c[1])); for (const r of rooms) if (junto.has(key(r.x, r.y))) r.junto = 1; }
+  for (const rs of ress) for (const c of rs.cel) ocup.delete(key(c[0], c[1]));
+  for (const r of rooms) if (junto.has(key(r.x, r.y))) r.junto = 1;
   // la llave de la salida: en el Cuarto de guardia más lejano
   const guard = rooms.filter(r => r.t === 'guardia').sort((a, b) => b.d - a.d); guard[0].llave = true;
   // habitaciones con llave de plata: 1 por cada 4 (de 2 a 4), solo las que tienen premio y no tienen salida a otras (así nunca tapan el camino)
   const nPl = clamp(Math.round(rooms.length / B.plata.cada), B.plata.min, B.plata.max);
-  const cand = mez(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave && r.hijos === 0)).sort((a, b) => (a.junto | 0) - (b.junto | 0));   // mejor las que no están junto al espacio apartado
+  const cand = mez(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave && r.hijos === 0 && !r.junto));   // nunca las que están junto a un espacio apartado (el espacio abierto se une a ellas)
   if (cand.length < nPl) return null;
   cand.slice(0, nPl).forEach(r => r.plata = true);
   // las otras salas cuelgan de una habitación sin llave de plata (no quedan encerradas), que no sea el Inicio, y menos lejos que el jefe
   // (el jefe sigue siendo la más lejana); nunca en la casilla apartada para el espacio abierto ni junto a ella
-  { const resCel = new Set(res ? res.cel.map(c => key(c[0], c[1])) : []);
+  { const resCel = new Set(ress.flatMap(rs => rs.cel.map(c => key(c[0], c[1]))));
     for (const t of extras) { let ya = null; for (const r of mez(rooms.filter(r => r.t !== 'inicio' && !bodCerrada(r.t) && !r.plata && r.d < jefe.d - 1))) { const v = mez(BOD_DIRS.slice()).map(d => [r.x + d[0], r.y + d[1]]).find(([x, y]) => libre(x, y) && !junto.has(key(x, y)) && !resCel.has(key(x, y))); if (v) { ya = poner(t, v[0], v[1], r); break; } } if (!ya) return null; } }
   // atajos: puertas que unen dos ramas vecinas (nunca el jefe, la Tienda y las demás salas con puerta, ni las cerradas)
   const atajos = [];
   for (const r of rooms) for (const d of BOD_DIRS) { const o = ocup.get(key(r.x + d[0], r.y + d[1])); if (o && o.i > r.i && o.p !== r.i && r.p !== o.i && !bodCerrada(r.t) && !bodCerrada(o.t) && !r.plata && !o.plata) atajos.push([r.i, o.i]); }
-  if (!atajos.length) return null;
   const nAt = Math.min(atajos.length, rnd(B.atajos[0], B.atajos[1])), at = mez(atajos).slice(0, nAt);
+  if (at.length < B.atajos[0]) return null;
   // de dónde salen las llaves de plata: el grupo de los pasillos y cada Bodega; si no alcanzan, algún cofre de guardia abierto guarda una
   const nBod = rooms.filter(r => r.t === 'bodega').length; let falta = nPl - 1 - nBod;
   for (const r of rooms) if (falta > 0 && r.t === 'guardia' && !r.llave && !r.plata) { r.cofrePlata = true; falta--; }
@@ -40180,15 +40199,17 @@ function bodGenerar(seed, nHab, pide, salas) {
     if (r.t === 'guardia' && !r.llave) { r.cofre = r.cofrePlata ? { plata: 1 } : R() < B.cofre.pieza ? { pieza: BOD_PIEZAS[rnd(0, BOD_PIEZAS.length - 1)] } : R() < B.cofre.bala ? { bala: 1 } : { oro: rnd(B.cofre.oro[0], B.cofre.oro[1]) }; }
     r.sem = rnd(1, 1e6);
   }
-  // el grupito de los pasillos: un paseo por las habitaciones abiertas (ida y vuelta)
-  const ok = r => !r.plata && !bodCerrada(r.t);
-  const vec = i => { const out = []; for (const r of rooms) if (r.p === i || rooms[i].p === r.i) out.push(r.i); for (const [a, b] of at) { if (a === i) out.push(b); if (b === i) out.push(a); } return out.filter(j => ok(rooms[j])); };
+  // los espacios abiertos (y los pasillos que se quitan para que el mapa siga siendo un árbol)
+  const ab = bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide ? plan : null); if (!ab) return null;
+  const corta = new Set(ab.cortes.map(([a, b]) => a < b ? a + ',' + b : b + ',' + a)), cort = (a, b) => corta.has(a < b ? a + ',' + b : b + ',' + a);
+  // el grupito de los pasillos: un paseo por las habitaciones abiertas (ida y vuelta; nunca por los espacios abiertos ni por los pasillos quitados)
+  const ok = r => !r.plata && !bodCerrada(r.t) && !r.abierto;
+  const vec = i => { const out = []; for (const r of rooms) if ((r.p === i || rooms[i].p === r.i) && !cort(i, r.i)) out.push(r.i); for (const [a, b] of at) { if (a === i) out.push(b); if (b === i) out.push(a); } return out.filter(j => ok(rooms[j])); };
   const ini = rooms.filter(r => ok(r) && r.d >= 2 && vec(r.i).length); let ruta = [];
   if (ini.length) { let c = ini[rnd(0, ini.length - 1)].i, prev = -1; ruta = [c]; for (let k = 0; k < 6; k++) { const v = vec(c).filter(j => j !== prev && j !== 0); if (!v.length) break; prev = c; c = v[rnd(0, v.length - 1)]; ruta.push(c); } }
   if (ruta.length < 2) return null;
   const oroR = R() < B.oro ? rooms.filter(r => ok(r) && r.t !== 'inicio')[0] : null;
-  const pasos = bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide, res); if (!pasos) return null;
-  return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1, pasos };
+  return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1, pasos: ab.pasos, cortes: ab.cortes };
 }
 // cuántos pasos hay desde el Inicio hasta cada habitación (contando atajos y espacios abiertos)
 function bodLejos(n, E) {
@@ -40197,28 +40218,56 @@ function bodLejos(n, E) {
 }
 // ---- espacios abiertos: van en casillas libres junto a 2 o más habitaciones y se unen a ellas (así hacen vueltas, no callejones sin salida).
 // Nunca tocan la sala del jefe, la Trastienda ni las de llave de plata, y con ellos el jefe sigue siendo la habitación más lejana del Inicio.
-// pide: el tipo que se busca primero (bodMapa lo reparte para que salgan los 4 tipos); si no cabe, este armado no sirve y se prueba otro.
+// Lo que se busca lo decide bodMapa con la semilla (cuántos y de qué tipo); si lo apartado no cabe, este armado no sirve y se prueba otro.
 function bodApartar(t, rnd, ocup) {
   const A = BAL.bodegas.abiertos, Bd = BAL.bodegas.bordes, key = (x, y) => x + ',' + y, dentro = (x, y) => Math.abs(x) <= Bd[0] && Math.abs(y) <= Bd[1];
   for (let k = 0; k < 40; k++) {
-    const x = rnd(-A.cerca, A.cerca), y = rnd(-A.cerca, A.cerca), d = BOD_DIRS[rnd(0, 3)], largo = t === 'callejon' ? rnd(A.callejon.largo[0], A.callejon.largo[1]) : 1, cel = [];
+    const x = rnd(-A.cerca, A.cerca), y = rnd(-A.cerca, A.cerca), d = BOD_DIRS[rnd(0, 3)], largo = t === 'callejon' ? rnd(A.callejon.apartado[0], A.callejon.apartado[1]) : 1, cel = [];
     for (let j = 0; j < largo; j++) cel.push([x + j * d[0], y + j * d[1]]);
     if (!cel.every(([a, b]) => dentro(a, b) && !ocup.has(key(a, b)))) continue;
-    const junto = t === 'callejon' ? [[x - d[0], y - d[1]], [x + largo * d[0], y + largo * d[1]]] : BOD_DIRS.map(([dx, dy]) => [x + dx, y + dy]);   // las dos puntas o los 4 lados
-    if (!junto.every(([a, b]) => dentro(a, b))) continue;
+    const lados4 = BOD_DIRS.map(([dx, dy]) => [x + dx, y + dy, rnd(0, 999)]).sort((a, b) => a[2] - b[2]).map(c => [c[0], c[1]]);
+    const junto = t === 'callejon' ? [[x - d[0], y - d[1]], [x + largo * d[0], y + largo * d[1]]] : lados4.slice(0, A[t].une ? A[t].une[0] : 4);   // las dos puntas, o 2 lados del patio (antes los 4)
+    if (!junto.every(([a, b]) => dentro(a, b) && !(ocup.get(key(a, b)) || {}).reserva)) continue;
+    if (cel.some(([a, b]) => BOD_DIRS.some(([dx, dy]) => (ocup.get(key(a + dx, b + dy)) || {}).reserva))) continue;   // dos apartados nunca se tocan
     for (const [a, b] of cel) ocup.set(key(a, b), { reserva: 1 });
     return { t, cel, junto };
   }
   return null;
 }
-function bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide, res) {
-  const A = BAL.bodegas.abiertos, Bd = BAL.bodegas.bordes, S = BAL.bodegas.paso, key = (x, y) => x + ',' + y, pasos = [];
+// plan: lo que se busca, en orden ({ t: tipo, res: lo apartado o null }); sin plan, de 2 a 3 al azar.
+// Mundo vivo (dueño, 25-oct-2026: «el mundo no debe estar tan interconectado»): para que el mapa siga siendo un árbol, al unir un espacio abierto se quita
+// un pasillo del camino que cerraría la vuelta (cortes): así el espacio abierto queda en el camino (se pasa por él para llegar a esa rama).
+// Solo si no se puede, la vuelta se queda (contando los atajos, como mucho BAL.bodegas.vueltas).
+function bodPonerAbiertos(rooms, ocup, at, rnd, mez, plan) {
+  const A = BAL.bodegas.abiertos, Bd = BAL.bodegas.bordes, S = BAL.bodegas.paso, key = (x, y) => x + ',' + y, pasos = [], cortes = [], cortado = new Set();
+  const ck = (a, b) => a < b ? a + ',' + b : b + ',' + a;
   const libre = (x, y) => !ocup.has(key(x, y)) && Math.abs(x) <= Bd[0] && Math.abs(y) <= Bd[1];
   const apto = (x, y) => { const r = ocup.get(key(x, y)); return r && !r.abierto && !r.plata && !bodCerrada(r.t) ? r : null; };
   const sube = r => { const out = []; for (let c = r; c; c = c.p >= 0 ? rooms[c.p] : null) out.push(c.i); return out; };
   const arbol = (a, b) => { const A_ = sube(a), B_ = sube(b), j = A_.find(i => B_.includes(i)); return A_.indexOf(j) + B_.indexOf(j); };   // pasos por el árbol entre dos habitaciones
-  const J = rooms.find(r => r.t === 'jefe'), base = () => rooms.filter(r => r.p >= 0).map(r => [r.p, r.i]).concat(at, pasos);
-  const jefeLejos = d => rooms.every(r => r === J || r.abierto || d[r.i] < d[J.i]);   // contando todos los caminos, el jefe sigue siendo la más lejana
+  const J = rooms.find(r => r.t === 'jefe'), LL = rooms.find(r => r.llave), GU = rooms.filter(r => r.t === 'guardia');
+  const base = () => rooms.filter(r => r.p >= 0 && !cortado.has(ck(r.p, r.i))).map(r => [r.p, r.i]).concat(at, pasos);
+  // contando todos los caminos: todo se alcanza, el jefe sigue siendo la más lejana y la llave sigue en el Cuarto de guardia más lejano
+  const vale = d => d.every(v => v >= 0) && rooms.every(r => r === J || r.abierto || d[r.i] < d[J.i]) && GU.every(g => d[g.i] <= d[LL.i]);
+  const camino = (n, E, a, b) => {   // los pasillos de un camino de a hasta b
+    const ad = Array.from({ length: n }, () => []); for (const [x, y] of E) { ad[x].push(y); ad[y].push(x); }
+    const pr = new Array(n).fill(-2), q = [a]; pr[a] = -1;
+    for (let k = 0; k < q.length && pr[b] === -2; k++) for (const y of ad[q[k]]) if (pr[y] === -2) { pr[y] = q[k]; q.push(y); }
+    const out = []; if (pr[b] === -2) return out; for (let y = b; pr[y] >= 0; y = pr[y]) out.push([pr[y], y]); return out;
+  };
+  const deArbol = (x, y) => x < rooms.length && y < rooms.length && (rooms[x].p === y || rooms[y].p === x) && !cortado.has(ck(x, y));
+  let vueltas = base().length - (rooms.length - 1);   // las que ya hay (los atajos)
+  const unir = une => {   // qué pasillos se quitan al unir el espacio abierto nuevo con estas habitaciones (null: no se puede)
+    const i = rooms.length, n = i + 1, nuevos = []; let E = base().concat([[i, une[0].i]]), v = vueltas;
+    for (let j = 1; j < une.length; j++) {
+      const u = une[j].i, op = mez(camino(n, E, u, i).filter(([x, y]) => x !== i && y !== i && deArbol(x, y))); E = E.concat([[i, u]]);
+      let ok = false;
+      for (const [x, y] of op) { const E2 = E.filter(e => ck(e[0], e[1]) !== ck(x, y)); if (vale(bodLejos(n, E2))) { E = E2; nuevos.push([x, y]); ok = true; break; } }
+      if (!ok) { if (v < BAL.bodegas.vueltas) v++; else return null; }
+    }
+    return vale(bodLejos(n, E)) ? { cortes: nuevos, v } : null;
+  };
+  const elige = (hay, un) => { const m = mez(hay.slice()), k = rnd(0, 999) < A.tres * 1000 ? un[0] + 1 : un[0]; return m.slice(0, Math.min(m.length, un[1], k)); };   // 2 de las vecinas; a veces 3
   const cands = t => {
     const out = [];
     for (let x = -Bd[0]; x <= Bd[0]; x++) for (let y = -Bd[1]; y <= Bd[1]; y++) {
@@ -40231,35 +40280,46 @@ function bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide, res) {
       }
       if (!libre(x, y)) continue;
       const v = BOD_DIRS.map(([dx, dy]) => apto(x + dx, y + dy)), hay = v.filter(Boolean);   // e, o, s, n
-      if (t === 'patio' && hay.length === 4) out.push({ cel: [[x, y]], une: hay });
-      if (t === 'jardin' && hay.length >= A.jardin.une[0]) out.push({ cel: [[x, y]], une: mez(hay.slice()).slice(0, A.jardin.une[1]) });
+      if ((t === 'patio' || t === 'jardin') && hay.length >= A[t].une[0]) out.push({ cel: [[x, y]], une: elige(hay, A[t].une) });
       if (t === 'canal') for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) if (v[a] && v[b]) out.push({ cel: [[x, y]], une: [v[a], v[b]] });   // una habitación en cada orilla (si están en lados vecinos, el agua cruza en diagonal)
     }
     return out;
   };
-  const n = rnd(A.n[0], A.n[1]), usados = [];
+  const igual = (c, cel) => c.cel.length === cel.length && (c.cel.every((q, j) => q[0] === cel[j][0] && q[1] === cel[j][1]) || c.cel.every((q, j) => q[0] === cel[cel.length - 1 - j][0] && q[1] === cel[cel.length - 1 - j][1]));
+  const n = plan ? plan.length : rnd(A.n[0], A.n[1]), usados = [];
   for (let k = 0; k < n; k++) {
     let ya = null;
-    const orden = k === 0 && pide ? [pide] : mez(A.tipos.filter(t => !usados.includes(t))).concat(mez(A.tipos.filter(t => usados.includes(t))));
+    const P_ = plan && plan[k], resto = bodAbOrden(A.tipos.filter(t => !usados.includes(t)), rnd).concat(bodAbOrden(A.tipos.filter(t => usados.includes(t)), rnd));
+    const orden = P_ ? (P_.res ? [P_.t] : [P_.t].concat(resto.filter(t => t !== P_.t))) : resto;
     for (const t of orden) {
-      const cs = k === 0 && res ? cands(t).filter(c => c.cel.length === res.cel.length && c.cel.every((q, j) => q[0] === res.cel[j][0] && q[1] === res.cel[j][1]) || c.cel.length === res.cel.length && c.cel.every((q, j) => q[0] === res.cel[res.cel.length - 1 - j][0] && q[1] === res.cel[res.cel.length - 1 - j][1])) : cands(t);   // el apartado va justo donde se apartó
-      for (const c of mez(cs)) { const i = rooms.length; if (jefeLejos(bodLejos(i + 1, base().concat(c.une.map(o => [i, o.i]))))) { ya = Object.assign({ t }, c); break; } }
+      const cs = P_ && P_.res ? cands(t).filter(c => igual(c, P_.res.cel)) : cands(t);   // el apartado va justo donde se apartó
+      for (const c of mez(cs).sort((a, b) => b.cel.length - a.cel.length)) { const u = unir(c.une);   // los callejones largos primero
+        if (u) { ya = Object.assign({ t, u }, c); break; } }
       if (ya) break;
     }
-    if (!ya) { if (k === 0) return null; break; }
+    if (!ya) { if (k < A.n[0] || (P_ && P_.res)) return null; break; }
     const T_ = A[ya.t], cel = ya.cel, i = rooms.length;
     const r = { i, t: ya.t, abierto: true, cel, x: cel.reduce((s, c) => s + c[0], 0) / cel.length, y: cel.reduce((s, c) => s + c[1], 0) / cel.length, p: -1, d: 0, hijos: 0, g: 0, sem: rnd(1, 1e6) };
     if (ya.t === 'callejon') { const larga = cel.length * S / 2 - T_.margen, h = cel[0][1] === cel[cel.length - 1][1]; r.hx = h ? larga : T_.ancho / 2; r.hz = h ? T_.ancho / 2 : larga; }
     else r.hx = r.hz = T_.tam / 2;
     rooms.push(r); for (const [a, b] of cel) ocup.set(key(a, b), r); for (const o of ya.une) pasos.push([i, o.i]); usados.push(ya.t);
-    r.d = bodLejos(rooms.length, base())[i];
+    for (const [x, y] of ya.u.cortes) { cortado.add(ck(x, y)); cortes.push([x, y]); }
+    vueltas = ya.u.v;
   }
-  return pasos;
+  const d = bodLejos(rooms.length, base()); for (const r of rooms) r.d = d[r.i];   // los pasos de verdad desde el Inicio (con atajos, espacios abiertos y sin los pasillos quitados)
+  return { pasos, cortes };
+}
+// los tipos de espacio abierto en orden al azar: los de más peso salen primero más seguido (BAL.bodegas.abiertos.peso)
+function bodAbOrden(tipos, rnd) {
+  const W = BAL.bodegas.abiertos.peso, a = tipos.slice(), out = [];
+  while (a.length) { const tot = a.reduce((s, t) => s + (W[t] || 1), 0); let u = rnd(0, 9999) / 10000 * tot, k = 0; for (; k < a.length - 1; k++) { u -= W[a[k]] || 1; if (u < 0) break; } out.push(a.splice(k, 1)[0]); }
+  return out;
 }
 function bodMapa(seed) {   // la semilla decide cuántas habitaciones (de 9 a 18, todas igual de probables); si el armado no cumple, se reintenta con el mismo número
   if (bodMapa.ult && bodMapa.ult.seed0 === seed) return bodMapa.ult;   // el mismo mapa no se vuelve a armar (al volver de la Trastienda)
   const B = BAL.bodegas, R0 = mulberry32(seed ^ 0x5bd1), n = B.hab[0] + Math.floor(R0() * (B.hab[1] - B.hab[0] + 1));
-  const A = B.abiertos, pide = A.tipos[Math.floor(R0() * A.tipos.length)];   // la semilla también elige el tipo del primer espacio abierto (si no cabe en varios armados, cualquiera)
+  // la semilla también elige cuántos espacios abiertos (de 2 a 3) y de qué tipo (el callejón, más seguido); si no caben en varios armados, cualquiera
+  const A = B.abiertos, r0 = (a, b) => a + Math.floor(R0() * (b - a + 1)), nA = r0(A.n[0], A.n[1]), pide = Array.from({ length: nA }, () => bodAbOrden(A.tipos, r0)[0]);
   const salas = bodSalasSortear(R0);   // y qué salas aparte trae (Herrero, Juegos, Cápsulas, La Garra); si no caben en la mitad de los armados, al azar en cada uno
   for (let k = 0; k < A.intentos; k++) { const L = bodGenerar((seed + k * 7919) >>> 0, k < A.intentos - 200 ? n : 0, k < A.busca ? pide : null, k < A.intentos / 2 ? salas : null); if (L) { L.seed0 = seed; return bodMapa.ult = L; } } return null;
 }
@@ -40279,32 +40339,37 @@ function bodRevisar(L) {
   const np = R.filter(r => r.plata).length, want = clamp(Math.round(n / B.plata.cada), B.plata.min, B.plata.max); if (np !== want) mal.push('plata ' + np + '/' + want);
   if (R.some(r => r.plata && !['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t))) mal.push('plata en tipo');
   if (L.atajos.length < B.atajos[0] || L.atajos.length > B.atajos[1]) mal.push('atajos ' + L.atajos.length);
+  // forma de árbol (mundo vivo, 25-oct-2026): todo se alcanza, los pasillos quitados eran del árbol y las vueltas (caminos de más) no pasan de BAL.bodegas.vueltas
+  { const E = bodUniones(L), d = bodLejos(L.rooms.length, E); if (d.some(v => v < 0)) mal.push('suelta (sin camino)');
+    if (E.length - (L.rooms.length - 1) > B.vueltas) mal.push('vueltas ' + (E.length - (L.rooms.length - 1)));
+    for (const [a, b] of L.cortes || []) if (!(L.rooms[a] && L.rooms[b] && (L.rooms[a].p === b || L.rooms[b].p === a))) mal.push('corte raro');
+    for (const r of L.rooms) if (r.d !== d[r.i]) { mal.push('pasos mal contados'); break; } }
   const keys = 1 + c('bodega') + R.filter(r => r.cofre && r.cofre.plata).length; if (keys < np) mal.push('faltan llaves de plata');
   const AB = L.rooms.filter(r => r.abierto), celdas = R.map(r => r.x + ',' + r.y).concat(...AB.map(a => a.cel.map(c => c.join(','))));
   const pos = new Set(celdas); if (pos.size !== celdas.length) mal.push('casillas repetidas');
   for (const r of R) if (r.p >= 0) { const p = R[r.p]; if (Math.abs(p.x - r.x) + Math.abs(p.y - r.y) !== 1) mal.push('pasillo largo'); }
   for (const r of R) if (r.t !== 'inicio' && r.p < 0) mal.push('suelta');
-  // espacios abiertos: 1 o 2, cada uno une 2 o más habitaciones, sin guardias ni premio, y no acortan el camino al jefe
+  // espacios abiertos: de 2 a 3, cada uno une 2 o más habitaciones (nunca es un callejón sin salida), sin guardias ni premio, y no acortan el camino al jefe
   const A = B.abiertos, P = L.pasos || [];
   if (AB.length < A.n[0] || AB.length > A.n[1]) mal.push('abiertos ' + AB.length);
   for (const a of AB) {
     const une = P.filter(p => p[0] === a.i).map(p => L.rooms[p[1]]);
     if (une.length < 2) mal.push('abierto sin vuelta');
     if (une.some(o => o.abierto || o.plata || bodCerrada(o.t))) mal.push('abierto une mal');
-    if (a.t === 'patio' && une.length !== 4) mal.push('patio');
-    if (a.t === 'jardin' && une.length > A.jardin.une[1]) mal.push('jardín');
+    if (a.t === 'patio' && (une.length < A.patio.une[0] || une.length > A.patio.une[1])) mal.push('patio');
+    if (a.t === 'jardin' && (une.length < A.jardin.une[0] || une.length > A.jardin.une[1])) mal.push('jardín');
     if (a.t === 'canal' && une.length !== 2) mal.push('canal');
     if (a.t === 'callejon' && une.length !== 2) mal.push('callejón');
     if (a.g || a.cofre || a.llave || a.plata || L.ruta.includes(a.i) || L.oro === a.i) mal.push('abierto con guardias o premio');
   }
-  if (AB.length) { const d = bodLejos(L.rooms.length, R.filter(r => r.p >= 0).map(r => [r.p, r.i]).concat(L.atajos, P)); if (R.some(r => r !== J && d[r.i] >= d[J.i])) mal.push('con los espacios abiertos el jefe no es la más lejana'); }
+  if (AB.length) { const d = bodLejos(L.rooms.length, bodUniones(L)); if (R.some(r => r !== J && d[r.i] >= d[J.i])) mal.push('con los espacios abiertos el jefe no es la más lejana'); }
   return mal;
 }
 // ---- medidas en el mundo: centro y mitad de cada habitación (los centros caen en medio de una celda de la ruta de los zombis)
 const bodC = r => ({ x: r.x * BAL.bodegas.paso + 0.5, z: r.y * BAL.bodegas.paso + 0.5 });
 const bodH = (r, e) => r.hx != null ? (e === 'x' ? r.hx : e === 'z' ? r.hz : Math.max(r.hx, r.hz)) : BAL.bodegas.tam[r.tam] / 2;   // los espacios abiertos pueden ser alargados (e: 'x' o 'z')
 function bodHabDe(x, z, m = 0.2) { if (!BOD.L) return null; for (const r of BOD.L.rooms) { const c = bodC(r); if (Math.abs(x - c.x) <= bodH(r, 'x') + m && Math.abs(z - c.z) <= bodH(r, 'z') + m) return r; } return null; }
-function bodUniones(L) { const E = []; for (const r of L.rooms) if (r.p >= 0) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); for (const [a, b] of L.pasos || []) E.push([a, b, 2]); return E; }
+function bodUniones(L) { const E = [], C = new Set((L.cortes || []).map(([a, b]) => a < b ? a + ',' + b : b + ',' + a)); for (const r of L.rooms) if (r.p >= 0 && !C.has(r.p < r.i ? r.p + ',' + r.i : r.i + ',' + r.p)) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); for (const [a, b] of L.pasos || []) E.push([a, b, 2]); return E; }   // sin los pasillos quitados por los espacios abiertos (L.cortes)
 function bodPasilloDe(x, z) {
   const L = BOD.L; if (!L) return []; const out = [];
   for (const [a, b] of bodUniones(L)) { const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); if (x >= Math.min(A.x, Bc.x) - 1.3 && x <= Math.max(A.x, Bc.x) + 1.3 && z >= Math.min(A.z, Bc.z) - 1.3 && z <= Math.max(A.z, Bc.z) + 1.3) out.push(L.rooms[a], L.rooms[b]); }
@@ -40379,7 +40444,7 @@ function buildBodegas() {
   world.arena = { t: 'r', hx: Math.ceil(Math.max(Math.max(...ax) + 7, ...AB.map(r => Math.abs(bodC(r).x) + r.hx + 2))), hz: Math.ceil(Math.max(Math.max(...az) + 7, ...AB.map(r => Math.abs(bodC(r).z) + r.hz + 2))) };
   env({ fog: 0x0e0906, dens: 0.05, top: 0x050302, sky: false, hemiS: 0xffd2a0, hemiG: 0x2a1a10, hemiI: 0.42, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
   bodMats();
-  BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = [];
+  BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = []; BOD.calles = [];
   // suelo y techo: una sola pieza cada uno
   const A = world.arena, fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.suelo); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = false;
   { const u = fl.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 2, u.getY(i) * A.hz / 2); }
@@ -40580,7 +40645,7 @@ BAL.bodegas.decor = {
   // el espacio entre piezas y lo que queda contra la pared. Solo cuenta para lo que estorba (muebles); lo plano del suelo y lo del techo va donde sea.
   libre: { puerta: 0.9, hondo: 3.0, centro: 2.4, uso: 1.7, spawn: 1.1, entre: 0.2, borde: 0.15, cuadro: 0.25, alto: 0.3, bajo: 0.5 },
   // qué piezas van en cada tipo de cuarto (el número es el peso: cuánto más fácil sale). «comun» va en todos; los vestíbulos de las salas usan «sala»
-  comun: { bombilla: 2, farol: 2, tuberias: 2, vigas: 2, arcos: 2, cadenas: 2, telaranas: 3, charcos: 2, desague: 1, polvo: 2, niebla: 1, ratas: 2, goteras: 2, carteles: 2, ventanuco: 1, tapiada: 1 },
+  comun: { calle: 2, vapor: 1.5, bombilla: 2, farol: 2, tuberias: 2, vigas: 2, arcos: 2, cadenas: 2, telaranas: 3, charcos: 2, desague: 1, polvo: 2, niebla: 1, ratas: 2, goteras: 2, carteles: 2, ventanuco: 1, tapiada: 1 },
   tipos: {
     inicio: { retrato: 3, busto: 2, alfombra: 3, carrito: 1, vitral: 2, naipes: 1 },
     jefe: { retrato: 3, busto: 3, alfombra: 3, tragamonedas: 2, ruleta: 2, cajas: 2, sacos: 2, vitral: 2, naipes: 1 },
@@ -40594,7 +40659,7 @@ BAL.bodegas.decor = {
     oscuro: { mesa: 2, sillas: 1, barriles: 2, sacos: 1, cajas: 1 },
     sala: { naipes: 2, alfombra: 2, vitral: 1, retrato: 1 }
   },
-  sinLuz: ['oscuro'], luz: ['bombilla', 'farol', 'ventanuco', 'tapiada', 'rejilla', 'vitral', 'tragamonedas', 'polvo'],   // el cuarto oscuro sigue oscuro
+  sinLuz: ['oscuro'], luz: ['calle', 'bombilla', 'farol', 'ventanuco', 'tapiada', 'rejilla', 'vitral', 'tragamonedas', 'polvo'],   // el cuarto oscuro sigue oscuro
   repite: ['telaranas', 'charcos', 'carteles', 'cadenas', 'naipes', 'desague'],   // si no alcanzan las piezas distintas, estas pueden salir dos veces
   bombilla: { vaiven: 0.07, ritmo: 1.7, cable: [0.7, 1.2] },   // vaivén (radianes), rapidez del vaivén (radianes por segundo) y largo del cable (m)
   ratas: { n: [2, 3], huye: 3.2, vel: 3.4, corre: [2.2, 4.0], vuelve: [7, 14], chillido: 1.5 },   // huyen cuando te acercas a menos de «huye» m; vuelven a los «vuelve» s
@@ -40608,13 +40673,82 @@ BAL.bodegas.decor = {
 };
 const BODC = { piedra: 0x3a3029, madera: 0x6b4526, oscura: 0x3a2616, hierro: 0x55555c, cobre: 0xb06a3a, oro: 0xd4a23a, rojo: 0x7a1818, hueso: 0xe9dcc0, marmol: 0xe8e2d6, saco: 0x8a7a5a, verdeM: 0x3c4a3c, plata: 0xc0c0c0, sabana: 0xcfc6b2, charco: 0x10161e };
 const BODD = { at: null, atL: '', rooms: [], geo: null, m: null, chill: 0 };
-// la textura con todos los dibujos: [x, y, ancho, alto] en un lienzo de 1024 × 512
+// la textura con todos los dibujos: [x, y, ancho, alto] en un lienzo de 1024 × 1024 (la mitad de abajo, para el mundo vivo: bodVivoAtlas)
 const BOD_AT = { blanco: [768, 256, 256, 256], retrato: [16, 0, 200, 256], busca: [224, 0, 200, 256], ruleta: [432, 0, 256, 256], naipe: [696, 0, 64, 90], naipe2: [768, 0, 64, 90], pantalla: [840, 0, 176, 88], tela: [0, 264, 256, 248], niebla: [264, 264, 256, 248], suave: [528, 264, 128, 128] };
-function bodDecUV(k) { const [x, y, w, h] = BOD_AT[k], p = 2; return [(x + p) / 1024, 1 - (y + h - p) / 512, (x + w - p) / 1024, 1 - (y + p) / 512]; }
+function bodDecUV(k) { const [x, y, w, h] = BOD_AT[k], p = 2; return [(x + p) / 1024, 1 - (y + h - p) / 1024, (x + w - p) / 1024, 1 - (y + p) / 1024]; }
+// ---- mundo vivo (dueño, 25-oct-2026): los dibujos de las fachadas en la mitad de abajo de la textura de los decorados (ventanas con cortinas, vitrinas,
+// letreros, ropa tendida, siluetas, el gato, las palomas, la rejilla del aire, la tapa de la alcantarilla y la calle que se ve por una ventana de adentro)
+const BOD_LETREROS = [   // [nombre, línea de abajo, estilo: 0 madera pintada · 1 caja con luz · 2 rojo con letras doradas · 3 verde con letras blancas, vitrina]
+  ['Lavandería', 'Abierto', 1, 'vt0'], ['Empeños', 'Compro y vendo', 2, 'vt1'], ['Bar El Trébol', 'Abierto', 3, 'vt2'], ['Panadería', 'Desde 1931', 0, 'vt3'],
+  ['Farmacia', '24 horas', 1, null], ['Sastrería', 'Desde 1931', 0, null], ['Relojería', 'Compro y vendo', 2, null], ['Pensión', '24 horas', 3, null]
+];
+Object.assign(BOD_AT, {
+  v0: [0, 512, 64, 96], v1: [64, 512, 64, 96], v2: [128, 512, 64, 96], v3: [192, 512, 64, 96], v4: [256, 512, 64, 96], v5: [320, 512, 64, 96], vo0: [384, 512, 64, 96], vo1: [448, 512, 64, 96],
+  vt0: [0, 608, 128, 96], vt1: [128, 608, 128, 96], vt2: [256, 608, 128, 96], vt3: [384, 608, 128, 96],
+  ropa0: [0, 704, 64, 64], ropa1: [64, 704, 64, 64], ropa2: [128, 704, 64, 64], ropa3: [192, 704, 64, 64], ropa4: [256, 704, 64, 64],
+  sil0: [0, 768, 64, 96], sil1: [64, 768, 64, 96], gato: [128, 768, 64, 64], paloma: [192, 768, 32, 32], aire: [256, 768, 64, 64], tapa: [320, 768, 64, 64], calle: [512, 768, 256, 192]
+});
+BOD_LETREROS.forEach((L, i) => { BOD_AT['s' + i] = [512 + (i % 2) * 256, 512 + Math.floor(i / 2) * 64, 256, 64]; });
+function bodVivoAtlas(g) {
+  const A = BOD_AT, rr = (a, b) => a + Math.random() * (b - a);
+  // ventanas con luz cálida: cortinas de colores, persianas, una planta, la luz azul de una tele, una lámpara
+  const cuarto = (x, y, w, h, c0, c1) => { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, c0); gr.addColorStop(1, c1); g.fillStyle = gr; g.fillRect(x, y, w, h); };
+  const marco = (x, y, w, h) => { g.fillStyle = '#1a120c'; g.fillRect(x, y, w, 4); g.fillRect(x, y + h - 4, w, 4); g.fillRect(x, y, 4, h); g.fillRect(x + w - 4, y, 4, h); g.fillRect(x + w / 2 - 2, y, 4, h); g.fillRect(x, y + h * 0.42, w, 3); };
+  const cortina = (x, y, w, h, col, ab) => { for (const s of [0, 1]) { const cw = w * (0.5 - ab / 2), cx = s ? x + w - cw : x; g.fillStyle = col; g.fillRect(cx, y, cw, h); g.fillStyle = 'rgba(0,0,0,.22)'; for (let k = 4; k < cw; k += 7) g.fillRect(cx + k, y, 2, h); } };
+  const V = [
+    (x, y, w, h) => { cuarto(x, y, w, h, '#ffd890', '#e8903a'); cortina(x + 4, y + 4, w - 8, h - 8, '#a82a2a', 0.45); },
+    (x, y, w, h) => { cuarto(x, y, w, h, '#ffe0a0', '#f0a050'); g.fillStyle = 'rgba(120,70,30,.85)'; for (let k = y + 6; k < y + h * 0.7; k += 8) g.fillRect(x + 4, k, w - 8, 5); },   // persiana a medio bajar
+    (x, y, w, h) => { cuarto(x, y, w, h, '#ffcf80', '#d8803a'); cortina(x + 4, y + 4, w - 8, h - 8, '#e8dcc0', 0.25); g.fillStyle = '#2a4a1a'; g.beginPath(); g.ellipse(x + w * 0.5, y + h - 16, 12, 10, 0, 0, 7); g.fill(); g.fillStyle = '#6a3a1a'; g.fillRect(x + w * 0.5 - 6, y + h - 10, 12, 8); },   // una planta
+    (x, y, w, h) => { cuarto(x, y, w, h, '#a8c8ff', '#4a68b0'); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x + 14, y + 40, 36, 26); cortina(x + 4, y + 4, w - 8, h - 8, '#3a4a6a', 0.6); },   // la luz azul de una tele
+    (x, y, w, h) => { cuarto(x, y, w, h, '#ffe8b0', '#e09848'); const gr = g.createRadialGradient(x + w * 0.3, y + h * 0.35, 2, x + w * 0.3, y + h * 0.35, 30); gr.addColorStop(0, '#fff8e0'); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.fillRect(x, y, w, h); g.fillStyle = '#3a2a1a'; g.fillRect(x + w * 0.3 - 1, y + h * 0.42, 2, 30); },   // una lámpara
+    (x, y, w, h) => { cuarto(x, y, w, h, '#ffd080', '#c87830'); g.fillStyle = 'rgba(240,230,210,.8)'; g.fillRect(x + 4, y + 4, w - 8, h * 0.35); g.fillStyle = 'rgba(0,0,0,.15)'; for (let k = x + 6; k < x + w - 4; k += 6) g.fillRect(k, y + 4, 1, h * 0.35); },   // estor enrollado
+    (x, y, w, h) => { cuarto(x, y, w, h, '#0e141e', '#06080c'); g.fillStyle = 'rgba(150,180,230,.16)'; g.beginPath(); g.moveTo(x + 6, y + h); g.lineTo(x + w * 0.6, y); g.lineTo(x + w * 0.8, y); g.lineTo(x + 20, y + h); g.fill(); },   // apagada (con un reflejo)
+    (x, y, w, h) => { cuarto(x, y, w, h, '#141018', '#08060a'); cortina(x + 4, y + 4, w - 8, h - 8, '#2a1a1e', 0.15); }   // apagada, con cortina
+  ];
+  ['v0', 'v1', 'v2', 'v3', 'v4', 'v5', 'vo0', 'vo1'].forEach((k, i) => { const [x, y, w, h] = A[k]; V[i](x, y, w, h); marco(x, y, w, h); });
+  // vitrinas de las tiendas: la lavandería (lavadoras redondas), la casa de empeño (guitarra y relojes), el bar (botellas) y la panadería (panes)
+  { let [x, y, w, h] = A.vt0; cuarto(x, y, w, h, '#e8f4ff', '#a8c4d8'); for (let i = 0; i < 3; i++) { const cx = x + 22 + i * 42, cy = y + h - 30; g.fillStyle = '#f4f4f0'; g.fillRect(cx - 18, cy - 20, 36, 44); g.fillStyle = '#5a7088'; g.beginPath(); g.arc(cx, cy + 2, 12, 0, 7); g.fill(); g.fillStyle = 'rgba(200,230,255,.8)'; g.beginPath(); g.arc(cx - 3, cy - 1, 4, 0, 7); g.fill(); } }
+  { let [x, y, w, h] = A.vt1; cuarto(x, y, w, h, '#ffd890', '#a86a2a'); g.fillStyle = '#6a3a14'; g.beginPath(); g.ellipse(x + 30, y + h - 26, 16, 20, 0, 0, 7); g.fill(); g.fillRect(x + 27, y + 14, 6, 44); g.fillStyle = '#1a0e06'; g.beginPath(); g.arc(x + 30, y + h - 28, 5, 0, 7); g.fill();
+    for (let i = 0; i < 3; i++) { g.fillStyle = '#e8c860'; g.beginPath(); g.arc(x + 70 + i * 20, y + 30 + (i % 2) * 14, 8, 0, 7); g.fill(); g.fillStyle = '#fff8e0'; g.beginPath(); g.arc(x + 70 + i * 20, y + 30 + (i % 2) * 14, 5, 0, 7); g.fill(); } g.fillStyle = '#c0a040'; g.fillRect(x + 64, y + h - 22, 56, 6); }
+  { let [x, y, w, h] = A.vt2; cuarto(x, y, w, h, '#ffc070', '#8a4a1a'); g.fillStyle = '#4a2a12'; g.fillRect(x, y + h * 0.55, w, 4); for (let i = 0; i < 9; i++) { g.fillStyle = ['#2a6a2a', '#7a2a1a', '#d8a838', '#3a2a5a'][i % 4]; g.fillRect(x + 8 + i * 13, y + h * 0.55 - 24 - (i % 3) * 3, 8, 24 + (i % 3) * 3); g.fillRect(x + 10 + i * 13, y + h * 0.55 - 30 - (i % 3) * 3, 4, 7); } g.fillStyle = '#1e7a3a'; g.font = 'bold 34px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('♣', x + w / 2, y + h - 18); }
+  { let [x, y, w, h] = A.vt3; cuarto(x, y, w, h, '#fff0c8', '#d8a050'); g.fillStyle = '#8a5a2a'; g.fillRect(x + 6, y + h - 30, w - 12, 5); g.fillRect(x + 6, y + h * 0.4, w - 12, 5); for (let i = 0; i < 6; i++) { g.fillStyle = ['#c8843a', '#b06a28', '#d8a050'][i % 3]; g.beginPath(); g.ellipse(x + 16 + i * 19, y + h - 38, 9, 7, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(x + 16 + i * 19, y + h * 0.4 - 8, 8, 6, 0.4, 0, 7); g.fill(); } }
+  for (const k of ['vt0', 'vt1', 'vt2', 'vt3']) { const [x, y, w, h] = A[k]; g.fillStyle = '#20160e'; g.fillRect(x, y, w, 5); g.fillRect(x, y + h - 5, w, 5); g.fillRect(x, y, 5, h); g.fillRect(x + w - 5, y, 5, h); }
+  // los letreros (sin neón: pintados o en una caja con luz)
+  BOD_LETREROS.forEach(([t, sub, est], i) => {
+    const [x, y, w, h] = A['s' + i], fondo = ['#5a3a1e', '#f4ead0', '#7a1a1a', '#1e4a2e'][est], letra = ['#f0d8a0', '#2a1a0e', '#f0c050', '#f4f0e0'][est];
+    g.fillStyle = fondo; g.fillRect(x, y, w, h); if (est === 1) { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(0,0,0,.08)'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
+    g.strokeStyle = est === 1 ? '#8a6a3a' : 'rgba(255,230,180,.55)'; g.lineWidth = 3; g.strokeRect(x + 4, y + 4, w - 8, h - 8);
+    g.fillStyle = letra; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${est === 0 ? 30 : 32}px Georgia, serif`; g.fillText(tx(t), x + w / 2, y + 25, w - 24);
+    g.font = '600 15px sans-serif'; g.fillText(tx(sub), x + w / 2, y + 50, w - 30);
+  });
+  // lo que lleva transparencia (ropa, siluetas, el gato y la paloma): fondo vacío
+  for (const k of ['ropa0', 'ropa1', 'ropa2', 'ropa3', 'ropa4', 'sil0', 'sil1', 'gato', 'paloma']) { const [x, y, w, h] = A[k]; g.clearRect(x, y, w, h); }
+  g.fillStyle = '#fff';
+  { const [x, y] = A.ropa0; g.beginPath(); g.moveTo(x + 14, y + 6); g.lineTo(x + 50, y + 6); g.lineTo(x + 62, y + 22); g.lineTo(x + 52, y + 28); g.lineTo(x + 48, y + 22); g.lineTo(x + 48, y + 60); g.lineTo(x + 16, y + 60); g.lineTo(x + 16, y + 22); g.lineTo(x + 12, y + 28); g.lineTo(x + 2, y + 22); g.closePath(); g.fill(); }   // camisa
+  { const [x, y] = A.ropa1; g.beginPath(); g.moveTo(x + 14, y + 4); g.lineTo(x + 50, y + 4); g.lineTo(x + 54, y + 62); g.lineTo(x + 36, y + 62); g.lineTo(x + 32, y + 22); g.lineTo(x + 28, y + 62); g.lineTo(x + 10, y + 62); g.closePath(); g.fill(); }   // pantalón
+  { const [x, y] = A.ropa2; g.fillRect(x + 4, y + 4, 56, 54); g.fillStyle = 'rgba(0,0,0,.18)'; for (let k = 10; k < 56; k += 10) g.fillRect(x + k, y + 4, 2, 54); g.fillStyle = '#fff'; }   // sábana
+  { const [x, y] = A.ropa3; g.beginPath(); g.moveTo(x + 22, y + 4); g.lineTo(x + 42, y + 4); g.lineTo(x + 44, y + 20); g.lineTo(x + 58, y + 62); g.lineTo(x + 6, y + 62); g.lineTo(x + 20, y + 20); g.closePath(); g.fill(); }   // vestido
+  { const [x, y] = A.ropa4; for (const o of [8, 36]) { g.fillRect(x + o, y + 4, 14, 36); g.fillRect(x + o, y + 32, 22, 12); } }   // calcetines
+  // siluetas de gente detrás de las cortinas (una con sombrero)
+  for (const [k, sombrero] of [['sil0', 0], ['sil1', 1]]) { const [x, y, w, h] = A[k]; g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + w / 2, y + 22, 11, 13, 0, 0, 7); g.fill(); g.fillRect(x + w / 2 - 5, y + 32, 10, 8); g.beginPath(); g.moveTo(x + 8, y + h); g.quadraticCurveTo(x + 10, y + 40, x + w / 2, y + 38); g.quadraticCurveTo(x + w - 10, y + 40, x + w - 8, y + h); g.closePath(); g.fill(); if (sombrero) { g.fillRect(x + w / 2 - 18, y + 12, 36, 4); g.fillRect(x + w / 2 - 10, y + 2, 20, 12); } }
+  // el gato sentado (de lado) y la paloma
+  { const [x, y] = A.gato; g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + 30, y + 44, 15, 18, 0, 0, 7); g.fill(); g.beginPath(); g.arc(x + 30, y + 20, 10, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + 22, y + 14); g.lineTo(x + 24, y + 2); g.lineTo(x + 29, y + 11); g.moveTo(x + 31, y + 11); g.lineTo(x + 36, y + 2); g.lineTo(x + 38, y + 14); g.fill(); g.lineWidth = 5; g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(x + 44, y + 58); g.quadraticCurveTo(x + 60, y + 52, x + 56, y + 32); g.stroke(); }
+  { const [x, y] = A.paloma; g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + 16, y + 20, 11, 7, 0, 0, 7); g.fill(); g.beginPath(); g.arc(x + 25, y + 11, 5, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + 30, y + 10); g.lineTo(x + 32, y + 12); g.lineTo(x + 29, y + 13); g.fill(); g.fillRect(x + 2, y + 18, 8, 4); }
+  // la rejilla del aire acondicionado y la tapa de la alcantarilla
+  { const [x, y, w, h] = A.aire; g.fillStyle = '#9a9c98'; g.fillRect(x, y, w, h); g.fillStyle = '#3a3c3a'; for (let k = 6; k < w - 4; k += 6) g.fillRect(x + k, y + 6, 3, h - 12); g.strokeStyle = '#5a5c58'; g.lineWidth = 3; g.beginPath(); g.arc(x + w / 2, y + h / 2, 22, 0, 7); g.stroke(); }
+  { const [x, y, w, h] = A.tapa; g.fillStyle = '#2a2a2c'; g.fillRect(x, y, w, h); g.fillStyle = '#4a4a4e'; g.beginPath(); g.arc(x + w / 2, y + h / 2, w / 2 - 3, 0, 7); g.fill(); g.strokeStyle = '#2a2a2c'; g.lineWidth = 2; for (let k = -24; k <= 24; k += 8) { g.beginPath(); g.moveTo(x + w / 2 + k, y + 8); g.lineTo(x + w / 2 + k, y + h - 8); g.stroke(); } }
+  // la calle que se ve por una ventana de adentro: de noche y con lluvia, edificios con ventanas encendidas y el reflejo en el piso mojado
+  { const [x, y, w, h] = A.calle; const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#0a1024'); gr.addColorStop(0.62, '#1a2440'); gr.addColorStop(0.63, '#141a26'); gr.addColorStop(1, '#202a3a'); g.fillStyle = gr; g.fillRect(x, y, w, h);
+    let bx = x; while (bx < x + w) { const bw = rr(34, 62), bh = rr(60, 110), top = y + h * 0.62 - bh; g.fillStyle = ['#1e1a22', '#241e1c', '#1a1e26'][Math.floor(rr(0, 3))]; g.fillRect(bx, top, bw, bh);
+      for (let wy = top + 8; wy < y + h * 0.62 - 10; wy += 14) for (let wx = bx + 5; wx < bx + bw - 8; wx += 11) { const on = Math.random() < 0.45; g.fillStyle = on ? ['#ffcf7a', '#ffb860', '#ffe0a0', '#9ab8ff'][Math.floor(rr(0, 4))] : '#0c0e14'; g.fillRect(wx, wy, 6, 8); if (on) { g.fillStyle = 'rgba(255,190,110,.12)'; g.fillRect(wx + 1, y + h * 0.64 + (wy - top) * 0.25, 4, 18); } }
+      bx += bw + rr(2, 8); }
+    g.fillStyle = '#ffcf7a'; g.fillRect(x + w * 0.7, y + h * 0.48, 3, 30); g.fillStyle = 'rgba(255,210,140,.5)'; g.beginPath(); g.arc(x + w * 0.7 + 1, y + h * 0.48, 7, 0, 7); g.fill();   // un farol
+    g.strokeStyle = 'rgba(190,210,255,.35)'; g.lineWidth = 1; for (let i = 0; i < 90; i++) { const px = x + rr(0, w), py = y + rr(0, h); g.beginPath(); g.moveTo(px, py); g.lineTo(px - 2, py + 9); g.stroke(); } }   // la lluvia
+}
 function bodDecAtlas() {
   if (BODD.at && BODD.atL === LANG) return BODD.at;
-  BODD.at = canvasTex(1024, 512, (g) => {
-    g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 512);
+  BODD.at = canvasTex(1024, 1024, (g) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 1024);
     const A = BOD_AT; let [x, y, w, h] = A.blanco; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
     // el retrato de Don Santino: sombrero, bigote, traje negro y camisa blanca
     [x, y, w, h] = A.retrato; { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#3a1a12'); gr.addColorStop(1, '#120806'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
@@ -40643,6 +40777,7 @@ function bodDecAtlas() {
     [x, y, w, h] = A.niebla; for (let i = 0; i < 46; i++) { const px = x + 30 + Math.random() * (w - 60), py = y + 30 + Math.random() * (h - 60), rr = 18 + Math.random() * 40, gr = g.createRadialGradient(px, py, 0, px, py, rr); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(px - rr, py - rr, rr * 2, rr * 2); }
     // una mancha de luz suave (para el piso)
     [x, y, w, h] = A.suave; { const gr = g.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, w / 2 - 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
+    bodVivoAtlas(g);   // las fachadas vivas
   });
   BODD.atL = LANG; return BODD.at;
 }
@@ -40659,7 +40794,8 @@ function bodDecMats() {
       fragmentShader: 'uniform sampler2D map; uniform float dens; varying vec3 vC; varying float vD; void main() { float f = exp(-dens * dens * vD * vD); float a = texture2D(map, gl_PointCoord).a; gl_FragColor = vec4(vC * a * f, 1.0); }',
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     }),
-    proxy: new THREE.MeshBasicMaterial({ visible: false })
+    proxy: new THREE.MeshBasicMaterial({ visible: false }),
+    tr: new THREE.MeshLambertMaterial({ map: at, vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide })   // mundo vivo: lo recortado (ropa, siluetas, el gato y las palomas)
   };
   BODD.geo = new Map();
 }
@@ -40716,10 +40852,13 @@ function bodDecSitio(r, c, h, lados, gR) {
   for (const o of world.uses) if (Math.abs(o.x - c.x) <= h + 0.6 && Math.abs(o.z - c.z) <= h + 0.6) circ.push({ x: o.x, z: o.z, r: Lb.uso });
   if (r.t !== 'inicio' && !bodEsSala(r.t)) circ.push({ x: c.x + 1.5, z: c.z + 1.5, r: Lb.spawn });
   if (r.t === 'inicio' && BODJ.dentro) circ.push({ x: BODJ.dentro.x, z: BODJ.dentro.z, r: Lb.uso });
-  const X = { r, c, h, H, V, D, DV, lados, hoja, obs, ocup: [], zonas, circ, gR, oscuro: r.t === 'oscuro', lamp: r.t !== 'oscuro' };
+  // mundo vivo: las paredes que dan afuera (sin habitación ni espacio abierto del otro lado): ahí puede ir una ventana a la calle
+  const L_ = BOD.L, celdas = L_ ? (L_._cel || (L_._cel = new Set(L_.rooms.flatMap(o => o.abierto ? o.cel.map(q => q.join(',')) : [o.x + ',' + o.y])))) : new Set();
+  const fuera = ['e', 'o', 'n', 's'].filter(k => lados[k] == null && !hoja[k] && !hoja['j' + k] && !celdas.has((r.x + DV[k][0]) + ',' + (r.y + DV[k][1])));
+  const X = { fuera, r, c, h, H, V, D, DV, lados, hoja, obs, ocup: [], zonas, circ, gR, oscuro: r.t === 'oscuro', lamp: r.t !== 'oscuro' };
   // un lugar en una pared para algo de «w» de ancho: m es lo que se aparta de los pasos. Devuelve el marco (x a lo largo de la pared, z hacia dentro)
-  X.pared = (R, w, m, k0, centro) => {
-    const ks = k0 ? [k0] : ['e', 'o', 'n', 's'].sort(() => R() - 0.5);
+  X.pared = (R, w, m, k0, centro, solo) => {   // solo: las paredes que sirven (si no, cualquiera)
+    const ks = k0 ? [k0] : (solo || ['e', 'o', 'n', 's']).slice().sort(() => R() - 0.5);
     for (const k of ks) {
       const seg = lados[k] != null || hoja['j' + k] ? [[-h + Lb.borde, -V - m], [V + m, h - Lb.borde]] : [[-h + Lb.borde, h - Lb.borde]], ok = seg.filter(s => s[1] - s[0] >= w);
       if (!ok.length) continue; const s = ok[Math.floor(R() * ok.length)], u = centro ? (s[0] + s[1]) / 2 : s[0] + w / 2 + R() * (s[1] - s[0] - w);
@@ -40769,6 +40908,28 @@ const BOD_DEC = {
     F.plano('ad', 1.7, 1.3, 0, 0.016, 1.4, bodDecPiso(0x1c0c16), { rx: -Math.PI / 2, uv: 'suave' });
     const b = F.luz(0, 1.7, 0.4, 0x503018, 2.6);
     F.rompe(p, [0, 1.75, 0.05, 1.6, 1.9, 0.14], [0, 1.6, 0.03], 0xd8a0a0, b);
+  } },
+  // --- mundo vivo (25-oct-2026): una ventana que da a la calle (de noche, con lluvia y edificios con luz) y una rejilla baja que echa vapor
+  calle: { en: 'pared', w: 2.4, m: 0.3, fuera: true, arma(F, X, R) {
+    const C = X.D.calleV || BAL.bodegas.vivo.calle, y = C.y, w = C.ancho, h = C.alto, tel = IS_TOUCH || FAST();
+    F.plano('em', w, h, 0, y, 0.02, 0xffffff, { uv: 'calle' });
+    for (const s of [-1, 1]) { F.box('op', w + 0.24, 0.12, 0.16, 0, y + s * (h / 2 + 0.06), 0.08, BODC.oscura); F.box('op', 0.12, h + 0.24, 0.16, s * (w / 2 + 0.06), y, 0.08, BODC.oscura); }
+    F.box('op', 0.05, h, 0.06, 0, y, 0.05, BODC.oscura); F.box('op', w, 0.05, 0.06, 0, y + h * 0.12, 0.05, BODC.oscura); F.box('op', w + 0.36, 0.07, 0.3, 0, y - h / 2 - 0.13, 0.15, BODC.piedra);
+    const vid = F.plano('ad', w, h, 0, y, 0.036, 0x141c2c);
+    const lejos = 2.0 + R() * 0.8; F.haz([0, y - h * 0.3, 0.12], [w / 2, 0.05], [0, 0.02, lejos], [w / 2 + 0.25, 0.75], C.rayo);
+    F.plano('ad', w + 0.8, 1.7, 0, 0.016, lejos, bodDecPiso(C.piso), { rx: -Math.PI / 2, uv: 'suave' });
+    const b = F.luz(0, y, 0.25, 0x203050, 2.3), n = tel ? C.gotasTel : C.gotas, y0 = y - h / 2 + 0.05, y1 = y + h / 2 - 0.05, gotas = [];
+    for (let k = 0; k < n; k++) gotas.push({ p: F.luz((R() - 0.5) * (w - 0.2), y0 + R() * (y1 - y0), 0.05, 0x4a5a7a, 0.045), v: 0.25 + R() * 0.5 });
+    F.T.anim.push(dt => { for (const g of gotas) { g.p.y -= g.v * dt; if (g.p.y < y0) g.p.y = y1; g.p.sucio = 1; } });
+    F.rompe([[vid, 'apaga', 0]], [0, y, 0.06, w, h, 0.14], [0, y, 0.03], 0xa8c0e8, b);
+  } },
+  vapor: { en: 'pared', w: 1.0, m: 0.3, arma(F, X, R) {
+    const Vt = BAL.bodegas.vivo.ventila, Vp = BAL.bodegas.vivo.vapor, y = Vt.alto, tel = IS_TOUCH || FAST();
+    F.box('op', 0.76, 0.46, 0.06, 0, y, 0.03, 0x2a2a2c); for (let i = -2; i <= 2; i++) F.box('op', 0.66, 0.035, 0.08, 0, y + i * 0.08, 0.045, BODC.hierro);
+    const o = F.w(0, y, 0.12), nx = F.w(0, y, 1.12).sub(o), cv = new THREE.Color(Vp.color), ps = [], n = tel ? Vt.vaporTel : Vt.vapor;
+    for (let k = 0; k < n; k++) ps.push({ p: F.luz(0, y, 0.12, 0x000000, Vp.tam[0] + R() * (Vp.tam[1] - Vp.tam[0])), t: -R() * Vp.vida[1], vida: 1, v: 0.5, dx: 0 });
+    F.T.anim.push(dt => { for (const e of ps) { e.t += dt; if (e.t < 0) continue; if (e.t > e.vida) { e.t = 0; e.vida = Vp.vida[0] + Math.random() * (Vp.vida[1] - Vp.vida[0]); e.v = Vp.sube[0] + Math.random() * (Vp.sube[1] - Vp.sube[0]); e.dx = (Math.random() - 0.5) * 0.4; }
+      const u = e.t / e.vida, a = Math.sin(Math.PI * Math.min(1, u * 1.4)) * (1 - u), p = e.p; p.x = o.x + nx.x * (0.15 + 0.35 * e.t) + nx.z * e.dx * e.t; p.z = o.z + nx.z * (0.15 + 0.35 * e.t) - nx.x * e.dx * e.t; p.y = o.y + e.v * e.t; p.c.setRGB(cv.r * a, cv.g * a, cv.b * a); p.sucio = 1; p.cs = 1; } });
   } },
   // --- luces
   bombilla: { en: 'techo', rad: 0.6, arma(F, X, R) {
@@ -40988,7 +41149,7 @@ function bodDecValida(X, T, cajas) {
 // armar una pieza con su semilla; si no cabe (y no es una que ya salió en esta partida), no queda nada
 function bodDecProbar(X, K, key, sem, ya) {
   const P_ = BOD_DEC[key], R = mulberry32(sem), T = bodDecT(); let base = null, extra = {};
-  if (P_.en === 'pared') { const w = P_.ancho ? X.D[key].largo[0] : P_.w, q = X.pared(R, w, P_.m, null, !!P_.ancho); if (!q) return false; base = q.base; extra = q; }
+  if (P_.en === 'pared') { const w = P_.ancho ? X.D[key].largo[0] : P_.w, q = X.pared(R, w, P_.m, null, !!P_.ancho, P_.fuera ? X.fuera : null); if (!q) return false; base = q.base; extra = q; }
   else if (P_.en === 'suelo' || P_.en === 'techo') base = X.punto(R, P_.rad);
   else if (P_.en === 'sala') base = bodDecBase(X.c.x, X.c.z, Math.floor(R() * 4) * Math.PI / 2);
   else if (P_.en === 'esquina') { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1; base = bodDecBase(X.c.x + sx * X.h, X.c.z + sz * X.h, Math.atan2(-sx, -sz)); }
@@ -41009,6 +41170,7 @@ function bodDecProbar(X, K, key, sem, ya) {
   const n = K.piezas.length; T.rompe.forEach((q, j) => { q.id = X.r.i + ':d' + n + ':' + j; K.rompe.push(q); });
   if (T.cg.length) K.cg.push({ piv: T.cgPiv, partes: T.cg, Lc: T.cgLc, vid: T.cgVid, b: T.cgB, id: X.r.i + ':d' + n + ':f' });
   if (T.ratas) K.ratas = (K.ratas || []).concat(T.ratas);
+  if (key === 'calle') { const o = new THREE.Vector3(0.6, 0, 3.4).applyMatrix4(base), t_ = new THREE.Vector3(0, 0, 0).applyMatrix4(base); BOD.calles.push({ r: X.r.i, x: o.x, z: o.z, tx: t_.x, tz: t_.z }); }   // para las pruebas (dónde mirarla)
   K.piezas.push(key); return true;
 }
 // juntar muchas figuras ya puestas en su lugar en una sola malla, con su color y su parte de la textura (cada entrada recuerda sus vértices: para romperla)
@@ -41143,7 +41305,7 @@ function bodDecPaso(dt) {
     for (const f of Rm.anim) f(dt, t);
     for (const q of Rm.cg) { const a = Math.sin(t * Db.ritmo + q.ph) * Db.vaiven, b = Math.cos(t * Db.ritmo * 0.77 + q.ph) * Db.vaiven * 0.6; q.g.rotation.set(b, 0, a); if (q.b && !q.b.off) { _dcV.set(0, q.b.cuelga, 0).applyEuler(q.g.rotation).add(q.g.position); q.b.x = _dcV.x; q.b.y = _dcV.y; q.b.z = _dcV.z; q.b.sucio = 1; } }
     if (Rm.ratas) bodDecRatas(Rm, dt);
-    if (Rm.pts) { const A = Rm.pts.geometry.attributes, Pp = A.position, Cc = A.col; let s = false, sc = false; for (const p of Rm.lista) { if (!p.sucio) continue; p.sucio = 0; Pp.setXYZ(p.i, p.x, p.y, p.z); s = true; if (p.off) { Cc.setXYZ(p.i, 0, 0, 0); sc = true; } } if (s) Pp.needsUpdate = true; if (sc) Cc.needsUpdate = true; }
+    if (Rm.pts) { const A = Rm.pts.geometry.attributes, Pp = A.position, Cc = A.col; let s = false, sc = false; for (const p of Rm.lista) { if (!p.sucio) continue; p.sucio = 0; Pp.setXYZ(p.i, p.x, p.y, p.z); s = true; if (p.off) { Cc.setXYZ(p.i, 0, 0, 0); sc = true; } else if (p.cs) { p.cs = 0; Cc.setXYZ(p.i, p.c.r, p.c.g, p.c.b); sc = true; } } if (s) Pp.needsUpdate = true; if (sc) Cc.needsUpdate = true; }
   }
 }
 // ---- espacios abiertos en 3D (dueño, 24-oct-2026): sin techo, cielo de noche con luna, fachadas altas de ladrillo y lo de cada tipo.
@@ -41200,8 +41362,9 @@ function bodAbierto(r, c, gR, lados) {
   const luna = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), BODM.luna); luna.rotation.x = Math.PI / 2; luna.position.set(c.x + lx, Hab - 0.02, c.z + lz); gR.add(luna);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x9fb6e0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); halo.scale.set(3.4, 3.4, 1); halo.position.set(c.x + lx, Hab - 0.1, c.z + lz); gR.add(halo);
   lampara(c.x, Hab - A.luna.alto, c.z, A.luna);
-  // ventanas en las fachadas sin puerta (algunas con luz)
-  for (const k of ['e', 'o', 'n', 's']) {
+  // mundo vivo (25-oct-2026): las fachadas con vida (bodVivo); si está apagado, las ventanas de antes en las fachadas sin puerta (algunas con luz)
+  const VV = B.vivo && B.vivo.activo ? bodVivoInicio(r, c, gR, lados) : null;
+  if (!VV) for (const k of ['e', 'o', 'n', 's']) {
     if (r.t === 'callejon' && (hx > hz ? k === 'n' || k === 's' : k === 'e' || k === 'o')) continue;   // en el callejón las ventanas van con las escaleras de incendio
     const [dx, dz] = DV[k], h = dx ? hx : hz, w = dx ? hz : hx, n = Math.min(ent(A.ventanas[0], A.ventanas[1]), Math.floor(w / 1.1));   // arriba de las puertas: no estorban
     for (let j = 0; j < n; j++) { const o = (j + 0.5) / n * 2 * w - w, y = q(5, Hab - 1.6), x = c.x + dx * (h - 0.03) + (dx ? 0 : o), z = c.z + dz * (h - 0.03) + (dz ? 0 : o); caja(R() < 0.35 ? BODM.ventana : BODM.ventanaO, [x, y, z, dx ? 0.06 : 0.9, 1.2, dx ? 0.9 : 0.06]); caja(BODM.cantera, [x, y - 0.66, z, dx ? 0.14 : 1.1, 0.1, dx ? 1.1 : 0.14]);
@@ -41212,17 +41375,21 @@ function bodAbierto(r, c, gR, lados) {
     const P_ = (a, b) => hor ? [c.x + a, c.z + b] : [c.x + b, c.z + a], BX = (m, a, y, b, la, h, lb) => caja(m, hor ? [c.x + a, y, c.z + b, la, h, lb] : [c.x + b, y, c.z + a, lb, h, la]);
     const COL = (a, b, ha, hb) => { const [x, z] = P_(a, b); if (hor) addBox(x, z, ha, hb); else addBox(x, z, hb, ha); };
     const C = A.callejon, nb = ent(C.basureros[0], C.basureros[1]), lado0 = R() < 0.5 ? 1 : -1;
+    const PwDe = s => VV && VV.P[hor ? (s > 0 ? 's' : 'n') : (s > 0 ? 'e' : 'o')], uDe = (s, a) => { const Pw = PwDe(s), [x, z] = P_(a, s * Wb); return bodVivoU(Pw, x, z); };   // la fachada larga de cada lado (s) y dónde cae a lo largo
     for (let j = 0; j < nb; j++) {   // basureros contra las paredes, uno de cada lado (queda el paso al medio)
       const a = -La + 3 + (j + 0.5) / nb * (2 * La - 6) + q(-0.6, 0.6), s = j % 2 ? lado0 : -lado0, b = s * (Wb - 0.62);
       BX(BODM.contenedor, a, 0.62, b, 1.8, 1.1, 1.1); BX(BODM.metal, a, 1.21, b - s * 0.02, 1.88, 0.08, 1.16); BX(BODM.metal, a - 0.7, 0.08, b, 0.12, 0.16, 1.0); BX(BODM.metal, a + 0.7, 0.08, b, 0.12, 0.16, 1.0); COL(a, b, 0.95, 0.6);
+      if (VV) { const u = uDe(s, a); bodVivoOcupa(PwDe(s), u - 1.6, u + 1.6, 0, 1.6); const [x, z] = P_(a + 0.3, b); VV.tapas.push({ x, z, y: 1.25, ry: PwDe(s).ry }); }
       if (j < C.latas) { const [x, z] = P_(a + 1.45, s * (Wb - 0.4)); forma(BODM.metal, cyl(0.27, 0.24, 0.78, 10), x, 0.39, z); addCircle(x, z, 0.3); const [x2, z2] = P_(a - 1.35, s * (Wb - 0.45)); forma(BODM.bolsa, new THREE.SphereGeometry(0.36, 8, 6), x2, 0.24, z2, 1, 0.7, 1); }
     }
     for (let j = 0; j < C.escaleras; j++) {   // escaleras de incendio en las paredes (arriba de la cabeza: no estorban)
       const a0 = (j + 0.5) / C.escaleras * 2 * La - La + q(-1, 1), s = j % 2 ? -lado0 : lado0, Pl = 3.2, Pd = 1.1, bm = s * (Wb - Pd / 2), bo = s * (Wb - Pd);
+      if (VV) { const u = uDe(s, a0); bodVivoOcupa(PwDe(s), u - Pl / 2 - 0.35, u + Pl / 2 + 0.35, 1.8, Hab); }
       C.pisos.forEach((y, i) => {
         BX(BODM.metal, a0, y, bm, Pl, 0.06, Pd); BX(BODM.metal, a0, y + 1.0, bo, Pl, 0.05, 0.05); BX(BODM.metal, a0, y + 0.5, bo, Pl, 0.03, 0.03);
         for (const e of [-1, 1]) { BX(BODM.metal, a0 + e * Pl / 2, y + 0.5, bo, 0.05, 1.0, 0.05); BX(BODM.metal, a0 + e * Pl / 2, y + 1.0, bm, 0.05, 0.05, Pd); }
-        BX(R() < 0.4 ? BODM.ventana : BODM.ventanaO, a0, y + 1.1, s * (Wb - 0.03), 1.0, 1.3, 0.06); BX(BODM.metal, a0, y + 1.1, s * (Wb - 0.06), 0.06, 1.3, 0.04); BX(BODM.metal, a0, y + 1.2, s * (Wb - 0.06), 1.0, 0.06, 0.04);   // la ventana de cada piso
+        if (VV) { VV.esc.push({ Pw: PwDe(s), u: uDe(s, a0), y: y + 1.1, a: a0 }); VV.repisas.push({ Pw: PwDe(s), u: uDe(s, a0) + q(-1, 1), y: y + 1.02, z: Pd - 0.02 }); }   // la ventana de cada piso (con las fachadas vivas) y la baranda (para las palomas)
+        else { BX(R() < 0.4 ? BODM.ventana : BODM.ventanaO, a0, y + 1.1, s * (Wb - 0.03), 1.0, 1.3, 0.06); BX(BODM.metal, a0, y + 1.1, s * (Wb - 0.06), 0.06, 1.3, 0.04); BX(BODM.metal, a0, y + 1.2, s * (Wb - 0.06), 1.0, 0.06, 0.04); }   // la ventana de cada piso
         const y1 = C.pisos[i + 1]; if (y1 == null) return; const dir = i % 2 ? 1 : -1;
         for (let st = 1; st < 10; st++) BX(BODM.metal, a0 - dir * Pl * 0.4 + dir * Pl * 0.8 * st / 10, y + (y1 - y) * st / 10, bm, 0.32, 0.05, Pd * 0.7);   // los peldaños
       });
@@ -41230,9 +41397,13 @@ function bodAbierto(r, c, gR, lados) {
       for (const e of [-0.2, 0.2]) BX(BODM.metal, al + e, (1.9 + y0) / 2, bo, 0.04, y0 - 1.9, 0.04);
       for (let y = 2.1; y < y0; y += 0.3) BX(BODM.metal, al, y, bo, 0.4, 0.03, 0.03);
     }
-    { const a = q(-La + 2, La - 2), s = -lado0, [x, z] = P_(a, s * (Wb - 0.05)); BX(BODM.madera2, a, 1.1, s * (Wb - 0.04), 1.1, 2.2, 0.08); BX(BODM.metal, a, 2.35, s * (Wb - 0.25), 1.4, 0.06, 0.5);   // una puerta trasera con su foco
+    { const a = q(-La + 2, La - 2), s = -lado0, [x, z] = P_(a, s * (Wb - 0.05)); if (VV) { const u = uDe(s, a); bodVivoOcupa(PwDe(s), u - 1.0, u + 1.0, 0, 2.9); } BX(BODM.madera2, a, 1.1, s * (Wb - 0.04), 1.1, 2.2, 0.08); BX(BODM.metal, a, 2.35, s * (Wb - 0.25), 1.4, 0.06, 0.5);   // una puerta trasera con su foco
       const [bx_, bz_] = P_(a, s * (Wb - 0.35)); forma(BODM.foco, new THREE.SphereGeometry(0.09, 8, 6), bx_, 2.6, bz_); bodGlow(bx_, 2.6, bz_, 0xffc070, 1.4, 0.5, gR); lampara(bx_, 2.4, bz_, A.farol); }
-    for (let j = 0; j < C.charcos; j++) { const [x, z] = P_(q(-La + 1.5, La - 1.5), q(-Wb + 1.5, Wb - 1.5)), ch = new THREE.Mesh(new THREE.CircleGeometry(q(0.5, 1.1), 14), BODM.charco); ch.rotation.x = -Math.PI / 2; ch.scale.set(1, q(0.5, 0.9), 1); ch.position.set(x, 0.018, z); gR.add(ch); }
+    if (VV) {   // los charcos reflejan la luz de las ventanas y de la luna (van fundidos con lo demás de la fachada)
+      const F0 = bodDecMarco(VV.T, bodDecBase(c.x, c.z, 0)), Vc = B.vivo.charco;
+      for (let j = 0; j < C.charcos + 1; j++) { const [x, z] = P_(q(-La + 1.5, La - 1.5), q(-Wb + 1.5, Wb - 1.5)), rad = q(0.6, 1.2), sz = q(0.5, 0.9), dx = x - c.x, dz = z - c.z;
+        F0.disco('em', rad, dx, 0.018, dz, 0x0c121c, { rx: -Math.PI / 2, sy: sz, s: 16 }); F0.plano('ad', rad * 0.5, rad * sz * 1.6, dx + q(-0.2, 0.2), 0.02, dz, Vc.reflejo, { rx: -Math.PI / 2, uv: 'suave' }); F0.plano('ad', rad * 0.9, rad * sz * 0.9, dx, 0.021, dz, Vc.luna, { rx: -Math.PI / 2, uv: 'suave' }); }
+    } else for (let j = 0; j < C.charcos; j++) { const [x, z] = P_(q(-La + 1.5, La - 1.5), q(-Wb + 1.5, Wb - 1.5)), ch = new THREE.Mesh(new THREE.CircleGeometry(q(0.5, 1.1), 14), BODM.charco); ch.rotation.x = -Math.PI / 2; ch.scale.set(1, q(0.5, 0.9), 1); ch.position.set(x, 0.018, z); gR.add(ch); }
     // la lluvia: una sola malla de rayitas que caen (en el teléfono, menos)
     const N = IS_TOUCH || FAST() ? C.lluviaTel : C.lluvia, pos = new Float32Array(N * 6), vel = new Float32Array(N), lg = new THREE.BufferGeometry();
     for (let i = 0; i < N; i++) { const [x, z] = P_(rand(-La, La), rand(-Wb, Wb)), y = rand(0, Hab); pos.set([x, y, z, x + 0.03, y - 0.45, z], i * 6); vel[i] = rand(C.gota[0], C.gota[1]); }
@@ -41291,8 +41462,209 @@ function bodAbierto(r, c, gR, lados) {
     }
     const tex = BODM.agua.map; world.anims.push(dt => { if (gR.visible) tex.offset.y -= dt * 0.18; });
   }
+  if (VV) bodVivoFin(VV);   // las fachadas con vida
   for (const [m, bs] of piezas) gR.add(new THREE.Mesh(bodFundir(bs, 1.5), m));
   const usadas = new Set(); for (const [m, fs] of formas) { gR.add(new THREE.Mesh(bodFundirG(fs), m)); fs.forEach(f => usadas.add(f[0])); } usadas.forEach(g => g.dispose());
+}
+// ===================== MUNDO VIVO · «barrio del casino» (dueño, 25-oct-2026: «las construcciones y los edificios se vean más vivos… me gustó el detalle de la fuente y del pasillo») =====================
+// Las fachadas de los espacios abiertos parecen edificios donde vive gente: ventanas con luz cálida y cortinas o persianas distintas, algunas con una silueta que
+// se mueve, letreros de tiendas pintados o en caja con luz (sin neón), vitrinas, ropa tendida entre los edificios, vapor de las rejillas y las alcantarillas,
+// aires acondicionados, bajantes de agua, charcos que reflejan la luz, a veces un gato o palomas, y sonidos lejanos (lluvia en el metal, una radio, un perro).
+// Para el teléfono: todo va con las piezas de los decorados (bodDecMarco): se funde en pocas mallas por espacio (lo que tiene luz · lo que brilla · lo que se suma a la luz ·
+// lo que tiene transparencia), con la misma textura de los decorados; el vapor y los brillos son puntos (un dibujo), las siluetas y las palomas, una malla cada una. Todas las cifras aquí.
+BAL.bodegas.vivo = {
+  activo: true,   // false: las fachadas vuelven a ser como antes (sirve para medir)
+  luz: 0.55, ventana: { ancho: 0.9, alto: 1.2, pisos: [5.1, 7.4], entre: 1.7, brillo: 1.3 },   // cuántas ventanas tienen luz, su tamaño (m), a qué alturas van y cada cuánto
+  siluetas: { n: 2, nTel: 1, vel: [0.18, 0.45], quieta: [1.5, 5], fuera: [3, 9], ancho: 0.42, alto: 0.95 },   // cuántas por espacio, rapidez (m/s), segundos quieta y escondida
+  letreros: { n: [1, 2], alto: 3.1, vitrina: 0.75, luz: 0.9 },   // cuántas tiendas por espacio, altura del letrero (m), probabilidad de vitrina y de brillo
+  tendederos: { n: [1, 2], nCallejon: [2, 3], alto: [5.7, 7.6], ropa: [4, 7], comba: 0.25 },
+  vapor: { n: 26, nTel: 12, fuentes: [1, 2], sube: [0.45, 0.85], vida: [2.0, 3.4], tam: [0.5, 1.0], color: 0x2a2e36, viento: 0.18 },
+  aires: [1, 3], bajantes: [1, 2],
+  charco: { reflejo: 0x40280f, luna: 0x101a2e },
+  gato: 0.4, palomas: 0.5, palomasN: [3, 5], vuela: 4.5, vuelven: 40, ojos: 0x9ad048,
+  guirnalda: { focos: 12, alto: 3.3, color: 0xffc870 },   // los foquitos del jardín de los fumadores (el patio del Bar El Trébol)
+  sonidos: { cada: [4, 10], perro: 1, radio: 1, lata: 2, vol: 0.55, lataCada: [0.25, 0.9] },   // segundos entre sonidos lejanos; pesos; la lluvia en el metal del callejón
+  mansion: { pisos: 4, luzAlas: 0.5, siluetas: 3, siluetasTel: 2, luzPiso: 0x2a1c0c },   // la mansión del jardín: los primeros pisos (cuántas ventanas con luz) con cortinas y siluetas
+  calle: { ancho: 1.7, alto: 1.15, y: 1.85, gotas: 10, gotasTel: 5, rayo: 0x1a2a4a, piso: 0x16223a },   // la ventana a la calle (desde adentro): tamaño (m), altura y la luz fría que entra
+  ventila: { alto: 0.55, vapor: 9, vaporTel: 5 }   // la rejilla con vapor (adentro)
+};
+const BOD_VEN_LUZ = ['v0', 'v1', 'v2', 'v3', 'v4', 'v5'], BOD_VEN_OSC = ['vo0', 'vo1'], BOD_ROPA = ['ropa0', 'ropa1', 'ropa2', 'ropa3', 'ropa4'];
+const BOD_ROPA_COL = [0xe8e2d4, 0x8a2a2a, 0x2a4a8a, 0xd8b040, 0x4a7a4a, 0xc86a8a, 0x6a5a4a, 0xf0f0f0];
+// el comienzo de un espacio abierto: sus 4 fachadas (un marco en cada una: x a lo largo, y hacia arriba, z hacia dentro) y lo que ya ocupa cada una
+function bodVivoInicio(r, c, gR, lados) {
+  const B = BAL.bodegas, T = bodDecT(); T.tr = [];
+  const VV = { r, c, gR, lados, T, Ts: Object.assign(bodDecT(), { tr: [] }), Tp: Object.assign(bodDecT(), { tr: [] }), R: mulberry32(((r.sem >>> 0) ^ 0x71be) >>> 0), P: {}, sil: [], humo: [], esc: [], tapas: [], repisas: [], vent: [], luces: [] };
+  for (const k of ['e', 'o', 'n', 's']) {
+    const [dx, dz] = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[k], h = dx ? r.hx : r.hz, w = dx ? r.hz : r.hx, ry = Math.atan2(-dx, -dz), px = c.x + dx * h, pz = c.z + dz * h;
+    const Pw = VV.P[k] = { k, dx, dz, h, w, ry, px, pz, ux: Math.cos(ry), uz: -Math.sin(ry), puerta: lados[k] != null, oc: [], base: bodDecBase(px, pz, ry) };
+    Pw.F = bodDecMarco(T, Pw.base);
+    if (Pw.puerta) Pw.oc.push([-B.vano / 2 - 0.6, B.vano / 2 + 0.6, 0, B.alto + 0.3]);   // el paso y su dintel
+  }
+  return VV;
+}
+// de un punto del mundo a la fachada k: cuánto a lo largo (u)
+const bodVivoU = (Pw, x, z) => (x - Pw.px) * Pw.ux + (z - Pw.pz) * Pw.uz;
+function bodVivoOcupa(Pw, u0, u1, y0, y1) { Pw.oc.push([Math.min(u0, u1), Math.max(u0, u1), y0, y1]); }
+function bodVivoLibre(Pw, u0, u1, y0, y1) { if (u0 < -Pw.w + 0.25 || u1 > Pw.w - 0.25) return false; return Pw.oc.every(o => u1 <= o[0] || u0 >= o[1] || y1 <= o[2] || y0 >= o[3]); }
+// una ventana con su repisa y su dintel (luz: con luz cálida; sil: puede tener una silueta)
+function bodVivoVentana(VV, Pw, u, y, luz, sil) {
+  const Vv = BAL.bodegas.vivo, W = Vv.ventana, F = Pw.F, R = VV.R, uv = luz ? BOD_VEN_LUZ[Math.floor(R() * BOD_VEN_LUZ.length)] : BOD_VEN_OSC[Math.floor(R() * BOD_VEN_OSC.length)];
+  F.plano('em', W.ancho, W.alto, u, y, 0.03, luz ? 0xffffff : 0x9a9a9a, { uv });
+  F.box('op', W.ancho + 0.2, 0.1, 0.16, u, y - W.alto / 2 - 0.05, 0.08, 0x8a857a); F.box('op', W.ancho + 0.14, 0.12, 0.08, u, y + W.alto / 2 + 0.06, 0.04, 0x8a857a);
+  if (luz) { F.luz(u, y, 0.25, 0x4a3016, W.brillo); VV.luces.push(F.w(u, y, 0.3)); }
+  VV.repisas.push({ Pw, u, y: y - W.alto / 2 + 0.01, luz });
+  if (luz && sil) VV.sil.push({ Pw, u, y });
+  bodVivoOcupa(Pw, u - W.ancho / 2 - 0.2, u + W.ancho / 2 + 0.2, y - W.alto / 2 - 0.2, y + W.alto / 2 + 0.2);
+}
+// el final: ventanas, tiendas, aires, bajantes, ropa tendida, vapor, el gato, las palomas y los sonidos; luego se funde todo
+function bodVivoFin(VV) {
+  const B = BAL.bodegas, Vv = B.vivo, A = B.abiertos, Hab = A.alto, r = VV.r, c = VV.c, gR = VV.gR, R = VV.R, T = VV.T, tel = IS_TOUCH || FAST();
+  const q = (a, b) => a + R() * (b - a), ent = (a, b) => a + Math.floor(R() * (b - a + 1)), mez = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const ks = ['e', 'o', 'n', 's'], W = Vv.ventana;
+  // 1) las ventanas de las fachadas (las de las escaleras de incendio ya están en VV.esc)
+  const silN = tel ? Vv.siluetas.nTel : Vv.siluetas.n, conLuz = [];
+  for (const e of VV.esc) { const luz = R() < Vv.luz; bodVivoVentana(VV, e.Pw, e.u, e.y, luz, false); if (luz) conLuz.push(VV.repisas[VV.repisas.length - 1]); }
+  for (const k of ks) {
+    const Pw = VV.P[k], n = Math.floor((2 * Pw.w - 0.6) / W.entre);
+    for (const y of W.pisos) for (let j = 0; j < n; j++) { const u = -Pw.w + 0.3 + (j + 0.5) * (2 * Pw.w - 0.6) / n + q(-0.12, 0.12); if (!bodVivoLibre(Pw, u - W.ancho / 2 - 0.1, u + W.ancho / 2 + 0.1, y - W.alto / 2 - 0.15, y + W.alto / 2 + 0.15)) continue; const luz = R() < Vv.luz; bodVivoVentana(VV, Pw, u, y, luz, false); if (luz) conLuz.push(VV.repisas[VV.repisas.length - 1]); }
+  }
+  for (const v of mez(conLuz.slice()).slice(0, silN)) VV.sil.push({ Pw: v.Pw, u: v.u, y: v.y + W.alto / 2 - 0.01 });
+  // 2) las tiendas: letrero (pintado o en caja con luz), dos lamparitas y, a veces, una vitrina
+  const Lt = Vv.letreros, nT = ent(Lt.n[0], Lt.n[1]), tiendas = mez(BOD_LETREROS.map((_, i) => i));
+  let puestas = 0;
+  for (const k of mez(ks.slice())) {
+    if (puestas >= nT) break; const Pw = VV.P[k], F = Pw.F;
+    for (let t = 0; t < 8 && puestas < nT; t++) {
+      const u = q(-Pw.w + 1.6, Pw.w - 1.6); if (!bodVivoLibre(Pw, u - 1.4, u + 1.4, 0, Lt.alto + 0.6)) continue;
+      const i = tiendas[puestas], [, , est, vt] = BOD_LETREROS[i], y = Lt.alto;
+      F.box('op', 2.36, 0.66, 0.16, u, y, 0.08, 0x2a1c12); F.plano('em', 2.24, 0.56, u, y, 0.165, est === 1 ? 0xffffff : 0xd8d0c4, { uv: 's' + i });
+      for (const s of [-0.8, 0.8]) { F.box('op', 0.04, 0.04, 0.42, u + s, y + 0.44, 0.21, 0x1a1a1c); F.cyl('op', 0.02, 0.11, 0.08, u + s, y + 0.42, 0.42, 0x1a1a1c, { s: 8 }); F.esf('em', 0.045, u + s, y + 0.37, 0.42, 0xffe0a0); F.luz(u + s, y + 0.34, 0.44, 0x6a4a1a, 0.9); }
+      if (est === 1 && R() < Lt.luz) F.luz(u, y, 0.4, 0x3a3428, 2.4);
+      F.plano('ad', 2.8, 1.8, u, 0.016, 1.1, bodDecPiso(0x2a1e0c), { rx: -Math.PI / 2, uv: 'suave' });
+      if (vt && R() < Lt.vitrina) { F.plano('em', 2.0, 1.45, u, 1.35, 0.03, 0xffffff, { uv: vt }); F.box('op', 2.2, 0.12, 0.22, u, 0.56, 0.11, 0x2a1c12); F.plano('ad', 2.4, 1.6, u, 0.017, 0.9, bodDecPiso(0x4a3014), { rx: -Math.PI / 2, uv: 'suave' }); VV.luces.push(F.w(u, 1.4, 0.4)); }
+      VV.repisas.push({ Pw, u: u + q(-0.6, 0.6), y: y + 0.33, letrero: 1 });
+      bodVivoOcupa(Pw, u - 1.4, u + 1.4, 0, y + 0.7); puestas++;
+    }
+  }
+  // 3) aires acondicionados (con su mancha de agua) y bajantes de agua
+  for (let j = 0, n = ent(Vv.aires[0], Vv.aires[1]), t = 0; j < n && t < 30; t++) {
+    const Pw = VV.P[ks[ent(0, 3)]], F = Pw.F, u = q(-Pw.w + 0.8, Pw.w - 0.8), y = q(3.8, 6.6); if (!bodVivoLibre(Pw, u - 0.55, u + 0.55, y - 0.45, y + 0.45)) continue;
+    F.box('op', 0.82, 0.56, 0.46, u, y, 0.23, 0x8c8e8a); F.plano('op', 0.44, 0.44, u + 0.12, y, 0.465, 0xffffff, { uv: 'aire' }); F.box('op', 0.05, 0.05, 0.5, u - 0.3, y - 0.31, 0.25, 0x3a3a3c); F.box('op', 0.05, 0.05, 0.5, u + 0.3, y - 0.31, 0.25, 0x3a3a3c);
+    F.plano('op', 0.25, Math.min(2.4, y - 0.4), u + 0.3, y - 0.3 - Math.min(2.4, y - 0.4) / 2, 0.006, 0x221a14);
+    VV.repisas.push({ Pw, u, y: y + 0.28, aire: 1 }); bodVivoOcupa(Pw, u - 0.55, u + 0.55, y - 0.45, y + 0.45); j++;
+  }
+  for (let j = 0, n = ent(Vv.bajantes[0], Vv.bajantes[1]), t = 0; j < n && t < 20; t++) {
+    const Pw = VV.P[ks[ent(0, 3)]], F = Pw.F, s = R() < 0.5 ? -1 : 1, u = s * (Pw.w - q(0.35, 1.4)); if (!bodVivoLibre(Pw, u - 0.15, u + 0.15, 0, Hab)) continue;
+    F.cyl('op', 0.075, 0.075, Hab - 0.5, u, (Hab - 0.5) / 2 + 0.25, 0.12, 0x4a4c50, { s: 8 }); F.box('op', 0.5, 0.14, 0.22, u, Hab - 0.12, 0.11, 0x3a3c40);
+    for (let y = 1.5; y < Hab - 0.5; y += 2.2) F.box('op', 0.2, 0.05, 0.14, u, y, 0.07, 0x2a2a2c);
+    F.box('op', 0.18, 0.18, 0.4, u, 0.12, 0.25, 0x4a4c50); bodVivoOcupa(Pw, u - 0.15, u + 0.15, 0, Hab); j++;
+  }
+  // 4) ropa tendida entre dos fachadas enfrentadas
+  { const Td = Vv.tendederos, hor = r.hx >= r.hz, alto = r.t === 'callejon', n = ent(...(alto ? Td.nCallejon : Td.n));
+    const La = hor ? r.hx : r.hz, Wb = hor ? r.hz : r.hx;   // la cuerda cruza a lo ancho (de una fachada larga a la otra)
+    const ya = [];
+    for (let j = 0, t = 0; j < n && t < 30; t++) {
+      const a = q(-La + 1.2, La - 1.2), y = q(Td.alto[0], Td.alto[1]); if (ya.some(v => Math.abs(v - a) < 2.2) || VV.esc.some(e => Math.abs(e.a - a) < 2.2)) continue; ya.push(a);
+      const base = hor ? bodDecBase(c.x + a, c.z, -Math.PI / 2) : bodDecBase(c.x, c.z + a, 0), F = bodDecMarco(T, base), L2 = 2 * Wb, cm = Td.comba;
+      for (let s = 0; s < 4; s++) { const x0 = -Wb + s * L2 / 4, x1 = x0 + L2 / 4, y0 = y - cm * Math.sin(Math.PI * s / 4), y1 = y - cm * Math.sin(Math.PI * (s + 1) / 4); F.box('op', Math.hypot(x1 - x0, y1 - y0), 0.018, 0.018, (x0 + x1) / 2, (y0 + y1) / 2, 0, 0x1a1a1a, { rz: Math.atan2(y1 - y0, x1 - x0) }); }
+      const nr = ent(Td.ropa[0], Td.ropa[1]);
+      for (let k = 0; k < nr; k++) { const x = -Wb + (k + 0.5 + q(-0.25, 0.25)) * L2 / nr, yc = y - cm * Math.sin(Math.PI * (x + Wb) / L2), uv = BOD_ROPA[ent(0, BOD_ROPA.length - 1)], sw = uv === 'ropa2' ? q(0.9, 1.3) : q(0.45, 0.7), sh = uv === 'ropa2' ? q(0.9, 1.2) : q(0.5, 0.75);
+        F.plano('tr', sw, sh, x, yc - sh / 2 + 0.02, 0, BOD_ROPA_COL[ent(0, BOD_ROPA_COL.length - 1)], { uv, ry: q(-0.12, 0.12) }); }
+      j++;
+    }
+  }
+  // 5) el vapor: de una alcantarilla en el piso y de una rejilla baja en una fachada
+  { const Vp = Vv.vapor, nf = ent(Vp.fuentes[0], Vp.fuentes[1]), F0 = bodDecMarco(T, bodDecBase(c.x, c.z, 0));
+    for (let j = 0, t = 0; j < nf && t < 20; t++) {
+      if (j === 0 && r.t !== 'jardin') { const x = q(-r.hx + 1.4, r.hx - 1.4), z = q(-r.hz + 1.4, r.hz - 1.4); if (Math.hypot(x, z) < 2.4 || r.agua && bodEnAgua(r, c.x + x, c.z + z)) continue; F0.plano('op', 0.9, 0.9, x, 0.022, z, 0xffffff, { rx: -Math.PI / 2, uv: 'tapa' }); VV.humo.push(F0.w(x, 0.05, z)); j++; continue; }
+      const Pw = VV.P[ks[ent(0, 3)]], u = q(-Pw.w + 0.8, Pw.w - 0.8); if (!bodVivoLibre(Pw, u - 0.45, u + 0.45, 0, 1.2)) continue;
+      Pw.F.box('op', 0.7, 0.42, 0.08, u, 0.45, 0.04, 0x2a2a2c); for (let i = -2; i <= 2; i++) Pw.F.box('op', 0.6, 0.03, 0.1, u, 0.45 + i * 0.07, 0.05, 0x5a5a5e);
+      VV.humo.push(Pw.F.w(u, 0.5, 0.15)); bodVivoOcupa(Pw, u - 0.45, u + 0.45, 0, 1.2); j++;
+    }
+  }
+  // 6) el jardín de los fumadores es el patio del Bar El Trébol: una guirnalda de foquitos de lado a lado
+  if (r.t === 'jardin') {
+    const Gu = Vv.guirnalda, F = bodDecMarco(T, bodDecBase(c.x, c.z, R() < 0.5 ? Math.PI / 4 : -Math.PI / 4)), L2 = Math.hypot(r.hx, r.hz) * 1.85;
+    for (let s = 0; s < 6; s++) { const x0 = -L2 / 2 + s * L2 / 6, x1 = x0 + L2 / 6, y0 = Gu.alto + 0.6 - 0.6 * Math.sin(Math.PI * s / 6), y1 = Gu.alto + 0.6 - 0.6 * Math.sin(Math.PI * (s + 1) / 6); F.box('op', Math.hypot(x1 - x0, y1 - y0), 0.015, 0.015, (x0 + x1) / 2, (y0 + y1) / 2, 0, 0x151515, { rz: Math.atan2(y1 - y0, x1 - x0) }); }
+    for (let k = 0; k < Gu.focos; k++) { const x = -L2 / 2 + (k + 0.5) * L2 / Gu.focos, y = Gu.alto + 0.6 - 0.6 * Math.sin(Math.PI * (x + L2 / 2) / L2) - 0.08; F.esf('em', 0.05, x, y, 0, Gu.color); F.luz(x, y, 0, 0x6a4a1a, 0.55); }
+  }
+  // 7) a veces un gato (en un basurero, un aire o una repisa) y palomas en una repisa: se van volando si te acercas
+  { const Ts = VV.Ts;
+    if (R() < Vv.gato) {
+      const sit = VV.tapas.length ? VV.tapas[ent(0, VV.tapas.length - 1)] : null, rep = VV.repisas.filter(p => p.aire || p.letrero);
+      let base = null; if (sit) base = bodDecBase(sit.x, sit.z, sit.ry, sit.y); else if (rep.length) { const p = rep[ent(0, rep.length - 1)], w = new THREE.Vector3(p.u, p.y, 0.25).applyMatrix4(p.Pw.base); base = bodDecBase(w.x, w.z, p.Pw.ry, w.y); }
+      if (base) { const F = bodDecMarco(T, base); for (const ry of [0, Math.PI / 2]) F.plano('tr', 0.46, 0.46, 0, 0.23, 0, 0x121010, { uv: 'gato', ry }); const ojos = [F.luz(-0.035, 0.36, 0.1, Vv.ojos, 0.06), F.luz(0.035, 0.36, 0.1, Vv.ojos, 0.06)]; VV.ojos = ojos; }
+    }
+    const rep = VV.repisas.filter(p => p.luz != null || p.letrero || p.aire);
+    if (R() < Vv.palomas && rep.length) {
+      const p = rep[ent(0, rep.length - 1)], F = bodDecMarco(VV.Tp, p.Pw.base), n = ent(Vv.palomasN[0], Vv.palomasN[1]);
+      const pz = p.z || 0.12; for (let k = 0; k < n; k++) { const u = p.u + (k - (n - 1) / 2) * 0.24 + q(-0.04, 0.04), sc = q(0.8, 1.1); for (const ry of [0, Math.PI / 2]) F.plano('tr', 0.3 * sc, 0.3 * sc, u, p.y + 0.15 * sc, pz, [0x6a6a72, 0x8a8a90, 0x4a4a52][k % 3], { uv: 'paloma', ry: ry + (k % 2 ? Math.PI : 0) }); }
+      VV.palomas = F.w(p.u, p.y, pz);
+    }
+  }
+  // ---- fundir todo
+  const m = BODD.m, meshes = [bodDecFundir(T.op, m.op), bodDecFundir(T.em, m.em), bodDecFundir(T.ad, m.ad), bodDecFundir(T.tr, m.tr)];
+  for (const me of meshes) if (me) { me.updateMatrix(); gR.add(me); }
+  if (meshes[2]) meshes[2].renderOrder = 2;
+  // las siluetas: una malla que se mueve (cada una va y viene detrás de su cortina; a veces se va y vuelve)
+  if (VV.sil.length) {
+    const Sv = Vv.siluetas, partes = [];
+    for (const s of VV.sil) { const F = bodDecMarco(VV.Ts, s.Pw.base), e = F.plano('tr', Sv.ancho, Sv.alto, s.u, s.y - Sv.alto / 2 - 0.02, 0.045, 0x1e140c, { uv: R() < 0.5 ? 'sil0' : 'sil1' }); partes.push({ e, s, x: 0, meta: 0, t: q(0, 3), fuera: false }); }
+    const me = bodDecFundir(VV.Ts.tr, m.tr); me.updateMatrix(); me.userData.siluetas = 1; gR.add(me); const P = me.geometry.attributes.position, base = P.array.slice(), lim = W.ancho / 2 - Sv.ancho / 2 - 0.02;
+    world.anims.push(dt => {
+      if (!gR.visible) return; let cambio = false;
+      for (const p of partes) {
+        p.t -= dt;
+        if (p.t <= 0 && Math.abs(p.x - p.meta) < 0.01) { if (p.fuera) { p.fuera = false; p.t = q(Sv.quieta[0], Sv.quieta[1]); } else if (Math.random() < 0.25) { p.fuera = true; p.t = q(Sv.fuera[0], Sv.fuera[1]); } else { p.meta = q(-lim, lim); p.t = q(Sv.quieta[0], Sv.quieta[1]); } p.vel = q(Sv.vel[0], Sv.vel[1]); cambio = true; }
+        if (Math.abs(p.x - p.meta) >= 0.01) { p.x += Math.sign(p.meta - p.x) * Math.min(Math.abs(p.meta - p.x), p.vel * dt); cambio = true; }
+        if (!cambio) continue;
+        const Pw = p.s.Pw, ox = Pw.ux * p.x + (p.fuera ? Pw.dx * 0.4 : 0), oz = Pw.uz * p.x + (p.fuera ? Pw.dz * 0.4 : 0);   // escondida: se mete detrás de la pared
+        for (let i = p.e.v0; i < p.e.v0 + p.e.vn; i++) { P.array[i * 3] = base[i * 3] + ox; P.array[i * 3 + 2] = base[i * 3 + 2] + oz; }
+      }
+      if (cambio) P.needsUpdate = true;
+    });
+  }
+  // las palomas: se van volando si te acercas; vuelven al rato si estás lejos
+  if (VV.palomas) {
+    const me = bodDecFundir(VV.Tp.tr, m.tr); me.matrixAutoUpdate = true; gR.add(me); const o = VV.palomas; let vuelo = -1, lejosT = 0;
+    world.anims.push(dt => {
+      if (!gR.visible) return; const d = Math.hypot(player.pos.x - o.x, player.pos.z - o.z);
+      if (vuelo < 0 && me.visible && d < Vv.vuela) { vuelo = 0; if (Sfx.palomas) Sfx.palomas(panOf(o), volOf(o, 1.2)); }
+      if (vuelo >= 0) { vuelo += dt; me.position.set(Math.sin(vuelo * 3) * 0.2 * vuelo, vuelo * vuelo * 2.6, vuelo * 1.2); if (vuelo > 1.8) { me.visible = false; vuelo = -1; lejosT = Vv.vuelven; } }
+      else if (!me.visible) { if (d > Vv.vuela * 2) lejosT -= dt; if (lejosT <= 0) { me.visible = true; me.position.set(0, 0, 0); } }
+    });
+  }
+  // los brillos (ventanas, lamparitas, foquitos, los ojos del gato) y el vapor: puntos (un dibujo para los brillos y otro para el vapor)
+  const pts = (lista, alto) => { const n = lista.length, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tam = new Float32Array(n); lista.forEach((p, i) => { p.i = i; pos.set([p.x, p.y, p.z], i * 3); col.set([p.c.r, p.c.g, p.c.b], i * 3); tam[i] = p.t; });
+    const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('col', new THREE.BufferAttribute(col, 3)); G.setAttribute('tam', new THREE.BufferAttribute(tam, 1)); G.boundingSphere = new THREE.Sphere(new THREE.Vector3(c.x, alto, c.z), Math.max(r.hx, r.hz) * 1.5 + 4);
+    const P = new THREE.Points(G, m.pts); P.matrixAutoUpdate = false; P.renderOrder = 3; gR.add(P); return P; };
+  if (T.pts.length) {
+    const P = pts(T.pts, Hab / 2);
+    if (VV.ojos) { const C = P.geometry.attributes.col, o = VV.ojos, cc = new THREE.Color(Vv.ojos); let t = 2; world.anims.push(dt => { if (!gR.visible) return; t -= dt; const ab = !(t < 0.15); if (t < 0) t = q(2, 6); for (const e of o) C.setXYZ(e.i, ab ? cc.r : 0, ab ? cc.g : 0, ab ? cc.b : 0); C.needsUpdate = true; }); }   // parpadea
+  }
+  if (VV.humo.length) {
+    const Vp = Vv.vapor, N = tel ? Vp.nTel : Vp.n, lista = [], cv = new THREE.Color(Vp.color), est = [];
+    for (let i = 0; i < N; i++) { lista.push({ x: 0, y: -50, z: 0, c: new THREE.Color(0, 0, 0), t: q(Vp.tam[0], Vp.tam[1]) }); est.push({ f: VV.humo[i % VV.humo.length], v: 0, vida: 0, t: -q(0, Vp.vida[1]) }); }
+    const P = pts(lista, 1.5), Ps = P.geometry.attributes.position, Cs = P.geometry.attributes.col;
+    world.anims.push(dt => {
+      if (!gR.visible) return;
+      for (let i = 0; i < N; i++) { const e = est[i]; e.t += dt; if (e.t < 0) continue; if (e.t > e.vida) { e.t = 0; e.vida = q(Vp.vida[0], Vp.vida[1]); e.v = q(Vp.sube[0], Vp.sube[1]); e.x = e.f.x + q(-0.25, 0.25); e.z = e.f.z + q(-0.25, 0.25); e.dx = q(-1, 1) * Vp.viento; e.dz = q(-1, 1) * Vp.viento; }
+        const u = e.t / e.vida, a = Math.sin(Math.PI * Math.min(1, u * 1.4)) * (1 - u); Ps.setXYZ(i, e.x + e.dx * e.t, e.f.y + e.v * e.t, e.z + e.dz * e.t); Cs.setXYZ(i, cv.r * a, cv.g * a, cv.b * a); }
+      Ps.needsUpdate = true; Cs.needsUpdate = true;
+    });
+  }
+  // los sonidos lejanos (solo mientras estás en este espacio): un perro, una radio en una ventana con luz y, en el callejón, la lluvia en el metal
+  { const So = Vv.sonidos, lu = VV.luces; let t = q(1, So.cada[1]), tl = 0;
+    world.anims.push(dt => {
+      if (!game || state !== 'play' || BOD.aqui !== r) return;
+      if (r.t === 'callejon' && (tl -= dt) <= 0) { tl = q(So.lataCada[0], So.lataCada[1]); if (Sfx.lata) { const e = VV.esc.length ? VV.esc[ent(0, VV.esc.length - 1)] : null, v3 = e ? new THREE.Vector3().setFromMatrixPosition(e.Pw.base) : new THREE.Vector3(c.x, 0, c.z); Sfx.lata(panOf(v3), So.vol * 0.6); } }
+      if ((t -= dt) > 0) return; t = q(So.cada[0], So.cada[1]);
+      const tot = So.perro + So.radio; let u = Math.random() * tot;
+      if (u < So.perro) { if (Sfx.perro) Sfx.perro(Math.random() * 1.6 - 0.8, So.vol * 0.5); }
+      else if (Sfx.radio) { const p = lu.length ? lu[ent(0, lu.length - 1)] : new THREE.Vector3(c.x, 5, c.z); Sfx.radio(panOf(p), So.vol * 0.7); }
+    });
+  }
+  for (const g of T.tmp) g.dispose();
 }
 // como bodFundir, pero con cualquier figura (cilindros, esferas, cajas giradas) ya puesta en su lugar: una sola malla
 function bodFundirG(lista) {
@@ -41453,6 +41825,10 @@ function bodJardinArmar(L) {
     if (!formas.has(m)) formas.set(m, []); formas.get(m).push([geo, m4.clone()]);
   };
   const en = (x, z, ry) => { o3.position.set(x, 0, z); o3.rotation.set(0, ry || 0, 0); return o3; };   // un marco local (para bancas, esqueletos y carteles)
+  // mundo vivo (25-oct-2026): los primeros pisos de la mansión con cortinas, persianas y siluetas que se mueven (con la textura de los decorados, en pocas mallas)
+  const Mv = BAL.bodegas.vivo.mansion, MV = BAL.bodegas.vivo.activo && BODD.m ? { T: Object.assign(bodDecT(), { tr: [] }), Ts: Object.assign(bodDecT(), { tr: [] }), luz: [], sil: [] } : null;
+  if (MV) { if (!BODD.geo) BODD.geo = new Map(); MV.F = bodDecMarco(MV.T, bodDecBase(0, 0.085, 0));
+    MV.ventana = (x, y, lit) => { const uv = lit ? BOD_VEN_LUZ[Math.floor(R() * BOD_VEN_LUZ.length)] : BOD_VEN_OSC[Math.floor(R() * BOD_VEN_OSC.length)]; MV.F.plano('em', T.ventana[0], T.ventana[1], x, y, 0, lit ? 0xffffff : 0x9a9a9a, { uv }); if (lit) { MV.luz.push([x, y]); if (y < 4) MV.F.plano('ad', T.ventana[0] * 2.2, 2.4, x, 0.02, 1.4, bodDecPiso(Mv.luzPiso), { rx: -Math.PI / 2, uv: 'suave' }); } }; }
   // ---- materiales (los nuevos se dibujan aquí; el resto viene del sótano y de los espacios abiertos)
   const Mt = {
     piedra: lam(0xffffff, { map: canvasTex(256, 256, (c, w, h) => { c.fillStyle = '#1e1b19'; c.fillRect(0, 0, w, h); for (let r = 0; r < 8; r++) for (let k = 0; k < 4; k++) { c.fillStyle = pick(['#3a3530', '#35302c', '#413b35', '#2f2b27', '#3d3832']); c.fillRect(k * 64 + (r % 2 ? 32 : 0) + 2, r * 32 + 2, 60, 28); c.fillRect(k * 64 + (r % 2 ? 32 : 0) - 256 + 2, r * 32 + 2, 60, 28); } for (let i = 0; i < 900; i++) { c.fillStyle = pick(['rgba(0,0,0,.22)', 'rgba(220,210,190,.05)']); c.fillRect(rand(0, w), rand(0, h), 2, 2); } }, 1) }),
@@ -41488,7 +41864,7 @@ function bodJardinArmar(L) {
   for (const s of [-1, 1]) {   // las alas a los lados: más bajas, con techo de pizarra
     const ax = s * (Wt / 2 + Wa / 2); caja(Mt.piedra, [ax, Ha / 2, -F / 2 + 1, Wa, Ha, F - 2]); caja(BODM.cantera, [ax, Ha + 0.2, -F / 2 + 1, Wa + 0.6, 0.4, F - 1.4]);
     forma(Mt.pizarra, roofGeo(F - 2, 3.6, Wa), ax, Ha + 0.4, -F / 2 + 1, 1, Math.PI / 2);
-    for (let r = 0; r < 4; r++) for (let j = 0; j < T.alas.cols; j++) { const x = ax + (j + 0.5) / T.alas.cols * Wa - Wa / 2, y = 2.6 + r * T.piso; if (y + T.ventana[1] / 2 > Ha - 1) continue; const lit = R() < T.luz[0]; caja(lit ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, T.ventana[0], T.ventana[1], 0.08]); caja(BODM.cantera, [x, y - T.ventana[1] / 2 - 0.06, 0.12, T.ventana[0] + 0.3, 0.12, 0.24]); }
+    for (let r = 0; r < 4; r++) for (let j = 0; j < T.alas.cols; j++) { const x = ax + (j + 0.5) / T.alas.cols * Wa - Wa / 2, y = 2.6 + r * T.piso; if (y + T.ventana[1] / 2 > Ha - 1) continue; const lit = R() < (MV ? Mv.luzAlas : T.luz[0]); if (MV) MV.ventana(x, y, lit); else caja(lit ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, T.ventana[0], T.ventana[1], 0.08]); caja(BODM.cantera, [x, y - T.ventana[1] / 2 - 0.06, 0.12, T.ventana[0] + 0.3, 0.12, 0.24]); }
   }
   caja(BODM.cantera, [0, 0.6, 0.12, Wt + 2 * Wa + 0.4, 1.2, 0.36]);   // el zócalo
   for (let y = T.piso * T.cornisa; y < Ht; y += T.piso * T.cornisa) caja(BODM.cantera, [0, y, -F / 2, Wt + 0.5, 0.35, F + 0.5]);   // las cornisas: marcan los pisos hacia arriba
@@ -41496,7 +41872,7 @@ function bodJardinArmar(L) {
   const nr = Math.floor((Ht - 4) / T.piso), ww = T.ventana[0], wh = T.ventana[1];
   for (let r = 0; r < nr; r++) {   // muchas ventanas; algunas con luz, menos mientras más arriba (y la niebla las va borrando)
     const y = 2.6 + r * T.piso, pl = T.luz[0] + (T.luz[1] - T.luz[0]) * r / nr;
-    for (let j = 0; j < T.cols; j++) { const x = -Wt / 2 + (j + 0.5) * Wt / T.cols; if (r <= 1 && Math.abs(x) < Pu.ancho / 2 + 2.4) continue; /* la puerta y la placa */ caja(R() < pl ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, ww, wh, 0.08]); caja(BODM.cantera, [x, y - wh / 2 - 0.06, 0.12, ww + 0.3, 0.12, 0.24]); caja(BODM.cantera, [x, y + wh / 2 + 0.1, 0.1, ww + 0.2, 0.2, 0.2]); }
+    for (let j = 0; j < T.cols; j++) { const x = -Wt / 2 + (j + 0.5) * Wt / T.cols; if (r <= 1 && Math.abs(x) < Pu.ancho / 2 + 2.4) continue; /* la puerta y la placa */ const lit = R() < (MV && r < Mv.pisos ? Mv.luzAlas : pl); if (MV && r < Mv.pisos) MV.ventana(x, y, lit); else caja(lit ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, ww, wh, 0.08]); caja(BODM.cantera, [x, y - wh / 2 - 0.06, 0.12, ww + 0.3, 0.12, 0.24]); caja(BODM.cantera, [x, y + wh / 2 + 0.1, 0.1, ww + 0.2, 0.2, 0.2]); }
     if (y > Ha + 1.5) for (const s of [-1, 1]) for (let j = 0; j < T.colsLado; j++) { const z = -F + (j + 0.5) * F / T.colsLado; caja(R() < pl ? BODM.ventana : BODM.ventanaO, [s * (Wt / 2 + 0.04), y, z, 0.08, wh, ww]); }
   }
   // la entrada: puerta doble abierta, marco de piedra, escalones, faroles y la placa
@@ -41615,6 +41991,27 @@ function bodJardinArmar(L) {
     BODJ.usos.push(o);
   });
   mapUse({ x: X(0), z: Z(1.3), r: 2.0, cd: 1, t: 'Puerta de la gran torre', d: 'Aquí empieza el Nivel 1: las Bodegas del casino. En el jardín no hay zombis; adentro, sí.', b: 'Entrar a la torre', use() { bodJardinEntrar(); } });
+  if (MV) {   // las ventanas vivas de la mansión, sus siluetas (van y vienen detrás de las cortinas) y la luz de las de abajo en el pasto
+    const m = BODD.m, Sv = BAL.bodegas.vivo.siluetas, nS = tel ? Mv.siluetasTel : Mv.siluetas, partes = [];
+    for (const me of [bodDecFundir(MV.T.em, m.em), bodDecFundir(MV.T.ad, m.ad)]) if (me) { me.updateMatrix(); g.add(me); }
+    const lit = MV.luz.slice().sort(() => R() - 0.5).slice(0, nS), Fs = bodDecMarco(MV.Ts, bodDecBase(0, 0.1, 0)), S2 = 1.5;   // las siluetas de la mansión son más grandes (ventanas más grandes)
+    for (const [x, y] of lit) partes.push({ e: Fs.plano('tr', Sv.ancho * S2, Sv.alto * S2, x, y + T.ventana[1] / 2 - Sv.alto * S2 / 2 - 0.02, 0, 0x1e140c, { uv: R() < 0.5 ? 'sil0' : 'sil1' }), x: 0, meta: 0, t: q(0, 3), fuera: false, vel: 0.3 });
+    if (partes.length) {
+      const me = bodDecFundir(MV.Ts.tr, m.tr); me.updateMatrix(); g.add(me); const P = me.geometry.attributes.position, base = P.array.slice(), lim = T.ventana[0] / 2 - Sv.ancho * S2 / 2 - 0.02;
+      world.anims.push(dt => {
+        if (!g.visible) return; let cambio = false;
+        for (const p of partes) {
+          p.t -= dt;
+          if (p.t <= 0 && Math.abs(p.x - p.meta) < 0.01) { if (p.fuera) { p.fuera = false; p.t = q(Sv.quieta[0], Sv.quieta[1]); } else if (Math.random() < 0.25) { p.fuera = true; p.t = q(Sv.fuera[0], Sv.fuera[1]); } else { p.meta = q(-lim, lim); p.t = q(Sv.quieta[0], Sv.quieta[1]); } p.vel = q(Sv.vel[0], Sv.vel[1]); cambio = true; }
+          if (Math.abs(p.x - p.meta) >= 0.01) { p.x += Math.sign(p.meta - p.x) * Math.min(Math.abs(p.meta - p.x), p.vel * dt); cambio = true; }
+          if (!cambio) continue;
+          for (let i = p.e.v0; i < p.e.v0 + p.e.vn; i++) { P.array[i * 3] = base[i * 3] + p.x; P.array[i * 3 + 2] = base[i * 3 + 2] - (p.fuera ? 0.4 : 0); }
+        }
+        if (cambio) P.needsUpdate = true;
+      });
+    }
+    for (const gg of MV.T.tmp) gg.dispose(); BODD.geo = null;
+  }
   // ---- fundir todo: una malla por material
   const sol = new Set([Mt.piedra, BODM.fachada, BODM.cantera, BODM.madera, BODM.metal]);
   for (const [m, bs] of piezas) { const me = new THREE.Mesh(bodFundir(bs, m === Mt.piedra ? 4 : 1.5), m); me.castShadow = me.receiveShadow = false; g.add(me); if (sol.has(m)) solids.push(me); }
@@ -41885,7 +42282,7 @@ function bodEntra(r) {
   if (r.t === 'oscuro') hint('Cuarto oscuro: solo tu linterna. Los barriles sirven para esconderte', 3200);
   else if (r.t === 'campana') hint('Campanario: dispárale a la campana para atraer a los zombis cercanos', 3200);
   else if (bodEsSala(r.t)) hint(bodSalaInfo(r.t).entra, 2600);
-  else if (r.abierto) hint({ callejon: 'Callejón trasero: al aire libre, bajo la lluvia. Une dos puntas del sótano', patio: 'Patio interior: un pozo de luz con cuatro salidas', jardin: 'Jardín de los fumadores: un respiro al aire libre', canal: 'Canal de desagüe: el agua te frena. Cruza por los puentes' }[r.t], 3200);
+  else if (r.abierto) hint({ callejon: 'Callejón trasero: al aire libre, bajo la lluvia. Une dos puntas del sótano', patio: 'Patio interior: un pozo de luz entre los edificios', jardin: 'Jardín de los fumadores: el patio del Bar El Trébol', canal: 'Canal de desagüe: el agua te frena. Cruza por los puentes' }[r.t], 3200);
   else if (r.t !== 'jefe') hint(T_.n, 1800);
 }
 function bodLlaveRecoger(dt) {
