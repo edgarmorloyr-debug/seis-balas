@@ -3188,7 +3188,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=30').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=31').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -3718,6 +3718,9 @@ const Sfx = (() => {
       }
     },
     kaching() { tone({ type: 'triangle', f0: 1568, dur: 0.09, vol: 0.18, wet: 0.3 }); tone({ type: 'triangle', f0: 2093, dur: 0.5, vol: 0.2, delay: 0.08, wet: 0.45 }); tone({ type: 'sine', f0: 3136, dur: 0.4, vol: 0.06, delay: 0.08, wet: 0.5 }); },
+    vidrio(pan = 0, vol = 1) { burst({ ftype: 'highpass', f0: 3600, q: 0.8, dur: 0.16, vol: 0.38 * vol, pan, wet: 0.25 }); for (let i = 0; i < 6; i++) tone({ type: 'triangle', f0: rand(2600, 5400), dur: rand(0.05, 0.12), vol: 0.06 * vol, pan, wet: 0.3, delay: i * rand(0.012, 0.04) }); },   // decorados: vidrio o foco roto
+    gota(pan = 0, vol = 1) { tone({ type: 'sine', f0: rand(900, 1300), f1: rand(1900, 2700), dur: 0.05, vol: 0.08 * vol, pan, wet: 0.55 }); },   // una gotera
+    rata(pan = 0, vol = 1) { for (let i = 0; i < 3; i++) tone({ type: 'triangle', f0: rand(3200, 4200), f1: rand(2600, 3000), dur: 0.035, vol: 0.05 * vol, pan, wet: 0.2, delay: i * 0.06 }); },   // una rata que huye
     cadena() { for (let i = 0; i < 6; i++) burst({ f0: rand(2600, 4200), q: 6, dur: 0.07, vol: 0.12, delay: i * 0.06 + Math.random() * 0.03, wet: 0.4 }); },
     // el calíope de la feria: una frase de vals con sus tubos (cuadrada y triangular) y el bajo
     calliope(pan, vol = 1) { const N = [392, 523, 659, 784, 659, 523, 587, 494, 392, 440, 494, 523]; N.forEach((f, i) => { tone({ type: 'square', f0: f, dur: 0.17, vol: 0.03 * vol, pan, delay: i * 0.2, wet: 0.45 }); tone({ type: 'triangle', f0: f * 2, dur: 0.14, vol: 0.025 * vol, pan, delay: i * 0.2, wet: 0.45 }); if (i % 3 === 0) tone({ type: 'triangle', f0: [131, 98, 147, 131][i / 3], dur: 0.5, vol: 0.06 * vol, pan, delay: i * 0.2, wet: 0.3 }); }); },
@@ -40430,7 +40433,7 @@ function buildBodegas() {
   BOD.pSalida = puerta(jefe, jSal, 'salida'); for (const r of salas) { const D = puerta(r, BOD.salaK[r.i], 'verde'); if (r === tras) BOD.pVerde = D; }
   world.anims.push(dt => { for (const D of BOD.puertas) { const obj = D.abierta ? D.ang : 0; if (Math.abs(D.a - obj) > 0.001) { D.a = damp(D.a, obj, 6, dt); D.g.rotation.y = D.a; } } });
   // ---- lámparas, adornos y lo de cada habitación
-  BOD.luces = []; const nL = IS_TOUCH || FAST() ? B.lucesTel : B.luces;
+  BOD.luces = []; const nL = IS_TOUCH || FAST() ? B.lucesTel : B.luces; bodDecMats(); BODD.rooms = [];
   for (let i = 0; i < nL; i++) { const l = new THREE.PointLight(B.luz.color, B.luz.i, B.luz.d, 1.6); l.position.set(0, -50, 0); world.group.add(l); BOD.luces.push(l); }
   for (const r of L.rooms) {
     const gR = new THREE.Group(); world.group.add(gR); BOD.grp[r.i] = gR;
@@ -40442,7 +40445,9 @@ function buildBodegas() {
       const halo = bodGlow(c.x, ly, c.z, 0xffb060, 2.6, 0.55, gR); BOD.lamp.push({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo });
     }
     bodAdornos(r, c, h, gR, lados[r.i], st);
+    bodDecorar(r, c, h, gR, lados[r.i], st);   // los decorados al azar (de 5 a 7 por cuarto) encima de lo de siempre
   }
+  BODD.geo = null; world.anims.push(bodDecPaso);
   // ---- llaves que quedaron en el suelo
   for (const k of st.suelo) bodLlaveSuelo(k, true);
   // puntos de aparición (para lo que los pida: en las Bodegas los zombis salen de sus cuartos)
@@ -40552,6 +40557,585 @@ function bodAdornos(r, c, h, gR, lados, st) {
     bodGlow(p.x - dx * 0.5, 1.6, p.z - dz * 0.5, 0xfff0c0, 1.4, 0.5, gR);
     const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks];
     uso('salida', { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9), r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
+  }
+}
+// ===================== DECORADOS DE LAS BODEGAS (encuestas del dueño del 24 y el 25-oct-2026) =====================
+// Piezas sencillas (cajas, cilindros y planos) que el juego reparte al azar en cada partida: de 5 a 7 por habitación, las que van con cada tipo de cuarto.
+// Sale una vez por partida (bodSt().decor) y se repite igual al volver de una sala. Lo de vidrio y los focos se rompen a balazos (solo cambia el aspecto)
+// y lo roto sigue roto (bodSt().rotos). Nada tapa las puertas, el centro del cuarto, lo que se usa ni donde salen los zombis.
+// Para el teléfono: lo quieto de cada cuarto va fundido en 3 mallas (lo de madera, piedra y metal · lo que brilla · los rayos de luz y la niebla),
+// con 3 materiales para todo el sótano y una sola textura con todos los dibujos (retrato, carteles, ruleta, naipes…). Brillos, polvo y gotas son
+// puntos (un dibujo por cuarto) y las ratas, una sola malla repetida. Sin luces nuevas: las piezas brillan solas. Todas las cifras aquí.
+BAL.bodegas.decor = {
+  n: [5, 7], intentos: 14, semilla: 0x5eed1,
+  // lo que no se tapa (metros): cada puerta (ancho de más a cada lado y hasta dónde entra), el centro, lo que se usa, la aparición de zombis,
+  // el espacio entre piezas y lo que queda contra la pared. Solo cuenta para lo que estorba (muebles); lo plano del suelo y lo del techo va donde sea.
+  libre: { puerta: 0.9, hondo: 3.0, centro: 2.4, uso: 1.7, spawn: 1.1, entre: 0.2, borde: 0.15, cuadro: 0.25, alto: 0.3, bajo: 0.5 },
+  // qué piezas van en cada tipo de cuarto (el número es el peso: cuánto más fácil sale). «comun» va en todos; los vestíbulos de las salas usan «sala»
+  comun: { bombilla: 2, farol: 2, tuberias: 2, vigas: 2, arcos: 2, cadenas: 2, telaranas: 3, charcos: 2, desague: 1, polvo: 2, niebla: 1, ratas: 2, goteras: 2, carteles: 2, ventanuco: 1, tapiada: 1 },
+  tipos: {
+    inicio: { retrato: 3, busto: 2, alfombra: 3, carrito: 1, vitral: 2, naipes: 1 },
+    jefe: { retrato: 3, busto: 3, alfombra: 3, tragamonedas: 2, ruleta: 2, cajas: 2, sacos: 2, vitral: 2, naipes: 1 },
+    bodega: { barriles: 3, rieles: 3, sacos: 1, rejilla: 2, ventanuco: 2 },
+    guardia: { mesa: 2, sillas: 3, naipes: 3, cajas: 2, retrato: 1, rejilla: 1 },
+    guardado: { mesa: 2, sillas: 2, tragamonedas: 2, estante: 2, ruleta: 2, cajas: 2, sacos: 1, carrito: 1, busto: 1 },
+    mini: { tragamonedas: 3, ruleta: 2, naipes: 2, sacos: 2, carrito: 2, alfombra: 1, vitral: 1, estante: 1 },
+    despensa: { estante: 3, barriles: 3, carrito: 2, mesa: 1, sillas: 1 },
+    taller: { rieles: 3, rejilla: 2, cajas: 1, sillas: 1, barriles: 1 },
+    campana: { vitral: 2, rejilla: 2, ventanuco: 2, retrato: 1 },
+    oscuro: { mesa: 2, sillas: 1, barriles: 2, sacos: 1, cajas: 1 },
+    sala: { naipes: 2, alfombra: 2, vitral: 1, retrato: 1 }
+  },
+  sinLuz: ['oscuro'], luz: ['bombilla', 'farol', 'ventanuco', 'tapiada', 'rejilla', 'vitral', 'tragamonedas', 'polvo'],   // el cuarto oscuro sigue oscuro
+  repite: ['telaranas', 'charcos', 'carteles', 'cadenas', 'naipes', 'desague'],   // si no alcanzan las piezas distintas, estas pueden salir dos veces
+  bombilla: { vaiven: 0.07, ritmo: 1.7, cable: [0.7, 1.2] },   // vaivén (radianes), rapidez del vaivén (radianes por segundo) y largo del cable (m)
+  ratas: { n: [2, 3], huye: 3.2, vel: 3.4, corre: [2.2, 4.0], vuelve: [7, 14], chillido: 1.5 },   // huyen cuando te acercas a menos de «huye» m; vuelven a los «vuelve» s
+  gotera: { cada: [1.2, 2.4], caida: 0.9, oir: 8, vol: 0.6 },   // s entre gotas, s que tarda en caer, m a los que se oye
+  polvo: { n: 60, nTel: 26, vel: 0.06, radio: 1.4 },
+  niebla: { capas: 3, alto: 0.42 },
+  vidrio: { trozos: 14, trozosTel: 8, vol: 1 },
+  brillo: { rayo: 0.3, piso: 0.5 },   // qué tan fuertes se ven los rayos de luz y las manchas de luz en el piso (se suman a la luz)
+  cadenas: { n: [2, 3], largo: [0.8, 1.6] }, carteles: { n: [2, 3] }, naipes: { n: [6, 9], fichas: [5, 9] }, charcos: { n: [2, 3] },
+  vigas: { n: [2, 3], centro: 1.6, entre: 1.5 }, rieles: { largo: [3.0, 5.2] }, tuberias: { largo: [1.6, 4.6] }, alfombra: { largo: [3.0, 5.5] }, estante: { falta: 0.2 }
+};
+const BODC = { piedra: 0x3a3029, madera: 0x6b4526, oscura: 0x3a2616, hierro: 0x55555c, cobre: 0xb06a3a, oro: 0xd4a23a, rojo: 0x7a1818, hueso: 0xe9dcc0, marmol: 0xe8e2d6, saco: 0x8a7a5a, verdeM: 0x3c4a3c, plata: 0xc0c0c0, sabana: 0xcfc6b2, charco: 0x10161e };
+const BODD = { at: null, atL: '', rooms: [], geo: null, m: null, chill: 0 };
+// la textura con todos los dibujos: [x, y, ancho, alto] en un lienzo de 1024 × 512
+const BOD_AT = { blanco: [768, 256, 256, 256], retrato: [16, 0, 200, 256], busca: [224, 0, 200, 256], ruleta: [432, 0, 256, 256], naipe: [696, 0, 64, 90], naipe2: [768, 0, 64, 90], pantalla: [840, 0, 176, 88], tela: [0, 264, 256, 248], niebla: [264, 264, 256, 248], suave: [528, 264, 128, 128] };
+function bodDecUV(k) { const [x, y, w, h] = BOD_AT[k], p = 2; return [(x + p) / 1024, 1 - (y + h - p) / 512, (x + w - p) / 1024, 1 - (y + p) / 512]; }
+function bodDecAtlas() {
+  if (BODD.at && BODD.atL === LANG) return BODD.at;
+  BODD.at = canvasTex(1024, 512, (g) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, 1024, 512);
+    const A = BOD_AT; let [x, y, w, h] = A.blanco; g.fillStyle = '#fff'; g.fillRect(x, y, w, h);
+    // el retrato de Don Santino: sombrero, bigote, traje negro y camisa blanca
+    [x, y, w, h] = A.retrato; { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#3a1a12'); gr.addColorStop(1, '#120806'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
+    g.fillStyle = '#d9b48a'; g.beginPath(); g.ellipse(x + w / 2, y + h * 0.38, w * 0.17, h * 0.15, 0, 0, 7); g.fill();
+    g.fillStyle = '#151515'; g.fillRect(x + w * 0.24, y + h * 0.2, w * 0.52, h * 0.05); g.fillRect(x + w * 0.34, y + h * 0.07, w * 0.32, h * 0.14); g.fillRect(x + w * 0.18, y + h * 0.6, w * 0.64, h * 0.4);
+    g.fillStyle = '#e9dcc0'; g.fillRect(x + w * 0.45, y + h * 0.6, w * 0.1, h * 0.28); g.fillStyle = '#8a1010'; g.fillRect(x + w * 0.47, y + h * 0.62, w * 0.06, h * 0.12);
+    g.fillStyle = '#2a1206'; g.fillRect(x + w * 0.4, y + h * 0.44, w * 0.2, h * 0.03); g.fillStyle = '#111'; g.fillRect(x + w * 0.4, y + h * 0.35, w * 0.06, h * 0.02); g.fillRect(x + w * 0.54, y + h * 0.35, w * 0.06, h * 0.02);
+    // «Se busca deudor»
+    [x, y, w, h] = A.busca; g.fillStyle = '#e8d6aa'; g.fillRect(x, y, w, h); g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.strokeRect(x + 6, y + 6, w - 12, h - 12);
+    g.fillStyle = '#2a1a0e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 34px Georgia, serif'; g.fillText(tx('SE BUSCA'), x + w / 2, y + 34, w - 20);
+    g.fillStyle = '#4a3a2a'; g.fillRect(x + w * 0.3, y + 62, w * 0.4, 96); g.fillStyle = '#1a120a'; g.beginPath(); g.ellipse(x + w / 2, y + 96, 22, 24, 0, 0, 7); g.fill(); g.fillRect(x + w * 0.36, y + 120, w * 0.28, 38); g.fillRect(x + w * 0.34, y + 70, w * 0.32, 8);
+    g.fillStyle = '#2a1a0e'; g.font = 'bold 30px Georgia, serif'; g.fillText(tx('DEUDOR'), x + w / 2, y + 190, w - 20); g.fillStyle = '#7a2a1a'; g.fillRect(x + 30, y + 214, w - 60, 4); g.fillRect(x + 50, y + 226, w - 100, 4);
+    // la ruleta
+    [x, y, w, h] = A.ruleta; { const cx = x + w / 2, cy = y + h / 2, n = 18; for (let i = 0; i < n; i++) { g.fillStyle = i === 0 ? '#1d7a3a' : i % 2 ? '#b01e1e' : '#151515'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, w / 2 - 2, i / n * Math.PI * 2, (i + 1) / n * Math.PI * 2); g.fill(); }
+      g.fillStyle = '#6b4526'; g.beginPath(); g.arc(cx, cy, w * 0.26, 0, 7); g.fill(); g.strokeStyle = '#d4a23a'; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, w * 0.26, 0, 7); g.stroke(); g.fillStyle = '#d4a23a'; g.beginPath(); g.arc(cx, cy, w * 0.06, 0, 7); g.fill(); }
+    // naipes
+    for (const [k, s, c] of [['naipe', '♦', '#b01e1e'], ['naipe2', '♠', '#151515']]) { [x, y, w, h] = A[k]; g.fillStyle = '#f3ead8'; g.fillRect(x, y, w, h); g.fillStyle = c; g.font = 'bold 50px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s, x + w / 2, y + h / 2 + 3); g.font = 'bold 16px serif'; g.fillText('A', x + 10, y + 12); }
+    // la pantalla de la tragamonedas rota: 7 · cereza · 7 y una rajadura
+    [x, y, w, h] = A.pantalla; g.fillStyle = '#0a1a3a'; g.fillRect(x, y, w, h);
+    for (let i = 0; i < 3; i++) { g.fillStyle = '#f3ead8'; g.fillRect(x + 10 + i * 56, y + 10, 46, h - 20); g.fillStyle = i === 1 ? '#c01e1e' : '#d01818'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(i === 1 ? '●' : '7', x + 33 + i * 56, y + h / 2 + 2); }
+    g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x + 120, y + 4); g.lineTo(x + 100, y + 40); g.lineTo(x + 130, y + 60); g.lineTo(x + 112, y + h - 4); g.moveTo(x + 100, y + 40); g.lineTo(x + 70, y + 50); g.stroke();
+    // la telaraña (blanco sobre negro: se suma a la luz)
+    [x, y, w, h] = A.tela; { const ox = x + w / 2, oy = y + 4; g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2; for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI; g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox + Math.cos(a) * (w / 2 - 4), oy + Math.sin(a) * (h - 10)); g.stroke(); }
+      for (let rr = 0.18; rr < 1; rr += 0.16) { g.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI, px = ox + Math.cos(a) * (w / 2 - 4) * rr, py = oy + Math.sin(a) * (h - 10) * rr; if (i) g.quadraticCurveTo((px + ox + Math.cos(a - Math.PI / 16) * (w / 2) * rr * 0.9) / 2, (py + oy + Math.sin(a - Math.PI / 16) * h * rr * 0.9) / 2, px, py); else g.moveTo(px, py); } g.stroke(); } }
+    // la niebla: manchas suaves que se apagan en los bordes
+    [x, y, w, h] = A.niebla; for (let i = 0; i < 46; i++) { const px = x + 30 + Math.random() * (w - 60), py = y + 30 + Math.random() * (h - 60), rr = 18 + Math.random() * 40, gr = g.createRadialGradient(px, py, 0, px, py, rr); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(px - rr, py - rr, rr * 2, rr * 2); }
+    // una mancha de luz suave (para el piso)
+    [x, y, w, h] = A.suave; { const gr = g.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, w / 2 - 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
+  });
+  BODD.atL = LANG; return BODD.at;
+}
+// los materiales (uno de cada clase para todo el sótano) y las figuras (se repiten: se arman una vez por construcción)
+function bodDecMats() {
+  const at = bodDecAtlas();
+  BODD.m = {
+    op: new THREE.MeshLambertMaterial({ map: at, vertexColors: true }),
+    em: new THREE.MeshBasicMaterial({ map: at, vertexColors: true }),
+    ad: new THREE.MeshBasicMaterial({ map: at, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
+    pts: new THREE.ShaderMaterial({
+      uniforms: { map: { value: glowTex }, esc: { value: 300 }, dens: { value: 0.05 } },
+      vertexShader: 'attribute vec3 col; attribute float tam; uniform float esc; varying vec3 vC; varying float vD; void main() { vC = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_PointSize = tam * esc / max(0.1, -mv.z); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform sampler2D map; uniform float dens; varying vec3 vC; varying float vD; void main() { float f = exp(-dens * dens * vD * vD); float a = texture2D(map, gl_PointCoord).a; gl_FragColor = vec4(vC * a * f, 1.0); }',
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    }),
+    proxy: new THREE.MeshBasicMaterial({ visible: false })
+  };
+  BODD.geo = new Map();
+}
+const bodDecG = (k, fn) => { let g = BODD.geo.get(k); if (!g) { g = fn(); g.computeBoundingBox(); BODD.geo.set(k, g); } return g; };
+// una pieza se arma en su propio marco: x a lo largo de la pared, y hacia arriba, z hacia dentro del cuarto (la pared queda en z = 0)
+function bodDecMarco(T, base) {
+  const E = new THREE.Euler(), Q = new THREE.Quaternion(), V3 = new THREE.Vector3(), S3 = new THREE.Vector3();
+  const F = {
+    base, T, grupo: 0,
+    put(L, g, x, y, z, col, o = {}) {
+      E.set(o.rx || 0, o.ry || 0, o.rz || 0); Q.setFromEuler(E); V3.set(x, y, z); S3.set(o.sx || 1, o.sy || 1, o.sz || 1);
+      const e = { g, m: new THREE.Matrix4().compose(V3, Q, S3).premultiply(base), c: col, uv: o.uv || null, sin: o.sin != null ? o.sin : L === 'ad', gr: o.gr != null ? o.gr : F.grupo };
+      (L === 'cg' ? T.cg : T[L]).push(e); return e;
+    },
+    box(L, w, h, d, x, y, z, col, o) { return F.put(L, bodDecG(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d)), x, y, z, col, o); },
+    cyl(L, rt, rb, h, x, y, z, col, o = {}) { const s = o.s || 8; return F.put(L, bodDecG(`c${rt},${rb},${h},${s}`, () => new THREE.CylinderGeometry(rt, rb, h, s)), x, y, z, col, o); },
+    esf(L, r, x, y, z, col, o) { return F.put(L, bodDecG(`e${r}`, () => new THREE.SphereGeometry(r, 8, 6)), x, y, z, col, o); },
+    toro(L, r, t, x, y, z, col, o = {}) { const s = o.s || 12, a = o.arc || Math.PI * 2; return F.put(L, bodDecG(`t${r},${t},${s},${a}`, () => new THREE.TorusGeometry(r, t, 5, s, a)), x, y, z, col, o); },
+    plano(L, w, h, x, y, z, col, o) { return F.put(L, bodDecG(`p${w},${h}`, () => new THREE.PlaneGeometry(w, h)), x, y, z, col, o); },
+    disco(L, r, x, y, z, col, o = {}) { const s = o.s || 16, a = o.arc || Math.PI * 2; return F.put(L, bodDecG(`d${r},${s},${a}`, () => new THREE.CircleGeometry(r, s, 0, a)), x, y, z, col, o); },
+    // un rayo de luz: de un rectángulo arriba (centro a, medio ancho y medio fondo ah) a otro abajo (b, bh). Se suma a la luz (no ocupa lugar)
+    haz(a, ah, b, bh, col) {
+      const A = [[-1, -1], [1, -1], [1, 1], [-1, 1]], p = [];
+      for (let i = 0; i < 4; i++) { const j = (i + 1) % 4, P = (c, hh, q) => [c[0] + q[0] * hh[0], c[1], c[2] + q[1] * hh[1]], a0 = P(a, ah, A[i]), a1 = P(a, ah, A[j]), b0 = P(b, bh, A[i]), b1 = P(b, bh, A[j]); p.push(...a0, ...b0, ...b1, ...a0, ...b1, ...a1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(p.map((_, i) => i % 3 === 1 ? 1 : 0), 3)); g.computeBoundingBox();
+      T.tmp.push(g); return F.put('ad', g, 0, 0, 0, new THREE.Color(col).multiplyScalar(BAL.bodegas.decor.brillo.rayo).getHex(), { sin: true });
+    },
+    // un brillo (o una mota de polvo, o una gota): un punto en el marco, con su color y su tamaño (m)
+    luz(x, y, z, col, tam) { const v = new THREE.Vector3(x, y, z).applyMatrix4(base), p = { x: v.x, y: v.y, z: v.z, c: new THREE.Color(col), t: tam, i: -1 }; T.pts.push(p); return p; },
+    w(x, y, z) { return new THREE.Vector3(x, y, z).applyMatrix4(base); },
+    // otro marco dentro de este (una silla de la pila, la ruleta inclinada)
+    sub(x, y, z, ry = 0, rx = 0) { const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, 0)).setPosition(x, y, z).premultiply(base); const S = bodDecMarco(T, m); S.grupo = F.grupo; return S; },
+    // lo que se rompe de un tiro: sus partes ([entrada, cómo: 'apaga' | 'aplasta' | 'quita', cuánto]), la caja que recibe el tiro (en el marco), el punto de apoyo,
+    // el color de los trozos y el brillo que se apaga
+    rompe(partes, caja, piv, trozo, brillo) { T.rompe.push({ partes, caja: { c: F.w(caja[0], caja[1], caja[2]), s: [caja[3], caja[4], caja[5]], ry: Math.atan2(base.elements[8], base.elements[10]) }, piv: F.w(piv[0], piv[1], piv[2]), trozo, brillo }); }
+  };
+  return F;
+}
+const bodDecPiso = col => new THREE.Color(col).multiplyScalar(BAL.bodegas.decor.brillo.piso).getHex();
+const bodDecT = () => ({ op: [], em: [], ad: [], cg: [], pts: [], rompe: [], anim: [], ratas: null, cgPiv: null, tmp: [], libre: false });
+// un marco en el mundo: origen (x, z), giro ry (el eje z del marco apunta a donde mira) y altura y0
+const bodDecBase = (x, z, ry, y0 = 0) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y0, z);
+// ---- lo que hay en el cuarto: paredes con sus pasos, esquinas, puntos libres del suelo y del techo
+function bodDecSitio(r, c, h, lados, gR) {
+  const B = BAL.bodegas, D = B.decor, H = B.alto, V = B.vano / 2, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, Lb = D.libre;
+  const hoja = {}; for (const P_ of BOD.puertas) if (P_.r === r.i) hoja[P_.k] = 1;
+  if (r.t === 'inicio') for (const k of ['e', 'o', 'n', 's']) if (lados[k] == null) { hoja['j' + k] = 1; break; }
+  gR.updateMatrixWorld(true);
+  const obs = []; for (const o of gR.children) { if (o.isSprite || o.isLight) continue; const b = new THREE.Box3().setFromObject(o); if (!b.isEmpty()) obs.push(b); }
+  // lo que estorba de verdad: el paso de cada puerta, el centro, lo que se usa y donde salen los zombis
+  const zonas = [], circ = [{ x: c.x, z: c.z, r: Lb.centro }];
+  for (const k in lados) { if (lados[k] == null) continue; const [dx, dz] = DV[k], ax = dx ? 'z' : 'x', w = V + Lb.puerta, x0 = c.x + dx * h, z0 = c.z + dz * h, x1 = x0 - dx * Lb.hondo, z1 = z0 - dz * Lb.hondo;
+    zonas.push(ax === 'z' ? { x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: c.z - w, z1: c.z + w } : { x0: c.x - w, x1: c.x + w, z0: Math.min(z0, z1), z1: Math.max(z0, z1) }); }
+  for (const o of world.uses) if (Math.abs(o.x - c.x) <= h + 0.6 && Math.abs(o.z - c.z) <= h + 0.6) circ.push({ x: o.x, z: o.z, r: Lb.uso });
+  if (r.t !== 'inicio' && !bodEsSala(r.t)) circ.push({ x: c.x + 1.5, z: c.z + 1.5, r: Lb.spawn });
+  if (r.t === 'inicio' && BODJ.dentro) circ.push({ x: BODJ.dentro.x, z: BODJ.dentro.z, r: Lb.uso });
+  const X = { r, c, h, H, V, D, DV, lados, hoja, obs, ocup: [], zonas, circ, gR, oscuro: r.t === 'oscuro', lamp: r.t !== 'oscuro' };
+  // un lugar en una pared para algo de «w» de ancho: m es lo que se aparta de los pasos. Devuelve el marco (x a lo largo de la pared, z hacia dentro)
+  X.pared = (R, w, m, k0, centro) => {
+    const ks = k0 ? [k0] : ['e', 'o', 'n', 's'].sort(() => R() - 0.5);
+    for (const k of ks) {
+      const seg = lados[k] != null || hoja['j' + k] ? [[-h + Lb.borde, -V - m], [V + m, h - Lb.borde]] : [[-h + Lb.borde, h - Lb.borde]], ok = seg.filter(s => s[1] - s[0] >= w);
+      if (!ok.length) continue; const s = ok[Math.floor(R() * ok.length)], u = centro ? (s[0] + s[1]) / 2 : s[0] + w / 2 + R() * (s[1] - s[0] - w);
+      const [dx, dz] = DV[k], ry = Math.atan2(-dx, -dz), fx = c.x + dx * h, fz = c.z + dz * h;
+      return { k, u, largo: s[1] - s[0], base: bodDecBase(fx + Math.cos(ry) * u, fz - Math.sin(ry) * u, ry) };
+    }
+    return null;
+  };
+  // un punto del suelo (o del techo) a «rad» metros de las paredes, con un giro cualquiera
+  X.punto = (R, rad) => { const lim = h - rad - 0.1; if (lim <= 0) return null; return bodDecBase(c.x + (R() * 2 - 1) * lim, c.z + (R() * 2 - 1) * lim, R() * Math.PI * 2); };
+  return X;
+}
+// ---- las piezas (recetas de las páginas de las encuestas, a la escala del juego). en: dónde va · w: ancho a lo largo de la pared · m: cuánto se aparta de los pasos
+const BOD_DEC = {
+  // --- ventanas
+  ventanuco: { en: 'pared', w: 1.6, m: 0.25, arma(F, X, R) {
+    const y = X.H - 0.62, vid = F.box('em', 1.3, 0.55, 0.04, 0, y, 0.02, 0x2a3c5c);
+    for (const s of [-1, 1]) { F.box('op', 1.45, 0.08, 0.14, 0, y + s * 0.31, 0.07, BODC.oscura); F.box('op', 0.08, 0.62, 0.14, s * 0.69, y, 0.07, BODC.oscura); }
+    for (let i = -2; i <= 2; i++) F.cyl('op', 0.025, 0.025, 0.56, i * 0.26, y, 0.11, BODC.hierro);
+    const lejos = 2.2 + R() * 0.6; F.haz([0, y - 0.1, 0.12], [0.6, 0.05], [0, 0.02, lejos], [0.8, 0.55], 0x0e1626);
+    F.plano('ad', 1.8, 1.3, 0, 0.016, lejos, bodDecPiso(0x16203a), { rx: -Math.PI / 2, uv: 'suave' });
+    const b = F.luz(0, y, 0.18, 0x30406a, 1.2);
+    F.rompe([[vid, 'apaga', 0.25]], [0, y, 0.06, 1.3, 0.55, 0.16], [0, y, 0.02], 0xa8c0e8, b);
+  } },
+  tapiada: { en: 'pared', w: 1.9, m: 0.25, arma(F, X, R) {
+    F.box('em', 1.4, 1.2, 0.04, 0, 1.95, 0.02, 0xb06a28);
+    for (let i = 0; i < 4; i++) F.box('op', 1.75, 0.24, 0.06, 0, 1.5 + i * 0.3, 0.08, i % 2 ? BODC.madera : 0x5a3a20, { rz: (i % 2 ? 0.05 : -0.05) + (R() - 0.5) * 0.04 });
+    for (const s of [-1, 1]) F.box('op', 0.1, 1.35, 0.1, s * 0.75, 1.95, 0.05, BODC.oscura);
+    for (const yy of [1.65, 1.95, 2.25]) F.haz([0, yy, 0.1], [0.6, 0.015], [0, Math.max(0.05, yy - 1.3), 2.1], [0.75, 0.08], 0x1a0e04);
+    F.luz(0, 1.95, 0.2, 0x603818, 1.6);
+  } },
+  rejilla: { en: 'techo', rad: 1.0, arma(F, X) {
+    const H = X.H; F.box('em', 1.6, 0.02, 1.6, 0, H - 0.02, 0, 0x24344e);
+    for (let i = -3; i <= 3; i++) { F.box('op', 0.05, 0.06, 1.6, i * 0.25, H - 0.06, 0, BODC.hierro); F.box('op', 1.6, 0.06, 0.05, 0, H - 0.06, i * 0.25, BODC.hierro); }
+    for (const s of [-1, 1]) { F.box('op', 1.8, 0.1, 0.1, 0, H - 0.07, s * 0.85, BODC.oscura); F.box('op', 0.1, 0.1, 1.8, s * 0.85, H - 0.07, 0, BODC.oscura); }
+    F.haz([0, H - 0.08, 0], [0.75, 0.75], [0, 0.02, 0], [0.95, 0.95], 0x0c1220);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) F.plano('ad', 0.32, 0.32, (i - 1.5) * 0.46, 0.015, (j - 1.5) * 0.46, bodDecPiso(0x141c30), { rx: -Math.PI / 2 });
+    F.luz(0, H - 0.12, 0, 0x283858, 1.8);
+  } },
+  vitral: { en: 'pared', w: 1.9, m: 0.25, arma(F, X, R) {
+    const cols = [0xc0302a, 0x2f8f4e, 0xd8a634, 0x2c5fb8], p = [];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) p.push([F.box('em', 0.36, 0.42, 0.03, -0.57 + i * 0.38, 1.1 + j * 0.44, 0.03, cols[(i + j) % 4]), 'apaga', 0.18]);
+    p.push([F.disco('em', 0.74, 0, 2.2, 0.03, 0x8a2a6a, { arc: Math.PI }), 'apaga', 0.18]);
+    p.push([F.plano('em', 0.26, 0.36, 0, 2.5, 0.045, 0xffffff, { uv: R() < 0.5 ? 'naipe' : 'naipe2', rz: Math.PI / 8 }), 'apaga', 0.25]);
+    F.toro('op', 0.78, 0.05, 0, 2.2, 0.05, BODC.oscura, { arc: Math.PI, s: 14 }); for (const s of [-1, 1]) F.box('op', 0.07, 1.4, 0.08, s * 0.78, 1.5, 0.05, BODC.oscura);
+    F.box('op', 1.75, 0.08, 0.16, 0, 0.86, 0.08, BODC.piedra);
+    F.plano('ad', 1.7, 1.3, 0, 0.016, 1.4, bodDecPiso(0x1c0c16), { rx: -Math.PI / 2, uv: 'suave' });
+    const b = F.luz(0, 1.7, 0.4, 0x503018, 2.6);
+    F.rompe(p, [0, 1.75, 0.05, 1.6, 1.9, 0.14], [0, 1.6, 0.03], 0xd8a0a0, b);
+  } },
+  // --- luces
+  bombilla: { en: 'techo', rad: 0.6, arma(F, X, R) {
+    const D = X.D.bombilla, Lc = D.cable[0] + R() * (D.cable[1] - D.cable[0]), H = X.H;
+    const pv = F.T.cgPiv = F.w(0, H, 0), S = bodDecMarco(F.T, bodDecBase(pv.x, pv.z, 0, H));   // el foco cuelga de su propio grupo (para que se mezca)
+    S.cyl('cg', 0.01, 0.01, Lc, 0, -Lc / 2, 0, 0x111111); S.cyl('cg', 0.05, 0.22, 0.16, 0, -Lc - 0.02, 0, 0x3a3a40, { s: 10 });
+    const vid = S.esf('cg', 0.09, 0, -Lc - 0.13, 0, 0xffe0a0); S.esf('cg', 0.025, 0, -Lc - 0.06, 0, 0x6a6a6a);
+    const b = F.luz(0, H - Lc - 0.15, 0, 0x704818, 1.6); b.cuelga = -Lc - 0.15;
+    F.T.cgLc = Lc; F.T.cgVid = vid; F.T.cgB = b;
+  } },
+  farol: { en: 'pared', w: 0.6, m: 0.25, arma(F) {
+    const y = 2.0; F.box('op', 0.08, 0.08, 0.44, 0, y + 0.34, 0.22, BODC.hierro); F.cyl('op', 0.02, 0.2, 0.12, 0, y + 0.32, 0.44, BODC.hierro, { s: 6 });
+    for (const s of [-1, 1]) F.cyl('op', 0.17, 0.17, 0.05, 0, y + s * 0.26, 0.44, BODC.hierro, { s: 6 });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; F.cyl('op', 0.012, 0.012, 0.5, Math.cos(a) * 0.16, y, 0.44 + Math.sin(a) * 0.16, BODC.hierro, { s: 4 }); }
+    const vid = F.esf('em', 0.08, 0, y, 0.44, 0xffc070), b = F.luz(0, y, 0.46, 0x6a4010, 1.5);
+    F.rompe([[vid, 'apaga', 0.12]], [0, y, 0.44, 0.36, 0.55, 0.36], [0, y, 0.44], 0xffe0b0, b);
+  } },
+  // --- paredes y techo
+  tuberias: { en: 'pared', ancho: 1, m: 0.25, arma(F, X, R, P) {
+    const H = X.H, T_ = X.D.tuberias, w = Math.min(P.largo - 0.1, T_.largo[0] + R() * (T_.largo[1] - T_.largo[0]));
+    F.cyl('op', 0.08, 0.08, w, 0, H - 0.45, 0.16, BODC.cobre, { rz: Math.PI / 2 }); F.cyl('op', 0.05, 0.05, w, 0, H - 0.72, 0.13, 0x8a5a3a, { rz: Math.PI / 2 });
+    for (const s of [-1, 1]) F.cyl('op', 0.08, 0.08, 0.45, s * w / 2, H - 0.22, 0.16, BODC.cobre);
+    for (const x of [-w / 2 + 0.3, 0, w / 2 - 0.3]) F.box('op', 0.06, 0.45, 0.1, x, H - 0.55, 0.06, BODC.hierro);
+    F.grupo = 1; const x0 = (R() - 0.5) * Math.max(0, w - 1.0);
+    F.cyl('op', 0.08, 0.08, H - 0.45 - 1.0, x0, (H - 0.45 + 1.0) / 2, 0.16, BODC.cobre); F.cyl('op', 0.1, 0.1, 0.08, x0, 1.0, 0.16, 0x8a5a3a);
+    F.toro('op', 0.17, 0.028, x0, 1.35, 0.34, 0x9a1d1d); F.cyl('op', 0.03, 0.03, 0.2, x0, 1.35, 0.25, BODC.hierro, { rx: Math.PI / 2 });
+    for (const a of [0, Math.PI / 2]) F.box('op', 0.32, 0.025, 0.025, x0, 1.35, 0.34, 0x9a1d1d, { rz: a });
+  } },
+  vigas: { en: 'sala', arma(F, X, R) {
+    const H = X.H, h = X.h, V_ = X.D.vigas, eje = R() < 0.5 ? 'x' : 'z', n = V_.n[0] + Math.floor(R() * (V_.n[1] - V_.n[0] + 1)), offs = [];
+    for (let k = 0; k < 40 && offs.length < n; k++) { const o = (R() * 2 - 1) * (h - 0.8); if (Math.abs(o) >= V_.centro && offs.every(q => Math.abs(q - o) >= V_.entre)) offs.push(o); }
+    if (!offs.length) return false;
+    offs.forEach((o, i) => {
+      F.grupo = i; const L_ = 2 * h, [bx_, bz_] = eje === 'x' ? [0, o] : [o, 0];
+      F.box('op', eje === 'x' ? L_ : 0.26, 0.3, eje === 'x' ? 0.26 : L_, bx_, H - 0.15, bz_, i % 2 ? BODC.madera : 0x5a3a20);
+      for (const s of [-1, 1]) { const ex = eje === 'x' ? s * (h - 0.42) : o, ez = eje === 'x' ? o : s * (h - 0.42); F.box('op', 0.16, 0.9, 0.16, ex, H - 0.55, ez, BODC.oscura, eje === 'x' ? { rz: s * 0.7 } : { rx: -s * 0.7 }); }
+    });
+  } },
+  arcos: { en: 'arco', arma(F, X, R) {
+    const cols = [0x8a4a30, 0x7a3e26, 0x93533a];
+    F.grupo = 2; for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI; F.box('op', 0.3, 0.2, 0.32, Math.cos(a) * 1.42, 2.02 + Math.sin(a) * 1.42, 0.16, cols[i % 3], { rz: a + Math.PI / 2 }); }
+    for (const s of [-1, 1]) { F.grupo = s < 0 ? 0 : 1; for (let j = 0; j < 9; j++) F.box('op', 0.32, 0.22, 0.32, s * (1.42 + (R() - 0.5) * 0.02), 0.11 + j * 0.235, 0.16, cols[(j + (s > 0 ? 1 : 0)) % 3]); }
+  } },
+  cadenas: { en: 'techo', rad: 0.7, arma(F, X, R) {
+    const C = X.D.cadenas, n = C.n[0] + Math.floor(R() * (C.n[1] - C.n[0] + 1));
+    for (let k = 0; k < n; k++) {
+      F.grupo = k; const ox = (R() - 0.5) * 0.9, oz = (R() - 0.5) * 0.9, L_ = C.largo[0] + R() * (C.largo[1] - C.largo[0]), m = Math.max(3, Math.round(L_ / 0.11));
+      for (let i = 0; i < m; i++) F.toro('op', 0.06, 0.016, ox, X.H - 0.06 - i * 0.11, oz, 0x4a4a50, { ry: i % 2 ? Math.PI / 2 : 0, s: 8 });
+      F.toro('op', 0.08, 0.018, ox, X.H - 0.1 - m * 0.11, oz, 0x4a4a50, { arc: Math.PI * 1.4, rz: Math.PI * 0.8, s: 8 });
+    }
+  } },
+  telaranas: { en: 'esquina', arma(F, X) {
+    const H = X.H; F.plano('ad', 1.3, 0.95, 0, H - 0.49, 0.66, 0x5a5650, { uv: 'tela', sin: false }); F.plano('ad', 0.62, 0.4, 0, H - 0.2, 0.42, 0x4a4640, { uv: 'tela', rx: -0.6, sin: false });
+  } },
+  // --- suelo (se puede pisar: no estorba)
+  charcos: { en: 'suelo', rad: 1.2, arma(F, X, R) {
+    const C = X.D.charcos, n = C.n[0] + Math.floor(R() * (C.n[1] - C.n[0] + 1));
+    for (let k = 0; k < n; k++) { F.grupo = k; const r_ = 0.35 + R() * 0.4, ox = (R() - 0.5) * 1.4, oz = (R() - 0.5) * 1.4; F.cyl('op', r_, r_, 0.012, ox, 0.006, oz, BODC.charco, { s: 16, sz: 0.7 }); F.disco('ad', r_ * 0.55, ox + r_ * 0.15, 0.014, oz, 0x1e2a38, { rx: -Math.PI / 2, uv: 'suave', sy: 0.6 }); }
+  } },
+  rieles: { en: 'pared', ancho: 1, m: 0.9, arma(F, X, R, P) {
+    const Rl = X.D.rieles, w = Math.min(P.largo - 0.1, Rl.largo[0] + R() * (Rl.largo[1] - Rl.largo[0]));
+    for (const z of [0.55, 1.25]) F.box('op', w, 0.07, 0.06, 0, 0.035, z, 0x6a6a70);
+    for (let x = -w / 2 + 0.25; x <= w / 2 - 0.2; x += 0.5) F.box('op', 0.16, 0.05, 1.1, x, 0.025, 0.9, BODC.oscura);
+    F.grupo = 1; const xv = (R() < 0.5 ? -1 : 1) * (w / 2 - 0.7);
+    F.box('op', 1.0, 0.5, 0.95, xv, 0.5, 0.9, 0x5a4a3a); F.box('op', 1.06, 0.06, 1.01, xv, 0.77, 0.9, BODC.hierro);
+    for (const a of [-0.35, 0.35]) for (const b of [-0.48, 0.48]) F.cyl('op', 0.13, 0.13, 0.06, xv + a, 0.15, 0.9 + b, BODC.hierro, { rx: Math.PI / 2, s: 10 });
+    for (let i = 0; i < 4; i++) F.esf('op', 0.16, xv + (i - 1.5) * 0.22, 0.78, 0.9 + (R() - 0.5) * 0.4, 0x2a2622, { sy: 0.7 });
+  } },
+  alfombra: { en: 'puerta', arma(F, X, R) {
+    const A = X.D.alfombra, L_ = Math.min(X.h - 0.4, A.largo[0] + R() * (A.largo[1] - A.largo[0]));
+    F.box('op', 1.3, 0.012, L_, 0, 0.006, 0.3 + L_ / 2, BODC.oro); F.box('op', 1.12, 0.016, L_ - 0.18, 0, 0.01, 0.3 + L_ / 2, BODC.rojo);
+    for (let i = 0; i < 3; i++) F.box('op', 0.25 + R() * 0.3, 0.018, 0.3 + R() * 0.3, (R() - 0.5) * 0.6, 0.012, 0.5 + R() * (L_ - 0.4), R() < 0.5 ? 0x5a1414 : 0x3a2a1e);
+  } },
+  naipes: { en: 'suelo', rad: 0.9, arma(F, X, R) {
+    const N = X.D.naipes, n = N.n[0] + Math.floor(R() * (N.n[1] - N.n[0] + 1)), f = N.fichas[0] + Math.floor(R() * (N.fichas[1] - N.fichas[0] + 1));
+    for (let i = 0; i < n; i++) F.plano('op', 0.14, 0.2, (R() - 0.5) * 1.4, 0.004 + i * 0.0015, (R() - 0.5) * 1.4, 0xffffff, { rx: -Math.PI / 2, rz: R() * 6.28, uv: R() < 0.5 ? 'naipe' : 'naipe2' });
+    const cc = [0xb01e1e, 0x1a1a1a, 0x2c5fb8, 0xe9dcc0];
+    for (let i = 0; i < f; i++) { const ox = (R() - 0.5) * 1.5, oz = (R() - 0.5) * 1.5, alto = R() < 0.3 ? 2 + Math.floor(R() * 3) : 1; for (let k = 0; k < alto; k++) F.cyl('op', 0.045, 0.045, 0.014, ox, 0.008 + k * 0.015, oz, cc[(i + k) % 4], { s: 10 }); }
+  } },
+  desague: { en: 'suelo', rad: 0.6, arma(F) {
+    F.cyl('op', 0.7, 0.7, 0.004, 0, 0.002, 0, 0x1a1612, { s: 14 }); F.box('op', 0.9, 0.01, 0.9, 0, 0.006, 0, 0x050505);
+    for (let i = -3; i <= 3; i++) F.box('op', 0.04, 0.03, 0.9, i * 0.12, 0.016, 0, BODC.hierro); for (const s of [-1, 1]) F.box('op', 0.98, 0.03, 0.05, 0, 0.016, s * 0.46, BODC.hierro);
+  } },
+  // --- muebles del casino (estorban: van contra la pared, lejos de los pasos, y se chocan)
+  mesa: { en: 'pared', w: 2.3, m: 0.9, arma(F) {
+    const z = 0.3 + 0.625; for (const a of [-0.92, 0.92]) for (const b of [-0.48, 0.48]) F.box('op', 0.08, 0.36, 0.08, a, 0.18, z + b, BODC.oscura);
+    F.box('op', 2.15, 0.03, 1.25, 0, 0.93, z, BODC.sabana); F.box('op', 2.15, 0.6, 0.03, 0, 0.64, z + 0.62, BODC.sabana, { rx: 0.12 }); F.box('op', 2.15, 0.6, 0.03, 0, 0.64, z - 0.62, 0xc2b9a4, { rx: -0.12 });
+    for (const s of [-1, 1]) F.box('op', 0.03, 0.58, 1.25, s * 1.075, 0.65, z, 0xc2b9a4, { rz: -s * 0.1 });
+    F.esf('op', 0.25, 0.4, 0.96, z - 0.1, BODC.sabana, { sy: 0.4 }); F.esf('op', 0.18, -0.5, 0.95, z + 0.15, BODC.sabana, { sy: 0.35 });
+  } },
+  sillas: { en: 'pared', w: 1.7, m: 0.9, arma(F, X, R) {
+    const silla = (S) => { S.box('op', 0.44, 0.05, 0.44, 0, 0.45, 0, BODC.madera); for (const a of [-0.19, 0.19]) for (const b of [-0.19, 0.19]) S.box('op', 0.04, 0.45, 0.04, a, 0.22, b, 0x5a3a20); S.box('op', 0.44, 0.45, 0.04, 0, 0.72, -0.2, BODC.madera); };
+    for (let i = 0; i < 3; i++) silla(F.sub(-0.42, i * 0.47, 0.42, (R() - 0.5) * 0.3)); for (let i = 0; i < 2; i++) silla(F.sub(0.45, i * 0.47, 0.45, (R() - 0.5) * 0.4 + 0.2));
+  } },
+  tragamonedas: { en: 'pared', w: 1.0, m: 0.9, arma(F) {
+    F.box('op', 0.9, 1.7, 0.7, 0, 0.85, 0.4, 0x7a1c1c); F.box('op', 0.95, 0.25, 0.75, 0, 1.82, 0.4, BODC.oro);
+    const mq = F.box('em', 0.8, 0.14, 0.02, 0, 1.84, 0.785, 0xd0603a), pan = F.plano('em', 0.7, 0.35, 0, 1.25, 0.756, 0xffffff, { uv: 'pantalla' });
+    F.box('op', 0.78, 0.43, 0.03, 0, 1.25, 0.74, 0x2a2a2a); F.box('op', 0.8, 0.08, 0.3, 0, 0.85, 0.85, 0x2a2a2a);
+    F.cyl('op', 0.025, 0.025, 0.5, 0.5, 1.25, 0.4, BODC.plata); F.esf('op', 0.07, 0.5, 1.52, 0.4, 0xc01e1e); F.box('op', 0.3, 0.02, 0.2, -0.15, 0.5, 0.78, 0x4a3a30, { rz: 0.5 });
+    const b = F.luz(0, 1.3, 0.9, 0x204060, 1.3);
+    F.rompe([[pan, 'apaga', 0.15], [mq, 'apaga', 0.2]], [0, 1.25, 0.76, 0.8, 0.5, 0.16], [0, 1.25, 0.76], 0xbfe0ff, b);
+  } },
+  estante: { en: 'pared', w: 2.3, m: 0.9, arma(F, X, R) {
+    for (let i = 0; i < 4; i++) F.box('op', 2.2, 0.05, 0.4, 0, 0.35 + i * 0.62, 0.22, BODC.madera); for (const s of [-1, 1]) F.box('op', 0.06, 2.2, 0.4, s * 1.1, 1.1, 0.22, BODC.madera);
+    F.box('op', 2.2, 2.2, 0.03, 0, 1.1, 0.03, BODC.oscura);
+    const cols = [0x2f5a2a, 0x5a3a1a, 0x7a1c1c, 0x2a3f5a], tr = [0x80c070, 0xc09060, 0xe07060, 0x7090d0];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 7; j++) {
+      if (R() < X.D.estante.falta) continue; const x = -0.9 + j * 0.3, y0 = 0.375 + i * 0.62, k = (i + j) % 4;
+      const cu = F.cyl('op', 0.055, 0.06, 0.26, x, y0 + 0.13, 0.24, cols[k]), cu2 = F.cyl('op', 0.018, 0.028, 0.1, x, y0 + 0.31, 0.24, cols[k]);
+      F.rompe([[cu, 'aplasta', 0.35], [cu2, 'quita']], [x, y0 + 0.19, 0.24, 0.13, 0.4, 0.13], [x, y0, 0.24], tr[k]);
+    }
+  } },
+  ruleta: { en: 'pared', w: 2.0, m: 0.9, arma(F, X, R) {
+    const S = F.sub(0, 0.9, 0.32, 0, -0.22);
+    S.cyl('op', 0.88, 0.88, 0.13, 0, 0, 0, BODC.oscura, { rx: Math.PI / 2, s: 20 }); S.disco('op', 0.8, 0, 0, 0.068, 0xffffff, { uv: 'ruleta', s: 24, rz: R() * 6.28 });
+    S.toro('op', 0.88, 0.035, 0, 0, 0.03, BODC.oro, { s: 20 }); S.cyl('op', 0.02, 0.09, 0.12, 0, 0, 0.12, BODC.oro, { rx: Math.PI / 2 });
+    F.box('op', 0.4, 0.1, 0.15, 0, 0.05, 0.62, BODC.oscura);
+  } },
+  // --- ambiente
+  polvo: { en: 'sala', arma(F, X, R) {
+    if (!X.lamp) return false; const P_ = X.D.polvo, H = X.H, rr = P_.radio, n = IS_TOUCH || FAST() ? P_.nTel : P_.n;
+    F.haz([0, H - 0.6, 0], [0.2, 0.2], [0, 0.02, 0], [rr, rr], 0x120c06);
+    const motas = []; for (let i = 0; i < n; i++) { const y = R() * (H - 0.8), k = 0.2 + (rr - 0.2) * (1 - y / (H - 0.6)), p = F.luz(0, y, 0, 0x3a3020, 0.05); p.a = R() * 6.28; p.rr = R() * k * 0.9; p.v = 0.5 + R(); p.y0 = y; motas.push(p); }
+    const c = X.c, Hm = H - 0.8, vel = P_.vel;
+    F.T.anim.push((dt, t) => { for (const p of motas) { p.y0 = (p.y0 + vel * p.v * dt) % Hm; const k = 0.2 + (rr - 0.2) * (1 - p.y0 / (H - 0.6)), a = p.a + t * 0.08 * p.v; p.x = c.x + Math.cos(a) * Math.min(p.rr, k); p.z = c.z + Math.sin(a) * Math.min(p.rr, k); p.y = p.y0 + Math.sin(t * p.v + p.a) * 0.05; p.sucio = 1; } });
+  } },
+  niebla: { en: 'sala', arma(F, X) { const N = X.D.niebla, s = 2 * X.h - 0.2; for (let i = 0; i < N.capas; i++) F.plano('ad', s, s, 0, 0.1 + i * N.alto / N.capas, 0, 0x0e0d0c, { rx: -Math.PI / 2, rz: i * 1.3, uv: 'niebla' }); } },
+  ratas: { en: 'sala', arma(F, X, R) {
+    const Rt = X.D.ratas, n = Rt.n[0] + Math.floor(R() * (Rt.n[1] - Rt.n[0] + 1)), L = [];
+    for (let i = 0; i < n; i++) { const s = bodDecRataSitio(X, R); if (s) L.push(Object.assign(s, { est: 'quieta', t: 0, ph: R() * 6.28 })); }
+    if (!L.length) return false; F.T.ratas = L;
+  } },
+  goteras: { en: 'suelo', rad: 0.6, arma(F, X, R) {
+    const H = X.H, o = F.w(0, 0, 0); if (Math.hypot(o.x - X.c.x, o.z - X.c.z) < 1.5) return false;
+    F.cyl('op', 0.45, 0.45, 0.01, 0, 0.005, 0, BODC.charco, { s: 14, sz: 0.8 }); F.toro('ad', 0.22, 0.008, 0, 0.014, 0, 0x2a3440, { rx: Math.PI / 2, s: 16 }); F.toro('ad', 0.36, 0.006, 0, 0.014, 0, 0x1a2430, { rx: Math.PI / 2, s: 16 });
+    F.grupo = 1; F.disco('op', 0.35, 0, H - 0.012, 0, 0x1a1410, { rx: Math.PI / 2 });
+    const G = X.D.gotera, p = F.luz(0, H - 0.06, 0, 0x405060, 0.07); let t0 = R() * G.cada[1], cae = -1, espera = t0;
+    F.T.anim.push((dt) => {
+      if (cae < 0) { if ((espera -= dt) <= 0) cae = 0; return; }
+      cae += dt; const u = Math.min(1, cae / G.caida); p.y = H - 0.06 - (H - 0.08) * u * u; p.sucio = 1;
+      if (u >= 1) { cae = -1; espera = G.cada[0] + Math.random() * (G.cada[1] - G.cada[0]); p.y = H - 0.06;
+        const d = Math.hypot(o.x - player.pos.x, o.z - player.pos.z); if (d < G.oir && Sfx.gota) { const v3 = new THREE.Vector3(o.x, 0, o.z); Sfx.gota(panOf(v3), G.vol * volOf(v3, 1)); if (d < 6) for (let i = 0; i < 3; i++) P.add(o.x, 0.03, o.z, rand(-0.5, 0.5), rand(0.6, 1.2), rand(-0.5, 0.5), 0.35, 0.025, 0.55, 0.65, 0.8, 0.8, 9.8, 0, 0, 0); } }
+    });
+  } },
+  // --- Don Santino
+  retrato: { en: 'pared', w: 1.5, m: 0.25, arma(F) {
+    F.box('op', 1.3, 1.6, 0.08, 0, 1.75, 0.04, BODC.oro); F.box('op', 1.16, 1.46, 0.09, 0, 1.75, 0.045, 0x8a6420); F.plano('op', 1.06, 1.36, 0, 1.75, 0.092, 0xffffff, { uv: 'retrato' });
+    F.box('op', 0.04, 0.04, 0.14, 0, 2.66, 0.07, BODC.oro); F.box('em', 0.42, 0.05, 0.06, 0, 2.62, 0.15, 0xffe0a0); F.box('op', 0.3, 0.07, 0.02, 0, 0.88, 0.05, BODC.oro);
+    F.luz(0, 2.55, 0.22, 0x3a2810, 1.0);
+  } },
+  carteles: { en: 'pared', w: 2.1, m: 0.25, arma(F, X, R) {
+    const C = X.D.carteles, n = C.n[0] + Math.floor(R() * (C.n[1] - C.n[0] + 1));
+    for (let i = 0; i < n; i++) { F.grupo = i; F.plano('op', 0.55, 0.7, (i - (n - 1) / 2) * 0.68 + (R() - 0.5) * 0.08, 1.5 + R() * 0.45, 0.02 + i * 0.004, 0xf0e8d8, { uv: 'busca', rz: (R() - 0.5) * 0.2 }); }
+  } },
+  // --- de la segunda encuesta
+  barriles: { en: 'pared', w: 2.8, m: 0.9, arma(F) {
+    for (const s of [-1, 1]) F.box('op', 0.12, 2.15, 1.15, s * 1.3, 1.075, 0.62, BODC.oscura); F.box('op', 2.6, 0.1, 1.15, 0, 1.07, 0.62, BODC.oscura);
+    for (const z of [0.2, 1.05]) F.box('op', 2.6, 0.1, 0.12, 0, 0.05, z, BODC.oscura);
+    [[-0.62, 0.55], [0.62, 0.55], [0, 1.6]].forEach(([x, y], i) => {
+      F.cyl('op', 0.48, 0.48, 1.05, x, y, 0.62, i % 2 ? 0x6a4424 : 0x5a3a1e, { rx: Math.PI / 2, s: 14 }); for (const z of [0.22, 0.62, 1.02]) F.toro('op', 0.49, 0.025, x, y, z, BODC.hierro, { s: 14 });
+      F.disco('op', 0.44, x, y, 1.152, 0x4a2e18, { s: 14 }); F.cyl('op', 0.035, 0.035, 0.16, x, y - 0.25, 1.22, BODC.cobre, { rx: Math.PI / 2 }); F.box('op', 0.02, 0.09, 0.02, x, y - 0.2, 1.28, BODC.cobre);
+    });
+  } },
+  cajas: { en: 'pared', w: 1.8, m: 0.9, arma(F, X, R) {
+    [[-0.45, 0.45, 0.9], [0.5, 0.4, 0.8], [-0.4, 1.28, 0.75]].forEach(([x, y, s], i) => {
+      const z = s * 0.45 + 0.05; F.box('op', s, s, s * 0.9, x, y, z, i === 1 ? 0x34403a : BODC.verdeM, { ry: (R() - 0.5) * 0.12 });
+      F.box('op', s * 0.8, s * 0.8, 0.01, x, y, z + s * 0.45 + 0.006, 0x2c362c); F.cyl('op', s * 0.16, s * 0.16, 0.05, x, y, z + s * 0.45 + 0.03, BODC.plata, { rx: Math.PI / 2, s: 12 }); F.box('op', 0.05, s * 0.5, 0.05, x + s * 0.32, y, z + s * 0.45 + 0.03, BODC.oro);
+    });
+  } },
+  sacos: { en: 'pared', w: 1.7, m: 0.9, arma(F, X, R) {
+    for (const [x, s] of [[-0.4, 1], [0.42, 0.85]]) { const o = F.esf('op', 0.42 * s, x, 0.35 * s, 0.48, BODC.saco, { sy: 0.85 }); F.cyl('op', 0.1 * s, 0.16 * s, 0.2, x, 0.7 * s, 0.48, 0x7a6a4a); F.esf('op', 0.12 * s, x + 0.2 * s, 0.25 * s, 0.48 + 0.33 * s, 0x2a2016, { sz: 0.4 }); }
+    F.grupo = 1; const cc = [0xb01e1e, 0x1a1a1a, 0x2c5fb8, 0xe9dcc0];
+    for (let i = 0; i < 12; i++) F.cyl('op', 0.045, 0.045, 0.014, (R() - 0.5) * 1.4, 0.008 + (i % 3) * 0.004, 0.95 + R() * 0.5, cc[i % 4], { s: 10, rx: (R() - 0.5) * 0.3 });
+  } },
+  carrito: { en: 'pared', w: 1.5, m: 0.9, arma(F, X, R) {
+    const zc = 0.25 + 0.33, me = 0xc0a060; for (const y of [0.35, 0.9]) F.box('op', 1.3, 0.04, 0.65, 0, y, zc, me);
+    for (const a of [-0.62, 0.62]) for (const b of [-0.3, 0.3]) { F.cyl('op', 0.022, 0.022, 0.92, a, 0.5, zc + b, me, { s: 6 }); F.esf('op', 0.06, a, 0.06, zc + b, 0x111111); }
+    F.cyl('op', 0.02, 0.02, 0.65, 0.72, 0.98, zc, me, { rx: Math.PI / 2, s: 6 }); F.box('op', 0.3, 0.01, 0.2, 0.1, 0.375, zc, 0xf0ece0);
+    for (const x of [-0.4, -0.18, 0.04]) { const cb = F.cyl('em', 0.065, 0.02, 0.12, x, 1.04, zc - 0.08, 0xc8d8e4), pie = F.cyl('em', 0.008, 0.008, 0.09, x, 0.965, zc - 0.08, 0xc8d8e4, { s: 5 }); F.cyl('em', 0.04, 0.04, 0.008, x, 0.925, zc - 0.08, 0xc8d8e4); F.rompe([[cb, 'quita'], [pie, 'aplasta', 0.5]], [x, 1.0, zc - 0.08, 0.16, 0.2, 0.16], [x, 0.93, zc - 0.08], 0xe0f0ff); }
+    const bo = F.cyl('op', 0.06, 0.07, 0.3, 0.38, 1.07, zc + 0.05, 0x2f5a2a), bo2 = F.cyl('op', 0.02, 0.03, 0.12, 0.38, 1.28, zc + 0.05, 0x2f5a2a);
+    F.rompe([[bo, 'aplasta', 0.35], [bo2, 'quita']], [0.38, 1.12, zc + 0.05, 0.16, 0.44, 0.16], [0.38, 0.92, zc + 0.05], 0x80c070);
+  } },
+  busto: { en: 'pared', w: 0.9, m: 0.9, arma(F) {
+    const z = 0.25 + 0.35, m = BODC.marmol; F.cyl('op', 0.24, 0.3, 1.1, 0, 0.55, z, m, { s: 10 }); F.box('op', 0.62, 0.08, 0.62, 0, 1.14, z, m);
+    F.esf('op', 0.34, 0, 1.36, z, m, { sx: 1.3, sy: 0.55, sz: 0.8 }); F.cyl('op', 0.09, 0.11, 0.16, 0, 1.58, z, m); F.esf('op', 0.2, 0, 1.8, z, m, { sy: 1.15 });
+    F.cyl('op', 0.27, 0.27, 0.035, 0, 1.99, z, m, { s: 14 }); F.cyl('op', 0.15, 0.17, 0.17, 0, 2.08, z, m, { s: 12 }); F.box('op', 0.14, 0.025, 0.03, 0, 1.74, z + 0.19, 0xcfc8ba); F.box('op', 0.3, 0.1, 0.02, 0, 0.8, z + 0.29, BODC.oro);
+  } }
+};
+// dónde se para una rata: junto a una pared, fuera de los pasos
+function bodDecRataSitio(X, R) {
+  const k = ['e', 'o', 'n', 's'][Math.floor(R() * 4)], h = X.h, V = X.V, gap = X.lados[k] != null;
+  let u = (R() * 2 - 1) * (h - 0.4); if (gap && Math.abs(u) < V + 0.3) u = (u < 0 ? -1 : 1) * (V + 0.3 + R() * Math.max(0, h - V - 0.8));
+  return { k, u };
+}
+// la caja de cada grupo de una pieza (en el mundo) y si estorba (lo que se para en el suelo y es alto se choca)
+function bodDecCajas(T, D) {
+  const G = new Map(), b = new THREE.Box3();
+  for (const L of ['op', 'em', 'ad', 'cg']) for (const e of T[L]) {
+    if (e.sin) continue; b.copy(e.g.boundingBox).applyMatrix4(e.m); const k = (L === 'cg' ? 'cg' : '') + e.gr; if (!G.has(k)) G.set(k, new THREE.Box3()); G.get(k).union(b);
+  }
+  return [...G.values()].map(q => ({ b: q, col: q.min.y < D.libre.bajo && q.max.y - q.min.y > D.libre.alto }));
+}
+function bodDecValida(X, T, cajas) {
+  const c = X.c, h = X.h, Lb = X.D.libre;
+  for (const q of cajas) {
+    const b = q.b; if (b.min.x < c.x - h - 0.03 || b.max.x > c.x + h + 0.03 || b.min.z < c.z - h - 0.03 || b.max.z > c.z + h + 0.03 || b.max.y > X.H + 0.03) return false;
+    const be = b.clone().expandByScalar(Lb.entre);
+    for (const o of X.obs) if (be.intersectsBox(o)) return false;
+    for (const o of X.ocup) if (be.intersectsBox(o)) return false;
+    if (q.col && !T.libre) {
+      for (const z of X.zonas) if (b.max.x > z.x0 && b.min.x < z.x1 && b.max.z > z.z0 && b.min.z < z.z1) return false;
+      for (const k of X.circ) { const qx = clamp(k.x, b.min.x, b.max.x), qz = clamp(k.z, b.min.z, b.max.z); if (Math.hypot(qx - k.x, qz - k.z) < k.r) return false; }
+    }
+  }
+  return true;
+}
+// armar una pieza con su semilla; si no cabe (y no es una que ya salió en esta partida), no queda nada
+function bodDecProbar(X, K, key, sem, ya) {
+  const P_ = BOD_DEC[key], R = mulberry32(sem), T = bodDecT(); let base = null, extra = {};
+  if (P_.en === 'pared') { const w = P_.ancho ? X.D[key].largo[0] : P_.w, q = X.pared(R, w, P_.m, null, !!P_.ancho); if (!q) return false; base = q.base; extra = q; }
+  else if (P_.en === 'suelo' || P_.en === 'techo') base = X.punto(R, P_.rad);
+  else if (P_.en === 'sala') base = bodDecBase(X.c.x, X.c.z, Math.floor(R() * 4) * Math.PI / 2);
+  else if (P_.en === 'esquina') { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1; base = bodDecBase(X.c.x + sx * X.h, X.c.z + sz * X.h, Math.atan2(-sx, -sz)); }
+  else if (P_.en === 'arco' || P_.en === 'puerta') {
+    const ks = Object.keys(X.lados).filter(k => X.lados[k] != null && (P_.en === 'puerta' || !X.hoja[k])).sort(() => R() - 0.5); if (!ks.length) return false;
+    const k = ks[0], [dx, dz] = X.DV[k], ry = Math.atan2(-dx, -dz); base = bodDecBase(X.c.x + dx * X.h, X.c.z + dz * X.h, ry); if (P_.en === 'arco') T.libre = true;
+  }
+  if (!base) return false;
+  const F = bodDecMarco(T, base);
+  const fin = () => { for (const g of T.tmp) g.dispose(); return false; };
+  if (P_.arma(F, X, R, extra) === false) return fin();
+  const cajas = bodDecCajas(T, X.D);
+  if (!ya && !bodDecValida(X, T, cajas)) return fin();
+  // queda: lo que ocupa, lo que se choca y sus partes
+  for (const q of cajas) { X.ocup.push(q.b); if (q.col) { const cx = (q.b.min.x + q.b.max.x) / 2, cz = (q.b.min.z + q.b.max.z) / 2; addBox(cx, cz, Math.max(0.05, (q.b.max.x - q.b.min.x) / 2 - 0.03), Math.max(0.05, (q.b.max.z - q.b.min.z) / 2 - 0.03)); K.cols.push(colliders[colliders.length - 1]); } }
+  for (const L of ['op', 'em', 'ad']) for (const e of T[L]) K[L].push(e);
+  K.pts.push(...T.pts); K.anim.push(...T.anim); K.tmp.push(...T.tmp);
+  const n = K.piezas.length; T.rompe.forEach((q, j) => { q.id = X.r.i + ':d' + n + ':' + j; K.rompe.push(q); });
+  if (T.cg.length) K.cg.push({ piv: T.cgPiv, partes: T.cg, Lc: T.cgLc, vid: T.cgVid, b: T.cgB, id: X.r.i + ':d' + n + ':f' });
+  if (T.ratas) K.ratas = (K.ratas || []).concat(T.ratas);
+  K.piezas.push(key); return true;
+}
+// juntar muchas figuras ya puestas en su lugar en una sola malla, con su color y su parte de la textura (cada entrada recuerda sus vértices: para romperla)
+function bodDecFundir(lista, mat, off) {
+  if (!lista.length) return null;
+  let n = 0; for (const e of lista) n += e.g.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), col = new Float32Array(n * 3), idx = []; let base = 0;
+  const W = bodDecUV('blanco'), wu = (W[0] + W[2]) / 2, wv = (W[1] + W[3]) / 2, C3 = new THREE.Color(), v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  for (const e of lista) {
+    const g = e.g, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index, u = e.uv ? bodDecUV(e.uv) : null;
+    nm.getNormalMatrix(e.m); C3.setHex(e.c);
+    for (let i = 0; i < P.count; i++) {
+      const j = (base + i) * 3, j2 = (base + i) * 2;
+      v.fromBufferAttribute(P, i).applyMatrix4(e.m); if (off) v.sub(off); pos[j] = v.x; pos[j + 1] = v.y; pos[j + 2] = v.z;
+      v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor[j] = v.x; nor[j + 1] = v.y; nor[j + 2] = v.z;
+      if (u && U) { uv[j2] = u[0] + U.getX(i) * (u[2] - u[0]); uv[j2 + 1] = u[1] + U.getY(i) * (u[3] - u[1]); } else { uv[j2] = wu; uv[j2 + 1] = wv; }
+      col[j] = C3.r; col[j + 1] = C3.g; col[j + 2] = C3.b;
+    }
+    if (I) for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base); else for (let i = 0; i < P.count; i++) idx.push(i + base);
+    e.v0 = base; e.vn = P.count; base += P.count;
+  }
+  const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); G.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); G.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  G.setIndex(n > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1)); G.computeBoundingSphere();
+  const m = new THREE.Mesh(G, mat); m.castShadow = m.receiveShadow = false; m.matrixAutoUpdate = false; for (const e of lista) e.mesh = m;
+  return m;
+}
+// romper una parte: se apaga (vidrio, foco), se aplasta hacia su punto de apoyo (botella con el cuello roto) o se quita (copa)
+function bodDecParte(e, modo, k, piv) {
+  const G = e.mesh.geometry, P = G.attributes.position, C = G.attributes.color, o = e.mesh.userData.off;
+  const py = piv.y - (o ? o.y : 0), px = piv.x - (o ? o.x : 0), pz = piv.z - (o ? o.z : 0);
+  for (let i = e.v0; i < e.v0 + e.vn; i++) {
+    if (modo === 'apaga') C.setXYZ(i, C.getX(i) * k, C.getY(i) * k, C.getZ(i) * k);
+    else if (modo === 'aplasta') { P.setY(i, py + (P.getY(i) - py) * k); C.setXYZ(i, C.getX(i) * 0.7, C.getY(i) * 0.7, C.getZ(i) * 0.7); }
+    else P.setXYZ(i, px, py, pz);
+  }
+  P.needsUpdate = true; C.needsUpdate = true;
+}
+function bodDecRomper(q, ya, pt) {
+  if (q.roto) return; q.roto = true;
+  for (const [e, modo, k] of q.partes) bodDecParte(e, modo, k, q.piv);
+  if (q.brillo) { q.brillo.c.setRGB(0, 0, 0); q.brillo.sucio = 1; q.brillo.off = 1; }
+  if (q.proxy) { for (const Lst of [solids, world.shoots]) { const i = Lst.indexOf(q.proxy); if (i >= 0) Lst.splice(i, 1); } if (q.proxy.parent) q.proxy.parent.remove(q.proxy); q.proxy = null; }
+  const st = bodSt(); if (st) st.rotos[q.id] = 1;
+  if (ya) return;
+  const Dv = BAL.bodegas.decor.vidrio, c = pt || q.caja.c, C = new THREE.Color(q.trozo || 0xddeeff), n = IS_TOUCH || FAST() ? Dv.trozosTel : Dv.trozos;
+  for (let i = 0; i < n; i++) P.add(c.x + rand(-0.06, 0.06), c.y + rand(-0.05, 0.05), c.z + rand(-0.06, 0.06), rand(-1.6, 1.6), rand(0.4, 2.4), rand(-1.6, 1.6), rand(0.5, 1.0), rand(0.025, 0.05), C.r, C.g, C.b, 1, 9.8, 0.3, 0, 1);
+  if (Sfx.vidrio) { const v3 = new THREE.Vector3(c.x, c.y, c.z); Sfx.vidrio(panOf(v3), Dv.vol * volOf(v3, 1.2)); }
+}
+// ---- los decorados de un cuarto: se eligen (o se repiten los de esta partida), se arman y se funden
+function bodDecorar(r, c, h, gR, lados, st) {
+  const D = BAL.bodegas.decor; if (!BODD.m) return;
+  const X = bodDecSitio(r, c, h, lados, gR), K = { op: [], em: [], ad: [], cg: [], pts: [], rompe: [], anim: [], cols: [], tmp: [], ratas: null, piezas: [] };
+  const plan = st.decor && st.decor[r.i];
+  if (plan) for (const [key, sem] of plan) { if (BOD_DEC[key]) bodDecProbar(X, K, key, sem, true); }
+  else {
+    const R = mulberry32(((r.sem >>> 0) ^ D.semilla) >>> 0), n = D.n[0] + Math.floor(R() * (D.n[1] - D.n[0] + 1)), out = [];
+    const pool = Object.assign({}, D.comun, D.tipos[bodEsSala(r.t) ? 'sala' : r.t] || {}); if (D.sinLuz.includes(r.t)) for (const k of D.luz) delete pool[k];
+    const veces = {}, prueba = (key) => { for (let a = 0; a < D.intentos; a++) { const sem = (R() * 4294967296) >>> 0; if (bodDecProbar(X, K, key, sem, false)) { out.push([key, sem]); veces[key] = (veces[key] | 0) + 1; return true; } } return false; };
+    for (let ronda = 0; ronda < 2 && out.length < n; ronda++) {
+      const L = Object.keys(pool).filter(k => ronda === 0 ? true : D.repite.includes(k) && veces[k] === 1);
+      while (out.length < n && L.length) {
+        let tot = 0; for (const k of L) tot += pool[k]; let u = R() * tot, i = 0; for (; i < L.length - 1; i++) { if (u < pool[L[i]]) break; u -= pool[L[i]]; }
+        const key = L.splice(i, 1)[0]; prueba(key);
+      }
+    }
+    if (game && game.bod && game.bod.st === st) (st.decor || (st.decor = {}))[r.i] = out;
+  }
+  // las mallas del cuarto: lo de madera, piedra y metal (con luz) · lo que brilla solo · los rayos y la niebla (se suman a la luz)
+  const meshes = [bodDecFundir(K.op, BODD.m.op), bodDecFundir(K.em, BODD.m.em), bodDecFundir(K.ad, BODD.m.ad)];
+  for (const m of meshes) if (m) { m.updateMatrix(); gR.add(m); }
+  if (meshes[2]) meshes[2].renderOrder = 2;
+  const Rm = { r, g: gR, c, h, anim: K.anim, pts: null, rompe: K.rompe, cg: [], ratas: null, piezas: K.piezas, cols: K.cols, meshes };
+  // los focos colgantes: cada uno en su grupo, para que se mezcan
+  for (const q of K.cg) {
+    const g = new THREE.Group(); g.position.copy(q.piv); gR.add(g); const m = bodDecFundir(q.partes, BODD.m.em, q.piv); m.userData.off = q.piv; m.matrixAutoUpdate = true; g.add(m);
+    const R = { id: q.id, partes: [[q.vid, 'apaga', 0.12]], caja: { c: q.piv.clone().add(new THREE.Vector3(0, -q.Lc - 0.12, 0)), s: [0.3, 0.3, 0.3], ry: 0 }, piv: q.piv.clone().add(new THREE.Vector3(0, -q.Lc - 0.13, 0)), trozo: 0xfff0d0, brillo: q.b, padre: g, local: new THREE.Vector3(0, -q.Lc - 0.12, 0) };
+    Rm.rompe.push(R); Rm.cg.push({ g, b: q.b, Lc: q.Lc, ph: (q.piv.x * 7.1 + q.piv.z * 3.7) % 6.28 });
+  }
+  // lo que se rompe: una caja invisible recibe el tiro (no se dibuja)
+  for (const q of Rm.rompe) {
+    if (st.rotos[q.id]) { bodDecRomper(q, true); continue; }
+    const pr = new THREE.Mesh(bodDecG(`b${q.caja.s}`, () => new THREE.BoxGeometry(q.caja.s[0], q.caja.s[1], q.caja.s[2])), BODD.m.proxy);
+    if (q.padre) { pr.position.copy(q.local); q.padre.add(pr); } else { pr.position.copy(q.caja.c); pr.rotation.y = q.caja.ry; gR.add(pr); }
+    q.proxy = pr; shootable(pr, (pt) => bodDecRomper(q, false, pt));
+  }
+  // los brillos, el polvo y las gotas: un solo dibujo por cuarto
+  if (K.pts.length) {
+    const n = K.pts.length, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), tam = new Float32Array(n);
+    K.pts.forEach((p, i) => { p.i = i; pos.set([p.x, p.y, p.z], i * 3); col.set([p.c.r, p.c.g, p.c.b], i * 3); tam[i] = p.t; });
+    const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('col', new THREE.BufferAttribute(col, 3)); G.setAttribute('tam', new THREE.BufferAttribute(tam, 1));
+    G.boundingSphere = new THREE.Sphere(new THREE.Vector3(c.x, BAL.bodegas.alto / 2, c.z), h * 1.5 + 2);
+    const pts = new THREE.Points(G, BODD.m.pts); pts.matrixAutoUpdate = false; pts.renderOrder = 3; gR.add(pts); Rm.pts = pts; Rm.lista = K.pts;
+    for (const p of K.pts) if (p.off) { col.set([0, 0, 0], p.i * 3); }
+  }
+  // las ratas: una sola malla repetida
+  if (K.ratas) {
+    const T = bodDecT(), F = bodDecMarco(T, new THREE.Matrix4()), cg = 0x5a524c;
+    F.esf('op', 0.07, 0, 0.055, 0, cg, { sx: 1, sy: 0.75, sz: 1.6 }); F.esf('op', 0.04, 0, 0.06, 0.12, cg, { sz: 1.3 }); for (const s of [-1, 1]) F.esf('op', 0.018, s * 0.025, 0.095, 0.1, 0xc08a8a);
+    F.cyl('op', 0.008, 0.003, 0.22, 0, 0.035, -0.2, 0xb08070, { rx: Math.PI / 2 - 0.15, s: 4 });
+    const base = bodDecFundir(T.op, BODD.m.op), im = new THREE.InstancedMesh(base.geometry, BODD.m.op, K.ratas.length);
+    im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(c.x, 0.2, c.z), h * 1.5 + 1); im.castShadow = im.receiveShadow = false; gR.add(im);
+    Rm.ratas = { im, L: K.ratas, m4: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), v: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1) };
+    bodDecRatas(Rm, 0, X); Rm.X = X;
+  }
+  for (const g of K.tmp) g.dispose();
+  BODD.rooms[r.i] = Rm;
+}
+// las ratas: quietas junto a la pared, huyen si te acercas y se meten en un agujero; vuelven al rato a otro lugar
+function bodDecRatas(Rm, dt, X) {
+  const Rt = BAL.bodegas.decor.ratas, Q = Rm.ratas, c = Rm.c, h = Rm.h, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, px = player.pos.x, pz = player.pos.z, t = performance.now() / 1000;
+  Q.L.forEach((a, i) => {
+    const [dx, dz] = DV[a.k], tx = dz ? 1 : 0, tz = dx ? 1 : 0;   // a lo largo de la pared
+    const x = c.x + dx * (h - 0.28) + tx * a.u, z = c.z + dz * (h - 0.28) + tz * a.u;
+    if (a.est === 'fuera') { if ((a.t -= dt) <= 0) { const s = bodDecRataSitio(X || Rm.X, Math.random); const nx = c.x + DV[s.k][0] * (h - 0.28) + (DV[s.k][1] ? s.u : 0), nz = c.z + DV[s.k][1] * (h - 0.28) + (DV[s.k][0] ? s.u : 0); if (Math.hypot(nx - px, nz - pz) > Rt.huye * 1.6) { a.k = s.k; a.u = s.u; a.est = 'quieta'; } } }
+    else if (a.est === 'quieta') { if (dt > 0 && Math.hypot(x - px, z - pz) < Rt.huye) { a.dir = Math.sign((x - px) * tx + (z - pz) * tz) || 1; a.meta = clamp(a.u + a.dir * (Rt.corre[0] + Math.random() * (Rt.corre[1] - Rt.corre[0])), -h + 0.3, h - 0.3); a.est = 'corre'; const ah = performance.now(); if (Sfx.rata && ah > BODD.chill) { BODD.chill = ah + Rt.chillido * 1000; const v3 = new THREE.Vector3(x, 0, z); Sfx.rata(panOf(v3), volOf(v3, 1)); } } }
+    else { a.u += a.dir * Rt.vel * dt; if ((a.meta - a.u) * a.dir <= 0) { a.est = 'fuera'; a.t = Rt.vuelve[0] + Math.random() * (Rt.vuelve[1] - Rt.vuelve[0]); } }
+    const x2 = c.x + dx * (h - 0.28) + tx * a.u, z2 = c.z + dz * (h - 0.28) + tz * a.u;
+    const ry = a.est === 'corre' ? Math.atan2(tx * a.dir, tz * a.dir) : Math.atan2(-dx, -dz) + Math.sin(t * 2 + a.ph) * 0.5;
+    Q.e.set(0, ry, 0); Q.q.setFromEuler(Q.e); Q.v.set(x2, a.est === 'corre' ? Math.abs(Math.sin(t * 30 + a.ph)) * 0.02 : 0, z2); Q.s.setScalar(a.est === 'fuera' ? 0.0001 : 1);
+    Q.m4.compose(Q.v, Q.q, Q.s); Q.im.setMatrixAt(i, Q.m4);
+  });
+  Q.im.instanceMatrix.needsUpdate = true;
+}
+// cada cuadro: el polvo, las gotas, el vaivén de los focos y las ratas, solo en los cuartos que se ven y están cerca
+const _dcV = new THREE.Vector3();
+function bodDecPaso(dt) {
+  if (!BODD.m || world.idx !== BOD_IDX || !BOD.L) return;
+  const t = performance.now() / 1000, px = player.pos.x, pz = player.pos.z, Db = BAL.bodegas.decor.bombilla, U = BODD.m.pts.uniforms;
+  U.esc.value = renderer.domElement.height / 2; U.dens.value = scene.fog && scene.fog.density ? scene.fog.density : 0;
+  for (const Rm of BODD.rooms) {
+    if (!Rm || !Rm.g.visible || Math.abs(Rm.c.x - px) > Rm.h + 14 || Math.abs(Rm.c.z - pz) > Rm.h + 14) continue;
+    for (const f of Rm.anim) f(dt, t);
+    for (const q of Rm.cg) { const a = Math.sin(t * Db.ritmo + q.ph) * Db.vaiven, b = Math.cos(t * Db.ritmo * 0.77 + q.ph) * Db.vaiven * 0.6; q.g.rotation.set(b, 0, a); if (q.b && !q.b.off) { _dcV.set(0, q.b.cuelga, 0).applyEuler(q.g.rotation).add(q.g.position); q.b.x = _dcV.x; q.b.y = _dcV.y; q.b.z = _dcV.z; q.b.sucio = 1; } }
+    if (Rm.ratas) bodDecRatas(Rm, dt);
+    if (Rm.pts) { const A = Rm.pts.geometry.attributes, Pp = A.position, Cc = A.col; let s = false, sc = false; for (const p of Rm.lista) { if (!p.sucio) continue; p.sucio = 0; Pp.setXYZ(p.i, p.x, p.y, p.z); s = true; if (p.off) { Cc.setXYZ(p.i, 0, 0, 0); sc = true; } } if (s) Pp.needsUpdate = true; if (sc) Cc.needsUpdate = true; }
   }
 }
 // ---- espacios abiertos en 3D (dueño, 24-oct-2026): sin techo, cielo de noche con luna, fachadas altas de ladrillo y lo de cada tipo.
@@ -41167,7 +41751,7 @@ function bodSpawn(tipo, x, z, b, rise = false) {
   if (!n.bod.obj || !n.bod.obj.root) n.bod.obj = { root: { position: new THREE.Vector3(x, 0, z) }, dead: false };
   n.tgtT = 0; return n;
 }
-function bodPunto(r, m = 1.0) { const c = bodC(r), h = bodH(r) - m; return { x: c.x + rand(-h, h), z: c.z + rand(-h, h) }; }
+function bodPunto(r, m = 1.0) { const c = bodC(r), h = bodH(r) - m; let p; for (let k = 0; k < 12; k++) { p = { x: c.x + rand(-h, h), z: c.z + rand(-h, h) }; if (!pointBlocked(p.x, p.z, 0.5)) break; } return p; }   // nunca dentro de un mueble o una caja
 function bodPoblar() {
   const st = bodSt(), L = BOD.L; if (!st || !L) return;
   for (const r of L.rooms) {
