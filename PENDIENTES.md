@@ -3,6 +3,12 @@
 Plan ordenado con el dueño (17-oct-2026). Lo de arriba va primero. Cualquier error que reporte el dueño se arregla antes que todo.
 La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 
+## META Y CAMINO TÉCNICO (decisión del dueño, 25-oct-2026)
+- **Meta: publicar el juego en Steam.**
+- **Paso A (ahora):** seguir con el juego actual en el navegador (Three.js) y mejorarlo por partes: actualizar Three.js de la versión r128 a una moderna (mejor luz, sombras y rendimiento) y hacer modelos más bonitos con Blender.
+- **Paso B (Fase 3):** pasar el juego a **Godot** (gratis, exporta a Windows/Mac/Linux para Steam, y también a Android e iPhone), rehaciéndolo con todo lo aprendido.
+- Nota: si hiciera falta salir antes a Steam, la versión de navegador también se puede empaquetar como programa de computadora (con Electron o similar) sin rehacer el juego.
+
 ## PLAN DE GAMEPLAY (pedido del dueño, 19-oct-2026) · lo que sigue
 Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los errores (G0), luego en orden.
 
