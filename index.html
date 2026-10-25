@@ -23839,7 +23839,7 @@ const BAL = {
   //   interesTrasOla: el interés empieza a correr después de esta oleada de la partida (dueño, 20-oct-2026: «tras la oleada 2»; antes era tras el jefe 1)
   // G1c · la cinemática de entrada: timbres, segundos entre timbres, segundos por letra (largo de la voz; cada frase sigue al tocar «Continuar»), espera tras colgar, segundos de vuelo y altura del vuelo
   intro: { timbres: 2, entreTimbres: 1.6, letra: 0.045, espera: 3, vuelo: 3, alto: 14 },
-  stats: { mantener: 0.35, fpsBien: 45, fpsMal: 25, pingBien: 150, pingMal: 300 },   // «Cómo vas» (Tab): segundos para contar como «mantener» y los colores de FPS y ping
+  stats: { mantener: 0.35, cuadrosMin: 4, fpsBien: 45, fpsMal: 25, pingBien: 150, pingMal: 300 },   // «Cómo vas» (Tab): segundos y cuadros mínimos para contar como «mantener» (con el juego lento un toque rápido no cuenta) y los colores de FPS y ping
   deuda: { activa: false,   // dueño (25-oct-2026): «sin deuda por ahora» en el juego (las Bodegas): sin cuota, sin llamadas de Don Santino y nada de deuda en el HUD. true la devuelve
     telTimbre: 1.1, base: 100, factor: 1.5, interes: 0.12, interesTrasOla: 2, avisoOlas: 1, redondeo: 5, espera: 10, intro: 3, introSale: 0.8, paliza: { golpes: 3, entre: 1.15, caida: 1.6 } },
   // G1b · Vendedor de armas (25 %): precio en $, tipo (para la etiqueta) y barras (0 a 5) de daño, rapidez y cargador.
@@ -36466,7 +36466,7 @@ function pingTick(dt) {
 // esquina del inventario: cuadros por segundo (siempre) y ping (solo en grupo)
 const fpsM = { t: 0, n: 0, v: null };
 function fpsCuenta(rawDt) {
-  fpsM.t += rawDt; fpsM.n++;
+  fpsM.t += rawDt; fpsM.n++; STATS.cuadros = (STATS.cuadros || 0) + 1;
   if (fpsM.t < 1) return;
   fpsM.v = Math.round(fpsM.n / fpsM.t); fpsM.t = fpsM.n = 0;
   if (state === 'inv') pingHud();
@@ -36501,11 +36501,11 @@ function jugTabla() {
 /* ---- «Cómo vas» (dueño, 25-oct-2026): Tab ya no abre el inventario (ahora es la I); solo abre esta tabla de la partida.
    Un toque la deja abierta (otro toque o Esc la cierra); si mantienes Tab, se cierra al soltarla. No pausa el juego. En el teléfono, desde la pausa. */
 const STATS = { on: false, t0: 0 };
-function statsAbrir(t0) { if (!game || state !== 'play') return; STATS.on = true; STATS.t0 = t0 || performance.now(); $('#stats-s').hidden = false; statsPinta(); }
+function statsAbrir(t0) { if (!game || state !== 'play') return; STATS.on = true; STATS.t0 = t0 || performance.now(); STATS.c0 = STATS.cuadros || 0; $('#stats-s').hidden = false; statsPinta(); }
 function statsCerrar() { if (!STATS.on) return; STATS.on = false; $('#stats-s').hidden = true; }
 function statsTecla(baja, t) {   // Tab: al bajar abre o cierra; al soltar, si la mantuviste, cierra (t: la hora de la tecla; así un cuadro lento no cuenta como «mantener»)
   if (baja) { if (STATS.on) statsCerrar(); else statsAbrir(t); return; }
-  if (STATS.on && (t || performance.now()) - STATS.t0 > BAL.stats.mantener * 1000) statsCerrar();
+  if (STATS.on && (t || performance.now()) - STATS.t0 > BAL.stats.mantener * 1000 && (STATS.cuadros || 0) - (STATS.c0 || 0) >= BAL.stats.cuadrosMin) statsCerrar();
 }
 function statsPinta() {
   if (!STATS.on || !game) return;
