@@ -108,3 +108,11 @@ Siguiente paso decidido (24-oct-2026): boceto del mapa visto desde arriba (bocet
 ## Estado de la beta jugable (24-oct-2026)
 Ya se juega como modo aparte: botón «Beta: Las Bodegas» de la portada o `?beta=bodegas` en la dirección. No cambia la partida normal ni su partida guardada (la caja fuerte guarda en su propio lugar).
 Simplificado en la beta: todas las habitaciones ocupan una casilla (chica 6 m, mediana 8 m, la del jefe 10 m) y los pasillos miden lo que queda hasta la casilla vecina; los muebles son de geometría sencilla; al ganar sale la pantalla «Nivel 1 superado» y se vuelve al menú (el Nivel 2 todavía no existe). Las cifras están en `BAL.bodegas`.
+
+## Flujo nuevo hecho (25-oct-2026, rama flujo-nuevo)
+- **Jugar → las Bodegas, Nivel 1**: tras la dificultad y el personaje se entra directo (sin elegir mapa y sin la llamada de la deuda). El botón «Beta: Las Bodegas» de la portada queda escondido; `?beta=bodegas` sigue sirviendo. «Continuar» retoma la última caja fuerte. El modo viejo de días sigue en el código (el juego en grupo todavía lo usa) pero no se llega desde «Jugar» solo.
+- **Sin deuda** (`BAL.deuda.activa = false`): ni cuota, ni llamadas de Don Santino tras el jefe, ni «Deuda» en el HUD. Al salir: «¡Saliste del Nivel 1!».
+- **Misión «¡ENCUENTRA LA SALIDA!»**: cartel grande al empezar y línea del HUD; el título dice «Nivel 1».
+- **Menos zombis** (como la primera beta): guardia 4–5, taller 3, bodega 2, oscuro 1; patrulla de 3.
+- **Teclas**: I = inventario; Tab = «Cómo vas» (tiempo, nivel, habitaciones, zombis, a la cabeza, oro ganado, balas usadas, daño recibido, ping y FPS; en grupo, también cada jugador). En el teléfono, «Cómo vas» está en la pausa.
+- **La Tienda y las salas propias**: la Trastienda pasa a ser la **Tienda** (puerta verde, 1 por mapa, siempre gratis): la Expendedora Apocalipsis, el vendedor de armas con armas **al azar** en cada visita y la gata. Aparte (0 o 1 cada una, `BAL.bodegas.salas`, no cuentan entre las 9 a 18 habitaciones): **Herrero** (El Viejo Sam vende piezas de arma), **Sala de juegos de azar** (Imo, Miso y Dango, que reparte los dados; también la gata), **Cápsulas del Fin del Mundo** y **La Garra**, cada una con su puerta de color. Ninguna tiene guardias.
