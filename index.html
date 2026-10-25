@@ -3168,7 +3168,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=27').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=28').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -31572,7 +31572,7 @@ function updatePlayer(dt) {
   if (sprint && !rl('espuelas')) { player.st -= 24 * dt; if (player.st <= 0) { player.st = 0; player.stLock = 1.2; } }
   else { player.stLock -= dt; player.st = Math.min(player.maxSt, player.st + 18 * dt); }
   if (sprint && state === 'play') stMas('corre', 8 * len * dt);   // metros corridos (para «Piernas de acero»)
-  const sp = (player.grab ? 0 : MOV_BASE) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? MOV_CORRER : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1);
+  const sp = (player.grab ? 0 : MOV_BASE) * ST.speedX * (1 + 0.1 * lv('boots')) * (player.webT > 0 ? 0.5 : 1) * (player.frostT > 0 ? 0.6 : 1) * (sprint ? MOV_CORRER : 1) * lerp(1, 0.55, gs.aim) * (gs.reloading ? 0.85 : 1) * (game && game.caramT > 0 ? BD.caramelo.x : 1) * (game && game.bod && BOD.agua && world.idx === BOD_IDX ? BAL.bodegas.abiertos.canal.lento : 1);   // BETA · el agua del canal de desagüe te frena
   const fx_ = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
   const tvx = (fx_ * iz + rx * ix) * sp, tvz = (fz * iz + rz * ix) * sp, acc = player.onGround ? 12 : 3;
   player.vx = damp(player.vx, tvx, acc, dt); player.vz = damp(player.vz, tvz, acc, dt);
@@ -39973,7 +39973,16 @@ BAL.bodegas = {
   despensa: { platos: 2, cura: [15, 30] }, campana: { t: 8, casillas: 2 }, oscuro: { premio: [15, 25], centro: 1.8 },
   piezas: { canon: 0.15, gatillo: 0.12, tambor: 1, mira: 0.2, culata: 0.2, cargador: 0.2 },
   jefe: { vida: 0.8, llamada: 6 }, cuota: [110, 140], trastienda: { fichas: 1 },
-  luces: 3, lucesTel: 2, luz: { color: 0xffb060, i: 1.6, d: 13 }, verHab: 2
+  luces: 3, lucesTel: 2, luz: { color: 0xffb060, i: 1.6, d: 13 }, verHab: 2,
+  // espacios abiertos (dueño, 24-oct-2026): 1 o 2 por mapa, al aire libre (sin techo), unen varias habitaciones; solo de paso (sin guardias ni premio)
+  abiertos: {
+    n: [1, 2], tipos: ['callejon', 'patio', 'jardin', 'canal'], apartar: ['patio', 'callejon'], cerca: 2, busca: 1200, intentos: 4000, alto: 9, ventanas: [3, 6],
+    luna: { color: 0x9ab8ff, i: 1.5, d: 24, alto: 2 }, farol: { color: 0xffc070, i: 1.4, d: 11 },
+    callejon: { largo: [2, 3], ancho: 6, margen: 2.6, lejos: 4, basureros: [3, 5], latas: 2, escaleras: 2, pisos: [3.2, 5.6, 8.0], lluvia: 260, lluviaTel: 110, gota: [9, 13], charcos: 3 },
+    patio: { tam: 15, columnas: 4, fuente: 1.7, pozo: 2.4, hojas: 18 },
+    jardin: { tam: 14, une: [2, 3], bancas: 3, faroles: 2, arbustos: [6, 9] },
+    canal: { tam: 14, ancho: 3.2, lento: 0.55, puentes: [-0.5, 0.5], puente: 1.8 }
+  }
 };
 const BOD_IDX = MAPS.findIndex(m => m.beta), BOD_SAVE = 'sbB_bod';
 ECHO[BOD_IDX] = [0.09, 0.32, 0.45, 2800];
@@ -39982,7 +39991,10 @@ const BOD_T = {
   inicio: { n: 'Inicio · el ascensor roto', c: '#5fc27a', tam: 'chica' }, jefe: { n: 'Sala del jefe', c: '#d9533f', tam: 'grande' }, tras: { n: 'Trastienda · puerta verde', c: '#2fa86a', tam: 'puerta' },
   bodega: { n: 'Bodega de cajas', c: '#a8783e', tam: 'mediana' }, guardia: { n: 'Cuarto de guardia', c: '#c08a2a', tam: 'mediana' }, guardado: { n: 'Cuarto de guardado', c: '#5a8ad0', tam: 'chica' },
   mini: { n: 'Cuarto del minijuego', c: '#b05ad0', tam: 'chica' }, despensa: { n: 'Despensa', c: '#d0a05a', tam: 'chica' }, taller: { n: 'Taller de armas', c: '#8a8f99', tam: 'mediana' },
-  campana: { n: 'Campanario', c: '#d8c050', tam: 'chica' }, oscuro: { n: 'Cuarto oscuro con barriles', c: '#3a3a4a', tam: 'mediana' }
+  campana: { n: 'Campanario', c: '#d8c050', tam: 'chica' }, oscuro: { n: 'Cuarto oscuro con barriles', c: '#3a3a4a', tam: 'mediana' },
+  // espacios abiertos: en el mapa de la esquina van en tonos de cielo de noche
+  callejon: { n: 'Callejón trasero', c: '#4a78a8', ab: 1 }, patio: { n: 'Patio interior con pozo de luz', c: '#6a9ad0', ab: 1 },
+  jardin: { n: 'Jardín de los fumadores', c: '#4a9a8a', ab: 1 }, canal: { n: 'Canal de desagüe', c: '#3a8ab8', ab: 1 }
 };
 const BOD_VAR = ['bodega', 'guardia', 'guardado', 'mini', 'despensa', 'taller', 'campana', 'oscuro'];
 const BOD_PIEZAS = ['canon', 'gatillo', 'tambor', 'mira', 'culata', 'cargador'];
@@ -39995,7 +40007,7 @@ const BOD_FRASES = ['Bienvenido a las Bodegas de mi casino.', 'Aquí abajo guard
 const BOD_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 // ---- 1. El mapa: el mismo generador del boceto, con semilla (así se puede repetir) y comprobado; si una semilla no cumple las reglas, se prueba otra
-function bodGenerar(seed, nHab) {
+function bodGenerar(seed, nHab, pide) {
   const B = BAL.bodegas, R = mulberry32(seed), rnd = (a, b) => a + Math.floor(R() * (b - a + 1));
   const mez = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const total = nHab || rnd(B.hab[0], B.hab[1]), cuenta = { guardia: 1 }, lista = ['guardia'];   // siempre hay al menos un Cuarto de guardia (guarda la llave)
@@ -40005,12 +40017,21 @@ function bodGenerar(seed, nHab) {
   const libre = (x, y) => !ocup.has(key(x, y)) && Math.abs(x) <= B.bordes[0] && Math.abs(y) <= B.bordes[1];
   const poner = (t, x, y, p) => { const r = { i: rooms.length, t, x, y, p: p ? p.i : -1, d: p ? p.d + 1 : 0, hijos: 0 }; if (p) p.hijos++; rooms.push(r); ocup.set(key(x, y), r); return r; };
   poner('inicio', 0, 0, null);
+  // el patio y el callejón casi nunca caben en un mapa ya armado: se apartan antes y el árbol crece primero hacia sus lados
+  const res = pide && B.abiertos.apartar.includes(pide) ? bodApartar(pide, rnd, ocup) : null, junto = new Set(res ? res.junto.map(c => key(c[0], c[1])) : []);
+  if (pide && B.abiertos.apartar.includes(pide) && !res) return null;
   for (const t of lista) {
     let ok = false;
+    const falta = [...junto].filter(kj => !ocup.has(kj)).map(kj => kj.split(',').map(Number));
+    if (falta.length) {   // la habitación nueva va hacia un lado libre del espacio apartado (pegada a otra habitación, no al espacio)
+      const [x, y] = falta[rnd(0, falta.length - 1)]; let best = null, bd = 1e9;
+      for (const b of rooms) for (const d of BOD_DIRS) { const nx = b.x + d[0], ny = b.y + d[1], dd = Math.abs(nx - x) + Math.abs(ny - y); if (libre(nx, ny) && dd < bd) { bd = dd; best = [b, nx, ny]; } }
+      if (best) { poner(t, best[1], best[2], best[0]); ok = true; }
+    }
     for (let k = 0; k < 400 && !ok; k++) { const b = rooms[rnd(0, rooms.length - 1)], d = BOD_DIRS[rnd(0, 3)]; if (libre(b.x + d[0], b.y + d[1])) { poner(t, b.x + d[0], b.y + d[1], b); ok = true; } }
     if (!ok) return null;
   }
-  const vecLibre = r => mez(BOD_DIRS.slice()).map(d => [r.x + d[0], r.y + d[1]]).find(([x, y]) => libre(x, y));
+  const vecLibre = r => mez(BOD_DIRS.slice()).map(d => [r.x + d[0], r.y + d[1]]).find(([x, y]) => libre(x, y) && !junto.has(key(x, y)));
   const maxD = Math.max(...rooms.map(r => r.d));
   // la Trastienda (puerta verde) cuelga de una rama a mitad de camino
   let tras = null;
@@ -40020,11 +40041,12 @@ function bodGenerar(seed, nHab) {
   let jefe = null;
   for (const r of rooms.filter(r => r.t !== 'tras').sort((a, b) => b.d - a.d)) { const v = vecLibre(r); if (v) { jefe = poner('jefe', v[0], v[1], r); break; } }
   if (!jefe || rooms.some(r => r !== jefe && r.d >= jefe.d)) return null;
+  if (res) { for (const c of res.cel) ocup.delete(key(c[0], c[1])); for (const r of rooms) if (junto.has(key(r.x, r.y))) r.junto = 1; }
   // la llave de la salida: en el Cuarto de guardia más lejano
   const guard = rooms.filter(r => r.t === 'guardia').sort((a, b) => b.d - a.d); guard[0].llave = true;
   // habitaciones con llave de plata: 1 por cada 4 (de 2 a 4), solo las que tienen premio y no tienen salida a otras (así nunca tapan el camino)
   const nPl = clamp(Math.round(rooms.length / B.plata.cada), B.plata.min, B.plata.max);
-  const cand = mez(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave && r.hijos === 0));
+  const cand = mez(rooms.filter(r => ['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t) && !r.llave && r.hijos === 0)).sort((a, b) => (a.junto | 0) - (b.junto | 0));   // mejor las que no están junto al espacio apartado
   if (cand.length < nPl) return null;
   cand.slice(0, nPl).forEach(r => r.plata = true);
   // atajos: puertas que unen dos ramas vecinas (nunca el jefe, la Trastienda ni las cerradas)
@@ -40053,16 +40075,85 @@ function bodGenerar(seed, nHab) {
   if (ini.length) { let c = ini[rnd(0, ini.length - 1)].i, prev = -1; ruta = [c]; for (let k = 0; k < 6; k++) { const v = vec(c).filter(j => j !== prev && j !== 0); if (!v.length) break; prev = c; c = v[rnd(0, v.length - 1)]; ruta.push(c); } }
   if (ruta.length < 2) return null;
   const oroR = R() < B.oro ? rooms.filter(r => ok(r) && r.t !== 'inicio')[0] : null;
-  return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1 };
+  const pasos = bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide, res); if (!pasos) return null;
+  return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1, pasos };
+}
+// cuántos pasos hay desde el Inicio hasta cada habitación (contando atajos y espacios abiertos)
+function bodLejos(n, E) {
+  const ad = Array.from({ length: n }, () => []); for (const [a, b] of E) { ad[a].push(b); ad[b].push(a); }
+  const d = new Array(n).fill(-1), q = [0]; d[0] = 0; for (let k = 0; k < q.length; k++) { const a = q[k]; for (const b of ad[a]) if (d[b] < 0) { d[b] = d[a] + 1; q.push(b); } } return d;
+}
+// ---- espacios abiertos: van en casillas libres junto a 2 o más habitaciones y se unen a ellas (así hacen vueltas, no callejones sin salida).
+// Nunca tocan la sala del jefe, la Trastienda ni las de llave de plata, y con ellos el jefe sigue siendo la habitación más lejana del Inicio.
+// pide: el tipo que se busca primero (bodMapa lo reparte para que salgan los 4 tipos); si no cabe, este armado no sirve y se prueba otro.
+function bodApartar(t, rnd, ocup) {
+  const A = BAL.bodegas.abiertos, Bd = BAL.bodegas.bordes, key = (x, y) => x + ',' + y, dentro = (x, y) => Math.abs(x) <= Bd[0] && Math.abs(y) <= Bd[1];
+  for (let k = 0; k < 40; k++) {
+    const x = rnd(-A.cerca, A.cerca), y = rnd(-A.cerca, A.cerca), d = BOD_DIRS[rnd(0, 3)], largo = t === 'callejon' ? rnd(A.callejon.largo[0], A.callejon.largo[1]) : 1, cel = [];
+    for (let j = 0; j < largo; j++) cel.push([x + j * d[0], y + j * d[1]]);
+    if (!cel.every(([a, b]) => dentro(a, b) && !ocup.has(key(a, b)))) continue;
+    const junto = t === 'callejon' ? [[x - d[0], y - d[1]], [x + largo * d[0], y + largo * d[1]]] : BOD_DIRS.map(([dx, dy]) => [x + dx, y + dy]);   // las dos puntas o los 4 lados
+    if (!junto.every(([a, b]) => dentro(a, b))) continue;
+    for (const [a, b] of cel) ocup.set(key(a, b), { reserva: 1 });
+    return { t, cel, junto };
+  }
+  return null;
+}
+function bodPonerAbiertos(rooms, ocup, at, rnd, mez, pide, res) {
+  const A = BAL.bodegas.abiertos, Bd = BAL.bodegas.bordes, S = BAL.bodegas.paso, key = (x, y) => x + ',' + y, pasos = [];
+  const libre = (x, y) => !ocup.has(key(x, y)) && Math.abs(x) <= Bd[0] && Math.abs(y) <= Bd[1];
+  const apto = (x, y) => { const r = ocup.get(key(x, y)); return r && !r.abierto && !r.plata && r.t !== 'jefe' && r.t !== 'tras' ? r : null; };
+  const sube = r => { const out = []; for (let c = r; c; c = c.p >= 0 ? rooms[c.p] : null) out.push(c.i); return out; };
+  const arbol = (a, b) => { const A_ = sube(a), B_ = sube(b), j = A_.find(i => B_.includes(i)); return A_.indexOf(j) + B_.indexOf(j); };   // pasos por el árbol entre dos habitaciones
+  const J = rooms.find(r => r.t === 'jefe'), base = () => rooms.filter(r => r.p >= 0).map(r => [r.p, r.i]).concat(at, pasos);
+  const jefeLejos = d => rooms.every(r => r === J || r.abierto || d[r.i] < d[J.i]);   // contando todos los caminos, el jefe sigue siendo la más lejana
+  const cands = t => {
+    const out = [];
+    for (let x = -Bd[0]; x <= Bd[0]; x++) for (let y = -Bd[1]; y <= Bd[1]; y++) {
+      if (t === 'callejon') {   // largo y angosto: 2 o 3 casillas en fila, con una habitación en cada punta (lejos una de otra por el árbol)
+        for (const [dx, dy] of [[1, 0], [0, 1]]) for (let n = A.callejon.largo[0]; n <= A.callejon.largo[1]; n++) {
+          const cel = []; for (let k = 0; k < n; k++) cel.push([x + k * dx, y + k * dy]); if (!cel.every(([a, b]) => libre(a, b))) continue;
+          const r0 = apto(x - dx, y - dy), r1 = apto(x + n * dx, y + n * dy); if (r0 && r1 && arbol(r0, r1) >= A.callejon.lejos) out.push({ cel, une: [r0, r1] });
+        }
+        continue;
+      }
+      if (!libre(x, y)) continue;
+      const v = BOD_DIRS.map(([dx, dy]) => apto(x + dx, y + dy)), hay = v.filter(Boolean);   // e, o, s, n
+      if (t === 'patio' && hay.length === 4) out.push({ cel: [[x, y]], une: hay });
+      if (t === 'jardin' && hay.length >= A.jardin.une[0]) out.push({ cel: [[x, y]], une: mez(hay.slice()).slice(0, A.jardin.une[1]) });
+      if (t === 'canal') for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) if (v[a] && v[b]) out.push({ cel: [[x, y]], une: [v[a], v[b]] });   // una habitación en cada orilla (si están en lados vecinos, el agua cruza en diagonal)
+    }
+    return out;
+  };
+  const n = rnd(A.n[0], A.n[1]), usados = [];
+  for (let k = 0; k < n; k++) {
+    let ya = null;
+    const orden = k === 0 && pide ? [pide] : mez(A.tipos.filter(t => !usados.includes(t))).concat(mez(A.tipos.filter(t => usados.includes(t))));
+    for (const t of orden) {
+      const cs = k === 0 && res ? cands(t).filter(c => c.cel.length === res.cel.length && c.cel.every((q, j) => q[0] === res.cel[j][0] && q[1] === res.cel[j][1]) || c.cel.length === res.cel.length && c.cel.every((q, j) => q[0] === res.cel[res.cel.length - 1 - j][0] && q[1] === res.cel[res.cel.length - 1 - j][1])) : cands(t);   // el apartado va justo donde se apartó
+      for (const c of mez(cs)) { const i = rooms.length; if (jefeLejos(bodLejos(i + 1, base().concat(c.une.map(o => [i, o.i]))))) { ya = Object.assign({ t }, c); break; } }
+      if (ya) break;
+    }
+    if (!ya) { if (k === 0) return null; break; }
+    const T_ = A[ya.t], cel = ya.cel, i = rooms.length;
+    const r = { i, t: ya.t, abierto: true, cel, x: cel.reduce((s, c) => s + c[0], 0) / cel.length, y: cel.reduce((s, c) => s + c[1], 0) / cel.length, p: -1, d: 0, hijos: 0, g: 0, sem: rnd(1, 1e6) };
+    if (ya.t === 'callejon') { const larga = cel.length * S / 2 - T_.margen, h = cel[0][1] === cel[cel.length - 1][1]; r.hx = h ? larga : T_.ancho / 2; r.hz = h ? T_.ancho / 2 : larga; }
+    else r.hx = r.hz = T_.tam / 2;
+    rooms.push(r); for (const [a, b] of cel) ocup.set(key(a, b), r); for (const o of ya.une) pasos.push([i, o.i]); usados.push(ya.t);
+    r.d = bodLejos(rooms.length, base())[i];
+  }
+  return pasos;
 }
 function bodMapa(seed) {   // la semilla decide cuántas habitaciones (de 9 a 18, todas igual de probables); si el armado no cumple, se reintenta con el mismo número
-  const B = BAL.bodegas, n = B.hab[0] + Math.floor(mulberry32(seed ^ 0x5bd1)() * (B.hab[1] - B.hab[0] + 1));
-  for (let k = 0; k < 600; k++) { const L = bodGenerar((seed + k * 7919) >>> 0, k < 500 ? n : 0); if (L) { L.seed0 = seed; return L; } } return null;
+  if (bodMapa.ult && bodMapa.ult.seed0 === seed) return bodMapa.ult;   // el mismo mapa no se vuelve a armar (al volver de la Trastienda)
+  const B = BAL.bodegas, R0 = mulberry32(seed ^ 0x5bd1), n = B.hab[0] + Math.floor(R0() * (B.hab[1] - B.hab[0] + 1));
+  const A = B.abiertos, pide = A.tipos[Math.floor(R0() * A.tipos.length)];   // la semilla también elige el tipo del primer espacio abierto (si no cabe en varios armados, cualquiera)
+  for (let k = 0; k < A.intentos; k++) { const L = bodGenerar((seed + k * 7919) >>> 0, k < A.intentos - 200 ? n : 0, k < A.busca ? pide : null); if (L) { L.seed0 = seed; return bodMapa.ult = L; } } return null;
 }
 
 // Comprueba las reglas del boceto (lo usan las pruebas): devuelve la lista de problemas (vacía si todo está bien)
 function bodRevisar(L) {
-  const B = BAL.bodegas, mal = [], R = L.rooms, n = R.length, c = t => R.filter(r => r.t === t).length;
+  const B = BAL.bodegas, mal = [], R = L.rooms.filter(r => !r.abierto), n = R.length, c = t => R.filter(r => r.t === t).length;   // los espacios abiertos no cuentan como habitaciones
   if (n < B.hab[0] || n > B.hab[1]) mal.push('habitaciones ' + n);
   if (c('inicio') !== 1 || c('jefe') !== 1 || c('tras') !== 1) mal.push('fijas');
   for (const k in B.limite) if (c(k) > B.limite[k]) mal.push('límite ' + k);
@@ -40072,16 +40163,31 @@ function bodRevisar(L) {
   if (R.some(r => r.plata && !['taller', 'despensa', 'guardia', 'oscuro'].includes(r.t))) mal.push('plata en tipo');
   if (L.atajos.length < B.atajos[0] || L.atajos.length > B.atajos[1]) mal.push('atajos ' + L.atajos.length);
   const keys = 1 + c('bodega') + R.filter(r => r.cofre && r.cofre.plata).length; if (keys < np) mal.push('faltan llaves de plata');
-  const pos = new Set(R.map(r => r.x + ',' + r.y)); if (pos.size !== n) mal.push('casillas repetidas');
+  const AB = L.rooms.filter(r => r.abierto), celdas = R.map(r => r.x + ',' + r.y).concat(...AB.map(a => a.cel.map(c => c.join(','))));
+  const pos = new Set(celdas); if (pos.size !== celdas.length) mal.push('casillas repetidas');
   for (const r of R) if (r.p >= 0) { const p = R[r.p]; if (Math.abs(p.x - r.x) + Math.abs(p.y - r.y) !== 1) mal.push('pasillo largo'); }
   for (const r of R) if (r.t !== 'inicio' && r.p < 0) mal.push('suelta');
+  // espacios abiertos: 1 o 2, cada uno une 2 o más habitaciones, sin guardias ni premio, y no acortan el camino al jefe
+  const A = B.abiertos, P = L.pasos || [];
+  if (AB.length < A.n[0] || AB.length > A.n[1]) mal.push('abiertos ' + AB.length);
+  for (const a of AB) {
+    const une = P.filter(p => p[0] === a.i).map(p => L.rooms[p[1]]);
+    if (une.length < 2) mal.push('abierto sin vuelta');
+    if (une.some(o => o.abierto || o.plata || o.t === 'jefe' || o.t === 'tras')) mal.push('abierto une mal');
+    if (a.t === 'patio' && une.length !== 4) mal.push('patio');
+    if (a.t === 'jardin' && une.length > A.jardin.une[1]) mal.push('jardín');
+    if (a.t === 'canal' && une.length !== 2) mal.push('canal');
+    if (a.t === 'callejon' && une.length !== 2) mal.push('callejón');
+    if (a.g || a.cofre || a.llave || a.plata || L.ruta.includes(a.i) || L.oro === a.i) mal.push('abierto con guardias o premio');
+  }
+  if (AB.length) { const d = bodLejos(L.rooms.length, R.filter(r => r.p >= 0).map(r => [r.p, r.i]).concat(L.atajos, P)); if (R.some(r => r !== J && d[r.i] >= d[J.i])) mal.push('con los espacios abiertos el jefe no es la más lejana'); }
   return mal;
 }
 // ---- medidas en el mundo: centro y mitad de cada habitación (los centros caen en medio de una celda de la ruta de los zombis)
 const bodC = r => ({ x: r.x * BAL.bodegas.paso + 0.5, z: r.y * BAL.bodegas.paso + 0.5 });
-const bodH = r => BAL.bodegas.tam[r.tam] / 2;
-function bodHabDe(x, z, m = 0.2) { if (!BOD.L) return null; for (const r of BOD.L.rooms) { const c = bodC(r), h = bodH(r) + m; if (Math.abs(x - c.x) <= h && Math.abs(z - c.z) <= h) return r; } return null; }
-function bodUniones(L) { const E = []; for (const r of L.rooms) if (r.p >= 0) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); return E; }
+const bodH = (r, e) => r.hx != null ? (e === 'x' ? r.hx : e === 'z' ? r.hz : Math.max(r.hx, r.hz)) : BAL.bodegas.tam[r.tam] / 2;   // los espacios abiertos pueden ser alargados (e: 'x' o 'z')
+function bodHabDe(x, z, m = 0.2) { if (!BOD.L) return null; for (const r of BOD.L.rooms) { const c = bodC(r); if (Math.abs(x - c.x) <= bodH(r, 'x') + m && Math.abs(z - c.z) <= bodH(r, 'z') + m) return r; } return null; }
+function bodUniones(L) { const E = []; for (const r of L.rooms) if (r.p >= 0) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); for (const [a, b] of L.pasos || []) E.push([a, b, 2]); return E; }
 function bodPasilloDe(x, z) {
   const L = BOD.L; if (!L) return []; const out = [];
   for (const [a, b] of bodUniones(L)) { const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); if (x >= Math.min(A.x, Bc.x) - 1.3 && x <= Math.max(A.x, Bc.x) + 1.3 && z >= Math.min(A.z, Bc.z) - 1.3 && z <= Math.max(A.z, Bc.z) + 1.3) out.push(L.rooms[a], L.rooms[b]); }
@@ -40151,21 +40257,29 @@ function buildBodegas() {
   if (st.jefe === 1) st.jefe = 0;   // al rehacer el mapa el jefe no está: la pelea vuelve a empezar al entrar
   const S = B.paso, H = B.alto, T = B.muro, V = B.vano / 2;
   world.indoor = true; world.noMoon = true; world.shirts = [0x3a2e24, 0x4a3b2c, 0x2a2420, 0x5a4a3a, 0x3d3530]; world.mix = {};
+  const AB = L.rooms.filter(r => r.abierto), Ab = B.abiertos;
   const ax = L.rooms.map(r => Math.abs(bodC(r).x)), az = L.rooms.map(r => Math.abs(bodC(r).z));
-  world.arena = { t: 'r', hx: Math.ceil(Math.max(...ax) + 7), hz: Math.ceil(Math.max(...az) + 7) };
+  world.arena = { t: 'r', hx: Math.ceil(Math.max(Math.max(...ax) + 7, ...AB.map(r => Math.abs(bodC(r).x) + r.hx + 2))), hz: Math.ceil(Math.max(Math.max(...az) + 7, ...AB.map(r => Math.abs(bodC(r).z) + r.hz + 2))) };
   env({ fog: 0x0e0906, dens: 0.05, top: 0x050302, sky: false, hemiS: 0xffd2a0, hemiG: 0x2a1a10, hemiI: 0.42, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
   bodMats();
-  BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = [];
+  BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = [];
   // suelo y techo: una sola pieza cada uno
   const A = world.arena, fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.suelo); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = false;
   { const u = fl.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 2, u.getY(i) * A.hz / 2); }
   world.group.add(fl); world.ground = fl;
-  const ce = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.techo); ce.rotation.x = Math.PI / 2; ce.position.y = H;
-  { const u = ce.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 1.6, u.getY(i) * A.hz / 1.6); }
-  world.group.add(ce);
+  if (!AB.length) {
+    const ce = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.techo); ce.rotation.x = Math.PI / 2; ce.position.y = H;
+    { const u = ce.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * A.hx / 1.6, u.getY(i) * A.hz / 1.6); }
+    world.group.add(ce);
+  } else {   // techo con huecos sobre los espacios abiertos: el techo se parte en rectángulos y se quitan los que caen sobre ellos (una sola malla)
+    const hue = AB.map(r => { const c = bodC(r); return [c.x - r.hx - T, c.x + r.hx + T, c.z - r.hz - T, c.z + r.hz + T]; });
+    const xs = [...new Set([-A.hx, A.hx, ...hue.flatMap(h => [h[0], h[1]])])].sort((a, b) => a - b), zs = [...new Set([-A.hz, A.hz, ...hue.flatMap(h => [h[2], h[3]])])].sort((a, b) => a - b), tb = [];
+    for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) { const mx = (xs[i] + xs[i + 1]) / 2, mz = (zs[j] + zs[j + 1]) / 2; if (!hue.some(h => mx > h[0] && mx < h[1] && mz > h[2] && mz < h[3])) tb.push([mx, H + 0.03, mz, xs[i + 1] - xs[i], 0.06, zs[j + 1] - zs[j]]); }
+    world.group.add(new THREE.Mesh(bodFundir(tb, 3.2), BODM.techo));
+  }
   // qué lados de cada habitación tienen hueco: hacia sus uniones, la salida del jefe y la puerta verde
   const E = bodUniones(L), lados = L.rooms.map(() => ({}));
-  const lado = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y; return dx === 1 ? 'e' : dx === -1 ? 'o' : dy === 1 ? 's' : 'n'; };
+  const lado = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y; return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'o') : dy > 0 ? 's' : 'n'; };
   for (const [a, b] of E) { lados[a][lado(L.rooms[a], L.rooms[b])] = b; lados[b][lado(L.rooms[b], L.rooms[a])] = a; }
   const opuesto = { e: 'o', o: 'e', n: 's', s: 'n' }, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
   const jefe = L.rooms.find(r => r.t === 'jefe'), tras = L.rooms.find(r => r.t === 'tras');
@@ -40174,19 +40288,19 @@ function buildBodegas() {
   lados[jefe.i][jSal] = 'salida'; lados[tras.i][tVerde] = 'verde';
   BOD.jefeEnt = jEnt;
   // paredes de cada habitación (con un hueco de 2 m en cada lado con unión)
-  const boxes = [];
-  const pared = (cx, cz, h, k, hueco) => {   // k: lado; la pared va por fuera del cuarto
-    const [dx, dz] = DV[k], px = cx + dx * (h + T / 2), pz = cz + dz * (h + T / 2), largo = 2 * h + 2 * T;
-    if (!hueco) { if (dx) { boxes.push([px, H / 2, pz, T, H, largo]); addBox(px, pz, T / 2, largo / 2); } else { boxes.push([px, H / 2, pz, largo, H, T]); addBox(px, pz, largo / 2, T / 2); } return; }
-    const tramo = (largo - 2 * V) / 2, off = V + tramo / 2;
-    for (const s of [-1, 1]) { if (dx) { boxes.push([px, H / 2, pz + s * off, T, H, tramo]); addBox(px, pz + s * off, T / 2, tramo / 2); } else { boxes.push([px + s * off, H / 2, pz, tramo, H, T]); addBox(px + s * off, pz, tramo / 2, T / 2); } }
-    if (dx) boxes.push([px, H - 0.3, pz, T, 0.6, 2 * V]); else boxes.push([px, H - 0.3, pz, 2 * V, 0.6, T]);   // dintel
+  const boxes = [], boxesAb = [];   // las paredes de los espacios abiertos son más altas (fachadas de ladrillo): van en otra malla
+  const pared = (cx, cz, hx, hz, k, hueco, Hp = H, bs = boxes) => {   // k: lado; la pared va por fuera del cuarto
+    const [dx, dz] = DV[k], h = dx ? hx : hz, px = cx + dx * (h + T / 2), pz = cz + dz * (h + T / 2), largo = 2 * (dx ? hz : hx) + 2 * T;
+    if (!hueco) { if (dx) { bs.push([px, Hp / 2, pz, T, Hp, largo]); addBox(px, pz, T / 2, largo / 2); } else { bs.push([px, Hp / 2, pz, largo, Hp, T]); addBox(px, pz, largo / 2, T / 2); } return; }
+    const tramo = (largo - 2 * V) / 2, off = V + tramo / 2, dh = Hp - H + 0.6;
+    for (const s of [-1, 1]) { if (dx) { bs.push([px, Hp / 2, pz + s * off, T, Hp, tramo]); addBox(px, pz + s * off, T / 2, tramo / 2); } else { bs.push([px + s * off, Hp / 2, pz, tramo, Hp, T]); addBox(px + s * off, pz, tramo / 2, T / 2); } }
+    if (dx) bs.push([px, Hp - dh / 2, pz, T, dh, 2 * V]); else bs.push([px, Hp - dh / 2, pz, 2 * V, dh, T]);   // dintel
   };
-  for (const r of L.rooms) { const c = bodC(r), h = bodH(r); for (const k of ['e', 'o', 'n', 's']) pared(c.x, c.z, h, k, lados[r.i][k] != null); }
+  for (const r of L.rooms) { const c = bodC(r), ab = !!r.abierto; for (const k of ['e', 'o', 'n', 's']) pared(c.x, c.z, bodH(r, 'x'), bodH(r, 'z'), k, lados[r.i][k] != null, ab ? Ab.alto : H, ab ? boxesAb : boxes); }
   // pasillos de 2 m entre habitaciones vecinas (en el hueco de afuera de la salida y la puerta verde hay un nicho oscuro)
   for (const [a, b] of E) {
-    const ra = L.rooms[a], rb = L.rooms[b], ca = bodC(ra), cb = bodC(rb), k = lado(ra, rb), [dx, dz] = DV[k];
-    const s0 = bodH(ra) + T, s1 = S - bodH(rb) - T, len = s1 - s0, mid = (s0 + s1) / 2;
+    const ra = L.rooms[a], rb = L.rooms[b], ca = bodC(ra), cb = bodC(rb), k = lado(ra, rb), [dx, dz] = DV[k], e = dx ? 'x' : 'z';
+    const s0 = bodH(ra, e) + T, s1 = Math.abs(dx ? cb.x - ca.x : cb.z - ca.z) - bodH(rb, e) - T, len = s1 - s0, mid = (s0 + s1) / 2;
     for (const sd of [-1, 1]) { if (dx) { const x = ca.x + dx * mid, z = ca.z + sd * (V + T / 2); boxes.push([x, H / 2, z, len, H, T]); addBox(x, z, len / 2, T / 2); } else { const x = ca.x + sd * (V + T / 2), z = ca.z + dz * mid; boxes.push([x, H / 2, z, T, H, len]); addBox(x, z, T / 2, len / 2); } }
   }
   for (const [r, k] of [[jefe, jSal], [tras, tVerde]]) {   // nicho detrás de la puerta (la puerta tapa el paso)
@@ -40195,6 +40309,7 @@ function buildBodegas() {
     else { boxes.push([nx - V - T / 2, H / 2, nz, T, H, 1.2], [nx + V + T / 2, H / 2, nz, T, H, 1.2], [nx, H / 2, c.z + dz * (p0 + 1.2 + T / 2), 2 * V + 2 * T, H, T]); }
   }
   const muros = new THREE.Mesh(bodFundir(boxes, 2), BODM.muro); muros.receiveShadow = false; muros.castShadow = false; world.group.add(muros); solids.push(muros);
+  if (boxesAb.length) { bodMatsAb(); const fa = new THREE.Mesh(bodFundir(boxesAb, 3), BODM.fachada); fa.receiveShadow = fa.castShadow = false; world.group.add(fa); solids.push(fa); }
   // ---- puertas
   const puerta = (r, k, tipo) => {
     const c = bodC(r), h = bodH(r), [dx, dz] = DV[k], x = c.x + dx * (h + T / 2), z = c.z + dz * (h + T / 2);
@@ -40219,6 +40334,7 @@ function buildBodegas() {
   for (const r of L.rooms) {
     const gR = new THREE.Group(); world.group.add(gR); BOD.grp[r.i] = gR;
     const c = bodC(r), h = bodH(r);
+    if (r.abierto) { bodAbierto(r, c, gR, lados[r.i]); continue; }
     if (r.t !== 'oscuro') {
       const ly = H - 0.55; M(cyl(0.012, 0.012, 0.5, 4), BODM.aro, c.x, H - 0.25, c.z, { p: gR, cast: false, recv: false });
       M(new THREE.SphereGeometry(0.13, 8, 6), BODM.foco, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.aro, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
@@ -40229,7 +40345,7 @@ function buildBodegas() {
   // ---- llaves que quedaron en el suelo
   for (const k of st.suelo) bodLlaveSuelo(k, true);
   // puntos de aparición (para lo que los pida: en las Bodegas los zombis salen de sus cuartos)
-  for (const r of L.rooms) if (r.t !== 'inicio' && r.t !== 'tras') { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
+  for (const r of L.rooms) if (r.t !== 'inicio' && r.t !== 'tras' && !r.abierto) { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
   const ini = st.volver ? tras : L.rooms[st.caja && st.cajaR != null ? st.cajaR : 0], ci = bodC(ini);
   world.start = { x: ci.x, z: ci.z + (st.volver ? 0 : 0.8) };
   BOD.tiros = game ? game.shots : 0;
@@ -40342,6 +40458,171 @@ function bodAdornos(r, c, h, gR, lados, st) {
     const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks];
     uso('salida', { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9), r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
   }
+}
+// ---- espacios abiertos en 3D (dueño, 24-oct-2026): sin techo, cielo de noche con luna, fachadas altas de ladrillo y lo de cada tipo.
+// Para el teléfono: piezas sencillas (cajas y cilindros) casi todas fundidas en pocas mallas, y la lluvia es una sola malla de rayitas.
+function bodMatsAb() {
+  const fachada = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#2a1c16'; g.fillRect(0, 0, w, h);
+    for (let r = 0; r < 16; r++) for (let c = 0; c < 9; c++) { const x = c * 32 - (r % 2 ? 16 : 0), y = r * 16; g.fillStyle = pick(['#6a3a2a', '#5e3326', '#743f2c', '#57301f', '#6e4430', '#4e2c22']); g.fillRect(x + 1, y + 1, 30, 14); }
+    for (let i = 0; i < 700; i++) { g.fillStyle = pick(['rgba(0,0,0,.2)', 'rgba(255,220,190,.05)']); g.fillRect(rand(0, w), rand(0, h), 2, 2); }
+    for (let i = 0; i < 5; i++) { const x = rand(0, w), gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(10,8,6,0)'); gr.addColorStop(1, 'rgba(10,8,6,.35)'); g.fillStyle = gr; g.fillRect(x, 0, rand(6, 20), h); }   // chorreones de agua
+  }, 1);
+  const losa = (base, cols, n, junta) => canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = junta; g.fillRect(0, 0, w, h); const s = w / n;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) { g.fillStyle = pick(cols); g.fillRect(c * s + 2, r * s + 2, s - 4, s - 4); }
+    for (let i = 0; i < 1200; i++) { g.fillStyle = pick(['rgba(0,0,0,.22)', base]); g.fillRect(rand(0, w), rand(0, h), 2, 2); }
+  }, 1);
+  const pasto = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#1c3418'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) { g.strokeStyle = pick(['#2a4a22', '#22401c', '#355a2a', '#18301a', '#3a6030']); g.beginPath(); const x = rand(0, w), y = rand(0, h); g.moveTo(x, y); g.lineTo(x + rand(-2, 2), y - rand(3, 7)); g.stroke(); }
+  }, 1);
+  const agua = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#0c2630'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 40; i++) { g.strokeStyle = pick(['rgba(120,180,210,.25)', 'rgba(60,110,130,.35)', 'rgba(200,230,255,.12)']); g.lineWidth = rand(1, 2.5); g.beginPath(); const y = rand(0, h), x = rand(0, w); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y + rand(-4, 4), x + rand(14, 30), y); g.stroke(); }
+  }, 1);
+  const cielo = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#070d1e'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(230,236,255,${rand(0.25, 0.95).toFixed(2)})`; const s = Math.random() < 0.12 ? 2 : 1; g.fillRect(rand(0, w), rand(0, h), s, s); }
+  }, 1);
+  BODM.fachada = lam(0xb8aaa4, { map: fachada }); BODM.asfalto = lam(0xffffff, { map: losa('rgba(150,170,200,.07)', ['#202328', '#1c1f24', '#262a30', '#1a1c20'], 8, '#0e0f12') });
+  BODM.baldosa = lam(0xffffff, { map: losa('rgba(255,240,220,.05)', ['#5a554c', '#625c52', '#56514a', '#4e4a44'], 4, '#2a2622') }); BODM.pasto = lam(0xffffff, { map: pasto });
+  BODM.piedraP = lam(0xffffff, { map: losa('rgba(200,220,240,.05)', ['#3a3d42', '#34373c', '#404348', '#2e3034'], 6, '#18191c') });
+  BODM.agua = lam(0x9ac8dc, { map: agua, emissive: 0x06161c, transparent: true, opacity: 0.9 }); BODM.cielo = bsc(0xffffff, { map: cielo, fog: false }); BODM.luna = bsc(0xeef2ff, { fog: false });
+  BODM.metal = lam(0x2c2e33); BODM.contenedor = lam(0x2f4a32); BODM.hoja = lam(0x2e5a2a); BODM.hoja2 = lam(0x3f6e34); BODM.cantera = lam(0x8a857a); BODM.hojaSeca = lam(0x7a5424, { side: THREE.DoubleSide });
+  BODM.ventana = bsc(0xe89a48); BODM.bolsa = lam(0x15161a); BODM.tierra = lam(0x3a3024); BODM.ventanaO = bsc(0x0c1018); BODM.charco = lam(0x32445c, { emissive: 0x0a1220, transparent: true, opacity: 0.75 });
+  BODM.rayo = new THREE.MeshBasicMaterial({ color: 0xb8d0ff, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  BODM.lluvia = new THREE.LineBasicMaterial({ color: 0xa8bcd8, transparent: true, opacity: 0.45, depthWrite: false });
+}
+function bodAbierto(r, c, gR, lados) {
+  const B = BAL.bodegas, A = B.abiertos, Hab = A.alto, T = B.muro, H = B.alto, R = mulberry32(r.sem), q = (a, b) => a + R() * (b - a), ent = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const hx = r.hx, hz = r.hz, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, piezas = new Map();
+  const caja = (mat, b) => { if (!piezas.has(mat)) piezas.set(mat, []); piezas.get(mat).push(b); };   // [x, y, z, ancho, alto, fondo]: se funden al final, una malla por material
+  const formas = new Map(), m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), eu = new THREE.Euler(), v3 = new THREE.Vector3(), e3 = new THREE.Vector3();
+  const forma = (mat, geo, x, y, z, sx = 1, sy = 1, sz = 1, ry = 0, g = null) => {   // cilindros, esferas y cajas giradas: también se funden al final
+    m4.compose(v3.set(x, y, z), qt.setFromEuler(eu.set(0, ry, 0)), e3.set(sx, sy, sz)); if (g) { g.updateMatrix(); m4.premultiply(g.matrix); }
+    if (!formas.has(mat)) formas.set(mat, []); formas.get(mat).push([geo, m4.clone()]);
+  };
+  const plano = (mat, w, d, x, y, z, rep, p = gR) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); if (rep) { const u = m.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / rep, u.getY(i) * d / rep); } p.add(m); return m; };
+  const lampara = (x, y, z, L_) => BOD.lamp.push({ x, y, z, r: r.i, c: L_.color, i: L_.i, d: L_.d });
+  // suelo propio, el cielo de noche (tapa justo el hueco del techo) y la luna
+  plano({ callejon: BODM.asfalto, patio: BODM.baldosa, jardin: BODM.pasto, canal: BODM.piedraP }[r.t], 2 * hx, 2 * hz, c.x, 0.012, c.z, r.t === 'jardin' ? 3 : 2.4);
+  const sk = new THREE.Mesh(new THREE.PlaneGeometry(2 * (hx + T), 2 * (hz + T)), BODM.cielo); sk.rotation.x = Math.PI / 2; sk.position.set(c.x, Hab + 0.02, c.z);
+  { const u = sk.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * hx / 6, u.getY(i) * hz / 6); } gR.add(sk);
+  const lx = r.t === 'patio' ? 0 : q(-0.5, 0.5) * hx, lz = r.t === 'patio' ? 0 : q(-0.5, 0.5) * hz;
+  const luna = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), BODM.luna); luna.rotation.x = Math.PI / 2; luna.position.set(c.x + lx, Hab - 0.02, c.z + lz); gR.add(luna);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x9fb6e0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); halo.scale.set(3.4, 3.4, 1); halo.position.set(c.x + lx, Hab - 0.1, c.z + lz); gR.add(halo);
+  lampara(c.x, Hab - A.luna.alto, c.z, A.luna);
+  // ventanas en las fachadas sin puerta (algunas con luz)
+  for (const k of ['e', 'o', 'n', 's']) {
+    if (r.t === 'callejon' && (hx > hz ? k === 'n' || k === 's' : k === 'e' || k === 'o')) continue;   // en el callejón las ventanas van con las escaleras de incendio
+    const [dx, dz] = DV[k], h = dx ? hx : hz, w = dx ? hz : hx, n = Math.min(ent(A.ventanas[0], A.ventanas[1]), Math.floor(w / 1.1));   // arriba de las puertas: no estorban
+    for (let j = 0; j < n; j++) { const o = (j + 0.5) / n * 2 * w - w, y = q(5, Hab - 1.6), x = c.x + dx * (h - 0.03) + (dx ? 0 : o), z = c.z + dz * (h - 0.03) + (dz ? 0 : o); caja(R() < 0.35 ? BODM.ventana : BODM.ventanaO, [x, y, z, dx ? 0.06 : 0.9, 1.2, dx ? 0.9 : 0.06]); caja(BODM.cantera, [x, y - 0.66, z, dx ? 0.14 : 1.1, 0.1, dx ? 1.1 : 0.14]);
+      caja(BODM.metal, [x - dx * 0.02, y, z - dz * 0.02, dx ? 0.06 : 0.06, 1.2, dx ? 0.06 : 0.06]); caja(BODM.metal, [x - dx * 0.02, y + 0.1, z - dz * 0.02, dx ? 0.06 : 0.9, 0.06, dx ? 0.9 : 0.06]); }   // el marco en cruz
+  }
+  if (r.t === 'callejon') {
+    const hor = hx > hz, La = hor ? hx : hz, Wb = hor ? hz : hx;   // a: a lo largo, b: a lo ancho
+    const P_ = (a, b) => hor ? [c.x + a, c.z + b] : [c.x + b, c.z + a], BX = (m, a, y, b, la, h, lb) => caja(m, hor ? [c.x + a, y, c.z + b, la, h, lb] : [c.x + b, y, c.z + a, lb, h, la]);
+    const COL = (a, b, ha, hb) => { const [x, z] = P_(a, b); if (hor) addBox(x, z, ha, hb); else addBox(x, z, hb, ha); };
+    const C = A.callejon, nb = ent(C.basureros[0], C.basureros[1]), lado0 = R() < 0.5 ? 1 : -1;
+    for (let j = 0; j < nb; j++) {   // basureros contra las paredes, uno de cada lado (queda el paso al medio)
+      const a = -La + 3 + (j + 0.5) / nb * (2 * La - 6) + q(-0.6, 0.6), s = j % 2 ? lado0 : -lado0, b = s * (Wb - 0.62);
+      BX(BODM.contenedor, a, 0.62, b, 1.8, 1.1, 1.1); BX(BODM.metal, a, 1.21, b - s * 0.02, 1.88, 0.08, 1.16); BX(BODM.metal, a - 0.7, 0.08, b, 0.12, 0.16, 1.0); BX(BODM.metal, a + 0.7, 0.08, b, 0.12, 0.16, 1.0); COL(a, b, 0.95, 0.6);
+      if (j < C.latas) { const [x, z] = P_(a + 1.45, s * (Wb - 0.4)); forma(BODM.metal, cyl(0.27, 0.24, 0.78, 10), x, 0.39, z); addCircle(x, z, 0.3); const [x2, z2] = P_(a - 1.35, s * (Wb - 0.45)); forma(BODM.bolsa, new THREE.SphereGeometry(0.36, 8, 6), x2, 0.24, z2, 1, 0.7, 1); }
+    }
+    for (let j = 0; j < C.escaleras; j++) {   // escaleras de incendio en las paredes (arriba de la cabeza: no estorban)
+      const a0 = (j + 0.5) / C.escaleras * 2 * La - La + q(-1, 1), s = j % 2 ? -lado0 : lado0, Pl = 3.2, Pd = 1.1, bm = s * (Wb - Pd / 2), bo = s * (Wb - Pd);
+      C.pisos.forEach((y, i) => {
+        BX(BODM.metal, a0, y, bm, Pl, 0.06, Pd); BX(BODM.metal, a0, y + 1.0, bo, Pl, 0.05, 0.05); BX(BODM.metal, a0, y + 0.5, bo, Pl, 0.03, 0.03);
+        for (const e of [-1, 1]) { BX(BODM.metal, a0 + e * Pl / 2, y + 0.5, bo, 0.05, 1.0, 0.05); BX(BODM.metal, a0 + e * Pl / 2, y + 1.0, bm, 0.05, 0.05, Pd); }
+        BX(R() < 0.4 ? BODM.ventana : BODM.ventanaO, a0, y + 1.1, s * (Wb - 0.03), 1.0, 1.3, 0.06); BX(BODM.metal, a0, y + 1.1, s * (Wb - 0.06), 0.06, 1.3, 0.04); BX(BODM.metal, a0, y + 1.2, s * (Wb - 0.06), 1.0, 0.06, 0.04);   // la ventana de cada piso
+        const y1 = C.pisos[i + 1]; if (y1 == null) return; const dir = i % 2 ? 1 : -1;
+        for (let st = 1; st < 10; st++) BX(BODM.metal, a0 - dir * Pl * 0.4 + dir * Pl * 0.8 * st / 10, y + (y1 - y) * st / 10, bm, 0.32, 0.05, Pd * 0.7);   // los peldaños
+      });
+      const y0 = C.pisos[0], al = a0 + Pl / 2 - 0.45;   // la escalerilla que cuelga del primer piso
+      for (const e of [-0.2, 0.2]) BX(BODM.metal, al + e, (1.9 + y0) / 2, bo, 0.04, y0 - 1.9, 0.04);
+      for (let y = 2.1; y < y0; y += 0.3) BX(BODM.metal, al, y, bo, 0.4, 0.03, 0.03);
+    }
+    { const a = q(-La + 2, La - 2), s = -lado0, [x, z] = P_(a, s * (Wb - 0.05)); BX(BODM.madera2, a, 1.1, s * (Wb - 0.04), 1.1, 2.2, 0.08); BX(BODM.metal, a, 2.35, s * (Wb - 0.25), 1.4, 0.06, 0.5);   // una puerta trasera con su foco
+      const [bx_, bz_] = P_(a, s * (Wb - 0.35)); forma(BODM.foco, new THREE.SphereGeometry(0.09, 8, 6), bx_, 2.6, bz_); bodGlow(bx_, 2.6, bz_, 0xffc070, 1.4, 0.5, gR); lampara(bx_, 2.4, bz_, A.farol); }
+    for (let j = 0; j < C.charcos; j++) { const [x, z] = P_(q(-La + 1.5, La - 1.5), q(-Wb + 1.5, Wb - 1.5)), ch = new THREE.Mesh(new THREE.CircleGeometry(q(0.5, 1.1), 14), BODM.charco); ch.rotation.x = -Math.PI / 2; ch.scale.set(1, q(0.5, 0.9), 1); ch.position.set(x, 0.018, z); gR.add(ch); }
+    // la lluvia: una sola malla de rayitas que caen (en el teléfono, menos)
+    const N = IS_TOUCH || FAST() ? C.lluviaTel : C.lluvia, pos = new Float32Array(N * 6), vel = new Float32Array(N), lg = new THREE.BufferGeometry();
+    for (let i = 0; i < N; i++) { const [x, z] = P_(rand(-La, La), rand(-Wb, Wb)), y = rand(0, Hab); pos.set([x, y, z, x + 0.03, y - 0.45, z], i * 6); vel[i] = rand(C.gota[0], C.gota[1]); }
+    lg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const lluvia = new THREE.LineSegments(lg, BODM.lluvia); lluvia.frustumCulled = false; gR.add(lluvia);
+    world.anims.push(dt => { if (!gR.visible) return; for (let i = 0; i < N; i++) { let y = pos[i * 6 + 1] - vel[i] * dt; if (y < 0) y += Hab; pos[i * 6 + 1] = y; pos[i * 6 + 4] = y - 0.45; } lg.attributes.position.needsUpdate = true; });
+  }
+  if (r.t === 'patio') {
+    const Pt = A.patio, f = Pt.fuente;   // la fuente seca al centro
+    forma(BODM.cantera, cyl(f, f + 0.1, 0.55, 22), c.x, 0.27, c.z); forma(BODM.tierra, cyl(f - 0.22, f - 0.22, 0.04, 22), c.x, 0.53, c.z);
+    forma(BODM.cantera, cyl(0.24, 0.3, 1.3, 12), c.x, 0.9, c.z); forma(BODM.cantera, cyl(0.8, 0.35, 0.28, 16), c.x, 1.6, c.z); forma(BODM.cantera, cyl(0.1, 0.16, 0.5, 8), c.x, 1.95, c.z);
+    addCircle(c.x, c.z, f + 0.1);
+    const cols = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]].slice(0, Pt.columnas);   // columnas en las esquinas (lejos de los pasos en cruz)
+    for (const [sx, sz] of cols) { const x = c.x + sx * (hx - 2.2), z = c.z + sz * (hz - 2.2); caja(BODM.cantera, [x, 0.15, z, 0.9, 0.3, 0.9]); caja(BODM.cantera, [x, H - 0.12, z, 0.9, 0.24, 0.9]); forma(BODM.cantera, cyl(0.3, 0.34, H - 0.5, 12), x, H / 2, z); addCircle(x, z, 0.45); }
+    const rayo = new THREE.Mesh(new THREE.CylinderGeometry(Pt.pozo, Pt.pozo * 1.2, Hab, 20, 1, true), BODM.rayo); rayo.position.set(c.x, Hab / 2, c.z); gR.add(rayo);   // el pozo de luz
+    const charco = new THREE.Mesh(new THREE.CircleGeometry(Pt.pozo * 1.3, 24), BODM.rayo.clone()); charco.material.opacity = 0.16; charco.rotation.x = -Math.PI / 2; charco.position.set(c.x, 0.03, c.z); gR.add(charco);
+    for (let j = 0; j < Pt.hojas; j++) { const x = c.x + q(-hx + 0.6, hx - 0.6), z = c.z + q(-hz + 0.6, hz - 0.6); if (Math.hypot(x - c.x, z - c.z) > f + 0.2) caja(BODM.hojaSeca, [x, 0.02, z, q(0.1, 0.2), 0.01, q(0.08, 0.14)]); }
+  }
+  if (r.t === 'jardin') {
+    const J = A.jardin, pasos = Object.keys(lados).filter(k => lados[k] != null);
+    caja(BODM.baldosa, [c.x, 0.02, c.z, 2.6, 0.02, 2.6]);   // senderos de piedra desde cada puerta al centro
+    for (const k of pasos) { const [dx, dz] = DV[k]; caja(BODM.baldosa, [c.x + dx * hx / 2, 0.02, c.z + dz * hz / 2, dx ? hx : 1.8, 0.02, dz ? hz : 1.8]); }
+    const ocupa = [];
+    const lejosDe = (x, z, d) => ocupa.every(o => Math.hypot(o[0] - x, o[1] - z) > d) && Math.abs(x - c.x) > 1.6 && Math.abs(z - c.z) > 1.6;   // nada en los senderos en cruz
+    const fx = J.faroles, dg = R() < 0.5 ? 1 : -1;   // faroles en dos esquinas del cruce
+    for (let j = 0; j < fx; j++) { const s = j % 2 ? 1 : -1, x = c.x + s * 2.3, z = c.z + s * dg * 2.3; ocupa.push([x, z]);
+      forma(BODM.metal, cyl(0.06, 0.09, 3.0, 8), x, 1.5, z); caja(BODM.foco, [x, 3.15, z, 0.32, 0.42, 0.32]); forma(BODM.metal, cyl(0.02, 0.26, 0.14, 4), x, 3.42, z, 1, 1, 1, Math.PI / 4);
+      bodGlow(x, 3.15, z, 0xffc070, 2.2, 0.55, gR); addCircle(x, z, 0.16); lampara(x, 3.0, z, A.farol); }
+    const sitios = [[3.2, 1.7], [-3.2, 1.7], [3.2, -1.7], [-3.2, -1.7], [1.7, 3.2], [1.7, -3.2], [-1.7, 3.2], [-1.7, -3.2]].sort(() => R() - 0.5);
+    let nb = 0;
+    for (const [ox, oz] of sitios) {   // bancas mirando al sendero, y un cenicero de pie junto a la primera
+      if (nb >= J.bancas) break; const x = c.x + ox, z = c.z + oz; if (!ocupa.every(o => Math.hypot(o[0] - x, o[1] - z) > 1.6)) continue; nb++; ocupa.push([x, z]);
+      const ry = Math.abs(oz) < 2 ? (oz > 0 ? Math.PI : 0) : (ox > 0 ? -Math.PI / 2 : Math.PI / 2), g = Grp(x, z, ry, gR);
+      forma(BODM.madera, bx(1.6, 0.08, 0.45), 0, 0.46, 0, 1, 1, 1, 0, g); forma(BODM.madera, bx(1.6, 0.42, 0.06), 0, 0.78, -0.22, 1, 1, 1, 0, g);
+      for (const e of [-0.7, 0.7]) forma(BODM.metal, bx(0.07, 0.46, 0.42), e, 0.23, 0, 1, 1, 1, 0, g);
+      addBox(x, z, Math.abs(oz) < 2 ? 0.82 : 0.26, Math.abs(oz) < 2 ? 0.26 : 0.82);
+      if (nb === 1) { const p_ = lw(g, 1.15, 0.05); forma(BODM.metal, cyl(0.05, 0.07, 0.85, 8), p_.x, 0.42, p_.z); forma(BODM.metal, cyl(0.16, 0.12, 0.08, 12), p_.x, 0.88, p_.z); }
+    }
+    const geo = new THREE.SphereGeometry(1, 8, 6), na = ent(J.arbustos[0], J.arbustos[1]);
+    for (let j = 0, k = 0; j < na && k < 80; k++) {   // arbustos junto a las paredes
+      const lado_ = ['e', 'o', 'n', 's'][ent(0, 3)], [dx, dz] = DV[lado_], o = q(-1, 1) * ((dx ? hz : hx) - 1.0), x = c.x + (dx ? dx * (hx - 0.9) : o), z = c.z + (dz ? dz * (hz - 0.9) : o);
+      if (lados[lado_] != null && Math.abs(o) < 2.4 || !lejosDe(x, z, 1.5)) continue;
+      forma(R() < 0.5 ? BODM.hoja : BODM.hoja2, geo, x, 0.4, z, q(0.7, 1.05), q(0.55, 0.85), q(0.7, 1.05)); addCircle(x, z, 0.75); ocupa.push([x, z]); j++;
+    }
+  }
+  if (r.t === 'canal') {
+    const Cn = A.canal, ks = Object.keys(lados).filter(k => lados[k] != null), [p1, p2] = ks.map(k => DV[k]);
+    let ux = p2[0] - p1[0], uz = p2[1] - p1[1]; const ul = Math.hypot(ux, uz); ux /= ul; uz /= ul;   // de una orilla a la otra; el agua corre de través
+    const diag = ul < 1.9, w = Cn.ancho, Lc = diag ? hx * Math.SQRT2 - w / 2 - 0.15 : hx, g = Grp(c.x, c.z, Math.atan2(-uz, ux), gR);
+    plano(BODM.agua, w, 2 * Lc, 0, 0.035, 0, 2, g).userData.agua = 1;
+    for (const e of [-1, 1]) { forma(BODM.cantera, bx(0.3, 0.18, 2 * Lc), e * (w / 2 + 0.15), 0.09, 0, 1, 1, 1, 0, g); forma(BODM.negro, bx(w + 0.6, 1.3, 0.12), 0, 0.65, e * (Lc + 0.02), 1, 1, 1, 0, g); }   // los bordes y la boca del desagüe
+    r.agua = { x: c.x, z: c.z, ux, uz, w, L: Lc, puentes: Cn.puentes.map(f => f * Lc), pw: Cn.puente };
+    for (const b of r.agua.puentes) {   // los puentecitos (con barandas: se cruza por en medio)
+      forma(BODM.madera, bx(w + 1.0, 0.12, Cn.puente), 0, 0.22, b, 1, 1, 1, 0, g);
+      for (const e of [-1, 1]) { forma(BODM.madera2, bx(w + 1.0, 0.06, 0.06), 0, 0.95, b + e * Cn.puente / 2, 1, 1, 1, 0, g); for (const sx of [-1, 1]) forma(BODM.madera2, bx(0.07, 0.75, 0.07), sx * (w / 2 + 0.45), 0.6, b + e * Cn.puente / 2, 1, 1, 1, 0, g);
+        const pw = lw(g, 0, b + e * Cn.puente / 2); addBox(pw.x, pw.z, (w + 1.0) / 2, 0.05, g.rotation.y); }
+    }
+    const tex = BODM.agua.map; world.anims.push(dt => { if (gR.visible) tex.offset.y -= dt * 0.18; });
+  }
+  for (const [m, bs] of piezas) gR.add(new THREE.Mesh(bodFundir(bs, 1.5), m));
+  const usadas = new Set(); for (const [m, fs] of formas) { gR.add(new THREE.Mesh(bodFundirG(fs), m)); fs.forEach(f => usadas.add(f[0])); } usadas.forEach(g => g.dispose());
+}
+// como bodFundir, pero con cualquier figura (cilindros, esferas, cajas giradas) ya puesta en su lugar: una sola malla
+function bodFundirG(lista) {
+  const pos = [], nor = [], uv = [], idx = []; let base = 0;
+  for (const [g0, mx] of lista) {
+    const g = g0.clone().applyMatrix4(mx), P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
+    for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0); }
+    if (I) for (let i = 0; i < I.count; i++) idx.push(I.getX(i) + base); else for (let i = 0; i < P.count; i++) idx.push(i + base);
+    base += P.count; g.dispose();
+  }
+  const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); G.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); G.setIndex(idx); G.computeBoundingSphere();
+  return G;
+}
+// ¿el jugador está en el agua del canal (y no en un puente)?
+function bodEnAgua(r, x, z) {
+  const W_ = r && r.agua; if (!W_) return false; const dx = x - W_.x, dz = z - W_.z, a = dx * W_.ux + dz * W_.uz, b = -dx * W_.uz + dz * W_.ux;
+  return Math.abs(a) < W_.w / 2 && Math.abs(b) < W_.L && !W_.puentes.some(p => Math.abs(b - p) < W_.pw / 2);
 }
 function bodUsado(o) { const s = bodSt(); if (s && o.bodK) s.usados[o.bodK] = 1; o.off = true; useCur = null; showUse(null); }
 function bodRompible(gR, x, z, tipo, idk) {
@@ -40559,6 +40840,7 @@ function bodEntra(r) {
   if (r.t === 'oscuro') hint('Cuarto oscuro: solo tu linterna. Los barriles sirven para esconderte', 3200);
   else if (r.t === 'campana') hint('Campanario: dispárale a la campana para atraer a los zombis cercanos', 3200);
   else if (r.t === 'tras') hint('La puerta verde lleva a la Trastienda', 2600);
+  else if (r.abierto) hint({ callejon: 'Callejón trasero: al aire libre, bajo la lluvia. Une dos puntas del sótano', patio: 'Patio interior: un pozo de luz con cuatro salidas', jardin: 'Jardín de los fumadores: un respiro al aire libre', canal: 'Canal de desagüe: el agua te frena. Cruza por los puentes' }[r.t], 3200);
   else if (r.t !== 'jefe') hint(T_.n, 1800);
 }
 function bodLlaveRecoger(dt) {
@@ -40576,7 +40858,8 @@ function bodLlaveRecoger(dt) {
 // las lámparas de verdad (2 o 3) se mueven a las más cercanas; el resto son brillos
 function bodLuces() {
   const px = player.pos.x, pz = player.pos.z, Ls = BOD.lamp.slice().sort((a, b) => Math.hypot(a.x - px, a.z - pz) - Math.hypot(b.x - px, b.z - pz));
-  BOD.luces.forEach((l, i) => { const q = Ls[i]; if (q) l.position.set(q.x, q.y, q.z); else l.position.set(0, -50, 0); });
+  const Lz = BAL.bodegas.luz;
+  BOD.luces.forEach((l, i) => { const q = Ls[i]; if (q) { l.position.set(q.x, q.y, q.z); l.color.setHex(q.c || Lz.color); l.intensity = q.i || Lz.i; l.distance = q.d || Lz.d; } else l.position.set(0, -50, 0); });   // en los espacios abiertos: la luna (azul) y los faroles
 }
 function bodVisibles() {
   const L = BOD.L, r0 = BOD.aqui || bodHabDe(player.pos.x, player.pos.z, 3) || (bodPasilloDe(player.pos.x, player.pos.z)[0]) || L.rooms[0], V = BAL.bodegas.verHab;
@@ -40587,6 +40870,7 @@ function bodVisibles() {
 function bodStep(dt) {
   const st = bodSt(), L = BOD.L, B = BAL.bodegas; if (!st || !L || world.idx !== BOD_IDX) return;
   const h = bodHabDe(player.pos.x, player.pos.z, -0.3); BOD.aqui = h || null;
+  BOD.agua = !!(h && h.t === 'canal' && bodEnAgua(h, player.pos.x, player.pos.z));   // el agua del canal te frena
   if (h && !st.vis[h.i]) { st.vis[h.i] = 1; bodEntra(h); }
   if ((BOD.t -= dt) <= 0) { BOD.t = 0.25; bodLuces(); bodVisibles(); }
   if (game.shots !== BOD.tiros) { BOD.tiros = game.shots; bodRuido(); }
@@ -40688,11 +40972,10 @@ function bodFin(gano) {
   const caja = (() => { try { return !gano && !!localStorage.getItem(BOD_SAVE); } catch (e) { return false; } })();
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock(); linternaPon(false);
   show(null); showUse(null); el.hud.hidden = true; $('#touch').hidden = true;
-  const vis = L ?
- Object.keys(st.vis).length : 0, deuda = D && D.pagada ? `Pagada · ${D.monto} $` : D ? `Faltan ${deudaFalta()} $` : `${deudaSaldo()} $ por pagar`;
+  const vis = L ? bodVistas(L, st) : 0, deuda = D && D.pagada ? `Pagada · ${D.monto} $` : D ? `Faltan ${deudaFalta()} $` : `${deudaSaldo()} $ por pagar`;
   $('#bf-t').textContent = gano ? 'Nivel 1 superado' : 'Caíste en las Bodegas';
   $('#bf-tag').textContent = gano ? 'Saliste de las Bodegas del casino. El Nivel 2 todavía no existe: esta es la beta.' : caja ? 'Puedes volver a la última caja fuerte que abriste.' : 'Cada partida arma un mapa nuevo.';
-  $('#bf-stats').innerHTML = [['Oro', game.gold + ' $'], ['Zombis', game.kills], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`], ['Deuda', deuda], ['Habitaciones', `${vis} / ${L ? L.rooms.length : 0}`]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('#bf-stats').innerHTML = [['Oro', game.gold + ' $'], ['Zombis', game.kills], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`], ['Deuda', deuda], ['Habitaciones', `${vis} / ${L ? L.rooms.filter(r => !r.abierto).length : 0}`]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
   const a = $('#bf-a'), b = $('#bf-b');
   a.textContent = gano ? 'Volver al menú' : caja ? 'Volver a la caja fuerte' : 'Otra vez'; b.hidden = gano;
   a.onclick = () => { $('#bod-fin').hidden = true; if (gano) toMenu('inicio'); else if (caja) { const sv = store.get(BOD_SAVE, null); toMenu('inicio'); if (sv) { BOD.pide = 0; startGame(sv); } } else { toMenu('inicio'); bodEmpezar(); } };
@@ -40701,7 +40984,8 @@ function bodFin(gano) {
   $('#bod-fin').hidden = false; setTimeout(() => a.focus(), 60);
 }
 // ---- el HUD y el minimapa (solo las habitaciones exploradas)
-function bodSub() { const st = bodSt(), L = BOD.L; if (!st || !L) return ''; return `Habitaciones ${Object.keys(st.vis).length} de ${L.rooms.length}`; }
+function bodSub() { const st = bodSt(), L = BOD.L; if (!st || !L) return ''; return `Habitaciones ${bodVistas(L, st)} de ${L.rooms.filter(r => !r.abierto).length}`; }
+function bodVistas(L, st) { return Object.keys(st.vis).filter(i => L.rooms[i] && !L.rooms[i].abierto).length; }   // los espacios abiertos no cuentan como habitaciones
 function bodFee() { const st = bodSt(); if (!st) return ''; return `Llaves de plata: ${st.plata | 0} · Llave de salida: ${st.llave ? 'sí' : 'no'}`; }
 function bodMinimapa() {
   const c = mapCtx, W = 260, R = 130, sc = R / 32, st = bodSt(), L = BOD.L; if (!L || !st) return;
@@ -40713,7 +40997,9 @@ function bodMinimapa() {
   for (const [a, b] of bodUniones(L)) { if (!st.vis[a] && !st.vis[b]) continue; const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); const vert = A.x === Bc.x; caja((A.x + Bc.x) / 2, (A.z + Bc.z) / 2, vert ? 1 : Math.abs(A.x - Bc.x) / 2, vert ? Math.abs(A.z - Bc.z) / 2 : 1); c.fillStyle = 'rgba(120,100,80,.55)'; c.fill(); }
   for (const r of L.rooms) {
     if (!st.vis[r.i]) continue; const cc = bodC(r), h = bodH(r);
-    caja(cc.x, cc.z, h, h); c.fillStyle = BOD_T[r.t].c + 'aa'; c.fill(); c.strokeStyle = r.plata && !st.abiertas[r.i] ? '#dfe8f0' : 'rgba(0,0,0,.6)'; c.stroke();
+    caja(cc.x, cc.z, bodH(r, 'x'), bodH(r, 'z')); c.fillStyle = BOD_T[r.t].c + 'aa'; c.fill();
+    if (r.abierto) { c.setLineDash([5, 4]); c.strokeStyle = '#bfe0ff'; c.stroke(); c.setLineDash([]); }   // los espacios abiertos: color de cielo y borde punteado
+    else { c.strokeStyle = r.plata && !st.abiertas[r.i] ? '#dfe8f0' : 'rgba(0,0,0,.6)'; c.stroke(); }
   }
   for (const D of BOD.puertas) { if (!st.vis[D.r] && !(D.tipo === 'plata')) continue; if (D.tipo === 'plata' && !L.rooms.some(r => st.vis[r.i] && bodUnidas2(r.i, D.r))) continue; const [x, y] = tr(D.x, D.z); c.fillStyle = D.tipo === 'plata' ? (D.abierta ? '#6a6a6a' : '#dfe8f0') : D.tipo === 'salida' ? '#ffd060' : D.tipo === 'verde' ? '#40ff90' : D.abierta ? '#6a5a4a' : '#ff5a4a'; c.beginPath(); c.arc(x, y, 5, 0, TAU); c.fill(); }
   for (const S_ of BOD.suelo) { const [x, y] = tr(S_.k.x, S_.k.z); c.fillStyle = S_.k.t === 'llave' ? '#ffd060' : '#dfe8f0'; c.fillRect(x - 4, y - 4, 8, 8); }
