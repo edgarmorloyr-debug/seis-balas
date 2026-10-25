@@ -152,6 +152,12 @@ body{font-family:var(--hud);font-size:16px}
 #gold{font-family:var(--display);font-size:clamp(20px,2.8vw,26px);color:var(--gold);font-variant-numeric:tabular-nums}
 /* G1c · la deuda siempre a la vista (dueño, 20-oct-2026): pequeña bajo el oro; parpadea en rojo cuando el jefe está a 1 oleada o menos */
 #vit #goldrow{flex-direction:column;align-items:flex-start;justify-content:center;gap:1px}
+/* el juego (las Bodegas): fichas de miembro, llaves de plata y llave de la salida, juntas en la ficha del jugador (dueño, 25-oct-2026) */
+#bod-k{display:flex;align-items:center;gap:9px;margin-top:3px;white-space:nowrap}
+#bod-k .bk{display:inline-flex;align-items:center;gap:3px;font:700 16px/1 var(--hud);font-variant-numeric:tabular-nums;color:var(--bone);text-shadow:0 1px 2px #000}
+#bod-k .bk .ico{width:22px;height:22px;stroke-width:2.3}
+#bod-k .fi{color:var(--gold)}#bod-k .pl{color:#e4ecf4}#bod-k .sa{color:#ffd060}#bod-k .bk.no{opacity:.42}#bod-k .sa.si .ico{filter:drop-shadow(0 0 4px #ffd060)}
+.touch #bod-k{display:grid;grid-template-columns:auto auto;gap:3px 8px}.touch #bod-k .bk .ico{width:20px;height:20px}   /* en el teléfono, en dos columnas: la ficha del jugador no se ensancha */
 #deuda-mini{font:700 14px/1.1 var(--hud);color:#f0b8a8;letter-spacing:.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
 #deuda-mini.cerca{color:#ff5a48;animation:dmini 1s steps(2,jump-none) infinite}
 @keyframes dmini{0%{opacity:1}100%{opacity:.35}}
@@ -162,8 +168,9 @@ body{font-family:var(--hud);font-size:16px}
 @keyframes gpop{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-22px)}}
 @keyframes gpop2{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-22px)}}
 #mult{font-size:18px;font-weight:700;color:var(--brass);letter-spacing:.05em;min-height:22px}
-body.bod-on #map{width:163px!important;height:163px!important}
-body.bod-on.touch #map,body.bod-on .touch #map{width:115px!important;height:115px!important}
+body.bod-on #map{width:205px!important;height:158px!important;border-radius:12px}   /* el juego (las Bodegas): mapa al estilo Isaac, más ancho que alto (el lienzo mide BAL.bodegas.mapa.ancho × 260) */
+@media (max-width:1100px){body.bod-on #map{width:190px!important;height:146px!important}}   /* en pantallas de computadora angostas: no choca con los carteles del jardín */
+body.bod-on.touch #map,body.bod-on .touch #map{width:150px!important;height:115px!important}
 #map{width:130px;height:130px;border-radius:50%;border:2px solid rgba(214,165,75,.55);background:rgba(5,8,10,.55);margin-top:6px}
 .touch #map{width:92px;height:92px}
 
@@ -2661,7 +2668,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
           <div class="bar" id="de"><b></b><em></em><span class="de-l"><kbd class="only-desk" data-k="KeyQ">Q</kbd></span></div>
           <div class="bar" id="hab" title="Ultimate de tu personaje"><b></b><span class="de-l only-desk"><span id="hab-n"></span> <kbd data-k="KeyC">C</kbd></span></div>
         </div>
-        <div id="goldrow"><div id="gold">$ 0</div><div id="deuda-mini" hidden></div><div id="gold-pop"></div></div>
+        <div id="goldrow"><div id="gold">$ 0</div><div id="deuda-mini" hidden></div><div id="bod-k" hidden></div><div id="gold-pop"></div></div>
       </div>
       </div>
       <div id="chips"></div>
@@ -3188,7 +3195,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=30').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=31').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -26640,7 +26647,7 @@ const SAVE_FIELDS = ['mun', 'visita', 'nMap', 'slot', 'reserva', 'balTemp', 'bal
 const SALA_FIELDS = ['roomMadame', 'roomDva', 'maqOf', 'retoOf', 'roomVendCap', 'roomVendGarra', 'garraV', 'offers', 'reroll', 'roomSlot', 'roomWheel', 'roomRamen', 'ramenOfertas', 'roomTiro', 'roomDad', 'dad', 'roomCar', 'car', 'carPag', 'fuseN', 'roomBj', 'bj', 'bjPag', 'bjFichaW', 'bjFichaMesa', 'roomRoute', 'roomUsed', 'roomEspiral', 'roomArmeria', 'puertasAb', 'puertasRoll', 'sit', 'sitHecho', 'cobro', 'zombiCol', 'gatoRegalo', 'dadoW'];
 function saveGame(o) {
   if (!game || tuto || (typeof Net !== 'undefined' && Net.on)) return;
-  if (game.bod && !(o && o.bodCaja)) return;   // BETA · Las Bodegas: nunca toca la partida normal guardada
+  if (game.bod) return;   // el juego (las Bodegas) no se guarda: al caer, todo se reinicia (dueño, 25-oct-2026: «elimina el punto de guardado»). Nunca toca la partida normal guardada
   const sv = { v: 1, equip: game.habMini ? game.habMini.equip : game.equip, hp: Math.max(1, player.hp), maxHp: player.maxHp, maxSt: player.maxSt, cops: copsAlive(), allies: cops.filter(c => !c.dead && !c.npc && !c.temp).map(c => c.kind || 'cop') };
   for (const k of SAVE_FIELDS) sv[k] = game[k];
   const punto = (o && o.punto) || 'ola'; sv.punto = punto; game.puntoAct = punto;
@@ -26649,7 +26656,6 @@ function saveGame(o) {
   // las balas que tienes cargadas vuelven a la caja: al retomar se recargan de ella (no se pierden ni se duplican)
   { const box = (game.box || []).slice(); for (const L of balManos()) for (const b of L || []) if (isLoaded(b) && !String(b).endsWith('*')) box.push(b); sv.box = box; }
   if (game.habMini) { const M = game.habMini, id = M.id || 'minigun'; sv.owned = Object.assign({}, game.owned); if (M.owned === undefined) delete sv.owned[id]; else sv.owned[id] = M.owned; sv.mag = undefined; }
-  if (game.bod) { sv.bod = JSON.parse(JSON.stringify(game.bod)); sv.wave = 1; store.set(BOD_SAVE, sv); return; }
   store.set(SAVE_KEY, sv);
 }
 function newGame(sv, run) {
@@ -26907,7 +26913,7 @@ function gameOver() {
 }
 function updateBest() {
   let sv = store.get(SAVE_KEY, null); if (sv && !(sv.wave >= 2 || (sv.punto && sv.punto !== 'ola'))) { store.set(SAVE_KEY, null); sv = null; }   // una partida recién empezada no se ofrece para continuar
-  if (JUEGO_BOD) { sv = store.get(BOD_SAVE, null); if (sv && !sv.bod) sv = null; }   // el juego (las Bodegas): se continúa desde la última caja fuerte; la partida vieja guardada no se toca
+  if (JUEGO_BOD) { sv = null; try { localStorage.removeItem(BOD_SAVE); } catch (e) {} }   // el juego (las Bodegas) no se continúa: ya no hay punto de guardado (dueño, 25-oct-2026); lo que quedara guardado de antes se borra. La partida vieja guardada no se toca
   const bc = $('#btn-continue');
   bc.hidden = !sv; $('#save-note').hidden = !sv; $('#modo-cards').classList.toggle('solo', !sv);
   if (sv) modoPartida(sv);
@@ -31542,7 +31548,7 @@ function renderChips() {
   if (game.silver) out.push('<span class="chip">Balas de plata</span>');
   const ca = copsAlive(); if (ca) out.push(`<span class="chip blue">Ayudantes ${ca}</span>`);
   if (game.keys > 0) out.push(`<span class="chip gold">${ico('key')} ${game.keys}</span>`);
-  if ((game.poker | 0) > 0) out.push(`<span class="chip gold" title="Fichas de miembro">${ico('chip')} ${game.poker}</span>`);
+  if ((game.poker | 0) > 0 && !game.bod) out.push(`<span class="chip gold" title="Fichas de miembro">${ico('chip')} ${game.poker}</span>`);   // en el juego (las Bodegas) va en la ficha del jugador, junto a las llaves (bodLlavesHud)
   el.chips.innerHTML = out.join('') + '<span class="chip gold" id="gold-chip" hidden></span>';
   el.bSwap.hidden = armasLista().length < 2; armasHud();
 }
@@ -32273,7 +32279,7 @@ function updateAmbient(dt, t) {
 }
 const ZCOL = { walker: '#e8d36a', crawler: '#e8a040', runner: '#ff4040', spitter: '#a6ff4a', brute: '#ff7a2a', dog: '#ff6060', bloater: '#c8ff40', screamer: '#ff70ff', armored: '#70b8ff', copz: '#e8d36a', abom: '#ff2a00', boss: '#ff2a00', saw: '#ff7a30', bandit: '#ffd090', axer: '#ff9a50', knight: '#9ab8ff', caballero: '#c8d0e0', conjurador: '#c040ff', esqueleto: '#f0e8d0', oro: '#ffd040', enfermera: '#ff8ab0' };   // cada tipo de zombi con su color en el minimapa
 function drawMap() {
-  { const bod = !!(game && game.bod && world.idx === BOD_IDX); if (document.body.classList.contains('bod-on') !== bod) document.body.classList.toggle('bod-on', bod); if (bod) return bodMinimapa(); }   // BETA · solo las habitaciones exploradas (y el mapa de la esquina 25 % más grande)
+  { const bod = !!(game && game.bod && world.idx === BOD_IDX); if (document.body.classList.contains('bod-on') !== bod) document.body.classList.toggle('bod-on', bod); const w_ = bod ? BAL.bodegas.mapa.ancho : 260; if (el.map.width !== w_) el.map.width = w_; if (bod) return bodMinimapa(); }   // BETA · solo las habitaciones exploradas (y el mapa de la esquina 25 % más grande)
   const c = mapCtx, W = 260, R = 130, sc = R / 32;
   c.clearRect(0, 0, W, W);
   c.save(); c.beginPath(); c.arc(R, R, R - 2, 0, TAU); c.clip();
@@ -32315,7 +32321,8 @@ function updateHud(dt) {
   const left = game.toSpawn + Math.max(0, game.alive);
   setText(el.waveSub, 'wsub', game.bod ? '¡Encuentra la salida!' : game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : tuto ? tuto.sub : 'Despejado');
   { const ct = $('#contract'), tx = contractText(); setText(ct, 'ctr', tx); const ci = $('#ctr-ic'); if (!!tx !== !!ci.innerHTML) ci.innerHTML = tx ? ico('scroll') : ''; const cl = game.contract ? (game.contract.done ? 'done' : game.contract.fail ? 'fail' : '') : ''; if (ct.className !== cl) ct.className = cl; if (game.phase === 'fight' && !(game.time % 0.5 < 0.02)) contractStep(false); }
-  setText(el.fee, 'fee', game.bod && game.phase === 'fight' ? bodSub() + ' · ' + bodFee() : game.bod && game.phase === 'room' ? 'Las Bodegas del casino' : game.phase === 'room' ? 'La Trastienda' : game.phase === 'exit' ? 'Elige una puerta para seguir' : '');
+  bodLlavesHud();
+  setText(el.fee, 'fee', game.bod && game.phase === 'fight' ? bodSub() : game.bod && game.phase === 'room' ? 'Las Bodegas del casino' : game.phase === 'room' ? 'La Trastienda' : game.phase === 'exit' ? 'Elige una puerta para seguir' : '');
   setText(el.gold, 'gold', `$ ${game.gold}`); deudaMini();
   cajaHud();
   { const npc = cops.find(c => c.npc && !c.dead);
@@ -39627,7 +39634,7 @@ $('#btn-ach-back').addEventListener('click', () => { renderMeta(); show(volverA)
 $('#btn-altar').addEventListener('click', () => { renderAltar.said = 0; show('altar'); if (renderAltar.pan && !renderAltar.panOk) renderAltar.pan = null; renderAltar(); renderAltar.panOk = 1; });   // se dibuja ya visible: así el árbol empieza centrado (con la pantalla escondida no se sabe su tamaño)
 $('#btn-altar-back').addEventListener('click', () => { renderMeta(); show(volverA); volverA = 'menu'; });
 renderMeta();
-$('#btn-continue').addEventListener('click', () => { const sv = store.get(JUEGO_BOD ? BOD_SAVE : SAVE_KEY, null); if (!sv) return; if (JUEGO_BOD) BOD.pide = 0; startGame(sv); });   // el juego: vuelves a la última caja fuerte que abriste
+$('#btn-continue').addEventListener('click', () => { if (JUEGO_BOD) return; const sv = store.get(SAVE_KEY, null); if (!sv) return; startGame(sv); });   // el juego (las Bodegas) no se continúa: al caer, todo se reinicia
 $('#btn-again').addEventListener('click', () => startGame());
 $('#btn-menu').addEventListener('click', () => toMenu('inicio'));
 // después de perder en grupo: el anfitrión vuelve a abrir la misma sala y los demás entran con el mismo código
@@ -40021,7 +40028,7 @@ $('#idioma').addEventListener('change', e => { store.set('sb_lang', e.target.val
    todo lo de este modo vive en game.bod (el mapa sale de una semilla y su estado en game.bod.st) y en el objeto BOD (mallas y cosas vivas).
    El mapa se arma como el boceto: habitaciones prediseñadas en una cuadrícula que crece como un árbol desde el Inicio. Todas las cifras en BAL.bodegas. */
 BAL.bodegas = {
-  hab: [9, 18], bordes: [5, 3], limite: { guardado: 1, taller: 1, despensa: 1, campana: 1, mini: 2 },
+  hab: [9, 18], bordes: [5, 3], limite: { taller: 1, despensa: 1, campana: 1, mini: 2 },   // dueño (25-oct-2026): «elimina el punto de guardado» (ya no hay Cuarto de guardado)
   paso: 20.4, alto: 4, muro: 0.3, vano: 2.4, tam: { chica: 10.2, mediana: 13.6, grande: 17, puerta: 4 },   // dueño (24-oct-2026): habitaciones 70 % más grandes (antes chica 6, mediana 8, grande 10; paso 12)
   plata: { cada: 4, min: 2, max: 4 }, atajos: [1, 2],
   guardias: { guardia: [4, 5], taller: [3, 3], bodega: [2, 2], oscuro: [1, 1] }, patrulla: 3, oro: 0.12,   // dueño (25-oct-2026): «menos zombis, como en la primera beta» (el 24-oct se había subido a 6-7 / 4-5 / 3-4 / 2 y patrulla de 5)
@@ -40029,7 +40036,13 @@ BAL.bodegas = {
  levantarse: { p: 0.4, t: 5 },
   rompibles: { n: [5, 8], golpes: 2, nada: 0.65, oro: 0.25, oroN: [3, 8], balas: 6 },
   cofre: { oro: [20, 40], bala: 0.35, pieza: 0.15 },
-  inicio: { balas: 12 }, caja: { cura: 20 }, mini: { premios: [0, 10, 25, 60], p: [0.5, 0.28, 0.16, 0.06], giro: 1.4 },
+  llaveSalida: { n: 1 },
+  // el mapa de la esquina al estilo Isaac (dueño, 25-oct-2026): ancho del lienzo (alto 260), px por casilla, tamaño de cada habitación (parte de la casilla),
+  // grosor del pasillo, iconos (uno solo / dos juntos), cuánto se apagan las vecinas sin visitar, y colores
+  mapa: { ancho: 338, celda: 58, celdaTel: 72, cuarto: { chica: 0.72, mediana: 0.8, grande: 0.88, puerta: 0.62, abierto: 0.8 }, pasillo: 9, ico: 26, ico2: 19, apagado: 0.6, borde: 12, esquina: 6,
+    fondo: 'rgba(8,6,4,.8)', nuevo: 'rgba(58,52,46,.88)', bordeV: 'rgba(255,236,200,.6)', bordeN: 'rgba(190,180,160,.45)', pasilloC: 'rgba(160,138,110,.85)', pasilloN: 'rgba(120,104,86,.6)', gris: '#7d7873',
+    col: { llave: '#ffd060', plata: '#e4ecf4', jefe: '#ff5a48', tienda: '#46e08a', cofre: '#e0a050', comida: '#ff9a70', pieza: '#b8c4d0', mini: '#d88aff', campana: '#ffe070', duda: '#d8d0c0' } },   // cuántas llaves de la salida pide el nivel (por ahora 1: el HUD muestra «1/2» si algún día son más)
+  inicio: { balas: 12 }, mini: { premios: [0, 10, 25, 60], p: [0.5, 0.28, 0.16, 0.06], giro: 1.4 },
   despensa: { platos: 2, cura: [15, 30] }, campana: { t: 8, casillas: 2 }, oscuro: { premio: [15, 25], centro: 1.8 },
   piezas: { canon: 0.15, gatillo: 0.12, tambor: 1, mira: 0.2, culata: 0.2, cargador: 0.2 },
   jefe: { vida: 0.8, llamada: 6 }, cuota: [110, 140], trastienda: { fichas: 0 },   // dueño (25-oct-2026): la Tienda es donde se compran las balas: entrar es siempre gratis (antes la 2.ª visita costaba 1 ficha)
@@ -40066,14 +40079,14 @@ const BOD_T = {
   // salas con puerta a un interior (dueño, 25-oct-2026): cada una con su color de puerta (BAL.bodegas.salas)
   herrero: { n: 'Herrero', c: '#d0702a', tam: 'puerta', sala: 1 }, juegos: { n: 'Sala de juegos de azar', c: '#d0485a', tam: 'puerta', sala: 1 },
   capsulas: { n: 'Cápsulas del Fin del Mundo', c: '#e85aa8', tam: 'puerta', sala: 1 }, garra: { n: 'La Garra', c: '#4a7ae0', tam: 'puerta', sala: 1 },
-  bodega: { n: 'Bodega de cajas', c: '#a8783e', tam: 'mediana' }, guardia: { n: 'Cuarto de guardia', c: '#c08a2a', tam: 'mediana' }, guardado: { n: 'Cuarto de guardado', c: '#5a8ad0', tam: 'chica' },
+  bodega: { n: 'Bodega de cajas', c: '#a8783e', tam: 'mediana' }, guardia: { n: 'Cuarto de guardia', c: '#c08a2a', tam: 'mediana' },
   mini: { n: 'Cuarto del minijuego', c: '#b05ad0', tam: 'chica' }, despensa: { n: 'Despensa', c: '#d0a05a', tam: 'chica' }, taller: { n: 'Taller de armas', c: '#8a8f99', tam: 'mediana' },
   campana: { n: 'Campanario', c: '#d8c050', tam: 'chica' }, oscuro: { n: 'Cuarto oscuro con barriles', c: '#3a3a4a', tam: 'mediana' },
   // espacios abiertos: en el mapa de la esquina van en tonos de cielo de noche
   callejon: { n: 'Callejón trasero', c: '#4a78a8', ab: 1 }, patio: { n: 'Patio interior con pozo de luz', c: '#6a9ad0', ab: 1 },
   jardin: { n: 'Jardín de los fumadores', c: '#4a9a8a', ab: 1 }, canal: { n: 'Canal de desagüe', c: '#3a8ab8', ab: 1 }
 };
-const BOD_VAR = ['bodega', 'guardia', 'guardado', 'mini', 'despensa', 'taller', 'campana', 'oscuro'];
+const BOD_VAR = ['bodega', 'guardia', 'mini', 'despensa', 'taller', 'campana', 'oscuro'];   // sin el Cuarto de guardado (dueño, 25-oct-2026: al perder, todo se reinicia)
 const bodEsSala = t => !!(BOD_T[t] && BOD_T[t].sala);   // la Tienda y las demás salas con puerta a un interior
 const bodCerrada = t => t === 'jefe' || bodEsSala(t);
 const bodSalaAparte = t => bodEsSala(t) && t !== 'tras';   // van aparte de las 9 a 18 habitaciones   // ni atajos, ni espacios abiertos, ni la patrulla pasan por ellas
@@ -40253,6 +40266,7 @@ function bodRevisar(L) {
   const B = BAL.bodegas, mal = [], R = L.rooms.filter(r => !r.abierto), n = R.filter(r => !bodSalaAparte(r.t)).length, c = t => R.filter(r => r.t === t).length;   // los espacios abiertos y las salas aparte (Herrero, Juegos, Cápsulas, La Garra) no cuentan entre las 9 a 18
   if (n < B.hab[0] || n > B.hab[1]) mal.push('habitaciones ' + n);
   if (c('inicio') !== 1 || c('jefe') !== 1 || c('tras') !== 1) mal.push('fijas');
+  if (R.some(r => !BOD_T[r.t])) mal.push('tipo sin datos');   // p. ej. el viejo Cuarto de guardado (ya no existe)
   for (const k in B.limite) if (c(k) > B.limite[k]) mal.push('límite ' + k);
   // salas con puerta a un interior: cada tipo entre su mínimo y su máximo, sin guardias, y con una sola entrada (cuelgan de una habitación)
   for (const t of B.salas.orden) if (c(t) < B.salas[t].min || c(t) > B.salas[t].max) mal.push('sala ' + t + ' ' + c(t));
@@ -40296,7 +40310,7 @@ function bodPasilloDe(x, z) {
 const bodSt = () => game && game.bod && game.bod.st;
 function bodEstado(L) {
   const B = BAL.bodegas;
-  return { vis: { 0: 1 }, abiertas: {}, rotos: {}, usados: {}, vivos: L.rooms.map(r => r.g), patrulla: B.patrulla, oro: L.oro >= 0 ? 1 : 0, plata: 0, llave: 0, suelo: [], piezas: [], trasN: 0, jefe: 0, sorpresa: {}, volver: 0, caja: 0, cuota: 0, inicio: 0 };
+  return { vis: { 0: 1 }, abiertas: {}, rotos: {}, usados: {}, vivos: L.rooms.map(r => r.g), patrulla: B.patrulla, oro: L.oro >= 0 ? 1 : 0, plata: 0, llave: 0, suelo: [], piezas: [], trasN: 0, jefe: 0, sorpresa: {}, volver: 0, cuota: 0, inicio: 0 };
 }
 
 // ---- 2. Construir el sótano en 3D: paredes de piedra, suelo, techo, puertas y lámparas cálidas.
@@ -40447,7 +40461,7 @@ function buildBodegas() {
   for (const k of st.suelo) bodLlaveSuelo(k, true);
   // puntos de aparición (para lo que los pida: en las Bodegas los zombis salen de sus cuartos)
   for (const r of L.rooms) if (r.t !== 'inicio' && !bodEsSala(r.t) && !r.abierto) { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
-  const ini = st.volver ? (L.rooms[st.salaR] && bodEsSala(L.rooms[st.salaR].t) ? L.rooms[st.salaR] : tras) : L.rooms[st.caja && st.cajaR != null ? st.cajaR : 0], ci = bodC(ini);   // al volver de una sala, apareces en su vestíbulo
+  const ini = st.volver ? (L.rooms[st.salaR] && bodEsSala(L.rooms[st.salaR].t) ? L.rooms[st.salaR] : tras) : L.rooms[0], ci = bodC(ini);   // al volver de una sala, apareces en su vestíbulo
   world.start = { x: ci.x, z: ci.z + (st.volver ? 0 : 0.8) };
   bodJardin(L, st);   // el jardín del cementerio: el inicio del juego (afuera, más allá del sótano)
   BOD.tiros = game ? game.shots : 0;
@@ -40478,12 +40492,6 @@ function bodAdornos(r, c, h, gR, lados, st) {
     const p = e(0, 1.0), rot = Math.atan2(c.x - p.x, c.z - p.z); bodCofre(gR, p.x, p.z, rot, r, uso, usado('cofre'));
     const t = e(1, 1.7); M(bx(1.4, 0.08, 0.8), BODM.madera, t.x, 0.78, t.z, { p: gR, cast: false }); for (const [a, b_] of [[-0.6, -0.32], [0.6, -0.32], [-0.6, 0.32], [0.6, 0.32]]) M(bx(0.07, 0.78, 0.07), BODM.madera2, t.x + a, 0.39, t.z + b_, { p: gR, cast: false }); addBox(t.x, t.z, 0.72, 0.42);
     M(bx(0.3, 0.05, 0.2), bsc(0xf0e0b0), t.x + 0.2, 0.85, t.z, { p: gR, cast: false });   // naipes
-  }
-  if (r.t === 'guardado') {
-    const p = e(0, 1.0); M(bx(0.9, 1.1, 0.8), lam(0x2a3a4a, { emissive: 0x060a10 }), p.x, 0.55, p.z, { p: gR, cast: false, ry: Math.atan2(c.x - p.x, c.z - p.z) }); addCircle(p.x, p.z, 0.6);
-    const dial = M(cyl(0.14, 0.14, 0.06, 14), BODM.oro, p.x + (c.x - p.x) * 0.22, 0.7, p.z + (c.z - p.z) * 0.22, { p: gR, cast: false, rx: Math.PI / 2, ry: Math.atan2(c.x - p.x, c.z - p.z) });
-    bodGlow(p.x, 1.3, p.z, 0x80b0ff, 1.2, usado('caja') ? 0.08 : 0.35, gR);
-    uso('caja', { x: p.x, z: p.z, t: 'Caja fuerte', d: `Guarda la partida y te cura ${B.caja.cura} de vida. Se usa una sola vez.`, b: 'Abrir la caja fuerte', use(o) { const h_ = Math.min(B.caja.cura, player.maxHp - player.hp); player.hp += h_; dial.rotation.z += 2; bodUsado(o); const s_ = bodSt(); s_.caja = 1; s_.cajaR = r.i; Sfx.cash(); saveGame({ bodCaja: 1, punto: 'ola' }); banner('Partida guardada', h_ > 0 ? `Vida +${Math.round(h_)}` : 'Si caes, vuelves aquí', 2400, 'key'); } });
   }
   if (r.t === 'mini') {
     const p = e(0, 1.0), ry = Math.atan2(c.x - p.x, c.z - p.z), g = Grp(p.x, p.z, ry, gR);
@@ -40751,7 +40759,7 @@ function bodJardinTextos() {
       tel: [[['Tarjeta'], 'Toca su botón para usar'], [['Inventario'], 'Abre tu inventario'], [['II'], 'Pausa y «Cómo vas»']] }
   ];
 }
-// se llama al final de buildBodegas: si la partida empieza en el Inicio (no al volver de la Trastienda ni en una caja fuerte), empieza en el jardín
+// se llama al final de buildBodegas: si la partida empieza en el Inicio (no al volver de una sala), empieza en el jardín
 function bodJardin(L, st) {
   const J = BAL.bodegas.jardin, A = world.arena;
   BODJ.on = false; BODJ.g = null; BODJ.usos = []; BODJ.saliendo = false; BODJ.env0 = null; BODJ.ocultos = []; BODJ.luces = []; bodJardinCartel(-1);
@@ -41513,45 +41521,130 @@ function bodFin(gano) {
   if (!game || !game.bod || BOD.finT) return; BOD.finT = 1; setTimeout(() => BOD.finT = 0, 800);
   try { if (!gano) muerte3dFin(); Golpes.limpiar(); } catch (e) {}
   const st = bodSt(), L = BOD.L, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60), D = game.deuda;
-  const caja = (() => { try { return !gano && !!localStorage.getItem(BOD_SAVE); } catch (e) { return false; } })();
+  try { localStorage.removeItem(BOD_SAVE); } catch (e) {}   // nada que retomar: ganes o pierdas, la próxima partida empieza desde el jardín
   state = 'over'; if (document.pointerLockElement) document.exitPointerLock(); linternaPon(false);
   show(null); showUse(null); el.hud.hidden = true; $('#touch').hidden = true;
   const vis = L ? bodVistas(L, st) : 0, deuda = D && D.pagada ? `Pagada · ${D.monto} $` : D ? `Faltan ${deudaFalta()} $` : `${deudaSaldo()} $ por pagar`, nv = bodNivel();
   $('#bf-t').textContent = gano ? `¡Saliste del Nivel ${nv}!` : 'Caíste en las Bodegas';
-  $('#bf-tag').textContent = gano ? `Completaste el Nivel ${nv}: Las Bodegas del casino. El Nivel ${nv + 1} todavía no existe.` : caja ? 'Puedes volver a la última caja fuerte que abriste.' : 'Cada partida arma un mapa nuevo.';
+  $('#bf-tag').textContent = gano ? `Completaste el Nivel ${nv}: Las Bodegas del casino. El Nivel ${nv + 1} todavía no existe.` : 'Al caer se pierde todo. Vuelves a empezar en el jardín, con un mapa nuevo.';
   $('#bf-stats').innerHTML = [['Oro', game.gold + ' $'], ['Zombis', game.kills], ['Tiempo', `${mm}:${String(ss).padStart(2, '0')}`], bodDeuda() ? ['Deuda', deuda] : ['A la cabeza', game.heads | 0], ['Habitaciones', `${vis} / ${L ? L.rooms.filter(r => !r.abierto).length : 0}`]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
   const a = $('#bf-a'), b = $('#bf-b');
-  a.textContent = gano ? 'Volver al menú' : caja ? 'Volver a la caja fuerte' : 'Otra vez'; b.hidden = gano;
-  a.onclick = () => { $('#bod-fin').hidden = true; if (gano) toMenu('inicio'); else if (caja) { const sv = store.get(BOD_SAVE, null); toMenu('inicio'); if (sv) { BOD.pide = 0; startGame(sv); } } else { toMenu('inicio'); bodEmpezar(); } };
+  a.textContent = gano ? 'Volver al menú' : 'Empezar de nuevo'; b.hidden = gano;
+  a.onclick = () => { $('#bod-fin').hidden = true; if (gano) toMenu('inicio'); else { toMenu('inicio'); bodEmpezar(); } };   // una partida nueva desde el jardín (mapa nuevo, Nivel 1)
   b.onclick = () => { $('#bod-fin').hidden = true; toMenu('inicio'); };
-  if (gano) { try { localStorage.removeItem(BOD_SAVE); } catch (e) {} if (Sfx.jingle) Sfx.jingle('boss'); }
+  if (gano && Sfx.jingle) Sfx.jingle('boss');
   $('#bod-fin').hidden = false; setTimeout(() => a.focus(), 60);
 }
 // ---- el HUD y el minimapa (solo las habitaciones exploradas)
 function bodSub() { const st = bodSt(), L = BOD.L; if (!st || !L) return ''; return `Habitaciones ${bodVistas(L, st)} de ${L.rooms.filter(r => !r.abierto).length}`; }
 function bodVistas(L, st) { return Object.keys(st.vis).filter(i => L.rooms[i] && !L.rooms[i].abierto).length; }   // los espacios abiertos no cuentan como habitaciones
-function bodFee() { const st = bodSt(); if (!st) return ''; return `Llaves de plata: ${st.plata | 0} · Llave de salida: ${st.llave ? 'sí' : 'no'}`; }
+// en la ficha del jugador (dueño, 25-oct-2026: «iconos junto a la ficha de miembro para llaves y llave de piso»): fichas de miembro, llaves de plata
+// (cuántas tienes) y la llave de la salida (encendida si la tienes; si un nivel pide más de una, «1/2»). Reemplaza la línea de texto bajo el título
+function bodLlavesHud() {
+  const box = el.bodK || (el.bodK = $('#bod-k')); if (!box) return;
+  const st = bodSt(), on = !!(game && game.bod && st);
+  if (box.hidden === on) box.hidden = !on; if (!on) { box._h = ''; return; }
+  const N = Math.max(1, BAL.bodegas.llaveSalida.n | 0), ll = Math.min(N, st.llave | 0), pl = st.plata | 0, fi = game.poker | 0, si = ll >= N;
+  const h = `<span class="bk fi${fi ? '' : ' no'}" title="Fichas de miembro" aria-label="Fichas de miembro: ${fi}">${ico('chip')}<b>${fi}</b></span>`
+    + `<span class="bk pl${pl ? '' : ' no'}" title="Llaves de plata" aria-label="Llaves de plata: ${pl}">${ico('key')}<b>${pl}</b></span>`
+    + `<span class="bk sa${si ? ' si' : ' no'}" title="Llave de la salida" aria-label="${si ? 'Tienes la llave de la salida' : 'Te falta la llave de la salida'}">${ico('key')}${N > 1 ? `<b>${ll}/${N}</b>` : ''}</span>`;
+  if (box._h !== h) { box._h = h; box.innerHTML = h; }
+}
+// ---- el mapa de la esquina al estilo de The Binding of Isaac (dueño, 25-oct-2026: «que se vea con claridad lo que hay… que en el mapa se puedan ver
+// los iconos pequeños de las cosas que tenía la sala. como isaac»). El norte siempre arriba y tú en el centro (la flecha dice hacia dónde miras).
+//   · las habitaciones que visitaste: rellenas, con el color de su tipo; la tuya, más clara y con borde blanco
+//   · sus vecinas que aún no visitas: oscuras con un «?» (mapa por descubrir); las que avisan desde la puerta (la del jefe, las de llave de plata
+//     y las salas con puerta de color) muestran su icono apagado (puertas que avisan)
+//   · el resto no se ve. Cada habitación lleva iconos pequeños dibujados (sin letras) de lo que tiene; lo ya usado se pone gris
+// Los iconos: siluetas de 24 × 24 (Path2D) con borde oscuro para leerse sobre cualquier color. Todas las medidas en BAL.bodegas.mapa
+const BOD_ICO = {
+  llave: 'M7 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9zM7 10.2a1.8 1.8 0 1 1 0 3.6a1.8 1.8 0 1 1 0-3.6zM11.5 10.5h10.5v3h-10.5zM16 13.5h2.4v3.6h-2.4zM19.6 13.5h2.4v2.8h-2.4z',
+  candado: 'M7.4 10.5V8a4.6 4.6 0 0 1 9.2 0v2.5h-2.3V8a2.3 2.3 0 0 0-4.6 0v2.5zM5 10.5h14a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1zM12 13.2a1.7 1.7 0 0 0-.8 3.2V19h1.6v-2.6a1.7 1.7 0 0 0-.8-3.2z',
+  cofre: 'M3 10.5a3.5 3.5 0 0 1 3.5-3.5h11a3.5 3.5 0 0 1 3.5 3.5v1H3zM3 12.8h18V20H3zM10.6 10.2h2.8v4h-2.8z',
+  tienda: 'M4.6 8.5h14.8l-1.3 12.5H5.9zM8.2 8.5V7a3.8 3.8 0 0 1 7.6 0v1.5h-2V7a1.8 1.8 0 0 0-3.6 0v1.5z',
+  herrero: 'M2 6.5h13.5c.4 2.6 2.4 3.7 6.5 3.7v2c-3.6 0-5.6.8-6.6 2.6l.6 2.2h2.5v3H5.5v-3H8l.6-2.2C7.5 12.6 5.3 11 2 10.4z',
+  juegos: 'M5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13A2.5 2.5 0 0 1 5.5 3zM8 6.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM16 6.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM12 10.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM8 14.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM16 14.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4z',
+  capsulas: 'M3.6 11a8.4 8.4 0 0 1 16.8 0zM3.8 13h16.4a8.4 8.4 0 0 1-16.4 0z',
+  garra: 'M10.8 1.5h2.4v6h-2.4zM6.5 7.5h11v3.6h-11zM7.4 11.1l-3.4 4.4 2.3 5.8 2-1-1.7-4.6 3-3.6zM16.6 11.1l3.4 4.4-2.3 5.8-2-1 1.7-4.6-3-3.6zM10.9 11.1h2.2v6.6h-2.2z',
+  jefe: 'M12 2.5c-5 0-8.6 3.4-8.6 8 0 2.7 1.2 4.7 3.3 5.9v4.1h10.6v-4.1c2.1-1.2 3.3-3.2 3.3-5.9 0-4.6-3.6-8-8.6-8zM8.6 8.6a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6zM15.4 8.6a2.3 2.3 0 1 0 0 4.6a2.3 2.3 0 1 0 0-4.6zM12 13.6l-1.4 2.6h2.8zM9.5 17.8h1.2v2.7H9.5zM13.3 17.8h1.2v2.7h-1.2z',
+  salida: 'M5.5 2.5h13v19h-13zM8 5v14h8V5zM9.4 6.4h5.2v11.2H9.4zM13.2 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2z',
+  campana: 'M12 2.4a1.6 1.6 0 0 1 1.6 1.6v.7c3 .8 5 3.4 5 6.7v4.1l2.2 2.7H3.2l2.2-2.7v-4.1c0-3.3 2-5.9 5-6.7V4A1.6 1.6 0 0 1 12 2.4zM9.4 19.5h5.2a2.6 2.6 0 0 1-5.2 0z',
+  comida: 'M14.5 3a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM9 13.2l1.8 1.8-4.2 4.2-1.8-1.8zM4.4 15.8a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6zM6.6 18a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6z',
+  mini: 'M7.8 14.3a3.6 3.6 0 1 1 0 7.2a3.6 3.6 0 0 1 0-7.2zM16.2 12.8a3.6 3.6 0 1 1 0 7.2a3.6 3.6 0 0 1 0-7.2zM8.3 14.4l3-10.6 1.6.4-3 10.6zM15.3 12.9l-2.6-8.6 1.5-.4 2.6 8.6zM12.2 3.8c2.2-2 5.4-2 7.6-.4-2.2 2-5.4 2.1-7.6.4z',
+  bolsa: 'M9 2.5h6l-1.7 3.4h-2.6zM10.4 7C6 9 3.8 12.8 3.8 16c0 2.7 2 4.6 4.3 4.6h7.8c2.3 0 4.3-1.9 4.3-4.6 0-3.2-2.2-7-6.6-9z',
+  duda: 'M8.6 9.2a3.6 3.6 0 1 1 5.3 3.1c-1.1.6-1.9 1.3-1.9 2.6v.9', dudaP: 'M12 17.6a1.6 1.6 0 1 0 0 3.2a1.6 1.6 0 1 0 0-3.2z'
+};
+{ const n = 8, p = []; for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * TAU, r = i % 2 ? 7.4 : 10; for (const da of [-0.13, 0.13]) p.push([12 + Math.cos(a + da) * r, 12 + Math.sin(a + da) * r]); }   // la pieza de arma: un engranaje
+  BOD_ICO.pieza = 'M' + p.map(q => q[0].toFixed(2) + ' ' + q[1].toFixed(2)).join('L') + 'zM12 8.6a3.4 3.4 0 1 0 0 6.8a3.4 3.4 0 1 0 0-6.8z'; }
+let BOD_ICO_P = null; const BOD_ICO_HUECO = ['llave', 'candado', 'cofre', 'juegos', 'jefe', 'salida', 'pieza'];
+function bodIco(c, k, x, y, s, col, gris) {
+  if (!BOD_ICO_P) { BOD_ICO_P = {}; for (const n in BOD_ICO) BOD_ICO_P[n] = BOD_ICO_HUECO.includes(n) || n.startsWith('duda') ? new Path2D(BOD_ICO[n]) : BOD_ICO[n].split(/(?=M)/).map(q => new Path2D(q)); }   // con hueco: una sola figura (par-impar); las demás: piezas sueltas que se suman
+  const P = BOD_ICO_P[k]; if (!P) return;
+  c.save(); c.translate(x - s / 2, y - s / 2); c.scale(s / 24, s / 24); c.lineJoin = 'round'; c.lineCap = 'round'; c.strokeStyle = 'rgba(0,0,0,.88)';
+  const C = gris ? BAL.bodegas.mapa.gris : col;
+  if (k === 'duda') { c.lineWidth = 7; c.stroke(P); c.lineWidth = 3.2; c.strokeStyle = C; c.stroke(P); c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.88)'; c.stroke(BOD_ICO_P.dudaP); c.fillStyle = C; c.fill(BOD_ICO_P.dudaP); }
+  else if (Array.isArray(P)) { c.lineWidth = 3.4; for (const q of P) c.stroke(q); c.fillStyle = C; for (const q of P) c.fill(q); }
+  else { c.lineWidth = 3.4; c.stroke(P); c.fillStyle = C; c.fill(P, 'evenodd'); }
+  c.restore();
+}
+// los iconos de una habitación: [icono, color, gris]. conoce: ya la visitaste (si no, solo avisa lo que se ve desde su puerta)
+function bodMiniIcos(r, st, conoce) {
+  const M_ = BAL.bodegas.mapa.col, u = k => !!st.usados[r.i + ':' + k], out = [];
+  if (r.plata && !st.abiertas[r.i]) out.push(['candado', M_.plata, 0]);
+  if (r.t === 'jefe') out.push(st.jefe === 2 ? ['salida', M_.llave, 0] : ['jefe', M_.jefe, 0]);
+  else if (bodEsSala(r.t)) out.push([{ tras: 'tienda', herrero: 'herrero', juegos: 'juegos', capsulas: 'capsulas', garra: 'garra' }[r.t], r.t === 'tras' ? M_.tienda : BOD_T[r.t].c, 0]);
+  if (!conoce) return out.length ? out : [['duda', M_.duda, 0]];
+  if (r.t === 'guardia') { if (r.llave && !u('cofre')) out.push(['llave', M_.llave, 0]); else out.push(['cofre', M_.cofre, u('cofre')]); }
+  else if (r.t === 'bodega') out.push(['llave', M_.plata, (st.vivos[r.i] | 0) === 0]);   // al despejarla suelta una llave de plata
+  else if (r.t === 'despensa') out.push(['comida', M_.comida, (r.platos || []).every((_, k) => u('plato' + k))]);
+  else if (r.t === 'taller') out.push(['pieza', M_.pieza, u('pieza')]);
+  else if (r.t === 'oscuro') out.push(['bolsa', M_.cofre, u('premio')]);
+  else if (r.t === 'mini') out.push(['mini', M_.mini, 0]);
+  else if (r.t === 'campana') out.push(['campana', M_.campana, 0]);
+  return out.slice(0, 2);
+}
 function bodMinimapa() {
-  const c = mapCtx, W = 260, R = 130, sc = R / 32, st = bodSt(), L = BOD.L; if (!L || !st) return;
-  c.clearRect(0, 0, W, W); c.save(); c.beginPath(); c.arc(R, R, R - 2, 0, TAU); c.clip(); c.fillStyle = 'rgba(8,6,4,.72)'; c.fillRect(0, 0, W, W);
-  const yaw = player.yaw, fx_ = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
-  const tr = (x, z) => { const dx = x - player.pos.x, dz = z - player.pos.z; return [R + (dx * rx + dz * rz) * sc, R - (dx * fx_ + dz * fz) * sc]; };
-  const caja = (x, z, hw, hd) => { const p = [[x - hw, z - hd], [x + hw, z - hd], [x + hw, z + hd], [x - hw, z + hd]].map(([a, b]) => tr(a, b)); c.beginPath(); p.forEach(([a, b], i) => i ? c.lineTo(a, b) : c.moveTo(a, b)); c.closePath(); };
-  c.lineWidth = 2;
-  for (const [a, b] of bodUniones(L)) { if (!st.vis[a] && !st.vis[b]) continue; const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); const vert = A.x === Bc.x; caja((A.x + Bc.x) / 2, (A.z + Bc.z) / 2, vert ? 1 : Math.abs(A.x - Bc.x) / 2, vert ? Math.abs(A.z - Bc.z) / 2 : 1); c.fillStyle = 'rgba(120,100,80,.55)'; c.fill(); }
-  for (const r of L.rooms) {
-    if (!st.vis[r.i]) continue; const cc = bodC(r), h = bodH(r);
-    caja(cc.x, cc.z, bodH(r, 'x'), bodH(r, 'z')); c.fillStyle = BOD_T[r.t].c + 'aa'; c.fill();
-    if (r.abierto) { c.setLineDash([5, 4]); c.strokeStyle = '#bfe0ff'; c.stroke(); c.setLineDash([]); }   // los espacios abiertos: color de cielo y borde punteado
-    else { c.strokeStyle = r.plata && !st.abiertas[r.i] ? '#dfe8f0' : 'rgba(0,0,0,.6)'; c.stroke(); }
+  const c = mapCtx, MP = BAL.bodegas.mapa, W = el.map.width, H = el.map.height, st = bodSt(), L = BOD.L; if (!L || !st) return;
+  const CE = IS_TOUCH ? MP.celdaTel : MP.celda, zi = CE / MP.celda, k = CE / BAL.bodegas.paso, X0 = W / 2, Y0 = H / 2, vis = st.vis, aqui = BOD.aqui ? BOD.aqui.i : -1;
+  const tr = (x, z) => [X0 + (x - player.pos.x) * k, Y0 + (z - player.pos.z) * k];
+  const caja = (x, z, hw, hd) => { const [a, b] = tr(x - hw, z - hd); c.beginPath(); c.rect(a, b, 2 * hw * k, 2 * hd * k); };
+  const rrect = (x, y, w, h, q) => { c.beginPath(); c.moveTo(x + q, y); c.arcTo(x + w, y, x + w, y + h, q); c.arcTo(x + w, y + h, x, y + h, q); c.arcTo(x, y + h, x, y, q); c.arcTo(x, y, x + w, y, q); c.closePath(); };
+  c.clearRect(0, 0, W, H); c.save(); rrect(1, 1, W - 2, H - 2, MP.borde); c.clip(); c.fillStyle = MP.fondo; c.fillRect(0, 0, W, H);
+  const E = bodUniones(L), veci = new Set();
+  for (const [a, b] of E) { if (vis[a] && !vis[b]) veci.add(b); if (vis[b] && !vis[a]) veci.add(a); }
+  // el rectángulo de cada habitación en el mapa (las salas con puerta, más chicas; los espacios abiertos cubren sus casillas)
+  const rect = r => {
+    if (r.abierto) { const xs = r.cel.map(q => q[0]), ys = r.cel.map(q => q[1]), h = CE * MP.cuarto.abierto / 2, [a, b] = tr(Math.min(...xs) * BAL.bodegas.paso + 0.5, Math.min(...ys) * BAL.bodegas.paso + 0.5), [a2, b2] = tr(Math.max(...xs) * BAL.bodegas.paso + 0.5, Math.max(...ys) * BAL.bodegas.paso + 0.5); return [a - h, b - h, a2 - a + 2 * h, b2 - b + 2 * h]; }
+    const h = CE * (MP.cuarto[r.tam] || MP.cuarto.mediana) / 2, [a, b] = tr(bodC(r).x, bodC(r).z); return [a - h, b - h, 2 * h, 2 * h];
+  };
+  // pasillos (debajo de las habitaciones): de plata si llevan a un cuarto cerrado con llave de plata
+  c.lineCap = 'butt';
+  for (const [a, b] of E) {
+    if (!vis[a] && !vis[b]) continue; const ra = L.rooms[a], rb = L.rooms[b], [x1, y1] = tr(bodC(ra).x, bodC(ra).z), [x2, y2] = tr(bodC(rb).x, bodC(rb).z);
+    const pl = (ra.plata && !st.abiertas[a]) || (rb.plata && !st.abiertas[b]);
+    c.strokeStyle = pl ? MP.col.plata : vis[a] && vis[b] ? MP.pasilloC : MP.pasilloN; c.lineWidth = MP.pasillo * zi; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
   }
   bodJardinMini(c, tr, caja);   // el jardín del inicio
-  for (const D of BOD.puertas) { if (!st.vis[D.r] && !(D.tipo === 'plata')) continue; if (D.tipo === 'plata' && !L.rooms.some(r => st.vis[r.i] && bodUnidas2(r.i, D.r))) continue; const [x, y] = tr(D.x, D.z); c.fillStyle = D.tipo === 'plata' ? (D.abierta ? '#6a6a6a' : '#dfe8f0') : D.tipo === 'salida' ? '#ffd060' : D.tipo === 'verde' ? (L.rooms[D.r].t === 'tras' ? '#40ff90' : BOD_T[L.rooms[D.r].t].c) : D.abierta ? '#6a5a4a' : '#ff5a4a'; c.beginPath(); c.arc(x, y, 5, 0, TAU); c.fill(); }
-  for (const S_ of BOD.suelo) { const [x, y] = tr(S_.k.x, S_.k.z); c.fillStyle = S_.k.t === 'llave' ? '#ffd060' : '#dfe8f0'; c.fillRect(x - 4, y - 4, 8, 8); }
-  for (const z of zombies) { if (z.dead || !z.bod || !(z.bod.alerta || z.boss != null)) continue; const [x, y] = tr(z.root.position.x, z.root.position.z); c.fillStyle = z.boss != null ? '#ff2a00' : '#e8d36a'; c.beginPath(); c.arc(x, y, z.boss != null ? 7 : 4.5, 0, TAU); c.fill(); }
+  for (const r of L.rooms) {
+    const v = !!vis[r.i]; if (!v && !veci.has(r.i)) continue;
+    const [x, y, w, h] = rect(r), yo = r.i === aqui;
+    rrect(x, y, w, h, MP.esquina);
+    if (v) { c.fillStyle = '#1c1612'; c.fill(); c.globalAlpha = yo ? 0.95 : 0.62; c.fillStyle = BOD_T[r.t].c; c.fill(); c.globalAlpha = 1; }
+    else { c.fillStyle = MP.nuevo; c.fill(); }
+    if (r.abierto) c.setLineDash([5, 4]);
+    c.lineWidth = yo ? 3.2 : 2; c.strokeStyle = yo ? '#ffffff' : r.abierto ? '#bfe0ff' : v ? MP.bordeV : MP.bordeN; c.stroke(); c.setLineDash([]);
+    const ic = bodMiniIcos(r, st, v); if (!ic.length) continue;
+    const s = (ic.length > 1 ? MP.ico2 : MP.ico) * zi, cx = x + w / 2, cy = y + h / 2;
+    if (!v) c.globalAlpha = MP.apagado;
+    ic.forEach(([n, col, g], j) => bodIco(c, n, cx + (ic.length > 1 ? (j - 0.5) * s * 1.05 : 0), cy, s, col, g));
+    c.globalAlpha = 1;
+  }
+  for (const S_ of BOD.suelo) { const [x, y] = tr(S_.k.x, S_.k.z); bodIco(c, 'llave', x, y, MP.ico2 * zi, S_.k.t === 'llave' ? MP.col.llave : MP.col.plata, 0); }   // llaves en el suelo
   for (const p of pickups) { const [x, y] = tr(p.g.position.x, p.g.position.z); c.fillStyle = '#' + PK[p.type].color.toString(16).padStart(6, '0'); c.fillRect(x - 3, y - 3, 6, 6); }
+  for (const z of zombies) { if (z.dead || !z.bod || !(z.bod.alerta || z.boss != null)) continue; const [x, y] = tr(z.root.position.x, z.root.position.z); c.fillStyle = z.boss != null ? '#ff2a00' : '#e8d36a'; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, z.boss != null ? 6 : 4, 0, TAU); c.fill(); c.stroke(); }
+  // tú: una flecha blanca que gira hacia donde miras
+  c.save(); c.translate(X0, Y0); c.rotate(-player.yaw); c.beginPath(); c.moveTo(0, -11); c.lineTo(-8, 8); c.lineTo(0, 4); c.lineTo(8, 8); c.closePath(); c.lineJoin = 'round'; c.lineWidth = 3; c.strokeStyle = '#000'; c.stroke(); c.fillStyle = '#fff'; c.fill(); c.restore();
   c.restore();
-  c.fillStyle = '#ece2cb'; c.beginPath(); c.moveTo(R, R - 10); c.lineTo(R - 7, R + 7); c.lineTo(R, R + 3); c.lineTo(R + 7, R + 7); c.closePath(); c.fill();
 }
 function bodUnidas2(a, b) { for (const [x, y] of bodUniones(BOD.L)) if ((x === a && y === b) || (x === b && y === a)) return true; return false; }
 BOD.navV = 0;

@@ -11,10 +11,10 @@ Se juega en espacios cerrados y estrechos, con tensión como en The House of the
 - Cantidad de habitaciones: al azar, entre **9 y 18** en cada partida.
 - El mapa se arma con **habitaciones prediseñadas** que cambian de orden en cada partida.
 - Habitaciones fijas: **Inicio** (ascensor roto), **Sala del jefe** (con la puerta de salida y sus cerrojos) y **Trastienda** (puerta verde, gratis o con tarjeta de miembro).
-- Habitaciones variables (todas aprobadas): Bodega de cajas, Cuarto de guardia, Cuarto de guardado, Cuarto del minijuego, Despensa, Taller de armas, Campanario y Cuarto oscuro con barriles.
+- Habitaciones variables (todas aprobadas): Bodega de cajas, Cuarto de guardia, Cuarto del minijuego, Despensa, Taller de armas, Campanario y Cuarto oscuro con barriles.
 
 - Llaves de la salida en el Nivel 1: siempre **1** (para enseñar la regla); en los demás niveles, de 0 a 3 al azar.
-- Repeticiones con límite: se repiten Bodega de cajas, Cuarto de guardia y Cuarto oscuro; máximo 1 por mapa: Cuarto de guardado, Taller de armas, Despensa y Campanario; máximo 2: Cuarto del minijuego.
+- Repeticiones con límite: se repiten Bodega de cajas, Cuarto de guardia y Cuarto oscuro; máximo 1 por mapa: Taller de armas, Despensa y Campanario; máximo 2: Cuarto del minijuego.
 - Habitaciones con llave de plata: 1 por cada 4 habitaciones (de 2 a 4).
 
 - Zombis que cuidan habitaciones (según la habitación): Cuarto de guardia 4 o 5 (tiene la llave), Taller de armas 3, Bodega de cajas 2, Cuarto oscuro 1 escondido que sale de sorpresa; Despensa, Minijuego y Guardado sin guardias.
@@ -43,7 +43,7 @@ Se juega en espacios cerrados y estrechos, con tensión como en The House of the
 
 ---
 # Propuesta detallada del Nivel 1
-Aprobado por el dueño (24-oct-2026): Trastienda con la primera entrada gratis y luego 1 tarjeta de miembro; las piezas del arma se pierden al terminar la partida; la caja fuerte guarda y cura 20 de vida, 1 vez; el jefe aparece al cruzar la mitad de su sala con la puerta cerrada detrás. El resto del detalle sigue como propuesta.
+Aprobado por el dueño (24-oct-2026): Trastienda con la primera entrada gratis y luego 1 tarjeta de miembro; las piezas del arma se pierden al terminar la partida; la caja fuerte guardaba y curaba 20 de vida, 1 vez (quitada el 25-oct-2026: ya no hay punto de guardado); el jefe aparece al cruzar la mitad de su sala con la puerta cerrada detrás. El resto del detalle sigue como propuesta.
 Todo lo que sigue es propuesta. Las cifras irán en BAL para poder ajustarlas.
 
 ## 1. Cómo se arma el mapa
@@ -68,7 +68,6 @@ Todo lo que sigue es propuesta. Las cifras irán en BAL para poder ajustarlas.
 |---|---|---|---|---|
 | **Bodega de cajas** | mediana | 2 | 5 a 8 cajas y barriles que se rompen a balazos. Cada uno (tacaño, decidido): 65 % nada, 25 % oro (3–8 $), 10 % balas (6). | se repite |
 | **Cuarto de guardia** | mediana | 4 o 5 | Un cofre. Uno de ellos guarda la **llave de la salida**; los demás, 20–40 $ o una bala común. | se repite |
-| **Cuarto de guardado** | chica | 0 | Una caja fuerte: guarda la partida y cura 20 de vida. Se usa 1 vez. | 1 por mapa |
 | **Cuarto del minijuego** | chica | 0 | Una máquina pequeña: 1 ficha por tirada; premios 0 / 10 / 25 / 60 $. | máx. 2 |
 | **Despensa** | chica | 0 | 2 platos al azar que curan (15 a 30 de vida). | 1 por mapa |
 | **Taller de armas** | mediana | 3 | Una mesa con **1 pieza de arma al azar** para tu arma (ver punto 6). | 1 por mapa |
@@ -106,11 +105,11 @@ Reglas de las balas (cinturón de 8 y reserva de 6), la deuda con Don Santino, l
 Siguiente paso decidido (24-oct-2026): boceto del mapa visto desde arriba (bocetos/nivel1_mapa.html) antes de construir.
 
 ## Estado de la beta jugable (24-oct-2026)
-Ya se juega como modo aparte: botón «Beta: Las Bodegas» de la portada o `?beta=bodegas` en la dirección. No cambia la partida normal ni su partida guardada (la caja fuerte guarda en su propio lugar).
+Ya se juega como modo aparte: botón «Beta: Las Bodegas» de la portada o `?beta=bodegas` en la dirección. No cambia la partida normal ni su partida guardada.
 Simplificado en la beta: todas las habitaciones ocupan una casilla (chica 6 m, mediana 8 m, la del jefe 10 m) y los pasillos miden lo que queda hasta la casilla vecina; los muebles son de geometría sencilla; al ganar sale la pantalla «Nivel 1 superado» y se vuelve al menú (el Nivel 2 todavía no existe). Las cifras están en `BAL.bodegas`.
 
 ## Flujo nuevo hecho (25-oct-2026, rama flujo-nuevo)
-- **Jugar → las Bodegas, Nivel 1**: tras la dificultad y el personaje se entra directo (sin elegir mapa y sin la llamada de la deuda). El botón «Beta: Las Bodegas» de la portada queda escondido; `?beta=bodegas` sigue sirviendo. «Continuar» retoma la última caja fuerte. El modo viejo de días sigue en el código (el juego en grupo todavía lo usa) pero no se llega desde «Jugar» solo.
+- **Jugar → las Bodegas, Nivel 1**: tras la dificultad y el personaje se entra directo (sin elegir mapa y sin la llamada de la deuda). El botón «Beta: Las Bodegas» de la portada queda escondido; `?beta=bodegas` sigue sirviendo. «Continuar» ya no ofrece las Bodegas (no hay punto de guardado). El modo viejo de días sigue en el código (el juego en grupo todavía lo usa) pero no se llega desde «Jugar» solo.
 - **Sin deuda** (`BAL.deuda.activa = false`): ni cuota, ni llamadas de Don Santino tras el jefe, ni «Deuda» en el HUD. Al salir: «¡Saliste del Nivel 1!».
 - **Misión «¡ENCUENTRA LA SALIDA!»**: cartel grande al empezar y línea del HUD; el título dice «Nivel 1».
 - **Menos zombis** (como la primera beta): guardia 4–5, taller 3, bodega 2, oscuro 1; patrulla de 3.
@@ -122,3 +121,10 @@ Simplificado en la beta: todas las habitaciones ocupan una casilla (chica 6 m, m
 - 4 carteles con los controles (Moverse; Disparar y recargar; Habilidades y armas; Usar, inventario y partida), con versión de computadora y de teléfono.
 - Al cruzar la puerta de la mansión empieza el Nivel 1 en el cuarto de inicio. La puerta es de un solo sentido (no se puede volver al jardín para escapar de los zombis).
 - Todas las cifras en BAL.bodegas.jardin.
+
+## Mapa al estilo Isaac, llaves en la ficha y sin punto de guardado (25-oct-2026, rama mapa-hud)
+Pedido del dueño: «añade una mejora en la interfaz del mapa para que se vea con claridad lo que hay. añade iconos junto a la ficha de miembro para llaves y llave de piso. también que en el mapa se puedan ver los iconos pequeños de las cosas que tenía la sala. como isaac. elimina el punto de guardado. al perder todo se reinicia.»
+- **Mapa de la esquina como en Isaac**: rectangular, con el norte siempre arriba y tú en el centro (la flecha blanca dice hacia dónde miras). Las habitaciones que visitaste se ven rellenas con el color de su tipo; la tuya, más clara y con borde blanco. Sus vecinas sin visitar salen oscuras con un «?» (**mapa por descubrir**); la del jefe, las de llave de plata y las salas con puerta de color muestran su icono apagado (**puertas que avisan**). El resto no se ve. Los espacios abiertos y el jardín siguen con borde punteado.
+- **Iconos pequeños en cada habitación** (dibujados, sin letras): llave de la salida (dorada), llave de plata (plateada: la que suelta una Bodega al despejarla), candado de plata, cofre, Tienda, Herrero, Juegos de azar, Cápsulas, La Garra, jefe (calavera; al vencerlo, la puerta de salida), campana, pieza de arma (engranaje), comida de la despensa, máquina pequeña y la bolsa del cuarto oscuro. Lo ya usado se pone gris. Las llaves que quedan en el suelo también se ven. Todas las medidas y colores en `BAL.bodegas.mapa`; en el teléfono las casillas son más grandes (`celdaTel`).
+- **En la ficha del jugador**, bajo el oro: fichas de miembro, llaves de plata (cuántas tienes) y la llave de la salida (apagada hasta que la tienes; si un nivel pidiera más de una, «1/2», `BAL.bodegas.llaveSalida.n`). Reemplaza la línea «Llaves de plata: 0 · Llave de salida: no»; bajo el título solo queda «Habitaciones X de Y».
+- **Sin punto de guardado**: ya no existe el Cuarto de guardado (ni su caja fuerte). «Continuar» no ofrece las Bodegas y lo que quedara guardado de antes se borra. **Al caer se pierde todo**: la pantalla «Caíste en las Bodegas» tiene «Empezar de nuevo» (botón principal: partida nueva desde el jardín, con mapa nuevo, Nivel 1) y «Menú».
