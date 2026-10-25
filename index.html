@@ -3188,7 +3188,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=29').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=30').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -40447,6 +40447,7 @@ function buildBodegas() {
   for (const r of L.rooms) if (r.t !== 'inicio' && !bodEsSala(r.t) && !r.abierto) { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
   const ini = st.volver ? (L.rooms[st.salaR] && bodEsSala(L.rooms[st.salaR].t) ? L.rooms[st.salaR] : tras) : L.rooms[st.caja && st.cajaR != null ? st.cajaR : 0], ci = bodC(ini);   // al volver de una sala, apareces en su vestíbulo
   world.start = { x: ci.x, z: ci.z + (st.volver ? 0 : 0.8) };
+  bodJardin(L, st);   // el jardín del cementerio: el inicio del juego (afuera, más allá del sótano)
   BOD.tiros = game ? game.shots : 0;
   if (G) bodPuertasUso();
 }
@@ -40460,16 +40461,9 @@ function bodAdornos(r, c, h, gR, lados, st) {
   const uso = (k, o) => { o.bodK = id(k); if (usado(k)) o.off = true; BOD.usos[o.bodK] = o; return mapUse(Object.assign({ r: 1.7, cd: 0.6 }, o)); };
   const caja = (x, z, s, rot) => M(bx(s, s, s), BODM.madera, x, s / 2, z, { p: gR, ry: rot, cast: false });
   if (r.t === 'inicio') {
-    // el ascensor roto en una pared libre
+    // la puerta por la que entraste desde el jardín (el ascensor roto ahora está afuera, en la torre pequeña del jardín)
     const k = libres[0];
-    if (k) { const [dx, dz] = DV[k], px = c.x + dx * (h - 0.08), pz = c.z + dz * (h - 0.08), ry = dx ? -dx * Math.PI / 2 : dz > 0 ? Math.PI : 0, g = Grp(px, pz, ry, gR);
-      M(bx(2.6, 3.0, 0.3), BODM.hierro, 0, 1.5, 0, { p: g, cast: false }); for (const s of [-1, 1]) M(bx(0.95, 2.4, 0.08), lam(0x7a7c80, { emissive: 0x101010 }), s * 0.52, 1.2, 0.18, { p: g, cast: false, ry: s * 0.05 });
-      M(bx(0.5, 0.3, 0.05), bsc(0xff3020), 0, 2.75, 0.18, { p: g, cast: false }); bodGlow(px - dx * 0.4, 2.75, pz - dz * 0.4, 0xff4020, 0.8, 0.5, gR);
-      addBox(px, pz, dx ? 0.25 : 1.3, dx ? 1.3 : 0.25);
-      uso('ascensor', { x: px - dx * 1.2, z: pz - dz * 1.2, t: 'El ascensor roto', d: 'Está trabado: de aquí no se sube. La salida está en la sala del jefe.', b: 'Pulsar el botón', cd: 2, use() { Sfx.err(); hint('El ascensor no se mueve. Busca la llave: la salida está en la sala del jefe', 3000); } });
-      const k2 = libres[1]; if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas'); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
-      else { const s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas', 1.6, 0.8); s_.position.set(0, 3.2, 0.17); g.add(s_); }
-    }
+    bodJardinPuertaDentro(r, c, h, k || 'n', libres[1], gR, uso, k ? 0 : (h + B.vano / 2) / 2);
     const p = e(0); caja(p.x, p.z, 0.8, 0.3); addCircle(p.x, p.z, 0.55); if (!usado('balas')) M(bx(0.5, 0.2, 0.35), lam(0xe8b860, { emissive: 0x3a2808 }), p.x, 0.9, p.z, { p: gR, cast: false });
     uso('balas', { x: p.x, z: p.z, t: 'Caja de balas', d: `${B.inicio.balas} balas normales para tu caja.`, b: 'Tomar las balas', use(o) { const n = munAdd('pistola', B.inicio.balas); feed(`+${n} balas normales`, 'gold'); Sfx.insert(); bodUsado(o); } });
   }
@@ -40717,6 +40711,364 @@ function bodFundirG(lista) {
   }
   const G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); G.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); G.setIndex(idx); G.computeBoundingSphere();
   return G;
+}
+/* ===================== JARDÍN DEL CEMENTERIO · el inicio del juego (dueño, 25-oct-2026) =====================
+   Al aire libre y de noche: estrellas, luciérnagas y luna llena. Detrás del jugador, una torre pequeña con la puerta de un ascensor roto (de ahí vienes);
+   enfrente, la gran torre: ancha como una mansión y tan alta que se pierde entre las nubes. Bancas, una fuente, esqueletos y 4 carteles con los controles.
+   No es una habitación del mapa: queda afuera, más allá del borde del sótano, y su puerta lleva al Inicio (la habitación 0). Así las reglas del mapa
+   (bodRevisar) no cambian. Para el teléfono: casi todo va fundido en pocas mallas (una por material); estrellas, luciérnagas, chispas y brillos son
+   puntos (un dibujo por grupo) y usa las mismas 2 o 3 luces del sótano. Mientras estás en el jardín, el sótano no se dibuja. Todas las cifras aquí. */
+BAL.bodegas.jardin = {
+  hueco: 34, ancho: 36, fondo: 34, suelo: 190,   // metros: del borde del sótano a la fachada, el patio (ancho × fondo) y el pasto que se pierde en la niebla
+  torre: { ancho: 44, fondo: 24, alto: 170, piso: 4.2, cols: 12, colsLado: 5, ventana: [1.3, 2.1], luz: [0.34, 0.07], alas: { ancho: 12, alto: 18, cols: 3 }, cornisa: 6, pilastras: 5 },
+  puerta: { ancho: 3.4, alto: 4.8, entra: 0.75, escalones: 3, abre: 1.05 },   // entra: a cuántos metros de la fachada empieza el nivel; abre: ángulo de las hojas
+  ascensor: { ancho: 7, fondo: 6, alto: 18, techo: 5, chispas: 40, chispasTel: 18, cada: [1.1, 3.0], parpadeo: 0.9, encendido: 0.55, oir: 6 },
+  nubes: { n: 48, nTel: 28, alto: [27, 104], abajo: 0.6, capa: 28, tam: [28, 58], alto2: 0.42, radio: 1.15, giro: [0.014, -0.009], color: 0x9eaacb, op: 0.95 },
+  estrellas: 700, estrellasTel: 340, cielo: 300,
+  luciernagas: 64, luciernagasTel: 28, luciernaga: { color: [0.85, 1, 0.45], tam: 0.2, vuelo: 0.9, alto: [0.4, 2.4], ritmo: [0.5, 1.4] },
+  luna: { dir: [-0.5, 0.42, 0.75], color: 0xb4c8ff, i: 0.62 },
+  env: { fog: 0x0b1226, dens: 0.0125, top: 0x02040d, hemiS: 0x6a80b8, hemiG: 0x14180f, hemiI: 0.58, lantern: 0.7, viento: 0.06, vientoDentro: 0 },
+  fuente: { r: 2.4, alto: 0.6, chorro: 1.75 },
+  bancas: 4, banca: 5.7, lapidas: 7, lapidasFuera: 46, esqueletos: 5, arbolesFuera: 3,
+  farol: { color: 0xffc070, i: 1.5, d: 12 }, brillo: 1.7,
+  cartel: { r: 1.9, lejos: 1.2, tam: [1.5, 0.75] },
+  fundido: [700, 600], aviso: [3200, 4600]   // ms: el negro al cruzar la puerta (entra, sale) y el aviso del principio (cuándo, cuánto dura)
+};
+const BODJ = { on: false, g: null, O: null, dentro: null, ocultos: [], usos: [], abierto: -1, saliendo: false, env0: null, t: 0, luces: [] };
+// los 4 carteles: en la computadora con las teclas de verdad (las de Configuración), en el teléfono con los botones de la pantalla
+function bodJardinTextos() {
+  const k = tecla;
+  return [
+    { t: 'Moverse', pc: [[[k('KeyW'), k('KeyA'), k('KeyS'), k('KeyD')], 'Caminar'], [[k('ShiftLeft')], 'Correr'], [[k('Space')], 'Saltar'], [['Ratón'], 'Mirar alrededor']],
+      tel: [[['Palanca'], 'Arrástrala para caminar'], [['Hasta el borde'], 'Corres'], [['Lado derecho'], 'Desliza para mirar']] },
+    { t: 'Disparar y recargar', pc: [[['Clic izquierdo'], 'Disparar'], [['Clic derecho'], 'Apuntar con la mirilla'], [[k('KeyR')], 'Recargar'], [[k('KeyF')], 'Abanicar el martillo: tiros muy rápidos'], [[k('KeyG')], 'Girar el tambor']],
+      tel: [[['Fuego'], 'Disparar'], [['Mirilla'], 'Apuntar'], [['Recargar'], 'Meter balas'], [['Abanicar'], 'Tiros muy rápidos']] },
+    { t: 'Habilidades y armas', pc: [[[k('KeyQ')], 'Ojo Muerto: el tiempo se frena'], [[k('KeyC')], 'Ultimate de tu personaje'], [[k('Digit1'), k('Digit2'), k('Digit3')], 'Cambiar de arma'], [[k('Digit4')], 'Lanzar dinamita']],
+      tel: [[['Ojo Muerto'], 'El tiempo se frena'], [['Ultimate'], 'Tu poder especial'], [['Arma'], 'Cambiar de arma'], [['TNT'], 'Lanzar dinamita']] },
+    { t: 'Usar, inventario y partida', pc: [[[k('KeyE')], 'Usar: carteles, puertas y cofres'], [['I'], 'Abrir el inventario'], [['Tab'], 'Tabla de la partida: cómo vas, ping y FPS'], [['Esc'], 'Pausa']],
+      tel: [[['Tarjeta'], 'Toca su botón para usar'], [['Inventario'], 'Abre tu inventario'], [['II'], 'Pausa y «Cómo vas»']] }
+  ];
+}
+// se llama al final de buildBodegas: si la partida empieza en el Inicio (no al volver de la Trastienda ni en una caja fuerte), empieza en el jardín
+function bodJardin(L, st) {
+  const J = BAL.bodegas.jardin, A = world.arena;
+  BODJ.on = false; BODJ.g = null; BODJ.usos = []; BODJ.saliendo = false; BODJ.env0 = null; BODJ.ocultos = []; BODJ.luces = []; bodJardinCartel(-1);
+  BODJ.O = { x: 0.5, z: A.hz + J.hueco };   // la puerta de la mansión: al sur del sótano; el jardín sigue hacia el sur
+  if (st.jardin || bodHabDe(world.start.x, world.start.z) !== L.rooms[0]) return;   // ya cruzaste la puerta (o empiezas en otro lado): el jardín no se arma
+  BODJ.ocultos = world.group.children.filter(o => !o.isLight && o.visible);
+  bodJardinArmar(L);
+  A.hz = Math.ceil(BODJ.O.z + J.fondo + J.ascensor.fondo + 3);   // el jugador puede caminar hasta allá (las rutas de los zombis también cubren el jardín, pero no hay zombis)
+  world.start = { x: BODJ.O.x, z: BODJ.O.z + J.fondo - 2.4 };   // de espaldas al ascensor, mirando a la gran torre
+  bodJardinModo(true);
+  setTimeout(() => { if (BODJ.on && game && game.bod) hint('Jardín del cementerio · lee los carteles · el nivel empieza en la puerta de la gran torre', J.aviso[1]); }, J.aviso[0]);
+}
+function bodJardinModo(on) {
+  const J = BAL.bodegas.jardin, E = J.env;
+  if (on) {
+    if (!BODJ.env0) BODJ.env0 = { fog: FOGC.getHex(), dens: scene.fog.density, top: skyMat.uniforms.top.value.getHex(), sky: skyG.visible, hemiS: hemi.color.getHex(), hemiG: hemi.groundColor.getHex(), hemiI: hemi.intensity, moonC: moon.color.getHex(), moonI: moon.intensity, moonDir: moonDir.clone(), lantern: lantern.intensity, wind: E.vientoDentro };
+    const d = new THREE.Vector3(J.luna.dir[0], J.luna.dir[1], J.luna.dir[2]).normalize();
+    env({ fog: E.fog, dens: E.dens, top: E.top, sky: true, hemiS: E.hemiS, hemiG: E.hemiG, hemiI: E.hemiI, moonC: J.luna.color, moonI: J.luna.i, moonDir: d, lantern: E.lantern, wind: E.viento });
+    moonMesh.position.copy(d).multiplyScalar(360); moonHalo.position.copy(moonMesh.position);   // la luna llena detrás del jugador: alumbra la fachada
+    world.indoor = false; world.noMoon = false; moonMesh.visible = moonHalo.visible = true;
+    for (const o of BODJ.ocultos) o.visible = false; if (BODJ.g) BODJ.g.visible = true;
+    BOD.luces.forEach((l, i) => { const p = BODJ.luces[i]; if (p) { l.position.set(p.x, p.y, p.z); l.color.setHex(J.farol.color); l.intensity = J.farol.i; l.distance = J.farol.d; } else l.position.set(0, -50, 0); });
+  } else {
+    if (BODJ.env0) env(BODJ.env0);
+    world.indoor = true; world.noMoon = true; moonMesh.visible = moonHalo.visible = false;
+    for (const o of BODJ.ocultos) o.visible = true; if (BODJ.g) BODJ.g.visible = false;
+    BOD.t = 0;   // las lámparas y los cuartos visibles se acomodan en el siguiente cuadro
+  }
+  BODJ.on = on;
+}
+// cada cuadro mientras estás en el jardín (lo llama bodStep): sin ruido para el sótano, sin zombis dibujados, y la puerta de la mansión
+function bodJardinPaso(dt) {
+  if (!BODJ.on || !BODJ.g) return false;
+  const J = BAL.bodegas.jardin, O = BODJ.O, lx = player.pos.x - O.x, lz = player.pos.z - O.z, st = bodSt();
+  if (Math.abs(lx) > J.ancho / 2 + 2 || lz < -2 || lz > J.fondo + 2) { bodJardinModo(false); if (st) st.jardin = 1; bodJardinCartel(-1); return false; }   // te llevaron a otro lado (las pruebas): el sótano sigue normal
+  BOD.tiros = game.shots; BOD.aqui = null;
+  if ((BODJ.t -= dt) <= 0) { BODJ.t = 0.25; for (const z of zombies) if (z.bod) z.root.visible = false; }
+  if (BODJ.abierto >= 0) { const o = BODJ.usos[BODJ.abierto]; if (!o || Math.hypot(player.pos.x - o.x, player.pos.z - o.z) > o.r + J.cartel.lejos) bodJardinCartel(-1); }
+  if (!BODJ.saliendo && state === 'play' && !player.down && Math.abs(lx) < J.puerta.ancho / 2 && lz < J.puerta.entra) bodJardinEntrar();
+  return true;
+}
+// cruzar la puerta de la mansión: un fundido a negro y apareces en el Inicio, con la puerta cerrada detrás
+function bodJardinEntrar() {
+  const J = BAL.bodegas.jardin; if (BODJ.saliendo || !BODJ.on) return;
+  BODJ.saliendo = true; bodJardinCartel(-1); useCur = null; showUse(null); Sfx.open();
+  $('#fade-s').textContent = 'Nivel 1'; $('#fade-t').textContent = MAPS[BOD_IDX].name; $('#fade-d').textContent = '¡Encuentra la salida!';
+  el.fade.classList.add('on'); state = 'trans'; releaseInput();
+  setTimeout(() => {
+    if (!game || !game.bod || !BOD.L) { BODJ.saliendo = false; return; }
+    const st = bodSt(), c0 = bodC(BOD.L.rooms[0]), D_ = BODJ.dentro || { x: c0.x, z: c0.z, yaw: 0 };
+    bodJardinModo(false); if (st) st.jardin = 1;
+    player.pos.set(D_.x, 0, D_.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = D_.yaw; player.pitch = 0;
+    bodLuces(); bodVisibles(); updateCamera(0.016); Sfx.thud && Sfx.thud(0);
+    setTimeout(() => {
+      el.fade.classList.remove('on'); BODJ.saliendo = false;
+      if (state === 'trans') { state = 'play'; requestLock(); canvas.focus(); }
+      banner('Nivel 1 · Las Bodegas', '¡Encuentra la salida!', 3000, 'key');
+    }, J.fundido[1]);
+  }, J.fundido[0]);
+}
+// la ventana de un cartel (i = -1 la cierra). Sin pausa: se cierra al alejarte, al volver a usar el cartel o con «Cerrar»
+function bodJardinCartel(i) {
+  let P = document.getElementById('jd-cartel');
+  if (i < 0) { if (P) P.hidden = true; BODJ.abierto = -1; document.body.classList.remove('jd-on'); return; }
+  if (!P) {
+    const css = document.createElement('style'); css.textContent = '#jd-cartel{position:absolute;left:50%;top:calc(138px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(540px,calc(100% - 32px));max-height:calc(100% - 140px);overflow-y:auto;z-index:7;background:rgba(28,18,10,.94);border:2px solid rgba(214,165,75,.75);border-radius:12px;padding:14px 16px;color:var(--bone);font-family:var(--hud);box-shadow:0 6px 24px rgba(0,0,0,.6)}'
+      + '#jd-cartel .jd-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}#jd-cartel h3{margin:0;font-family:var(--display);font-weight:400;font-size:24px;color:var(--gold);line-height:1.1}#jd-cartel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}'
+      + '#jd-cartel li{display:flex;gap:10px;align-items:center;font-size:16px;line-height:1.3}#jd-cartel .jd-k{flex:0 0 132px;display:flex;gap:4px;flex-wrap:wrap}'
+      + '#jd-cartel kbd{font:700 15px/1.1 var(--hud);padding:5px 8px;border-radius:6px;background:#f0e2c0;color:#2a1a0a;border-bottom:2px solid #8a6a40;white-space:nowrap}'
+      + '#jd-cartel .jd-pie{margin:10px 0 0;font-size:14px;color:var(--bone-dim)}#jd-cartel .jd-hd button{flex:0 0 auto;min-height:48px;min-width:48px;padding:0 14px;font-size:14px}body.jd-on #use{visibility:hidden}'
+      + '@media (max-height:500px) and (orientation:landscape){#jd-cartel{left:calc(40vw + 8px + env(safe-area-inset-left,0px));right:calc(200px + env(safe-area-inset-right,0px));width:auto;transform:none;top:calc(8px + env(safe-area-inset-top,0px));max-height:calc(100% - 140px);padding:8px 12px}#jd-cartel h3{font-size:20px}#jd-cartel .jd-hd{margin-bottom:4px}#jd-cartel li{font-size:15px;gap:8px}#jd-cartel .jd-k{flex-basis:104px}#jd-cartel ul{gap:4px}#jd-cartel kbd{padding:4px 7px}#jd-cartel .jd-pie{display:none}}';
+    document.head.appendChild(css);
+    P = document.createElement('div'); P.id = 'jd-cartel'; P.setAttribute('role', 'dialog'); P.hidden = true; $('#use').parentNode.appendChild(P);
+  }
+  const C = bodJardinTextos()[i], tel = IS_TOUCH, filas = tel ? C.tel : C.pc;
+  P.innerHTML = `<div class="jd-hd"><h3>${C.t}</h3><button type="button" class="btn2" id="jd-cerrar">Cerrar</button></div><ul>${filas.map(([ks, d]) => `<li><span class="jd-k">${ks.map(x => `<kbd>${x}</kbd>`).join('')}</span><span>${d}</span></li>`).join('')}</ul>`
+    + `<p class="jd-pie">${tel ? 'Para cerrar: aléjate o toca Cerrar' : 'Para cerrar: aléjate o vuelve a usar el cartel'}</p>`;
+  P.querySelector('#jd-cerrar').addEventListener('click', e => { e.preventDefault(); bodJardinCartel(-1); });
+  P.hidden = false; BODJ.abierto = i; document.body.classList.add('jd-on'); Sfx.holster && Sfx.holster();   // la tarjeta de «Usar» no se ve (pero la tecla sigue cerrando el cartel)
+  if (!bodJardinCartel.vigila) bodJardinCartel.vigila = setInterval(() => { if (BODJ.abierto >= 0 && (!game || !BODJ.on || world.idx !== BOD_IDX || !['play', 'pause'].includes(state))) bodJardinCartel(-1); }, 300);   // si se sale del jardín por cualquier lado, la ventana no se queda
+}
+// en el Inicio (la habitación 0): la puerta por la que entraste desde el jardín, ya cerrada (va donde antes estaba el ascensor)
+function bodJardinPuertaDentro(r, c, h, k, k2, gR, uso, off = 0) {   // off: corrida a lo largo de la pared (cuando todas las paredes tienen paso)
+  const DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, [dx, dz] = DV[k], px = c.x + dx * (h - 0.08) + (dz ? off : 0), pz = c.z + dz * (h - 0.08) + (dx ? off : 0), ry = dx ? -dx * Math.PI / 2 : dz > 0 ? Math.PI : 0, g = Grp(px, pz, ry, gR);
+  M(bx(3.0, 2.95, 0.3), BODM.madera2, 0, 1.47, 0, { p: g, cast: false });   // el marco
+  for (const s of [-1, 1]) { M(bx(1.18, 2.45, 0.08), BODM.madera, s * 0.62, 1.23, 0.18, { p: g, cast: false }); M(new THREE.SphereGeometry(0.06, 8, 6), BODM.oro, s * 0.14, 1.2, 0.25, { p: g, cast: false }); }
+  M(bx(2.3, 0.26, 0.04), bsc(0x5a78b8), 0, 2.64, 0.17, { p: g, cast: false }); bodGlow(px - dx * 0.4, 2.64, pz - dz * 0.4, 0x7a98d8, 1.2, 0.35, gR);   // el vidrio de arriba: afuera es de noche
+  addBox(px, pz, dx ? 0.25 : 1.5, dx ? 1.5 : 0.25);
+  uso('jardin', { x: px - dx * 1.2, z: pz - dz * 1.2, t: 'Puerta del jardín', d: 'Se cerró detrás de ti. Ya no hay vuelta atrás: encuentra la salida.', b: 'Empujar la puerta', cd: 2, use() { Sfx.err(); hint('Está cerrada. La salida está en la sala del jefe', 2600); } });
+  const x = px - dx * 1.7, z = pz - dz * 1.7; BODJ.dentro = { x, z, yaw: Math.atan2(-(c.x - x), -(c.z - z)) };   // al entrar apareces aquí, mirando al centro del cuarto
+  if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas'); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
+  else { const s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas', 1.6, 0.8); s_.position.set(0, 3.37, 0.17); g.add(s_); }
+}
+// el jardín en 3D
+function bodJardinArmar(L) {
+  const J = BAL.bodegas.jardin, T = J.torre, Pu = J.puerta, As = J.ascensor, O = BODJ.O, W = J.ancho, D = J.fondo, tel = IS_TOUCH || FAST();
+  const Wt = T.ancho, F = T.fondo, Ht = T.alto, Wa = T.alas.ancho, Ha = T.alas.alto, fz = D * 0.5, Fu = J.fuente;
+  const R = mulberry32((L.seed0 || L.seed || 1) ^ 0x6a4d1), q = (a, b) => a + R() * (b - a), ent = (a, b) => a + Math.floor(R() * (b - a + 1));
+  if (!BODM.fachada) bodMatsAb();
+  const g = BODJ.g = new THREE.Group(); g.position.set(O.x, 0, O.z); world.group.add(g);
+  const X = lx => O.x + lx, Z = lz => O.z + lz;   // de lo local (la puerta de la mansión es el 0,0; +z va hacia la torre pequeña) al mundo
+  const piezas = new Map(), formas = new Map(), m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), eu = new THREE.Euler(), v3 = new THREE.Vector3(), e3 = new THREE.Vector3(), o3 = new THREE.Object3D();
+  const caja = (m, b) => { if (!piezas.has(m)) piezas.set(m, []); piezas.get(m).push(b); };   // [x, y, z, ancho, alto, fondo]: una malla por material al final
+  const forma = (m, geo, x, y, z, s = 1, r = 0, p = null) => {   // cualquier figura (girada, escalada): también se funde al final
+    const S_ = typeof s === 'number' ? [s, s, s] : s, R_ = typeof r === 'number' ? [0, r, 0] : r;
+    m4.compose(v3.set(x, y, z), qt.setFromEuler(eu.set(R_[0], R_[1], R_[2], 'YXZ')), e3.set(S_[0], S_[1], S_[2])); if (p) { p.updateMatrix(); m4.premultiply(p.matrix); }
+    if (!formas.has(m)) formas.set(m, []); formas.get(m).push([geo, m4.clone()]);
+  };
+  const en = (x, z, ry) => { o3.position.set(x, 0, z); o3.rotation.set(0, ry || 0, 0); return o3; };   // un marco local (para bancas, esqueletos y carteles)
+  // ---- materiales (los nuevos se dibujan aquí; el resto viene del sótano y de los espacios abiertos)
+  const Mt = {
+    piedra: lam(0xffffff, { map: canvasTex(256, 256, (c, w, h) => { c.fillStyle = '#1e1b19'; c.fillRect(0, 0, w, h); for (let r = 0; r < 8; r++) for (let k = 0; k < 4; k++) { c.fillStyle = pick(['#3a3530', '#35302c', '#413b35', '#2f2b27', '#3d3832']); c.fillRect(k * 64 + (r % 2 ? 32 : 0) + 2, r * 32 + 2, 60, 28); c.fillRect(k * 64 + (r % 2 ? 32 : 0) - 256 + 2, r * 32 + 2, 60, 28); } for (let i = 0; i < 900; i++) { c.fillStyle = pick(['rgba(0,0,0,.22)', 'rgba(220,210,190,.05)']); c.fillRect(rand(0, w), rand(0, h), 2, 2); } }, 1) }),
+    grava: lam(0xffffff, { map: canvasTex(128, 128, (c, w, h) => { c.fillStyle = '#4a453e'; c.fillRect(0, 0, w, h); for (let i = 0; i < 1500; i++) { c.fillStyle = pick(['#6a645a', '#5a554c', '#3a352f', '#7a7266', '#2e2a26']); c.fillRect(rand(0, w), rand(0, h), rand(1, 3), rand(1, 3)); } }, 1) }),
+    hueso: lam(0xd8cfb4, { emissive: 0x15130e }), acero: lam(0x7a7c80, { emissive: 0x101010 }), roja: bsc(0xff3020),
+    pizarra: lam(0x22252c), dentro: bsc(0x3a2412), cartel: null
+  };
+  const aguaT = canvasTex(128, 128, (c, w, h) => { c.fillStyle = '#0c2a36'; c.fillRect(0, 0, w, h); for (let i = 0; i < 46; i++) { c.strokeStyle = pick(['rgba(140,200,230,.3)', 'rgba(60,120,140,.4)', 'rgba(220,240,255,.16)']); c.lineWidth = rand(1, 2.5); c.beginPath(); const y = rand(0, h), x = rand(0, w); c.moveTo(x, y); c.quadraticCurveTo(x + 8, y + rand(-4, 4), x + rand(14, 30), y); c.stroke(); } }, 1);
+  const cortT = canvasTex(64, 128, (c, w, h) => { c.clearRect(0, 0, w, h); for (let i = 0; i < 70; i++) { c.fillStyle = pick(['rgba(200,235,255,.5)', 'rgba(150,200,230,.35)', 'rgba(255,255,255,.6)']); c.fillRect(rand(0, w), rand(0, h), rand(1, 2.5), rand(10, 40)); } }, 1);
+  Mt.agua = lam(0xa8d4e8, { map: aguaT, emissive: 0x0a2430, transparent: true, opacity: 0.88 }); Mt.chorro = lam(0xc8e8ff, { map: cortT, emissive: 0x2a5868, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+  // los carteles y la placa de la puerta: un solo dibujo con todos (4 filas × 2 columnas de 512 × 256)
+  const TX = bodJardinTextos();
+  const atlas = canvasTex(1024, 1024, (c) => {
+    const celda = (i, fondo, titulo, sub, colT, colS) => {
+      const x0 = (i % 2) * 512, y0 = Math.floor(i / 2) * 256; c.save(); c.translate(x0, y0); fondo(c);
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = 'bold 58px Georgia, serif'; c.fillStyle = 'rgba(0,0,0,.55)';
+      const t = tx(titulo), lines = []; let cur = ''; for (const wd of t.split(' ')) { const ts = cur ? cur + ' ' + wd : wd; if (c.measureText(ts).width > 440 && cur) { lines.push(cur); cur = wd; } else cur = ts; } if (cur) lines.push(cur);
+      lines.forEach((l, j) => { const y = 112 - (lines.length - 1) * 31 + j * 62; c.fillText(l, 258, y + 3); }); c.fillStyle = colT; lines.forEach((l, j) => c.fillText(l, 256, 112 - (lines.length - 1) * 31 + j * 62));
+      if (sub) { c.font = '600 30px sans-serif'; c.fillStyle = colS; c.fillText(tx(sub), 256, 214); } c.restore();
+    };
+    const madera = c => { c.fillStyle = '#4a2e18'; c.fillRect(0, 0, 512, 256); for (let k = 0; k < 4; k++) { c.fillStyle = pick(['#6a4424', '#5e3c1f', '#734a28']); c.fillRect(6, 6 + k * 61, 500, 57); } for (let i = 0; i < 260; i++) { c.fillStyle = 'rgba(30,16,6,.35)'; c.fillRect(rand(6, 506), rand(6, 250), rand(8, 40), 1); } c.strokeStyle = '#2a1708'; c.lineWidth = 12; c.strokeRect(6, 6, 500, 244); };
+    TX.forEach((C, i) => celda(i, madera, C.t, 'Acércate para leer', '#f4e6c4', '#ffd27a'));
+    celda(4, c => { c.fillStyle = '#2a1e10'; c.fillRect(0, 0, 512, 256); c.strokeStyle = '#c8a040'; c.lineWidth = 10; c.strokeRect(10, 10, 492, 236); }, 'Casino Santino', 'Nivel 1 · Las Bodegas', '#e8c060', '#d8c8a0');
+  });
+  Mt.cartel = bsc(0xd8d0c0, { map: atlas });
+  const cel = (geo, i) => { const u = geo.attributes.uv, x0 = (i % 2) * 0.5, y1 = 1 - Math.floor(i / 2) * 0.25; for (let k = 0; k < u.count; k++) u.setXY(k, x0 + u.getX(k) * 0.5, y1 - 0.25 + u.getY(k) * 0.25); return geo; };
+  // ---- el suelo: pasto que llega lejos (la niebla lo tapa), senderos de grava y la placita de la puerta
+  { const S = J.suelo, m = new THREE.Mesh(new THREE.PlaneGeometry(S, S), BODM.pasto); m.rotation.x = -Math.PI / 2; m.position.set(0, 0.006, fz); const u = m.geometry.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * S / 3, u.getY(i) * S / 3); g.add(m); }
+  caja(Mt.grava, [0, 0.02, (1.6 + D - 1.0) / 2, 2.6, 0.02, D - 2.6]); caja(Mt.grava, [0, 0.02, fz, W - 3, 0.02, 2.2]); caja(Mt.grava, [0, 0.02, 1.5, 10, 0.02, 3.0]);
+  forma(Mt.grava, new THREE.RingGeometry(Fu.r + 0.3, Fu.r + 1.9, 32), 0, 0.03, fz, 1, [-Math.PI / 2, 0, 0]);
+  // ---- la gran torre (una mansión ancha que sube hasta perderse en las nubes)
+  caja(Mt.piedra, [0, Ht / 2, -F / 2, Wt, Ht, F]);
+  for (const s of [-1, 1]) {   // las alas a los lados: más bajas, con techo de pizarra
+    const ax = s * (Wt / 2 + Wa / 2); caja(Mt.piedra, [ax, Ha / 2, -F / 2 + 1, Wa, Ha, F - 2]); caja(BODM.cantera, [ax, Ha + 0.2, -F / 2 + 1, Wa + 0.6, 0.4, F - 1.4]);
+    forma(Mt.pizarra, roofGeo(F - 2, 3.6, Wa), ax, Ha + 0.4, -F / 2 + 1, 1, Math.PI / 2);
+    for (let r = 0; r < 4; r++) for (let j = 0; j < T.alas.cols; j++) { const x = ax + (j + 0.5) / T.alas.cols * Wa - Wa / 2, y = 2.6 + r * T.piso; if (y + T.ventana[1] / 2 > Ha - 1) continue; const lit = R() < T.luz[0]; caja(lit ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, T.ventana[0], T.ventana[1], 0.08]); caja(BODM.cantera, [x, y - T.ventana[1] / 2 - 0.06, 0.12, T.ventana[0] + 0.3, 0.12, 0.24]); }
+  }
+  caja(BODM.cantera, [0, 0.6, 0.12, Wt + 2 * Wa + 0.4, 1.2, 0.36]);   // el zócalo
+  for (let y = T.piso * T.cornisa; y < Ht; y += T.piso * T.cornisa) caja(BODM.cantera, [0, y, -F / 2, Wt + 0.5, 0.35, F + 0.5]);   // las cornisas: marcan los pisos hacia arriba
+  for (let i = 0; i < T.pilastras; i++) { const x = -Wt / 2 + i * Wt / (T.pilastras - 1), y0 = Math.abs(x) < Pu.ancho ? Pu.alto + 3.2 : 0; caja(BODM.cantera, [x, (Ht + y0) / 2, 0.12, 0.7, Ht - y0, 0.3]); }   // la del centro empieza sobre la placa
+  const nr = Math.floor((Ht - 4) / T.piso), ww = T.ventana[0], wh = T.ventana[1];
+  for (let r = 0; r < nr; r++) {   // muchas ventanas; algunas con luz, menos mientras más arriba (y la niebla las va borrando)
+    const y = 2.6 + r * T.piso, pl = T.luz[0] + (T.luz[1] - T.luz[0]) * r / nr;
+    for (let j = 0; j < T.cols; j++) { const x = -Wt / 2 + (j + 0.5) * Wt / T.cols; if (r <= 1 && Math.abs(x) < Pu.ancho / 2 + 2.4) continue; /* la puerta y la placa */ caja(R() < pl ? BODM.ventana : BODM.ventanaO, [x, y, 0.04, ww, wh, 0.08]); caja(BODM.cantera, [x, y - wh / 2 - 0.06, 0.12, ww + 0.3, 0.12, 0.24]); caja(BODM.cantera, [x, y + wh / 2 + 0.1, 0.1, ww + 0.2, 0.2, 0.2]); }
+    if (y > Ha + 1.5) for (const s of [-1, 1]) for (let j = 0; j < T.colsLado; j++) { const z = -F + (j + 0.5) * F / T.colsLado; caja(R() < pl ? BODM.ventana : BODM.ventanaO, [s * (Wt / 2 + 0.04), y, z, 0.08, wh, ww]); }
+  }
+  // la entrada: puerta doble abierta, marco de piedra, escalones, faroles y la placa
+  caja(Mt.dentro, [0, Pu.alto / 2, 0.03, Pu.ancho, Pu.alto, 0.04]);   // adentro: luz cálida
+  for (const s of [-1, 1]) {
+    caja(BODM.cantera, [s * (Pu.ancho / 2 + 0.4), Pu.alto / 2, 0.22, 0.8, Pu.alto, 0.44]);
+    const hx = s * Pu.ancho / 2, a = s * Pu.abre, lw2 = Pu.ancho / 2;   // las hojas abiertas hacia el jardín
+    forma(BODM.madera2, bx(lw2, Pu.alto - 0.1, 0.1), hx - s * lw2 / 2 * Math.cos(Pu.abre), Pu.alto / 2 - 0.05, 0.1 + lw2 / 2 * Math.sin(Pu.abre), 1, a);
+    caja(BODM.foco, [s * (Pu.ancho / 2 + 1.15), 3.4, 0.42, 0.3, 0.44, 0.3]); caja(BODM.metal, [s * (Pu.ancho / 2 + 1.15), 3.66, 0.42, 0.38, 0.08, 0.38]); caja(BODM.metal, [s * (Pu.ancho / 2 + 1.15), 3.2, 0.16, 0.06, 0.06, 0.5]);
+  }
+  caja(BODM.cantera, [0, Pu.alto + 0.45, 0.22, Pu.ancho + 1.8, 0.9, 0.44]); caja(BODM.cantera, [0, Pu.alto + 0.98, 0.3, Pu.ancho + 2.4, 0.18, 0.6]);
+  { const pl = cel(new THREE.PlaneGeometry(3.4, 1.7), 4); forma(Mt.cartel, pl, 0, Pu.alto + 2.1, 0.08); }
+  for (let i = 0; i < Pu.escalones; i++) { const h = (Pu.escalones - i) * 0.13, d = 0.5 * (i + 1); caja(BODM.cantera, [0, h / 2, d / 2, Pu.ancho + 2.6 + i * 0.6, h, d]); }
+  addBox(X(0), Z(-F / 2), Wt / 2 + Wa, F / 2);
+  const brillos = [];   // [x, y, z, r, g, b] de cada brillo (un solo dibujo para todos)
+  for (const s of [-1, 1]) brillos.push([s * (Pu.ancho / 2 + 1.15), 3.4, 0.6, 1, 0.75, 0.4]);
+  BODJ.luces.push({ x: X(0), y: 3.6, z: Z(1.6) });
+  // ---- la torre pequeña detrás: el ascensor de donde vienes (no funciona)
+  const tz = D + As.fondo / 2;
+  caja(BODM.fachada, [0, As.alto / 2, tz, As.ancho, As.alto, As.fondo]);
+  for (const y of [6, 12, As.alto]) caja(BODM.cantera, [0, y, tz, As.ancho + 0.4, 0.3, As.fondo + 0.4]);
+  forma(Mt.pizarra, cyl(0, As.ancho * 0.78, As.techo, 4), 0, As.alto + As.techo / 2, tz, 1, Math.PI / 4);
+  for (const y of [8.2, 14.2]) caja(BODM.ventanaO, [0, y, D - 0.03, 1.0, 1.6, 0.06]);
+  caja(BODM.metal, [0, 1.6, D - 0.06, 2.8, 3.2, 0.12]); caja(BODM.negro, [0, 1.3, D - 0.13, 2.1, 2.6, 0.02]);   // el marco del ascensor
+  forma(Mt.acero, bx(1.0, 2.5, 0.06), -0.52, 1.27, D - 0.17, 1, 0.04); forma(Mt.acero, bx(1.0, 2.46, 0.06), 0.55, 1.25, D - 0.2, 1, [0, -0.1, 0.025]);   // las dos hojas, una torcida
+  caja(BODM.metal, [0, 3.0, D - 0.14, 1.4, 0.3, 0.04]); forma(Mt.roja, new THREE.SphereGeometry(0.07, 8, 6), 1.15, 3.0, D - 0.2);
+  caja(BODM.metal, [1.75, 1.3, D - 0.1, 0.3, 0.5, 0.08]); forma(BODM.negro, cyl(0.012, 0.012, 0.6, 4), 1.82, 0.92, D - 0.16, 1, [0, 0, 0.3]);   // el tablero roto, con un cable colgando
+  const fs = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42), bsc(0xffffff, { map: canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#120404'; c.fillRect(0, 0, w, h); c.fillStyle = '#ff3a2a'; c.font = 'bold 30px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(tx('FUERA DE SERVICIO'), w / 2, h / 2 + 1); }) }));
+  fs.position.set(0, 3.5, D - 0.16); fs.rotation.y = Math.PI; g.add(fs);
+  const iRoja = brillos.length; brillos.push([1.15, 3.0, D - 0.4, 1, 0.2, 0.1]);
+  addBox(X(0), Z(tz), As.ancho / 2, As.fondo / 2);
+  mapUse({ x: X(1.75), z: Z(D - 1.0), r: 1.5, cd: 2, t: 'El ascensor roto', d: 'De aquí saliste. Está trabado: ya no sube ni baja.', b: 'Pulsar el botón', use() { Sfx.err(); chispa(1); hint('El ascensor no se mueve. Ve hacia la gran torre', 2600); } });
+  // ---- la fuente de agua (el agua se mueve)
+  forma(BODM.cantera, cyl(Fu.r, Fu.r + 0.12, Fu.alto - 0.12, 28), 0, (Fu.alto - 0.12) / 2, fz); forma(BODM.cantera, new THREE.TorusGeometry(Fu.r, 0.14, 6, 28), 0, Fu.alto, fz, 1, [Math.PI / 2, 0, 0]);
+  forma(Mt.agua, new THREE.CircleGeometry(Fu.r - 0.1, 28), 0, Fu.alto - 0.08, fz, 1, [-Math.PI / 2, 0, 0]);
+  forma(BODM.cantera, cyl(0.26, 0.36, 1.45, 12), 0, Fu.alto + 0.6, fz); forma(BODM.cantera, cyl(1.0, 0.36, 0.3, 18), 0, Fu.chorro - 0.15, fz); forma(BODM.cantera, cyl(0.1, 0.16, 0.45, 8), 0, Fu.chorro + 0.2, fz); forma(BODM.cantera, new THREE.SphereGeometry(0.14, 10, 8), 0, Fu.chorro + 0.48, fz);
+  forma(Mt.agua, new THREE.CircleGeometry(0.92, 20), 0, Fu.chorro + 0.01, fz, 1, [-Math.PI / 2, 0, 0]);
+  { const cg = new THREE.CylinderGeometry(1.0, 1.12, Fu.chorro - Fu.alto, 20, 1, true), u = cg.attributes.uv; for (let i = 0; i < u.count; i++) u.setX(i, u.getX(i) * 6); forma(Mt.chorro, cg, 0, (Fu.chorro + Fu.alto) / 2 - 0.05, fz); }   // la cortina de agua que cae del plato
+  forma(Mt.chorro, new THREE.CylinderGeometry(0.05, 0.1, 0.6, 8, 1, true), 0, Fu.chorro + 0.85, fz);   // el chorrito de arriba
+  addCircle(X(0), Z(fz), Fu.r + 0.15);
+  // ---- faroles del sendero
+  const farol = (x, z) => { forma(BODM.metal, cyl(0.06, 0.09, 3.1, 8), x, 1.55, z); caja(BODM.foco, [x, 3.25, z, 0.32, 0.42, 0.32]); forma(BODM.metal, cyl(0.02, 0.27, 0.16, 4), x, 3.54, z, 1, Math.PI / 4); brillos.push([x, 3.25, z, 1, 0.72, 0.38]); addCircle(X(x), Z(z), 0.16); BODJ.luces.push({ x: X(x), y: 3.05, z: Z(z) }); };
+  farol(1.9, D - 8); farol(-1.9, 8.5);
+  // ---- bancas alrededor de la fuente (mirándola)
+  const bancas = [];
+  for (let i = 0; i < J.bancas; i++) {
+    const a = Math.PI / 4 + i * Math.PI / 2, x = Math.sin(a) * J.banca, z = fz + Math.cos(a) * J.banca, ry = Math.atan2(-Math.sin(a), -Math.cos(a)), f = en(x, z, ry).clone(); bancas.push(f);
+    forma(BODM.madera, bx(1.6, 0.08, 0.45), 0, 0.46, 0, 1, 0, f); forma(BODM.madera, bx(1.6, 0.42, 0.06), 0, 0.8, -0.22, 1, [-0.12, 0, 0], f);
+    for (const e of [-0.7, 0.7]) forma(BODM.metal, bx(0.07, 0.46, 0.42), e, 0.23, 0, 1, 0, f);
+    addBox(X(x), Z(z), 0.82, 0.28, ry);
+  }
+  // ---- esqueletos: huesos sencillos fundidos (tendidos en el pasto, sentados en una banca o apoyados)
+  const geo = { cr: new THREE.SphereGeometry(0.11, 10, 8), ojo: new THREE.SphereGeometry(0.028, 6, 4), hu: cyl(0.022, 0.022, 1, 6), co: new THREE.TorusGeometry(1, 0.11, 4, 10, Math.PI), pe: bx(0.28, 0.1, 0.14), ma: bx(0.1, 0.04, 0.08) };
+  const hueso = (f, x0, y0, z0, x1, y1, z1, gr = 1) => {   // un hueso largo de un punto al otro (en el marco local f)
+    const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dx, dy, dz), m = new THREE.Matrix4(), qq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / l, dy / l, dz / l));
+    m.compose(new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), qq, new THREE.Vector3(gr, l, gr)); f.updateMatrix(); m.premultiply(f.matrix); if (!formas.has(Mt.hueso)) formas.set(Mt.hueso, []); formas.get(Mt.hueso).push([geo.hu, m]);
+  };
+  const craneo = (f, x, y, z, rx = 0, ry = 0) => {   // mira hacia su +z; los ojos y la mandíbula giran con él
+    const E_ = new THREE.Euler(rx, ry, 0, 'YXZ'), o = (a, b, c) => new THREE.Vector3(a, b, c).applyEuler(E_);
+    forma(Mt.hueso, geo.cr, x, y, z, [1, 0.92, 1.15], [rx, ry, 0], f);
+    for (const s of [-1, 1]) { const e = o(s * 0.042, 0.015, 0.105); forma(BODM.negro, geo.ojo, x + e.x, y + e.y, z + e.z, 1, 0, f); }
+    const m = o(0, -0.09, 0.05); forma(Mt.hueso, geo.ma, x + m.x, y + m.y, z + m.z, 1, [rx, ry, 0], f);
+  };
+  const costillas = (f, x, y, z, vertical) => { for (let k = 0; k < 4; k++) { const rr = 0.13 - k * 0.012; if (vertical) forma(Mt.hueso, geo.co, x, y - k * 0.07, z, [rr, rr * 1.2, rr], [Math.PI / 2, 0, 0], f); else forma(Mt.hueso, geo.co, x, y, z - k * 0.07, [rr, rr * 1.2, rr], 0, f); } };
+  const esqueleto = (x, z, ry, pose, alto = 0) => {
+    const f = en(x, z, ry).clone(), y = alto;
+    if (pose === 'tendido') {   // boca arriba, a lo largo de su z
+      craneo(f, 0, 0.1, -0.86, -Math.PI / 2 + 0.3, 0.3); hueso(f, 0, 0.05, -0.74, 0, 0.05, -0.18); costillas(f, 0, 0.06, -0.62, false); forma(Mt.hueso, geo.pe, 0, 0.05, -0.14, 1, 0, f);
+      for (const s of [-1, 1]) { hueso(f, s * 0.09, 0.04, -0.12, s * 0.13, 0.04, 0.32); hueso(f, s * 0.13, 0.04, 0.34, s * 0.16, 0.04, 0.74); hueso(f, s * 0.18, 0.04, -0.68, s * 0.28, 0.04, -0.42); hueso(f, s * 0.28, 0.04, -0.4, s * 0.24 + s * 0.08, 0.04, -0.16); }
+    } else {   // sentado: apoyado en algo, con las piernas estiradas (o colgando si está en una banca)
+      craneo(f, 0.03, y + 0.8, 0.02, 0.35, 0.25); hueso(f, 0, y + 0.08, -0.04, 0, y + 0.66, -0.08); costillas(f, 0, y + 0.58, 0.0, true); forma(Mt.hueso, geo.pe, 0, y + 0.06, 0, 1, 0, f);
+      for (const s of [-1, 1]) {
+        hueso(f, s * 0.2, y + 0.6, -0.04, s * 0.24, y + 0.32, 0.02); hueso(f, s * 0.24, y + 0.32, 0.02, s * 0.26, y > 0 ? y + 0.06 : 0.03, 0.26);
+        if (y > 0) { hueso(f, s * 0.1, y + 0.05, 0.02, s * 0.11, y + 0.05, 0.42); hueso(f, s * 0.11, y + 0.04, 0.44, s * 0.12, 0.04, 0.5); }
+        else { hueso(f, s * 0.1, 0.04, 0.02, s * 0.14, 0.04, 0.44); hueso(f, s * 0.14, 0.04, 0.46, s * 0.17, 0.04, 0.86); }
+      }
+    }
+  };
+  { const b = bancas[0]; esqueleto(b.position.x, b.position.z, b.rotation.y, 'sentado', 0.46); }
+  const a0 = Math.PI * 0.62; esqueleto(Math.sin(a0) * (Fu.r + 0.42), fz + Math.cos(a0) * (Fu.r + 0.42), a0, 'sentado');   // apoyado en la fuente
+  const sueltos = [[-3.0, D - 1.6, 1.2, 'tendido'], [9.5, 2.4, -0.6, 'tendido'], [-W / 2 + 2.9, fz + 4.5, Math.PI / 2, 'sentado'], [W / 2 - 4.5, fz - 6, 2.2, 'tendido']];
+  for (let i = 0; i < Math.min(sueltos.length, J.esqueletos - 2); i++) { const [x, z, ry, p] = sueltos[i]; esqueleto(x, z, ry, p); }
+  // ---- lápidas dentro (junto a la reja) y muchas más afuera: es un cementerio
+  const lapida = (x, z, ry, tipo, col) => {
+    if (tipo === 0) { forma(BODM.cantera, bx(0.7, 0.8, 0.16), x, 0.4, z, 1, [0, ry, q(-0.06, 0.06)]); forma(BODM.cantera, new THREE.CylinderGeometry(0.35, 0.35, 0.16, 12, 1, false, -Math.PI / 2, Math.PI), x, 0.8, z, 1, [-Math.PI / 2, ry, 0]); }
+    else if (tipo === 1) { forma(BODM.cantera, bx(0.14, 1.1, 0.14), x, 0.55, z, 1, [0, ry, q(-0.1, 0.1)]); forma(BODM.cantera, bx(0.6, 0.13, 0.14), x, 0.78, z, 1, [0, ry, 0]); }
+    else forma(BODM.cantera, cyl(0.12, 0.26, 1.3, 4), x, 0.65, z, 1, ry + Math.PI / 4);
+    forma(BODM.tierra, bx(0.8, 0.12, 1.5), x + Math.sin(ry) * 0.85, 0.05, z + Math.cos(ry) * 0.85, 1, ry);   // la tumba, delante de la lápida
+    if (col) addBox(X(x), Z(z), 0.38, 0.12, ry);
+  };
+  for (const s of [-1, 1]) for (let i = 0; i < J.lapidas; i++) { const z = 4 + (i + 0.5) / J.lapidas * (D - 8), x = s * (W / 2 - 1.3); if (Math.abs(z - fz) < 1.8) continue; lapida(x, z, -s * Math.PI / 2 + q(-0.15, 0.15), ent(0, 2), true); }
+  for (let i = 0, k = 0; i < J.lapidasFuera && k < 400; k++) { const x = q(-W / 2 - 26, W / 2 + 26), z = q(1, D + 24); if (Math.abs(x) < W / 2 + 2 && z < D + 7) continue; lapida(x, z, q(-0.4, 0.4) + (R() < 0.5 ? 0 : Math.PI), ent(0, 2), false); i++; }
+  // ---- árboles secos (afuera de la reja y uno adentro)
+  const arbol = (x, z, h) => { forma(BODM.madera2, cyl(0.12, 0.26, h, 7), x, h / 2, z); for (let k = 0; k < 4; k++) { const a = q(0, Math.PI * 2), y = h * q(0.55, 0.9), l = q(1.2, 2.2); forma(BODM.madera2, cyl(0.03, 0.08, l, 5), x + Math.sin(a) * l * 0.35, y + l * 0.3, z + Math.cos(a) * l * 0.35, 1, [0.9, a, 0]); } };
+  arbol(-W / 2 + 3.4, 3.2, 5.2); addCircle(X(-W / 2 + 3.4), Z(3.2), 0.3);
+  for (let i = 0; i < J.arbolesFuera; i++) arbol((i % 2 ? 1 : -1) * q(W / 2 + 4, W / 2 + 14), q(2, D + 12), q(5, 8));
+  // ---- la reja baja del cementerio (murete de piedra y barrotes), con un portón cerrado
+  const reja = (x0, z0, x1, z1) => {
+    const dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l, ry = Math.atan2(dx, dz), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    forma(BODM.cantera, bx(0.32, 0.36, l), cx, 0.18, cz, 1, ry);
+    for (const y of [0.55, 1.15]) forma(BODM.metal, bx(0.05, 0.05, l), cx, y, cz, 1, ry);
+    for (let t = 0; t <= l; t += 2.4) forma(BODM.metal, bx(0.1, 1.0, 0.1), x0 + ux * t, 0.8, z0 + uz * t, 1, ry);
+    for (let t = 0.12; t < l; t += 0.22) forma(BODM.metal, bx(0.025, 0.95, 0.025), x0 + ux * t, 0.82, z0 + uz * t, 1, ry);
+    addBox(X(cx), Z(cz), Math.abs(ux) > 0.5 ? l / 2 : 0.2, Math.abs(ux) > 0.5 ? 0.2 : l / 2);
+  };
+  reja(-W / 2, 0.4, -W / 2, D); reja(W / 2, 0.4, W / 2, D); reja(-W / 2, D, -As.ancho / 2, D); reja(As.ancho / 2, D, W / 2, D);
+  { const zp = D * 0.36; for (const e of [-1.4, 1.4]) { caja(BODM.cantera, [-W / 2, 0.95, zp + e, 0.6, 1.9, 0.6]); forma(BODM.cantera, new THREE.SphereGeometry(0.24, 10, 8), -W / 2, 2.05, zp + e); } forma(BODM.metal, bx(0.06, 0.06, 2.4), -W / 2 + 0.06, 1.0, zp, 1, [0.5, 0, 0]); }   // el portón con su cadena
+  // ---- los 4 carteles con los controles (de madera, con su tabla de dibujo)
+  const sitios = [[3.4, D - 6.2, 0, D - 2.4], [-2.9, fz + 5.8, 0, fz + 8], [2.9, fz - 5.8, 0, fz - 3.5], [-3.7, 4.8, 0, 6.6]];   // [x, z] y hacia dónde mira
+  sitios.forEach(([x, z, mx, mz], i) => {
+    const ry = Math.atan2(mx - x, mz - z), f = en(x, z, ry).clone(), [cw, ch] = J.cartel.tam;
+    for (const e of [-cw / 2 + 0.12, cw / 2 - 0.12]) forma(BODM.madera2, bx(0.09, 1.35, 0.09), e, 0.67, -0.06, 1, 0, f);
+    forma(BODM.madera2, bx(cw + 0.12, ch + 0.12, 0.08), 0, 1.25, -0.02, 1, 0, f); forma(Mt.cartel, cel(new THREE.PlaneGeometry(cw, ch), i), 0, 1.25, 0.025, 1, 0, f);
+    addCircle(X(x), Z(z), 0.35);
+    const ux = Math.sin(ry), uz = Math.cos(ry), o = mapUse({ x: X(x + ux * 0.95), z: Z(z + uz * 0.95), r: J.cartel.r, cd: 0.35, t: 'Cartel · ' + TX[i].t, d: 'Los controles del juego.', b: 'Leer el cartel', use() { bodJardinCartel(BODJ.abierto === i ? -1 : i); } });
+    BODJ.usos.push(o);
+  });
+  mapUse({ x: X(0), z: Z(1.3), r: 2.0, cd: 1, t: 'Puerta de la gran torre', d: 'Aquí empieza el Nivel 1: las Bodegas del casino. En el jardín no hay zombis; adentro, sí.', b: 'Entrar a la torre', use() { bodJardinEntrar(); } });
+  // ---- fundir todo: una malla por material
+  const sol = new Set([Mt.piedra, BODM.fachada, BODM.cantera, BODM.madera, BODM.metal]);
+  for (const [m, bs] of piezas) { const me = new THREE.Mesh(bodFundir(bs, m === Mt.piedra ? 4 : 1.5), m); me.castShadow = me.receiveShadow = false; g.add(me); if (sol.has(m)) solids.push(me); }
+  const usadas = new Set(); for (const [m, fs_] of formas) { const me = new THREE.Mesh(bodFundirG(fs_), m); me.castShadow = me.receiveShadow = false; g.add(me); if (sol.has(m)) solids.push(me); fs_.forEach(f => usadas.add(f[0])); } usadas.forEach(x => x.dispose());
+  // ---- las nubes alrededor de la torre: tapan la punta y giran despacio (dos capas, una para cada lado)
+  const nubT = canvasTex(128, 128, (c, w, h) => { for (let i = 0; i < 16; i++) { const x = rand(28, 100), y = rand(40, 88), r = rand(16, 34), gr = c.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, h); } });
+  const nubM = new THREE.MeshBasicMaterial({ map: nubT, color: J.nubes.color, transparent: true, opacity: J.nubes.op, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const capas = [[], []], NN = tel ? J.nubes.nTel : J.nubes.n;
+  for (let i = 0; i < NN; i++) {
+    const s = q(J.nubes.tam[0], J.nubes.tam[1]), a = q(0, Math.PI * 2), d = q(0.15, J.nubes.radio) * Wt * 0.7, y = R() < J.nubes.abajo ? q(J.nubes.alto[0], J.nubes.alto[0] + J.nubes.capa) : q(J.nubes.alto[0] + J.nubes.capa * 0.7, J.nubes.alto[1]);
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, L_ = capas[i % 2], ry = q(0, Math.PI);
+    L_.push([new THREE.PlaneGeometry(s, s * q(0.5, 0.8)), new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, ry)), new THREE.Vector3(1, 1, 1))]);
+    for (const k of [0, Math.PI / 2]) L_.push([new THREE.PlaneGeometry(s, s * J.nubes.alto2), new THREE.Matrix4().compose(new THREE.Vector3(x, y + q(-2, 2), z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry + k, 0)), new THREE.Vector3(1, 1, 1))]);
+  }
+  const nubes = capas.map(L_ => { const n = new THREE.Mesh(bodFundirG(L_), nubM); L_.forEach(f => f[0].dispose()); n.position.set(0, 0, -F / 2); n.renderOrder = 2; g.add(n); return n; });
+  // ---- estrellas (además de las del cielo de siempre), luciérnagas, brillos y chispas: puntos
+  const puntos = (n, mat) => { const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), G = new THREE.BufferGeometry(); G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('color', new THREE.BufferAttribute(col, 3)); const P = new THREE.Points(G, mat); P.frustumCulled = false; g.add(P); return { pos, col, G, P }; };
+  { const n = tel ? J.estrellasTel : J.estrellas, E = puntos(n, new THREE.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, fog: false, transparent: true, depthWrite: false }));
+    for (let i = 0; i < n; i++) { const a = rand(0, Math.PI * 2), e = Math.asin(rand(0.08, 1)), r = J.cielo, b = rand(0.45, 1); E.pos.set([Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, fz + Math.sin(a) * Math.cos(e) * r], i * 3); E.col.set([b * 0.9, b * 0.93, b], i * 3); }
+    E.P.renderOrder = -1; }
+  const Lc = J.luciernaga, nl = tel ? J.luciernagasTel : J.luciernagas;
+  const luc = puntos(nl, new THREE.PointsMaterial({ size: Lc.tam, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const lb = []; for (let i = 0; i < nl; i++) lb.push([q(-W / 2 + 1, W / 2 - 1), q(Lc.alto[0], Lc.alto[1]), q(2, D - 2), q(0, 6.3), q(Lc.ritmo[0], Lc.ritmo[1]), q(0.3, 0.7)]);
+  const bri = puntos(brillos.length, new THREE.PointsMaterial({ size: J.brillo, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  brillos.forEach((b, i) => { bri.pos.set(b.slice(0, 3), i * 3); bri.col.set(b.slice(3), i * 3); });
+  const NC = tel ? As.chispasTel : As.chispas, chis = puntos(NC, new THREE.PointsMaterial({ size: 0.07, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })), cv = new Float32Array(NC * 4);   // vx, vy, vz, vida
+  let chT = 0.5;
+  function chispa(fuerte) { Sfx.zap && Math.hypot(player.pos.x - X(1.75), player.pos.z - Z(D)) < As.oir && Sfx.zap(0); for (let i = 0; i < NC; i++) { if (cv[i * 4 + 3] > 0 && !fuerte && R() < 0.5) continue; chis.pos.set([1.75, 1.15, D - 0.2], i * 3); cv.set([rand(-1.3, 1.3), rand(0.4, 2.6), rand(-1.6, -0.2), rand(0.35, 0.9)], i * 4); } }
+  world.anims.push(dt => {
+    if (!g.visible) return; const t = performance.now() / 1000;
+    nubes[0].rotation.y += J.nubes.giro[0] * dt; nubes[1].rotation.y += J.nubes.giro[1] * dt;
+    aguaT.offset.x += dt * 0.04; aguaT.offset.y -= dt * 0.07; cortT.offset.y += dt * 0.9;
+    for (let i = 0; i < nl; i++) { const [x, y, z, ph, f, a] = lb[i]; luc.pos.set([x + Math.sin(t * 0.31 * f + ph) * Lc.vuelo, y + Math.sin(t * 0.53 * f + ph * 2) * 0.35, z + Math.cos(t * 0.27 * f + ph) * Lc.vuelo], i * 3); const b = Math.max(0, Math.sin(t * f * 2.2 + ph)); luc.col.set([Lc.color[0] * b * b, Lc.color[1] * b * b, Lc.color[2] * b * b], i * 3); }
+    luc.G.attributes.position.needsUpdate = true; luc.G.attributes.color.needsUpdate = true;
+    const on = (t % As.parpadeo) < As.parpadeo * As.encendido; fs.material.color.setHex(on ? 0xffffff : 0x401818); bri.col.set(on ? [1, 0.2, 0.1] : [0.12, 0.02, 0.01], iRoja * 3); bri.G.attributes.color.needsUpdate = true;
+    if ((chT -= dt) <= 0) { chT = q(As.cada[0], As.cada[1]); chispa(0); }
+    for (let i = 0; i < NC; i++) { const v = i * 4; if (cv[v + 3] <= 0) { chis.col.set([0, 0, 0], i * 3); continue; } cv[v + 3] -= dt; cv[v + 1] -= 9.8 * dt; const p = i * 3; chis.pos[p] += cv[v] * dt; chis.pos[p + 1] += cv[v + 1] * dt; chis.pos[p + 2] += cv[v + 2] * dt; if (chis.pos[p + 1] < 0.03) { chis.pos[p + 1] = 0.03; cv[v + 1] *= -0.3; cv[v] *= 0.6; cv[v + 2] *= 0.6; } const b = Math.min(1, cv[v + 3] * 2.2); chis.col.set([b, b * 0.75, b * 0.3], p); }
+    chis.G.attributes.position.needsUpdate = true; chis.G.attributes.color.needsUpdate = true;
+  });
+}
+// en el mapa de la esquina: el jardín (al aire libre, borde punteado), la mansión, el ascensor y la puerta
+function bodJardinMini(c, tr, caja) {
+  const O = BODJ.O; if (!O) return; const J = BAL.bodegas.jardin, T = J.torre, As = J.ascensor;
+  caja(O.x, O.z + J.fondo / 2, J.ancho / 2, J.fondo / 2); c.fillStyle = 'rgba(58,110,84,.66)'; c.fill(); c.setLineDash([5, 4]); c.strokeStyle = '#bfe0ff'; c.stroke(); c.setLineDash([]);
+  caja(O.x, O.z - T.fondo / 2, T.ancho / 2 + T.alas.ancho, T.fondo / 2); c.fillStyle = 'rgba(34,28,24,.92)'; c.fill(); c.strokeStyle = 'rgba(0,0,0,.6)'; c.stroke();
+  caja(O.x, O.z + J.fondo + As.fondo / 2, As.ancho / 2, As.fondo / 2); c.fillStyle = 'rgba(110,60,44,.9)'; c.fill();
+  caja(O.x, O.z + J.fondo / 2, J.fuente.r, J.fuente.r); c.fillStyle = 'rgba(120,180,220,.8)'; c.fill();
+  const [x, y] = tr(O.x, O.z); c.fillStyle = '#ffd060'; c.beginPath(); c.arc(x, y, 5, 0, TAU); c.fill();
 }
 // ¿el jugador está en el agua del canal (y no en un puente)?
 function bodEnAgua(r, x, z) {
@@ -40968,6 +41320,7 @@ function bodVisibles() {
 }
 function bodStep(dt) {
   const st = bodSt(), L = BOD.L, B = BAL.bodegas; if (!st || !L || world.idx !== BOD_IDX) return;
+  if (bodJardinPaso(dt)) return;   // en el jardín del inicio: al aire libre y sin zombis
   const h = bodHabDe(player.pos.x, player.pos.z, -0.3); BOD.aqui = h || null;
   BOD.agua = !!(h && h.t === 'canal' && bodEnAgua(h, player.pos.x, player.pos.z));   // el agua del canal te frena
   if (h && !st.vis[h.i]) { st.vis[h.i] = 1; bodEntra(h); }
@@ -41190,6 +41543,7 @@ function bodMinimapa() {
     if (r.abierto) { c.setLineDash([5, 4]); c.strokeStyle = '#bfe0ff'; c.stroke(); c.setLineDash([]); }   // los espacios abiertos: color de cielo y borde punteado
     else { c.strokeStyle = r.plata && !st.abiertas[r.i] ? '#dfe8f0' : 'rgba(0,0,0,.6)'; c.stroke(); }
   }
+  bodJardinMini(c, tr, caja);   // el jardín del inicio
   for (const D of BOD.puertas) { if (!st.vis[D.r] && !(D.tipo === 'plata')) continue; if (D.tipo === 'plata' && !L.rooms.some(r => st.vis[r.i] && bodUnidas2(r.i, D.r))) continue; const [x, y] = tr(D.x, D.z); c.fillStyle = D.tipo === 'plata' ? (D.abierta ? '#6a6a6a' : '#dfe8f0') : D.tipo === 'salida' ? '#ffd060' : D.tipo === 'verde' ? (L.rooms[D.r].t === 'tras' ? '#40ff90' : BOD_T[L.rooms[D.r].t].c) : D.abierta ? '#6a5a4a' : '#ff5a4a'; c.beginPath(); c.arc(x, y, 5, 0, TAU); c.fill(); }
   for (const S_ of BOD.suelo) { const [x, y] = tr(S_.k.x, S_.k.z); c.fillStyle = S_.k.t === 'llave' ? '#ffd060' : '#dfe8f0'; c.fillRect(x - 4, y - 4, 8, 8); }
   for (const z of zombies) { if (z.dead || !z.bod || !(z.bod.alerta || z.boss != null)) continue; const [x, y] = tr(z.root.position.x, z.root.position.z); c.fillStyle = z.boss != null ? '#ff2a00' : '#e8d36a'; c.beginPath(); c.arc(x, y, z.boss != null ? 7 : 4.5, 0, TAU); c.fill(); }
