@@ -202,6 +202,7 @@ body.bod-on #map{width:var(--bmw,236px)!important;height:var(--bmh,182px)!import
 body.bod-on.touch #map,body.bod-on .touch #map{width:var(--bmw3,172px)!important;height:var(--bmh3,132px)!important}
 body.jd-on #map{visibility:hidden}   /* mientras lees un cartel del jardín, el mapa (más grande desde el 25-oct-2026) se esconde: así la ventana del cartel nunca lo tapa */
 @media (max-height:440px){body.bod-on:not(.jd-on) .touch #b-hab{right:calc(262px + env(safe-area-inset-right,0px))}}   /* teléfono bajo (390 px): con el mapa 15 % más grande, el botón de la habilidad pasa a la izquierda de su columna (si no, el mapa lo tapa); con un cartel del jardín abierto el mapa se esconde y el botón vuelve a su lugar */
+@media (max-height:440px){body.bod-on .touch #b-swap{right:calc(266px + env(safe-area-inset-right,0px));bottom:calc(112px + env(safe-area-inset-bottom,0px))}}   /* teléfono bajo: el botón «Arma» (cambiar de arma; con la Thompson de la prueba sale desde el inicio) baja junto a Ojo Muerto para que el mapa no lo tape */
 #map{width:130px;height:130px;border-radius:50%;border:2px solid rgba(214,165,75,.55);background:rgba(5,8,10,.55);margin-top:6px}
 .touch #map{width:92px;height:92px}
 
@@ -3260,7 +3261,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=37').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=38').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -26781,6 +26782,7 @@ function newGame(sv, run) {
   equip((game.owned[game.equip] || (game.armas || []).includes(game.equip)) && MODELS[game.equip] ? game.equip : CHARS[game.char].gun, true);
   if (sv) for (const k of (sv.allies || new Array(sv.cops || 0).fill('cop'))) spawnCop(ALLY[k] ? k : 'cop');
   if (!sv) applyChar(); else game.eliteMul = (game.skull | 0) >= 3 ? 2 : 1;
+  if (!sv && game.bod && !tuto && !Net.on) bodPruebaArma();   // PRUEBA del dueño: la Thompson desde el inicio (BAL.bodegas.prueba.thompson)
   if (punto === 'sala') {   // de vuelta en la Trastienda, tal como la dejaste
     game.routeWave = w0; game.phase = 'room'; game.alive = 0; game.toSpawn = 0; game.bossQ = []; game.puntoAct = 'sala';
     setTimeout(() => { if (game && game.phase === 'room') { linternaPon(sitHoy() === 'apagon'); zombiColSale(); sitBanner(true); hint(deudaPend() ? 'De vuelta en la Trastienda · la deuda sigue sin pagar: contesta el teléfono' : 'De vuelta en la Trastienda · todo sigue como lo dejaste', 3000); deudaHud(); } }, 400);
@@ -32455,7 +32457,7 @@ function updatePlay(dt) {
     if (game.waveMod && game.waveMod.acid && game.phase === 'fight' && !player.down && player.hp > 5) player.hp -= 1.2 * dt;
     updatePlayer(dt);
     if (!Net.client) updateWave(wdt); else if (game.phase === 'room' || game.phase === 'exit') roomStep(wdt);
-    if (game.bod) bodReloj(dt);   // el reloj del nivel (las Bodegas): con el tiempo de verdad (la cámara lenta no lo frena)
+    if (game.bod) { bodReloj(dt); bodOleadas(dt); }   // PRUEBA: las oleadas, con el mismo tiempo que el reloj · (las Bodegas): con el tiempo de verdad (la cámara lenta no lo frena)
     if (world.uses.length && game.phase !== 'room' && game.phase !== 'exit') mapUseStep();
     updateChicken(dt); checkAch(dt); downStep(dt); tiroStep(dt);
     ammoCheck(dt);
@@ -36614,6 +36616,7 @@ function statsPinta() {
     const rq = st && st.reloj != null ? st.reloj : BAL.bodegas.reloj.t; setText($('#sbd-t'), 'sbdt', bodMMSS(rq)); $('#sbd-tb').classList.toggle('rojo', rq <= BAL.bodegas.reloj.rojo); }   // el reloj del nivel (lo que queda), grande; en rojo el último minuto
   const it = (bod ? [['Tiempo jugado', `${mm}:${String(ss).padStart(2, '0')}`]] : [['Tiempo jugado', `${mm}:${String(ss).padStart(2, '0')}`], ['Día', game.wave]]).concat([
     ['Zombis', game.kills | 0], ['A la cabeza', game.heads | 0], ['Oro ganado', `${game.goldTotal | 0} $`], ['Balas usadas', game.shots | 0], ['Daño recibido', Math.round(game.danoRec || 0)]],
+    bod && bodPrueba('oleadas') && st ? [['Próxima oleada', bodMMSS(st.olaT == null ? bodPrueba('oleadas').primero : st.olaT), (st.olaT != null && st.olaT <= 10) ? 'malo' : '']] : [],   // PRUEBA: cuánto falta para la próxima oleada
     bod ? (() => { const m = bodMal(); return [[m ? `Maldición · +${bodMalPct(m)} % de oro` : 'Maldición', m ? BOD_MAL_TXT[m].n : 'Ninguna', m ? 'malo' : ''], ['Código de partida', bodCodigo(game.bod.seed)]]; })() : [], [['Ping', pg[0], pg[1]], ['FPS', f == null ? '…' : f, fc]]);
   const h = it.map(([k, v, c]) => `<div><span>${k}</span><b${c ? ` class="${c}"` : ''}>${v}</b></div>`).join('');
   const g = $('#stats-grid'); if (g._h !== h) { g._h = h; g.innerHTML = h; }
@@ -40228,6 +40231,26 @@ BAL.bodegas.escalera = { carta: 1.3, subida: 2.6, puerta: 0.7, blanco: 0.6, esca
 // para en la Tienda y las salas, en la pausa, el inventario y los menús. avisos: a cuántos segundos del final sale un aviso (cartel y sonido);
 // rojo: desde cuántos segundos se ve en rojo · cartel: cuánto dura el aviso (ms). Si llega a 0 pierdes, como al caer («Se acabó el tiempo»).
 BAL.bodegas.reloj = { activo: true, t: 600, avisos: [120, 60, 30], rojo: 60, cartel: 2600 };
+// ---- PRUEBA del dueño (26-oct-2026: «quiero probar»): la Thompson desde el inicio y oleadas grandes cada minuto. activo: false lo apaga todo y el juego
+// vuelve a ser como antes (cada parte tiene también su propio «activo»).
+//   thompson: cada partida nueva empieza con el arma «arma» en el espacio 2 y en la mano (el revólver del personaje sigue en el 1) y «caja» balas de su tipo
+//             en la caja (además del cargador lleno). Puede pasar del máximo normal de BAL.municion.max (lo que recoges o compras no suma hasta bajar de ese máximo).
+//   oleadas:  cada «cada» s (la primera a los «primero» s) llega una oleada: de n[nivel][0] a n[nivel][1] zombis con la mezcla del nivel
+//             (BAL.bodegas.zombis.niveles[N]: vuelven o patrulla) que te persiguen por el mapa. El tiempo corre como el reloj del nivel: no en el jardín,
+//             ni en la Tienda o las salas, ni en la pausa. Tope max[nivel] (maxTel en el teléfono): en el Nivel 1 cuenta los de las oleadas que siguen vivos
+//             (los guardias de los cuartos no cuentan); en los Backrooms, todos los vivos. La oleada se recorta hasta ese tope.
+//             Nivel 1: aparecen repartidos en «salas» habitaciones (al azar entre los dos) a «lejos» casillas o más de ti, con las reglas de los que vuelven
+//             (nunca la Tienda, las salas, las especiales, el Inicio, el jefe, los espacios abiertos ni un cuarto con llave de plata). Siguen ahí al volver de la Tienda.
+//             Backrooms: en los puntos de aparición del mapa a «lejosM» m o más de ti y sin que los veas.
+//             vuelven: false apaga los que vuelven poco a poco (Nivel 1) mientras haya oleadas; goteo: false apaga los que llegan de a uno en los Backrooms.
+//             escalon: s entre un zombi y el siguiente al aparecer (no salen todos en el mismo cuadro) · cartel: ms del aviso «¡Viene una oleada!»
+BAL.bodegas.prueba = {
+  activo: true,
+  thompson: { activo: true, arma: 'tommy', caja: 500 },
+  oleadas: { activo: true, cada: 60, primero: 60, n: { 1: [10, 14], 2: [12, 16], 3: [14, 18], 4: [16, 20] },
+    max: { 1: 28, 2: 26, 3: 30, 4: 34 }, maxTel: { 1: 22, 2: 22, 3: 24, 4: 26 },
+    salas: [2, 3], lejos: 2, lejosM: 20, vuelven: false, goteo: true, escalon: 0.12, cartel: 2600 }
+};
 // ---- salas especiales (dueño, 25-oct-2026: salas del tesoro, elige 1 de 2, secreta y del minijefe, y 5 salas originales; «2 o 3 por piso», la recomendada).
 // n: cuántas por piso · peso: cuánto más fácil sale cada tipo (cada una sale 1 vez como mucho) · forzar: lista fija de tipos (solo para las pruebas; null = al azar).
 // Premios modestos (la economía es tacaña: ver docs/ECONOMIA.md). Rarezas de las balas: 'C' común, 'B', 'A' y 'S' (la más rara).
@@ -43165,6 +43188,7 @@ function bodPoblar() {
   }
   if (st.oro > 0 && L.oro >= 0) { const p = bodPunto(L.rooms[L.oro], 1.4); bodSpawn('oro', p.x, p.z, { r: L.oro, g: 'o' }); }
   for (const E of st.rz || []) bodRzSpawn(E);   // los que volvieron siguen ahí al volver de la Tienda
+  BOD.olaQ = []; for (const E of st.oz || []) bodOzSpawn(E);   // PRUEBA: los de las oleadas también (y los que aún no salían, salen ya)
 }
 // el minijefe del nivel (BAL.bodegas.especiales.minijefe): su tipo, más vida y más grande
 function bodMJNivel() { const N = BAL.bodegas.especiales.minijefe.niveles, ks = Object.keys(N).map(Number).sort((a, b) => a - b); let k = ks[0]; for (const x of ks) if (x <= bodNivel()) k = x; return N[k]; }
@@ -43197,6 +43221,7 @@ function bodRetarget(z) {
   const p = z.root.position; z.flowD = null;
   if (BOD.cebo && BOD.cebo.eatT > 0 && b.campana) { z.tk = 'e'; z.tobj = BOD.cebo; z.los = false; z.flowD = BOD.flowC; return true; }
   if (BOD.oculto) { b.alerta = false; }
+  else if (b.caza && !b.alerta && !b.campana) { b.alerta = true; z.tgtT = 0; }   // PRUEBA: los de una oleada te cazan siempre (si te escondes en un barril te pierden; al salir, vuelven a cazarte)
   else if (!b.alerta && bodVe(z)) { if (b.g === 'o') b.huye = 1; else bodAlerta(z, true); }
   if (b.alerta) return false;   // te persigue como siempre (la ruta de los zombis)
   z.atkCd = Math.max(z.atkCd, 1);   // de guardia no golpea al aire
@@ -43276,7 +43301,8 @@ function bodAlMorir(z, info) {
 function bodBaja(b, x, z) {
   const st = bodSt(), L = BOD.L; if (!st) return;
   if (b.g === 'o') { st.oro = 0; return; }
-  if (b.rz) { const j = (st.rz || []).findIndex(e => e.id === b.rz); if (j >= 0) st.rz.splice(j, 1); return; }   // uno de los que volvieron: sin llaves ni «despejado»
+  if (b.rz) { const j = (st.rz || []).findIndex(e => e.id === b.rz); if (j >= 0) st.rz.splice(j, 1); return; }
+  if (b.oz) { const j = (st.oz || []).findIndex(e => e.id === b.oz); if (j >= 0) st.oz.splice(j, 1); return; }   // PRUEBA: uno de una oleada (sin llaves ni «despejado»)   // uno de los que volvieron: sin llaves ni «despejado»
   if (b.extra || b.g === 'r') return;   // los que soltó una de las seis puertas y los reflejos de los espejos no cuentan como guardias
   if (b.mj && b.r >= 0) { st.mj[b.r] = 1; if (st.tipos && st.tipos[b.r] && st.tipos[b.r].length) b.tipo = st.tipos[b.r][0]; /* (el minijefe ocupaba el primer lugar de la lista de su sala) */ bodLlaveSuelo({ t: 'plata', x, z, id: 'mj' + b.r }); setTimeout(() => { if (game && game.bod) banner('¡Minijefe vencido!', 'Soltó una llave de plata', 2600, 'key'); }, 300); }
   const quita = a => { if (!a) return; const j = a.indexOf(b.tipo); a.splice(j >= 0 ? j : 0, 1); };   // su tipo sale de la lista (al volver de la Tienda no reaparece)
@@ -43396,6 +43422,7 @@ function bodDondeEstoy() {
 const bodVivosN = () => zombies.filter(z => !z.dead && z.bod && z.bod.g !== 'j' && z.bod.g !== 'r' && z.bod.g !== 'o').length + BOD.lev.length;
 function bodVuelven(dt) {
   const V = BAL.bodegas.vuelven, st = bodSt(); if (!V.activo || !st || !BOD.L || BOD.fin) return;
+  if (bodPrueba('oleadas') && !BAL.bodegas.prueba.oleadas.vuelven) return;   // PRUEBA: con oleadas, los que vuelven poco a poco no salen (BAL.bodegas.prueba.oleadas.vuelven)
   if (st.rzT == null) st.rzT = V.primero;
   if ((st.rzT -= dt) > 0) return;
   st.rzT = V.cada[0] + Math.random() * (V.cada[1] - V.cada[0]);
@@ -43420,6 +43447,67 @@ function bodRzSpawn(E) {
   const r = BOD.L.rooms[E.r]; if (!r) return null; const p = bodPunto(r, 1.2), b = { r: E.r, g: 'h', extra: 1, rz: E.id };
   if (E.g === 'v' && BOD.L.rooms[E.par]) Object.assign(b, { g: 'v', way: bodRutaPuntos([E.r, E.par]), w: 0, dir: 1 });   // va y viene entre su cuarto y el vecino
   return bodSpawn(E.tipo, p.x, p.z, b);
+}
+// ---- PRUEBA del dueño (26-oct-2026; BAL.bodegas.prueba): la Thompson desde el inicio y una oleada grande cada minuto
+const bodPrueba = k => { const P = BAL.bodegas.prueba; return P && P.activo && P[k] && P[k].activo ? P[k] : null; };
+function bodPruebaArma() {   // al empezar una partida nueva: la Thompson en el espacio 2 y en la mano, con el cargador lleno y «caja» balas de su tipo en la caja
+  const T = bodPrueba('thompson'); if (!T || !MODELS[T.arma]) return;
+  if (typeof a3dArchivo === 'function') a3dArchivo(T.arma);
+  game.armas = [T.arma, null]; game.mag[T.arma] = undefined;
+  const t = munTipo(T.arma);
+  if (t === 'pistola') { Balas.addNormales(game, T.caja); equip(T.arma, true); }
+  else { game.mun = game.mun || {}; game.mun[t] = MODELS[T.arma].cap + T.caja; equip(T.arma, true); game.mun[t] = T.caja; }   // se carga del montón y en la caja quedan justo «caja»
+  armasHud();
+}
+const bodOlaMax = () => { const O = bodPrueba('oleadas'), nv = bodNivel(), M = IS_TOUCH ? O.maxTel : O.max; return M[nv] || M[Math.max(...Object.keys(M).map(Number))]; };
+// cuántos cuentan para el tope: en el Nivel 1, los de las oleadas (los guardias quietos en sus cuartos lejanos ni se dibujan); en los Backrooms, todos los vivos
+const bodOlaVivos = () => game.bod.br != null ? zombies.filter(z => !z.dead && z.boss == null).length + (BOD.olaQ || []).length : ((bodSt() && bodSt().oz) || []).length;
+const bodOlaCorre = () => !!(game && game.bod && bodSt() && world.idx === bodMapaIdx() && !BODJ.on && !BOD.fin && state === 'play' && game.phase === 'fight');
+function bodOleadas(dt) {
+  const O = bodPrueba('oleadas'), st = bodSt(); if (!O || !st || !bodOlaCorre()) return;
+  if (BOD.olaQ && BOD.olaQ.length && (BOD.olaQT = (BOD.olaQT || 0) - dt) <= 0) { BOD.olaQT = O.escalon; bodOlaSale(BOD.olaQ.shift()); }   // salen de a uno
+  if (st.olaT == null) st.olaT = O.primero;
+  if ((st.olaT -= dt) > 0) return;
+  st.olaT = O.cada; bodOleada();
+}
+// arma la oleada: cuántos (recortada al tope de vivos), de qué tipos y dónde. Devuelve { n, salas } (o null si el piso ya está lleno)
+function bodOleada() {
+  const O = bodPrueba('oleadas'), st = bodSt(), L = BOD.L, nv = bodNivel(); if (!O || !st) return null;
+  const R = O.n[nv] || O.n[Math.max(...Object.keys(O.n).map(Number))], br = game.bod.br != null;
+  if (!BOD.olaQ) BOD.olaQ = [];
+  const n = Math.min(R[0] + Math.floor(Math.random() * (R[1] - R[0] + 1)), bodOlaMax() - bodOlaVivos()); if (n <= 0) return null;
+  const T = bodZTabla(), P = T.vuelven || T.patrulla, salas = [];
+  if (br) { for (const tipo of bodZSortear(P, n, T.tope, Math.random)) BOD.olaQ.push({ br: 1, tipo }); }
+  else {
+    const yo = bodDondeEstoy(), ok = L.rooms.filter(r => bodRzSirve(r, st) && yo.every(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) >= O.lejos)); if (!ok.length) return null;
+    for (let i = ok.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ok[i], ok[j]] = [ok[j], ok[i]]; }
+    const k = Math.min(ok.length, n, O.salas[0] + Math.floor(Math.random() * (O.salas[1] - O.salas[0] + 1)));
+    if (!st.oz) st.oz = [];
+    for (let s = 0; s < k; s++) {
+      const r = ok[s], m = Math.floor(n / k) + (s < n % k ? 1 : 0); salas.push(r.i);
+      for (const tipo of bodZSortear(P, m, T.tope, Math.random)) { const E = { id: (st.ozN = (st.ozN | 0) + 1), r: r.i, tipo }; st.oz.push(E); BOD.olaQ.push(E); }   // se guardan ya: al volver de la Tienda siguen ahí
+    }
+  }
+  st.olaN = (st.olaN | 0) + 1; BOD.olaQT = 0; BOD.tcHasta = 0;   // el título del centro se esconde para que no lo tape el aviso
+  banner('¡Viene una oleada!', `${n} zombis vienen por ti`, O.cartel, 'skull');
+  if (Sfx.roar) Sfx.roar(0, 1.3); if (Sfx.alarma) Sfx.alarma(0, 0.6); player.shake = Math.min(1, player.shake + 0.25);
+  return { n, salas };
+}
+// uno de la oleada aparece: en su habitación (Nivel 1) o en un punto de aparición lejos y sin que lo veas (Backrooms); y sale a cazarte
+function bodOlaSale(E) {
+  if (!E) return null;
+  if (E.br) {
+    const s = bodOlaSitio(); if (!s) return null;
+    const z = spawnZombie(E.tipo, s.x + rand(-0.6, 0.6), s.z + rand(-0.6, 0.6), diffW(game.wave), true); game.alive++; z.ola = 1; return z;
+  }
+  if (!(bodSt().oz || []).includes(E)) return null;   // ya no está (murió o se rehízo el mapa)
+  return bodOzSpawn(E);
+}
+function bodOzSpawn(E) { const r = BOD.L.rooms[E.r]; if (!r) return null; const p = bodPunto(r, 1.2); return bodSpawn(E.tipo, p.x, p.z, { r: E.r, g: 'h', extra: 1, oz: E.id, caza: 1, alerta: true }); }
+function bodOlaSitio() {   // Backrooms: un punto de aparición a «lejosM» m o más, que se pueda alcanzar y desde donde no te vean
+  const O = bodPrueba('oleadas'), px = player.pos.x, pz = player.pos.z;
+  const ok = world.spawns.filter(s => Math.hypot(s.x - px, s.z - pz) >= O.lejosM && !pointBlocked(s.x, s.z, 0.5) && (!nav.mainDist || nav.mainDist[cellOf(s.x, s.z)] < 1e9) && !lineClear(s.x, s.z, px, pz, 0.15));
+  return ok.length ? ok[Math.floor(Math.random() * ok.length)] : brLejos(O.lejosM);
 }
 function bodJefeSale(J, DVv) {
   const st = bodSt(), c = bodC(J), h = bodH(J), x = c.x - DVv[0] * (h - 1.5), z = c.z - DVv[1] * (h - 1.5);
@@ -43465,7 +43553,7 @@ function bodNivelSig() {
 function bodIrA(ni) {
   if (game.tiro) tiroEnd();
   { const H = habDe(); if (H && game.habT > 0 && H.dur) game.hab = Math.min(100, (game.hab || 0) + (H.carga || 100) * clamp(game.habT / H.dur, 0, 1)); }
-  habFin(); useCur = null; showUse(null); linternaPon(false); BOD.lev = [];
+  habFin(); useCur = null; showUse(null); linternaPon(false); BOD.lev = []; BOD.olaQ = [];
   clearActors(); buildMap(ni); precalentarHab(); try { renderer.compile(scene, camera); } catch (e) {}
   player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
   for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead || (cops[i].indep && !cops[i].radio)) removeCop(i);
@@ -43541,7 +43629,7 @@ function brStep(dt) {
   if (L && !L.on && st.jefe === 0 && brLlavesN() < B.llaves) { if ((st.llvT -= dt) <= 0) { st.llvT = B.llave[0] + Math.random() * (B.llave[1] - B.llave[0]); llvSoltar(); } }
   if (st.jefe === 0 && brLlavesN() >= B.llaves) { st.llave = 1; brJefeSale(); }
   // los zombis llegan de lejos (nunca a tu lado), hasta el tope del nivel
-  if ((st.zT -= dt) <= 0) {
+  if ((st.zT -= dt) <= 0 && !(bodPrueba('oleadas') && !BAL.bodegas.prueba.oleadas.goteo)) {   // (PRUEBA: goteo false los apaga mientras haya oleadas)
     const Z = B.zombis; st.zT = Z.cada[0] + Math.random() * (Z.cada[1] - Z.cada[0]);
     const vivos = zombies.filter(z => !z.dead && z.boss == null).length;
     if (vivos < (Z.vivos[bodNivel()] || 8)) { const s = brLejos(Z.lejos); if (s) {
