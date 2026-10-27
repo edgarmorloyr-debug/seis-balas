@@ -59,6 +59,7 @@ body{font-family:var(--hud);font-size:16px}
 #hm.head i{background:var(--blood);height:3px}
 #hm.kill i{width:16px;left:-8px;background:var(--blood);height:3px}
 #hm.armor i{background:#8fc8ff}
+#hm.debil i{background:#ffe23a;height:4px;width:18px;left:-9px;box-shadow:0 0 6px #ffb000,0 0 2px #000}
 
 .hud{position:absolute;pointer-events:none;text-shadow:0 1px 2px #000,0 0 8px rgba(0,0,0,.7)}
 #hud-tl{z-index:4;top:calc(14px + env(safe-area-inset-top,0px));left:calc(16px + env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:6px;width:clamp(150px,30vw,250px)}
@@ -1180,6 +1181,7 @@ body.vend-on #hud,body.vend-on #feed,body.vend-on #hint,body.vend-on #ach-toast,
 .bbar{position:relative;height:14px;background:rgba(0,0,0,.65);border:1px solid rgba(255,120,60,.7);margin-top:4px}
 #boss-b{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(#ff6a3a,#a01a0a)}
 #boss-a{position:absolute;left:0;top:0;height:4px;width:0;background:#70b8ff}
+.bbar .bmk{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:#fff1c8;box-shadow:0 0 0 1px #000,0 0 4px #000}
 #dark{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 0,rgba(0,0,0,.6) 10%,#000 28%)}
 .rs-pot{text-align:center;margin:10px 0}
 #rs-pot{font-family:var(--display);font-size:44px;color:#ffd060;display:block}
@@ -2221,6 +2223,7 @@ body.garra-on #xh,body.garra-on #touch,body.garra-on #bal-hud{display:none}
 #intro.k-jefe .ic,#intro.k-mini .ic{background:linear-gradient(#6a4424,#3e2412);border:3px solid #d8a838;box-shadow:0 0 0 2px #1d120b,0 10px 24px rgba(0,0,0,.6),inset 0 0 18px rgba(0,0,0,.45);color:#fbf0dc}
 #intro.k-jefe .ic small,#intro.k-mini .ic small{color:#ffd27a}#intro.k-jefe .ic span,#intro.k-mini .ic span{color:#f2e4c4}
 #intro.k-mini .ic b{font-size:clamp(22px,5vw,32px)}
+#intro.mayus .ic b{text-transform:uppercase;letter-spacing:.04em}
 #intro.k-casino .ic{background:linear-gradient(#2a0d33,#14061c);border:3px solid #ff3fd0;box-shadow:0 0 18px rgba(255,63,208,.65),inset 0 0 22px rgba(255,63,208,.25);color:#ffe9fb}
 #intro.k-casino .ic small{color:#7ff6ff;text-shadow:0 0 8px #3ff0ff}#intro.k-casino .ic b{text-shadow:0 0 8px #ff3fd0,0 0 18px #ff3fd0}#intro.k-casino .ic span{color:#f6d8f0}
 @media (max-height:500px){#intro .lb{height:8vh}#intro .ic{bottom:calc(8vh + 8px);padding:6px 14px 8px}#intro .ic b{font-size:26px}#intro .sk{bottom:calc(8vh + 8px);right:12px}}
@@ -2723,7 +2726,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
 
   <div id="dark"></div>
   <div id="hud" hidden>
-    <div id="bossbar" hidden><div id="boss-n"></div><div class="bbar"><b id="boss-b"></b><i id="boss-a"></i></div></div>
+    <div id="bossbar" hidden><div id="boss-n"></div><div class="bbar"><b id="boss-b"></b><i id="boss-a"></i><em class="bmk" hidden></em><em class="bmk" hidden></em></div></div>
     <div id="click-hint" hidden>Haz clic para apuntar con el ratón</div>
     <div class="hud" id="hud-tl">
       <div class="vit-row"><div id="vit">
@@ -3265,7 +3268,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=39').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=40').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -28385,7 +28388,7 @@ function damageZombie(z, amount, info) {
     if (z.hp > 0) hitReact(z, info, amount);
   }
   if (z.hp <= 0) { killZombie(z, info); if (info.bullet && !info.ally) hitmarker('kill'); return true; }
-  if (info.bullet && !info.ally) hitmarker(armorHit ? 'armor' : head ? 'head' : '');
+  if (info.bullet && !info.ally) hitmarker(armorHit ? 'armor' : info.debil ? 'debil' : head ? 'head' : '');
   return false;
 }
 function dropHit(z, m) { const i = z.hits.indexOf(m); if (i >= 0) z.hits.splice(i, 1); }
@@ -29893,7 +29896,7 @@ function bossIntro(z, o) {
   if (!game || tuto || state === 'menu' || !z) return false;
   const el = $('#intro'); if (!el) return false;
   $('#intro-k').textContent = o.kick || ''; $('#intro-t').textContent = o.t || ''; $('#intro-s').textContent = o.s || '';
-  el.className = 'k-' + (o.k || 'jefe'); el.hidden = false; void el.offsetWidth; el.classList.add('on');
+  el.className = 'k-' + (o.k || 'jefe') + (o.mayus ? ' mayus' : ''); el.hidden = false; void el.offsetWidth; el.classList.add('on');
   INTRO.on = true; INTRO.z = z; INTRO.t0 = performance.now(); INTRO.cine = !Net.on && state === 'play' && !REDUCED;
   INTRO.T = o.k === 'mini' ? 2.1 : 2.6;
   if (INTRO.cine) game.introT = INTRO.T; document.body.classList.toggle('intro-cine', INTRO.cine);
@@ -29917,16 +29920,16 @@ function introCam() {
   camera.position.lerp(_iP, k); camera.quaternion.slerp(introCamObj.quaternion, k);
 }
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if (INTRO.on && performance.now() - INTRO.t0 > 250) introFin(); }, true);
-function spawnBoss(z, idx) {
+function spawnBoss(z, idx, io) {   // io: cambia el cartel de entrada (los jefes con fases de las Bodegas y los Backrooms: jfIntro)
   applyBoss(z, idx); const B = BOSSES[idx];
   if (B.spawn) B.spawn(z);
   const j = CAS_JEFES.indexOf(B.id);
-  if (B.final || B.helper || !bossIntro(z, { k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub })) banner(B.name, B.sub, 3600);
-  hint(`Jefe: ${B.sub}`, 4500);
+  if (B.final || B.helper || !bossIntro(z, Object.assign({ k: j >= 0 ? 'casino' : 'jefe', kick: j >= 0 ? `Jefe ${j + 1} del casino` : 'Jefe', t: B.name, s: B.sub }, io || {}))) banner(B.name, (io && io.s) || B.sub, 3600);
+  hint(io && io.s ? io.s : `Jefe: ${B.sub}`, 4500);
   Sfx.roar(panOf(z.root.position), 2); player.shake = Math.min(1, player.shake + 0.4);
 }
-function bossTick(z, dt, c) { const B = z.B; return B && B.tick ? B.tick(z, dt, c) : null; }
-function bossHit(z, a, info) { const B = z.B; return B && B.hit ? B.hit(z, a, info) : a; }
+function bossTick(z, dt, c) { if (z.jf) return jfTick(z, dt, c); const B = z.B; return B && B.tick ? B.tick(z, dt, c) : null; }
+function bossHit(z, a, info) { if (z.jf) return jfHit(z, a, info); const B = z.B; return B && B.hit ? B.hit(z, a, info) : a; }
 function bossPreDeath(z, info) {
   const B = z.B; if (!B) return false;
   if (B.id === 'twins' && !z.split) { z.split = true; const tw = BOSSES.findIndex(b => b.id === 'twin'); for (const o of bSpawnNear(z, 'boss', 2, 2)) applyBoss(o, tw, { hp: z.maxHp * 0.55 }); feed('¡Los Gemelos se separan!', 'red'); return false; }
@@ -30060,7 +30063,7 @@ function bfxSpawn(kind, ...a) {
 function bossClear() {
   zeroReset(); cfxClear(); introFin();
   for (const f of BFX) { if (f.m) { scene.remove(f.m); f.m.material.dispose(); } if (f.g) scene.remove(f.g); }
-  BFX.length = 0; player.webT = 0;
+  BFX.length = 0; player.webT = 0; jfLimpia();
   if (game && game.plague) { player.maxHp += game.plague; game.plague = 0; }
   $('#dark').style.opacity = 0; $('#bossbar').hidden = true;
 }
@@ -30108,7 +30111,7 @@ function rastroZombis() {
   });
 }
 function bossFx(dt) {
-  zeroStep(dt);
+  zeroStep(dt); jfPaso(dt);
   player.webT = Math.max(0, (player.webT || 0) - dt); player.frostT = Math.max(0, (player.frostT || 0) - dt);
   for (let i = BFX.length - 1; i >= 0; i--) {
     const f = BFX[i]; f.t -= dt; const d = Math.hypot(player.pos.x - (f.x || 0), player.pos.z - (f.z || 0)), me = !player.down && state === 'play'; if (f.zk) zfxStep(f, dt, d, me);
@@ -30127,7 +30130,7 @@ function bossFx(dt) {
   }
   cfxStep(dt); CF.tag = '';
   // aspecto de los jefes (también en los teléfonos del grupo)
-  let hp = 0, mx = 0, arm = 0, armMax = 0, name = '', dark = false, bossAlive = false, mhp = 0, mmx = 0, mname = '';
+  let hp = 0, mx = 0, arm = 0, armMax = 0, name = '', dark = false, bossAlive = false, mhp = 0, mmx = 0, mname = '', jfMarcas = false;
   for (const z of zombies) {
     if (z.elite && !z.dead) {
       const c = ELITE[z.elite].c; if (Math.random() < 0.6) { z.torso.getWorldPosition(_zp); PA.add(_zp.x + rand(-0.35, 0.35) * z.s, _zp.y + rand(-0.6, 0.6) * z.s, _zp.z + rand(-0.35, 0.35) * z.s, 0, rand(0.4, 1.2), 0, 0.6, 0.12, c[0], c[1], c[2], 0.9, -0.3, 0.5, 0, 0); }
@@ -30139,11 +30142,12 @@ function bossFx(dt) {
     const B = z.B; if (!B) continue; bossAlive = true;
     if (!B.node) { hp += Math.max(0, z.hp); mx += z.maxHp; } if (z.armorMax) { arm += Math.max(0, z.armor); armMax += z.armorMax; }
     if (!name || (!B.helper && name === '')) name = B.name; if (!B.helper) name = B.name;
-    if (B.id === 'proj') dark = true;
+    if (B.id === 'proj' && (!z.jf || z.jf.oscuro > 0)) dark = true;   // con fases (Bodegas): solo se apagan las luces un momento al cambiar de fase
     if (B.id === 'bride') { z.body.visible = z.bst === 1 || Math.random() < 0.06; if (z.bst === 1 && !player.down && Math.hypot(player.pos.x - z.root.position.x, player.pos.z - z.root.position.z) < 26) { player.yaw += (Math.random() - 0.5) * 0.06; player.pitch += (Math.random() - 0.5) * 0.03; player.shake = Math.max(player.shake, 0.35); } }
     if (B.id === 'shark') { z.body.position.y = damp(z.body.position.y, z.bst === 0 ? -2.6 : 0, 8, dt); if (z.fin) z.fin.visible = z.bst === 0; if (z.bst === 0 && Math.random() < 0.5) dirtBurst(z.root.position.x, 0.05, z.root.position.z, 1, 1.5); }
     if (B.id === 'fire') { z.torso.getWorldPosition(_zp); for (let i = 0; i < 2; i++) PA.add(_zp.x + rand(-0.3, 0.3) * z.s, _zp.y + rand(-0.4, 0.5) * z.s, _zp.z + rand(-0.3, 0.3) * z.s, rand(-0.2, 0.2), rand(1, 2), rand(-0.2, 0.2), rand(0.3, 0.6), rand(0.12, 0.22), 1, rand(0.35, 0.6), 0.1, 1, -1, 0.5, -0.15, 0); }
     if (B.fx) B.fx(z, dt);
+    if (z.jf) { jfFx(z, dt); jfMarcas = true; }
     if (B.id === 'rider' && z.hlegs) { const sw = Math.sin(z.t * 12); z.hlegs.forEach((g, i) => g.rotation.x = (i === 0 || i === 3 ? sw : -sw) * 0.7); }
     if (z.bossGun && z.armRG) z.bossGun.rotation.x = -z.armRG.rotation.x;
   }
@@ -30152,7 +30156,9 @@ function bossFx(dt) {
   if (bossAlive && state !== 'menu') {
     if (bb.hidden) bb.hidden = false;
     { const bb = $('#bossbar'), ahora = performance.now(); if (!(ahora - (bb._yT || 0) < 500)) { bb._yT = ahora; const y = Math.round($('#hud-tc').getBoundingClientRect().bottom + 8); if (bb._y !== y) { bb._y = y; bb.style.top = y + 'px'; } } }   // medir la página cada medio segundo, no en cada cuadro   // la barra del jefe va justo debajo de la oleada, la llave y la misión (sin taparlas)
-    setText($('#boss-n'), 'bossn', name + ZF.tag + CF.tag); $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
+    setText($('#boss-n'), 'bossn', name + ZF.tag + CF.tag);
+    if (bb._jf !== jfMarcas) { bb._jf = jfMarcas; bb.querySelectorAll('.bmk').forEach((m, i) => { m.hidden = !jfMarcas; m.style.left = (jfB().umbrales[i] * 100).toFixed(1) + '%'; }); }   // las marcas de las fases
+    $('#boss-b').style.width = (mx ? hp / mx * 100 : 0).toFixed(1) + '%'; $('#boss-a').style.width = (armMax ? arm / armMax * 100 : 0).toFixed(1) + '%';
   } else if (!bb.hidden) bb.hidden = true;
   // el Proyeccionista apaga las luces: solo se ve con el destello de los disparos
   if (game.shots !== bossShots) { bossShots = game.shots; darkFlash = 0.18; }
@@ -40742,7 +40748,7 @@ function buildBodegas() {
   env({ fog: 0x0e0906, dens: 0.05, top: 0x050302, sky: false, hemiS: 0xffd2a0, hemiG: 0x2a1a10, hemiI: 0.42 * BOD.luzX, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
   bodMats();
   BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = []; BOD.calles = [];
-  BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.boomQ = []; BOD.obsOp = []; BOD.obsCajas = []; BOD.obsPasos = []; BOD.acomodo = []; BOD.entra = null;   // obstáculos y peligros
+  BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.obsOp = []; BOD.obsCajas = []; BOD.obsPasos = []; BOD.acomodo = []; BOD.entra = null;   // obstáculos y peligros
   BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = [];   // salas especiales
   // suelo y techo: una sola pieza cada uno
   const A = world.arena, fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.suelo); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = false;
@@ -41325,11 +41331,13 @@ BAL.bodegas.obst = {
       { n: 'Muretes', p: [['m', 0.5, 0.55, 1.8, 0], ['m', -0.5, -0.55, 1.8, 0], ['b', 0.66, -0.66]] },
       { n: 'Vapor', p: [['v', 0.55, -0.55], ['v', -0.55, 0.55], ['col', 0.55, 0.55]] }
     ],
+    // la sala del jefe (dueño, 27-oct-2026: «cuarto con trampas»): siempre pilares que se rompen (BAL.jefesFases.arena), barriles explosivos y rejillas de vapor;
+    // sin escotillas (el jefe no cae y le quitaban lugar para esquivar). Con arena.forzar, aquí no cuentan las probabilidades de peligros y barriles del piso
     jefe: [
-      { n: 'Columnas', p: [['col', 0.45, 0.45], ['col', -0.45, 0.45], ['col', 0.45, -0.45], ['col', -0.45, -0.45], ['b', 0.75, 0.3], ['b', -0.75, -0.3]] },
-      { n: 'Muretes de cobertura', p: [['m', 0.48, 0.4, 3, 0], ['m', -0.48, -0.4, 3, 0], ['m', -0.48, 0.4, 3, 0], ['m', 0.48, -0.4, 3, 0]] },
-      { n: 'Escotillas', p: [['f', 0.5, 0.5, 2, 2], ['f', -0.5, -0.5, 2, 2], ['col', 0.5, -0.5], ['col', -0.5, 0.5], ['b', 0.8, 0.3], ['b', 0.82, 0.45]] },
-      { n: 'Vapor', p: [['v', 0.45, 0.45], ['v', -0.45, -0.45], ['v', 0.45, -0.45], ['v', -0.45, 0.45], ['col', 0.72, 0.72], ['col', -0.72, -0.72]] }
+      { n: 'Columnas y barriles', p: [['col', 0.48, 0.48], ['col', -0.48, 0.48], ['col', 0.48, -0.48], ['col', -0.48, -0.48], ['b', 0.78, 0.3], ['b', -0.78, -0.3], ['v', 0.74, -0.74], ['v', -0.74, 0.74]] },
+      { n: 'Muretes y columnas', p: [['m', 0.52, 0.62, 2.4, 0], ['m', -0.52, -0.62, 2.4, 0], ['col', -0.5, 0.45], ['col', 0.5, -0.45], ['b', 0.8, 0.8], ['b', -0.8, -0.8], ['v', 0.72, -0.15], ['v', -0.72, 0.15]] },
+      { n: 'Pilares en rombo', p: [['col', 0.62, 0.3], ['col', -0.62, -0.3], ['col', 0.3, -0.62], ['col', -0.3, 0.62], ['b', 0.82, 0.66], ['b', -0.82, -0.66], ['v', 0.66, -0.66], ['v', -0.66, 0.66]] },
+      { n: 'Vapor', p: [['v', 0.45, 0.45], ['v', -0.45, -0.45], ['v', 0.45, -0.45], ['v', -0.45, 0.45], ['col', 0.74, 0.74], ['col', -0.74, -0.74], ['col', 0.74, -0.74], ['b', -0.78, 0.4], ['b', -0.8, 0.55]] }
     ]
   }
 };
@@ -41341,6 +41349,56 @@ BAL.bodegas.escotilla = { dano: 18, borde: 0.3, bordeZ: 0.2 };
 // rejillas de vapor: cada tanto (ciclo, s, al azar entre los dos) avisan con un siseo y una bocanada chica (aviso, s) y luego echan vapor caliente (chorro, s);
 // quema solo durante el chorro (vida por segundo a ti y a los zombis). Medida de la rejilla (m) y desde qué distancia se oye y se ve (m)
 BAL.bodegas.vapor = { ciclo: [4.5, 6.5], aviso: 1.1, chorro: 1.3, dano: 16, danoZ: 30, tam: 1.3, cerca: 26, cada: 0.25 };
+// ---- jefes con fases (dueño, 27-oct-2026: «La parte más aburrida del nivel, sin lugar a dudas, es el jefe»; eligió las tres ideas). Solo los jefes de las Bodegas
+// y de los Backrooms (el modo de siempre no cambia). Cada jefe tiene 3 fases: cambia al bajar de umbrales × su vida, con un rugido de «rugido» s (el
+// Proyeccionista, además, apaga las luces «oscuro» s). Cada fase suma o cambia ataques (fases: los ataques de cada fase con su peso) y TODOS se avisan antes de
+// golpear: marca roja en el suelo, brillo rojo en el jefe y sonido, «aviso» s × aviso[fase] (nunca menos de avisoMin). Después de cada ataque grande (y al chocar
+// contra un pilar o una pared: aturdido) se abre su PUNTO DÉBIL «debil» s: ahí cada bala hace × x (el resto del cuerpo, × abierto); con el punto cerrado, × fuera.
+// Las explosiones (barriles) le hacen × explosion. Su cabeza cuenta como el cuerpo × cabeza. Una fase no se salta: el daño de más se pierde hasta el rugido.
+//   jefes[id].vida: × la vida que ya tenía (BAL.bodegas.jefe.vida o backrooms.jefe.vida) · lema: lo que dice su cartel · lejos: se mantiene a esa distancia (m)
+//   pausa: s entre un ataque y el siguiente, por fase · vel: × su velocidad, por fase · invocar.tope: invocados vivos a la vez como mucho (topeTel: teléfono)
+//   ataques (comunes; cada jefe cambia lo suyo en jefes[id].atq). dano: × el daño del jefe · debil: s de punto débil al terminar (0: no se abre)
+//     carga: embestida en línea recta (vel m/s, largo como mucho, ancho de la franja; min: largo mínimo) · golpe: al suelo (radio, solo si estás a «cerca» m) y
+//     una onda que se salta (onda: hasta, vel, ancho, dano) · abanico: n lentos por fase en «abre» rad (rafagas por fase) · anillo: n en círculo con «hueco»
+//     huecos · invocar: de n[0] a n[1] zombis de la mezcla del nivel · salto: cae donde marca el círculo (vuelo s; tele: se teletransporta) · disparo (El Espejo):
+//     su revólver con línea de aviso, rafaga por fase · bombas (El Payaso): salta y deja n bombas por fase · red (La Araña): bolas de red que frenan, n por fase
+//   arena.pilar: las columnas de la sala del jefe se rompen (golpes que aguantan; cuántos quita cada cosa: carga, golpe al suelo, proyectil, explosión; las balas
+//     del jugador no). arena.br: lo que se pone en los Backrooms alrededor de donde sale el jefe (a r[0]–r[1] m). proyectil: cuántos a la vez como mucho (una malla)
+//   thompson: × la vida de los jefes mientras sigue la PRUEBA de la Thompson desde el inicio (BAL.bodegas.prueba.thompson): con ella se pega mucho más
+//   (pelea simulada en el Nivel 1, normal, acertando 55 %: revólver ~95 s con 1; Thompson ~65 s con × 1,75; ver docs/NIVEL1_BETA.md «Jefes»)
+BAL.jefesFases = {
+  activo: true, umbrales: [0.66, 0.33], rugido: 1.5, oscuro: 1.0, thompson: 1.75,
+  pausa: [2.3, 1.8, 1.3], vel: [1, 1.12, 1.3], aviso: [1, 1, 0.85], avisoMin: 0.6,
+  debil: { t: 2.6, aturdido: 3.2, x: 3, abierto: 1, fuera: 0.6, cabeza: 1.3, explosion: 2, lento: 0.2, radio: 0.2, alto: 1.02, col: 0xffe23a },
+  invocar: { tope: 5, topeTel: 3 },
+  ataques: {
+    carga: { aviso: 1.0, vel: 12, largo: 15, ancho: 1.9, dano: 0.9, debil: 2.2, min: 3.5 },
+    golpe: { aviso: 1.0, radio: 3.2, dano: 0.8, cerca: 6.5, debil: 2.6, onda: { hasta: 10, vel: 7, ancho: 0.7, dano: 0.4 } },
+    abanico: { aviso: 0.85, n: [5, 5, 7], abre: 1.0, alcance: 10, vel: 7, dano: 0.35, rafagas: [1, 1, 2], entre: 0.45, debil: 0 },
+    anillo: { aviso: 0.9, n: 14, hueco: 2, vel: 6, dano: 0.35, debil: 1.4 },
+    invocar: { aviso: 1.1, n: [3, 5], debil: 1.8 },
+    salto: { aviso: 1.1, radio: 2.6, dano: 0.8, vuelo: 0.55, debil: 2.4, tele: false },
+    disparo: { aviso: 0.7, rafaga: [1, 2, 3], entre: 0.55, radio: 0.9, col: 0xd0e0ff, debil: 0 },
+    bombas: { aviso: 1.6, radio: 3.2, n: [1, 2, 3], entre: 0.75, lejos: [6, 10], debil: 1.8 },
+    red: { aviso: 1.2, radio: 2.2, dano: 0.3, n: [1, 1, 3], debil: 0 }
+  },
+  jefes: {
+    proj: { vida: 0.85, lema: 'Lee el suelo: lo rojo avisa. Cuando choque, dispara a lo que brilla', oscuro: true, proyectil: 0xfff0b8,
+      fases: [{ carga: 3, golpe: 2 }, { carga: 2, golpe: 2, abanico: 3 }, { carga: 2, golpe: 1, abanico: 2, invocar: 2 }] },
+    mirror: { vida: 1, lema: 'Copia tu revólver: sal de la línea blanca y cúbrete tras los pilares', lejos: [8, 14], proyectil: 0xd8e8ff,
+      atq: { salto: { tele: true, aviso: 1.0 }, abanico: { n: [5, 7, 7] } },
+      fases: [{ disparo: 3, carga: 2, salto: 1 }, { disparo: 2, abanico: 2, carga: 2, salto: 1 }, { disparo: 2, anillo: 2, carga: 2, salto: 1 }] },
+    clown: { vida: 1, lema: 'Salta y deja bombas: sal de los círculos rojos', proyectil: 0xff5ab0,
+      atq: { carga: { vel: 13 } },
+      fases: [{ bombas: 3, carga: 2 }, { bombas: 2, carga: 2, abanico: 2 }, { bombas: 2, carga: 2, abanico: 1, invocar: 2 }] },
+    spider: { vida: 1, lema: 'Sus redes te frenan: sal de los círculos antes de que caigan', proyectil: 0xb8ff70,
+      atq: { carga: { vel: 13.5 }, salto: { radio: 2.8 } },
+      fases: [{ red: 3, carga: 2 }, { red: 2, carga: 2, salto: 2 }, { red: 1, carga: 2, salto: 2, invocar: 1, anillo: 1 }] }
+  },
+  arena: { forzar: true, pilar: { golpes: 4, carga: 2, golpe: 2, bala: 1, boom: 2, ancho: 0.8, alto: 3 },
+    br: { pilares: 3, barriles: 3, vapor: 2, r: [3.5, 7.5] } },
+  proyectil: { max: 48, radio: 0.24, alto: 1.05, vida: 4 }
+};
 // cajas con sello (dueño: «una con un sello dorado que da un mejor premio»): probabilidad de que una Bodega tenga una; nunca sale vacía: oro (más que una caja normal),
 // balas o una bala común para el cinturón
 BAL.bodegas.rompibles.sello = { p: 1, oro: [12, 25], pOro: 0.55, balas: 12, pBalas: 0.3 };
@@ -41439,6 +41497,7 @@ function bodBarrilExplota(B) {
   // las cajas que se rompen a balazos también se rompen con la explosión
   for (const m of world.shoots.slice()) if (m.userData.bodRompe && m.parent && Math.hypot(m.position.x - x, m.position.z - z) < Bb.radio) for (let k = 0; k < 4 && m.parent; k++) m.userData.onShot(m.position.clone());
   for (const f of BOD.oyenBoom || []) { try { f(x, z, Bb.radio); } catch (e) { noteErr && noteErr(e, 'boom'); } }
+  for (const Pl of (BOD.jfPil || []).slice()) if (Pl.vivo && Math.hypot(Pl.x - x, Pl.z - z) < Bb.radio) jfPilarGolpe(Pl, jfB().arena.pilar.boom);   // jefes con fases: la explosión agrieta los pilares
   BOD.booms = (BOD.booms | 0) + 1;
 }
 // ---- dónde está cada peligro (escotillas y rejillas: rectángulos en el suelo)
@@ -41497,8 +41556,9 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   const gira = (u, v) => { if (esp) u = -u; for (let k = 0; k < giro; k++) [u, v] = [-v, u]; return [u, v]; }, ejeG = e => (e + giro) % 2;
   for (const p of A.p) {
     const t = p[0], [u, v] = gira(p[1], p[2]), x = c.x + u * h, z = c.z + v * h, sem = R(), q_ = R();
-    if ((t === 'f' || t === 'v') && q_ >= Pz.peligro) continue;
-    if (t === 'b' && q_ >= Pz.barriles) continue;
+    const fuerza = r.t === 'jefe' && BAL.jefesFases.activo && BAL.jefesFases.arena.forzar;   // la sala del jefe siempre trae sus trampas
+    if ((t === 'f' || t === 'v') && q_ >= Pz.peligro && !fuerza) continue;
+    if (t === 'b' && q_ >= Pz.barriles && !fuerza) continue;
     let hw, hd, ex = {};
     if (t === 'c') { const n = p[3] | 0 || 1, s = O.caja, eje = sem < 0.5 ? 0 : 1; if (n === 1) { hw = hd = s / 2; } else { hw = eje ? s / 2 : s + 0.03; hd = eje ? s + 0.03 : s / 2; } ex = { n, eje, giro: (sem * 10) % 1 }; }
     else if (t === 'col') { hw = hd = O.columna / 2; }
@@ -41526,6 +41586,8 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
       pos.forEach(([a, b], k) => { F.box('op', s, s, s, a, s / 2, b, k % 2 ? Cc.caja2 : Cc.caja, { ry: (k ? 0.08 : -0.05) }); F.box('op', s + 0.02, 0.08, 0.08, a, s * 0.5, b + s / 2 - 0.03, Cc.caja2); });
       if (E.n >= 3) F.box('op', s * 0.94, s * 0.94, s * 0.94, x + (E.eje ? 0 : 0.1), s + s * 0.47, z + (E.eje ? 0.1 : 0), Cc.caja, { ry: 0.35 + E.giro * 0.5 });
       solido(x, z, hw, hd, E.n >= 3 ? 2 * s : s);
+    } else if (t === 'col' && r.t === 'jefe' && BAL.jefesFases.activo) {   // en la sala del jefe, los pilares se rompen (cada uno es su propia pieza)
+      jfPilar(gR, x, z, H, id('pil' + nb++), r.i, cajas);
     } else if (t === 'col') {
       const s = O.columna; F.box('op', s, H, s, x, H / 2, z, Cc.piedra); F.box('op', s + 0.16, 0.3, s + 0.16, x, 0.15, z, Cc.piedra2); F.box('op', s + 0.16, 0.24, s + 0.16, x, H - 0.12, z, Cc.piedra2);
       solido(x, z, hw, hd, H);
@@ -43573,18 +43635,353 @@ function bodOlaSitio() {   // Backrooms: un punto de aparición a «lejosM» m o
   const ok = world.spawns.filter(s => Math.hypot(s.x - px, s.z - pz) >= O.lejosM && !pointBlocked(s.x, s.z, 0.5) && (!nav.mainDist || nav.mainDist[cellOf(s.x, s.z)] < 1e9) && !lineClear(s.x, s.z, px, pz, 0.15));
   return ok.length ? ok[Math.floor(Math.random() * ok.length)] : brLejos(O.lejosM);
 }
+// ===================== JEFES CON FASES, ATAQUES QUE SE VEN VENIR, CUARTO CON TRAMPAS Y PUNTO DÉBIL (dueño, 27-oct-2026; cifras en BAL.jefesFases) =====================
+// Solo para los jefes de las Bodegas y los Backrooms (z.jf): el modo de siempre sigue igual. Lo decide el anfitrión (se juega solo); lo que se ve va por bossEv.
+//   jfPon: lo prepara (fase 1, su cartel con el nombre y la barra con las marcas de fase) · jfTick: elige y hace los ataques (reemplaza su tick de siempre)
+//   jfHit: el daño según el punto débil · jfPaso: los proyectiles, las ondas y (en los Backrooms) las trampas · jfFx: el brillo del aviso y del punto débil
+const JF = { log: [], proy: [], ondas: [], im: null, geo: null };
+const jfB = () => BAL.jefesFases;
+function jfDe(z) { return jfB().jefes[z.B && z.B.id] || jfB().jefes.proj; }
+function jfAtq(z, k) { const P = jfDe(z); return Object.assign({}, jfB().ataques[k], P.atq && P.atq[k]); }
+function jfAviso(J, s) { const F = jfB(); return Math.max(F.avisoMin, s * F.aviso[J.fase - 1]); }
+const jfPorFase = (v, J) => Array.isArray(v) ? v[Math.min(v.length, J.fase) - 1] : v;
+function jfAnota(z, k, av) { JF.log.push({ id: z.B.id, k, fase: z.jf.fase, t0: game.time, t1: game.time + av }); if (JF.log.length > 400) JF.log.shift(); }   // para las pruebas: cuándo se avisó y cuándo puede doler
+// ---- los pilares que se rompen (sala del jefe de las Bodegas y alrededor del jefe en los Backrooms)
+let jfPilarMat = null, jfPilarMat2 = null;
+function jfPilar(gR, x, z, alto, id, ri, cajas) {
+  const A = jfB().arena.pilar, s = A.ancho, st = bodSt(), par = gR || world.group;
+  if (!jfPilarMat) { jfPilarMat = lam(0x7a6c5c); jfPilarMat2 = lam(0x544a3e); }
+  if (st && id && st.rotos && st.rotos[id]) { jfEscombro(par, x, z, s); return null; }
+  const g = new THREE.Group(); g.position.set(x, 0, z); par.add(g);
+  const m = new THREE.Mesh(bx(s, alto, s), jfPilarMat.clone()); m.position.y = alto / 2; g.add(m);
+  if (!IS_TOUCH) { const base = new THREE.Mesh(bx(s + 0.16, 0.3, s + 0.16), jfPilarMat2); base.position.y = 0.15; g.add(base); }   // (en el teléfono, un dibujo menos por pilar)
+  addBox(x, z, s / 2, s / 2); const col = colliders[colliders.length - 1];
+  solids.push(m); if (cajas) cajas.push(new THREE.Box3(new THREE.Vector3(x - s / 2, 0, z - s / 2), new THREE.Vector3(x + s / 2, alto, z + s / 2)));
+  const P = { id, ri, x, z, hw: s / 2, alto, g, m, col, hp: A.golpes, vivo: true, par };
+  (BOD.jfPil || (BOD.jfPil = [])).push(P); return P;
+}
+function jfEscombro(par, x, z, s) {
+  if (!jfPilarMat2) { jfPilarMat = lam(0x7a6c5c); jfPilarMat2 = lam(0x544a3e); }
+  const e = new THREE.Mesh(bx(s * 1.5, 0.28, s * 1.3), jfPilarMat2); e.position.set(x, 0.14, z); e.rotation.y = 0.4; par.add(e); return e;
+}
+function jfPilarEn(x, z, m) { for (const P of BOD.jfPil || []) if (P.vivo && Math.abs(x - P.x) < P.hw + m && Math.abs(z - P.z) < P.hw + m) return P; return null; }
+function jfPilarGolpe(P, n) {
+  if (!P || !P.vivo) return; P.hp -= n; const A = jfB().arena.pilar, k = Math.max(0, P.hp / A.golpes);
+  for (let i = 0; i < 14; i++) P_dust(P.x + rand(-0.4, 0.4), rand(0.3, P.alto), P.z + rand(-0.4, 0.4));
+  Sfx.thud(panOf(P)); P.m.material.color.setHex(0x7a6c5c).multiplyScalar(0.55 + 0.45 * k); P.g.rotation.z = (1 - k) * 0.05; P.g.rotation.x = (1 - k) * -0.04;
+  if (P.hp > 0) return;
+  P.vivo = false; P.par.remove(P.g); P.m.material.dispose();
+  { const i = solids.indexOf(P.m); if (i >= 0) solids.splice(i, 1); } { const i = colliders.indexOf(P.col); if (i >= 0) colliders.splice(i, 1); }
+  jfEscombro(P.par, P.x, P.z, P.hw * 2); for (let i = 0; i < 40; i++) P_dust(P.x + rand(-0.6, 0.6), rand(0.2, P.alto), P.z + rand(-0.6, 0.6), 2.5);
+  Sfx.boom(); player.shake = Math.min(1, player.shake + 0.35); feed('¡Un pilar se derrumba!', 'red');
+  const st = bodSt(); if (st && P.id) st.rotos[P.id] = 1;
+  BOD.pilRotos = (BOD.pilRotos | 0) + 1;
+}
+function P_dust(x, y, z, v = 1.2) { P.add(x, y, z, rand(-v, v), rand(0.2, v * 1.5), rand(-v, v), rand(0.6, 1.2), rand(0.12, 0.3), 0.45, 0.4, 0.34, 0.8, 4, 1, 0.3, 0); }
+function jfBarriles() { return (BOD.barrX || []).filter(B => B.vivo && B.m && B.m.parent); }
+// lo que hay en el camino de un golpe del jefe: los barriles explotan y los pilares se agrietan
+function jfArenaGolpe(x, z, r, nPil) {
+  for (const B of jfBarriles()) if (Math.hypot(B.x - x, B.z - z) < r + 0.45) bodBarrilExplota(B);
+  for (const P of (BOD.jfPil || []).slice()) if (P.vivo && Math.hypot(P.x - x, P.z - z) < r + P.hw) jfPilarGolpe(P, nPil);
+}
+// ---- los Backrooms: unos pilares, barriles y rejillas de vapor alrededor de donde sale el jefe (no hay sala: es un mapa abierto)
+let jfRejTex = null;
+function jfArenaBR(s) {
+  const A = jfB().arena.br, out = { pil: 0, barr: 0, vap: 0 }; BOD.jfPil = []; BOD.vapores = []; BOD.barrX = []; BOD.boomQ = []; BOD.fosos = [];
+  const usados = [], sitio = (inf) => { for (let k = 0; k < 40; k++) { const a = rand(0, TAU), rr = rand(A.r[0], A.r[1]), x = s.x + Math.cos(a) * rr, z = s.z + Math.sin(a) * rr;
+    if (!insideArena(x, z, 1.5) || pointBlocked(x, z, inf) || Math.hypot(x - player.pos.x, z - player.pos.z) < 4 || usados.some(u => Math.hypot(u.x - x, u.z - z) < 2.2)) continue; usados.push({ x, z }); return { x, z }; } return null; };
+  for (let i = 0; i < A.pilares; i++) { const q = sitio(1.6); if (q && jfPilar(world.group, q.x, q.z, jfB().arena.pilar.alto, null, -1, null)) out.pil++; }
+  for (let i = 0; i < A.barriles; i++) { const q = sitio(1.0); if (q) { bodBarrilExplosivo(world.group, q.x, q.z, null); out.barr++; } }
+  if (!jfRejTex) jfRejTex = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#060404'; g.fillRect(0, 0, w, h); g.fillStyle = '#4a4c50'; for (let i = 0; i < 6; i++) g.fillRect(0, i * 11 + 2, w, 4); g.fillRect(w / 2 - 2, 0, 4, h); g.strokeStyle = '#c8a030'; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4); });
+  const V = BAL.bodegas.vapor;
+  for (let i = 0; i < A.vapor; i++) { const q = sitio(1.0); if (!q) continue; const hw = V.tam / 2;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(V.tam, V.tam), new THREE.MeshLambertMaterial({ map: jfRejTex })); m.rotation.x = -Math.PI / 2; m.position.set(q.x, 0.03, q.z); world.group.add(m);
+    const sp = bodGlow(q.x, 0.25, q.z, 0xff8a40, 2.2, 0, world.group, true); sp.visible = false;
+    BOD.vapores.push({ r: -1, x: q.x, z: q.z, hw, hd: hw, ciclo: V.ciclo[0] + Math.random() * (V.ciclo[1] - V.ciclo[0]), off: Math.random() * 10, sp, fase: -1, tq: 0 }); out.vap++; }
+  BOD.jfBR = world.idx; return out;
+}
+// ---- proyectiles lentos de los jefes: una sola malla para todos (InstancedMesh, un dibujo por cuadro)
+function jfpInit() {
+  if (JF.im) return; const N = jfB().proyectil.max;
+  JF.im = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }), N);
+  JF.im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); const c = new THREE.Color(1, 1, 1); for (let i = 0; i < N; i++) JF.im.setColorAt(i, c);
+  JF.im.count = 0; JF.im.frustumCulled = false; JF.im.renderOrder = 2; scene.add(JF.im);
+  const rg = new THREE.RingGeometry(0.86, 1, 48); JF.ondaGeo = rg;
+}
+function jfDisparo(x, z, ang, vel, dmg, col) {
+  jfpInit(); if (JF.proy.length >= jfB().proyectil.max) return;
+  JF.proy.push({ x, z, y: jfB().proyectil.alto, vx: Math.sin(ang) * vel, vz: Math.cos(ang) * vel, t: jfB().proyectil.vida, dmg, col: new THREE.Color(col || 0xffe0a0) });
+}
+const _jfM = new THREE.Matrix4();
+function jfpPaso(dt) {
+  if (!JF.im) return; const R = jfB().proyectil.radio, me = !player.down && state === 'play';
+  for (let i = JF.proy.length - 1; i >= 0; i--) {
+    const p = JF.proy[i]; p.t -= dt; p.x += p.vx * dt; p.z += p.vz * dt; let fin = p.t <= 0;
+    if (!fin) { const Pl = jfPilarEn(p.x, p.z, R); if (Pl) { jfPilarGolpe(Pl, jfB().arena.pilar.bala); fin = true; sparks(new THREE.Vector3(p.x, p.y, p.z), 6, null); } }
+    if (!fin) for (const B of jfBarriles()) if (Math.hypot(B.x - p.x, B.z - p.z) < R + 0.45) { bodBarrilExplota(B); fin = true; break; }   // un proyectil del jefe también prende un barril
+    if (!fin && (!insideArena(p.x, p.z, R) || pointBlocked(p.x, p.z, R * 0.5))) { fin = true; sparks(new THREE.Vector3(p.x, p.y, p.z), 5, null); }
+    if (!fin && me && Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < R + 0.35 && player.pos.y < p.y + 0.6) { hurtPlayer(p.dmg, { x: p.x - p.vx, z: p.z - p.vz }, { knock: 4, k: 'blunt' }); fin = true; }
+    if (fin) JF.proy.splice(i, 1);
+    else if (!IS_TOUCH && Math.random() < 0.5) PA.add(p.x, p.y, p.z, 0, 0.2, 0, 0.25, 0.14, p.col.r, p.col.g, p.col.b, 0.8, 0, 1, 0, 0);
+  }
+  const n = JF.proy.length; JF.im.count = n; JF.im.visible = n > 0;
+  for (let i = 0; i < n; i++) { const p = JF.proy[i]; _jfM.makeScale(R, R, R); _jfM.setPosition(p.x, p.y, p.z); JF.im.setMatrixAt(i, _jfM); JF.im.setColorAt(i, p.col); }
+  if (n) { JF.im.instanceMatrix.needsUpdate = true; if (JF.im.instanceColor) JF.im.instanceColor.needsUpdate = true; }
+}
+// ---- la onda del golpe al suelo: un anillo que crece; duele si te pilla en el suelo (se salta)
+function jfOnda(x, z, r0, O, dmg) {
+  jfpInit(); const m = new THREE.Mesh(JF.ondaGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.8, depthWrite: false, depthTest: false, side: THREE.DoubleSide, fog: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.2, z); m.scale.setScalar(r0); m.renderOrder = 3; scene.add(m);
+  JF.ondas.push({ m, x, z, r: r0, hasta: O.hasta, vel: O.vel, ancho: O.ancho, dmg, pego: false });
+}
+function jfOndaPaso(dt) {
+  const me = !player.down && state === 'play';
+  for (let i = JF.ondas.length - 1; i >= 0; i--) {
+    const o = JF.ondas[i]; o.r += o.vel * dt; o.m.scale.setScalar(o.r); o.m.material.opacity = 0.85 * (1 - o.r / o.hasta) + 0.1;
+    if (Math.random() < 0.6) { const a = rand(0, TAU); P.add(o.x + Math.cos(a) * o.r, 0.1, o.z + Math.sin(a) * o.r, 0, rand(0.5, 1.5), 0, 0.5, 0.16, 0.5, 0.42, 0.32, 0.8, 4, 1, 0, 0); }
+    const d = Math.hypot(player.pos.x - o.x, player.pos.z - o.z);
+    if (me && !o.pego && Math.abs(d - o.r) < o.ancho / 2 + 0.3 && player.pos.y < 0.35) { o.pego = true; hurtPlayer(o.dmg, o, { knock: 6, k: 'blunt' }); }
+    if (o.r >= o.hasta) { scene.remove(o.m); o.m.material.dispose(); JF.ondas.splice(i, 1); }
+  }
+}
+// ---- el brillo rojo del aviso y el punto débil (una esfera que brilla en el pecho, se ve a través del cuerpo)
+let jfSpotGeo = null;
+function jfArmar(z) {
+  const D = jfB().debil, s = z.s || 1;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff3020, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+  glow.position.set(0, 1.0 * s, 0); glow.scale.setScalar(2.6 * s); glow.visible = false; glow.renderOrder = 4; z.root.add(glow);
+  if (!jfSpotGeo) jfSpotGeo = new THREE.SphereGeometry(1, 14, 10);
+  const spot = new THREE.Mesh(jfSpotGeo, new THREE.MeshBasicMaterial({ color: D.col, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, fog: false }));
+  spot.position.set(0, D.alto * s, 0); spot.scale.setScalar(D.radio * s); spot.visible = false; spot.renderOrder = 5; spot.userData = { zombie: z, part: 'debil' }; z.root.add(spot);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: D.col, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+  halo.scale.setScalar(5); spot.add(halo); halo.renderOrder = 5;
+  z.jfGlow = glow; z.jfSpot = spot;
+}
+function jfPon(z) {
+  if (!jfB().activo || !z || !z.B) return;
+  const P = jfDe(z); z.maxHp = z.hp = Math.round(z.maxHp * (P.vida || 1) * (bodPrueba('thompson') ? jfB().thompson : 1));
+  z.jf = { fase: 1, cd: 2.2, atk: null, ult: null, debil: 0, aturd: 0, rug: 0, oscuro: 0, glow: 0, ayuda: 0 };
+  jfArmar(z); jfpInit();
+}
+// lo que dice su cartel de entrada (spawnBoss): el nivel, su nombre en mayúsculas y cómo se le gana
+function jfIntro(idx) { const B = BOSSES[idx]; if (!jfB().activo || !B) return null; const P = jfB().jefes[B.id] || jfB().jefes.proj; return { kick: `${bodNivelTxt()} · Jefe`, s: P.lema, mayus: true }; }
+function jfGlowOn(z, on) { if (z.jf) z.jf.glow = on ? 1 : 0; }
+function jfDebil(z, t) {
+  const J = z.jf; if (!J) return; J.debil = Math.max(0, t); const on = J.debil > 0, sp = z.jfSpot; if (!sp) return;
+  sp.visible = on; const k = z.hits.indexOf(sp); if (on && k < 0) z.hits.push(sp); else if (!on && k >= 0) z.hits.splice(k, 1);
+  if (on) { Sfx.zap(panOf(z.root.position)); if (!J.ayuda++) banner('¡Punto débil!', 'Dispara a lo que brilla en su pecho: le haces el triple', 2400, 'skull'); }
+}
+function jfFin(z, J, deb) { const F = jfB(); J.ult = J.atk && J.atk.k; J.atk = null; J.cd = F.pausa[J.fase - 1]; jfGlowOn(z, false); if (deb > 0) jfDebil(z, deb); }
+function jfAturdir(z, J, c, pared) {
+  const D = jfB().debil; J.atk = null; J.ult = 'carga'; J.cd = jfB().pausa[J.fase - 1]; jfGlowOn(z, false); J.aturd = D.aturdido; jfDebil(z, D.aturdido);
+  dirtBurst(c.pos.x, 0.05, c.pos.z, 18, 2.5); Sfx.thud(panOf(c.pos)); Sfx.clang(panOf(c.pos)); player.shake = Math.min(1, player.shake + 0.3);
+  feed(pared ? '¡Chocó contra la pared! Está aturdido' : '¡Chocó contra un pilar! Está aturdido', 'gold'); JF.aturdidos = (JF.aturdidos | 0) + 1;
+}
+function jfFase(z, f) {
+  const J = z.jf, F = jfB(), P = jfDe(z); J.fase = f; J.rug = F.rugido; J.cd = F.pausa[f - 1]; J.aturd = 0; jfDebil(z, 0); jfGlowOn(z, false);
+  if (P.oscuro) J.oscuro = F.oscuro;
+  Sfx.roar(panOf(z.root.position), 2); player.shake = Math.min(1, player.shake + 0.5); fx.flash = Math.max(fx.flash, 0.5);
+  banner(`¡Fase ${f}!`, f === 3 ? 'Está furioso: ataca más rápido. Mira el suelo' : 'Aprendió un ataque nuevo. Mira el suelo', 2400, 'skull');
+  JF.log.push({ id: z.B.id, k: 'fase', fase: f, t0: game.time, t1: game.time, hp: z.hp / z.maxHp });
+}
+// ---- cada cuadro (lo llama bossTick): rugido, punto débil, el ataque en curso o elegir el siguiente; si no, camina hacia ti
+function jfTick(z, dt, c) {
+  const J = z.jf, F = jfB(), P = jfDe(z);
+  if (J.atk || J.rug > 0 || J.debil > 0) z.atkCd = Math.max(z.atkCd || 0, 0.5);
+  if (!J.atk && J.fase <= F.umbrales.length && z.hp / z.maxHp <= F.umbrales[J.fase - 1]) jfFase(z, J.fase + 1);
+  if (J.rug > 0) { J.rug -= dt; return { spd: 0 }; }
+  if (J.debil > 0) { J.debil -= dt; if (J.aturd > 0) J.aturd -= dt; if (J.debil <= 0) { jfDebil(z, 0); J.aturd = 0; } return { spd: J.aturd > 0 ? 0 : F.debil.lento }; }
+  if (J.atk) return JF_ATQ[J.atk.k].paso(z, J, c, dt, J.atk) || { spd: 0 };
+  J.cd -= dt;
+  if (J.cd <= 0 && c.canAttack && z.state !== 'rise') { if (jfElige(z, J, c)) return { spd: 0 }; J.cd = 0.35; }
+  const v = F.vel[J.fase - 1];
+  if (P.lejos) { const k = bKeepAway(c, P.lejos[0], P.lejos[1]); if (k) { k.spd *= v; return k; } }
+  return { spd: v };
+}
+function jfElige(z, J, c) {
+  const P = jfDe(z), W = P.fases[J.fase - 1] || P.fases[0], ks = Object.keys(W).filter(k => JF_ATQ[k] && (k !== J.ult || Object.keys(W).length === 1));
+  const ok = ks.filter(k => !JF_ATQ[k].puede || JF_ATQ[k].puede(z, J, c, jfAtq(z, k)));
+  if (!ok.length) return false;
+  let tot = 0; for (const k of ok) tot += W[k]; let u = Math.random() * tot, k = ok[ok.length - 1]; for (const q of ok) { u -= W[q]; if (u <= 0) { k = q; break; } }
+  const A = jfAtq(z, k), S = JF_ATQ[k].ini(z, J, c, A); if (!S) return false;
+  J.atk = Object.assign({ k, t: 0, A }, S); return true;
+}
+const jfVivosInv = () => zombies.filter(o => !o.dead && o.jfInv).length;
+// los ataques: puede (si se puede ahora), ini (avisa: marca, brillo y sonido) y paso (cada cuadro; termina con jfFin o jfAturdir)
+const JF_ATQ = {
+  carga: {
+    puede: (z, J, c, A) => c.dist > 3 && c.dist < 24,
+    ini(z, J, c, A) {
+      const dx = c.tp.x - c.pos.x, dz = c.tp.z - c.pos.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d; let L = 0;
+      while (L < A.largo) { const x = c.pos.x + ux * (L + 0.3), zz = c.pos.z + uz * (L + 0.3); if (!insideArena(x, zz, z.r) || pointBlocked(x, zz, z.r * 0.8)) break; L += 0.3; }
+      if (L < A.min) return null;
+      const av = jfAviso(J, A.aviso), ex = c.pos.x + ux * (L + z.r), ez = c.pos.z + uz * (L + z.r);
+      bossEv('tgl', c.pos.x, c.pos.z, ex, ez, A.ancho, av, 0, 'dust'); jfGlowOn(z, true); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.5)); jfAnota(z, 'carga', av);
+      z.yaw = Math.atan2(ux, uz); return { ux, uz, L, av, mov: false, rec: 0, pego: false };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; if (S.t < S.av) return { mx: S.ux, mz: S.uz, spd: 0 };
+      if (!S.mov) { S.mov = true; jfGlowOn(z, false); }
+      const v = S.A.vel * jfB().vel[J.fase - 1], px = c.pos.x, pz = c.pos.z; c.pos.x += S.ux * v * dt; c.pos.z += S.uz * v * dt; S.rec += v * dt;
+      if (Math.random() < 0.7) dirtBurst(c.pos.x, 0.05, c.pos.z, 1, 1);
+      for (const B of jfBarriles()) if (Math.hypot(B.x - c.pos.x, B.z - c.pos.z) < z.r + 0.75) { bodBarrilExplota(B); JF.barrJefe = (JF.barrJefe | 0) + 1; }
+      if (!S.pego && !player.down && Math.hypot(player.pos.x - c.pos.x, player.pos.z - c.pos.z) < z.r + 0.55) { S.pego = true; hurtPlayer(Math.round(z.dmg * S.A.dano), { x: px, z: pz }, { knock: 12, k: 'blunt' }); }
+      const Pl = jfPilarEn(c.pos.x, c.pos.z, z.r + 0.12);
+      if (Pl) { jfPilarGolpe(Pl, jfB().arena.pilar.carga); c.pos.x = px; c.pos.z = pz; jfAturdir(z, J, c, false); return { spd: 0 }; }
+      resolve(c.pos, z.r); const movido = Math.hypot(c.pos.x - px, c.pos.z - pz);
+      if (movido < v * dt * 0.4 || !insideArena(c.pos.x, c.pos.z, z.r + 0.05)) { jfAturdir(z, J, c, true); return { spd: 0 }; }
+      if (S.rec >= S.L + 0.4) jfFin(z, J, S.A.debil);
+      return { mx: S.ux, mz: S.uz, spd: 0 };
+    } },
+  golpe: {
+    puede: (z, J, c, A) => c.dist < A.cerca,
+    ini(z, J, c, A) {
+      const av = jfAviso(J, A.aviso); bossEv('tgc', c.pos.x, c.pos.z, A.radio, av, Math.round(z.dmg * A.dano), 'slam'); jfGlowOn(z, true); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.3)); jfAnota(z, 'golpe', av);
+      return { x: c.pos.x, z: c.pos.z, av };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; if (S.t < S.av) return { spd: 0 };
+      jfOnda(S.x, S.z, S.A.radio, S.A.onda, Math.round(z.dmg * S.A.onda.dano)); jfArenaGolpe(S.x, S.z, S.A.radio, jfB().arena.pilar.golpe);
+      player.shake = Math.min(1, player.shake + 0.4); if (!J.ondaAyuda++) hint('¡Salta la onda!', 1800);
+      jfFin(z, J, S.A.debil); return { spd: 0 };
+    } },
+  abanico: {
+    puede: (z, J, c, A) => c.dist < 26,
+    ini(z, J, c, A) {
+      const av = jfAviso(J, A.aviso), ang = bAng(c); bossEv('tga', c.pos.x, c.pos.z, ang, A.alcance, A.abre / 2, av, 0); jfGlowOn(z, true); Sfx.whoosh(panOf(c.pos)); jfAnota(z, 'abanico', av);
+      return { ang, av, n: jfPorFase(A.n, J), raf: jfPorFase(A.rafagas, J), hechas: 0 };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; const A = S.A, P = jfDe(z);
+      while (S.hechas < S.raf && S.t >= S.av + S.hechas * A.entre) {
+        const off = S.hechas % 2 ? 0.5 : 0, n = S.n; for (let i = 0; i < n; i++) { const u = n > 1 ? (i + off) / (n - 1) - 0.5 : 0; jfDisparo(c.pos.x, c.pos.z, S.ang + u * A.abre, A.vel, Math.round(z.dmg * A.dano), P.proyectil); }
+        Sfx.whoosh(panOf(c.pos)); S.hechas++;
+      }
+      if (S.hechas >= S.raf && S.t >= S.av + (S.raf - 1) * A.entre + 0.25) jfFin(z, J, A.debil);
+      return { spd: 0, mx: Math.sin(S.ang), mz: Math.cos(S.ang) };
+    } },
+  anillo: {
+    ini(z, J, c, A) {
+      const av = jfAviso(J, A.aviso); bossEv('tgc', c.pos.x, c.pos.z, 2.4, av, 0, 'dust'); jfGlowOn(z, true); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.2)); jfAnota(z, 'anillo', av);
+      return { av, a0: rand(0, TAU), hueco: Math.floor(rand(0, A.n)) };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; if (S.t < S.av) return { spd: 0 };
+      const A = S.A, P = jfDe(z); for (let i = 0; i < A.n; i++) { if (((i - S.hueco + A.n) % A.n) < A.hueco) continue; jfDisparo(c.pos.x, c.pos.z, S.a0 + i / A.n * TAU, A.vel, Math.round(z.dmg * A.dano), P.proyectil); }
+      Sfx.whoosh(panOf(c.pos)); jfFin(z, J, A.debil); return { spd: 0 };
+    } },
+  invocar: {
+    puede: (z, J, c, A) => jfVivosInv() < (IS_TOUCH ? jfB().invocar.topeTel : jfB().invocar.tope),
+    ini(z, J, c, A) {
+      const tope = IS_TOUCH ? jfB().invocar.topeTel : jfB().invocar.tope, n = Math.min(A.n[0] + Math.floor(Math.random() * (A.n[1] - A.n[0] + 1)), tope - jfVivosInv()); if (n <= 0) return null;
+      const av = jfAviso(J, A.aviso), pts = []; for (let i = 0; i < n; i++) { const q = bSpot(c.pos.x, c.pos.z, 2.5, 5.5); if (q) { pts.push(q); bossEv('tgc', q.x, q.z, 0.9, av, 0, 'dust'); } }
+      if (!pts.length) return null; jfGlowOn(z, true); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.6)); jfAnota(z, 'invocar', av); feed(`${z.B.name} llama a sus zombis`, 'red');
+      return { av, pts };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; if (S.t < S.av) return { spd: 0 };
+      const tope = IS_TOUCH ? jfB().invocar.topeTel : jfB().invocar.tope;
+      for (const q of S.pts) { if (jfVivosInv() >= tope) break; const t = brTipo(); let o;
+        if (game.bod && game.bod.br == null && z.bod) o = bodSpawn(t, q.x, q.z, { r: z.bod.r, g: 'h', extra: 1, caza: 1, alerta: true }, true);
+        else { o = spawnZombie(t, q.x, q.z, diffW(game.wave), true); game.alive++; }
+        if (o) { o.jfInv = z; o.riseDur = 0.9; } }
+      jfFin(z, J, S.A.debil); return { spd: 0 };
+    } },
+  salto: {
+    puede: (z, J, c, A) => c.dist > 3 && c.dist < 22,
+    ini(z, J, c, A) {
+      let q = { x: c.tp.x, z: c.tp.z }; if (!insideArena(q.x, q.z, 1.2) || pointBlocked(q.x, q.z, z.r + 0.2)) q = bSpot(c.tp.x, c.tp.z, 0.8, 2.6); if (!q) return null;
+      const av = jfAviso(J, A.aviso); bossEv('tgc', q.x, q.z, A.radio, av, Math.round(z.dmg * A.dano), 'slam'); jfGlowOn(z, true); Sfx.roar(panOf(c.pos), volOf(c.pos, 1.3)); jfAnota(z, 'salto', av);
+      if (!A.tele) bLeap(z, q.x, q.z, Math.max(0.05, av - A.vuelo), A.vuelo);
+      return { q, av, tp: false };
+    },
+    paso(z, J, c, dt, S) {
+      S.t += dt; const A = S.A;
+      if (A.tele) { if (!S.tp && S.t >= S.av - 0.12) { S.tp = true; bossEv('puff', c.pos.x, c.pos.z); c.pos.x = S.q.x; c.pos.z = S.q.z; bossEv('puff', S.q.x, S.q.z); } }
+      else bLeapStep(z, dt, c);
+      if (S.t < S.av) return { spd: 0 };
+      z.lp = null; jfArenaGolpe(S.q.x, S.q.z, A.radio, jfB().arena.pilar.golpe); resolve(c.pos, z.r); jfFin(z, J, A.debil); return { spd: 0 };
+    } },
+  disparo: {   // El Espejo: su revólver; cada tiro con su línea de aviso (no atraviesa pilares)
+    puede: (z, J, c, A) => c.dist < 30 && lineClear(c.pos.x, c.pos.z, c.tp.x, c.tp.z, 0.1),
+    ini(z, J, c, A) { return { av: jfAviso(J, A.aviso), n: jfPorFase(A.rafaga, J), hechos: 0, pend: [] }; },
+    paso(z, J, c, dt, S) {
+      S.t += dt; const A = S.A, E = BAL.jefeEspejo;
+      if (S.hechos < S.n && S.t >= S.hechos * A.entre) {
+        const dmg = Math.max(E.min, (MODELS[game.equip] || MODELS.paci).dmg * E.dano) * (1 + 0.08 * zoneOf(game.wave));
+        bossEv('laser', c.pos.x, c.pos.z, c.tp.x, c.tp.z, Math.round(dmg), S.av, A.radio, A.col); jfAnota(z, 'disparo', S.av); S.pend.push({ t: S.t + S.av, x: c.pos.x, z: c.pos.z, tx: c.tp.x, tz: c.tp.z }); S.hechos++;
+      }
+      for (let i = S.pend.length - 1; i >= 0; i--) { const q = S.pend[i]; if (S.t < q.t) continue; S.pend.splice(i, 1);   // el tiro sale: el primer pilar en la línea lo para (y se agrieta)
+        const n = Math.ceil(Math.hypot(q.tx - q.x, q.tz - q.z) / 0.3); for (let k = 1; k <= n; k++) { const Pl = jfPilarEn(q.x + (q.tx - q.x) * k / n, q.z + (q.tz - q.z) * k / n, 0.05); if (Pl) { jfPilarGolpe(Pl, jfB().arena.pilar.bala); break; } } }
+      if (S.hechos >= S.n && !S.pend.length) jfFin(z, J, A.debil);
+      return { spd: 0.15, mx: c.mx, mz: c.mz };
+    } },
+  bombas: {   // El Payaso: salta lejos de ti y deja una bomba con su círculo; la última vez queda mareado (punto débil)
+    ini(z, J, c, A) { return { n: jfPorFase(A.n, J), hechas: 0, av: A.aviso }; },
+    paso(z, J, c, dt, S) {
+      S.t += dt; const A = S.A;
+      if (S.hechas < S.n && S.t >= S.hechas * A.entre) {
+        const sp = bSpot(c.tp.x, c.tp.z, A.lejos[0], A.lejos[1]);
+        bossEv('tgc', c.pos.x, c.pos.z, A.radio, A.aviso, 0, 'dust'); bossEv('bomb', c.pos.x, c.pos.z); jfAnota(z, 'bombas', A.aviso);
+        bossEv('puff', c.pos.x, c.pos.z); if (sp) { c.pos.x = sp.x; c.pos.z = sp.z; bossEv('puff', sp.x, sp.z); } S.hechas++;
+      }
+      if (S.hechas >= S.n && S.t >= (S.n - 1) * A.entre + 0.35) jfFin(z, J, A.debil);
+      return { spd: 0 };
+    } },
+  red: {   // La Araña: bolas de red que caen donde marca el círculo y dejan una red pegajosa
+    puede: (z, J, c, A) => c.dist < 26,
+    ini(z, J, c, A) {
+      const av = jfAviso(J, A.aviso), n = jfPorFase(A.n, J), pts = [{ x: c.tp.x, z: c.tp.z }]; for (let i = 1; i < n; i++) { const q = bSpot(c.tp.x, c.tp.z, 2.4, 5); if (q) pts.push(q); }
+      for (const q of pts) { bossEv('tgc', q.x, q.z, A.radio, av, Math.round(z.dmg * A.dano), 'goo'); bossEv('lob', c.pos.x, c.pos.z, q.x, q.z, av, 'goo'); }
+      Sfx.spit(panOf(c.pos), volOf(c.pos, 1.2)); jfAnota(z, 'red', av); return { av };
+    },
+    paso(z, J, c, dt, S) { S.t += dt; if (S.t >= S.av) jfFin(z, J, S.A.debil); return { spd: 0.3 }; } }
+};
+// ---- el daño (lo llama bossHit): punto débil × x, abierto × abierto, cerrado × fuera; explosiones × explosion. Una fase no se salta
+function jfHit(z, a, info) {
+  const J = z.jf, D = jfB().debil, U = jfB().umbrales; let r;
+  if (info.part === 'debil' && J.debil > 0) { r = a / 1.75 * D.x; info.debil = true; }   // la esfera cuenta como un tiro al cuerpo (que aguanta 1,75 veces) × x
+  else {
+    const base = info.part === 'head' && info.bullet ? a / 2.4 / 1.75 * D.cabeza : a;
+    r = !info.bullet && !info.dir ? base * D.explosion : base * (J.debil > 0 ? D.abierto : D.fuera);
+  }
+  if (J.fase <= U.length && r < z.maxHp * 0.25) r = Math.min(r, Math.max(0, z.hp - ((U[J.fase] != null ? U[J.fase] : 0) * z.maxHp + 1)));   // no se salta una fase ni muere antes de la última (el daño de más se pierde; un golpe enorme, como la Ruleta, sí pasa)
+  if (info.debil && info.bullet && !info.ally) { if (info.point) for (let i = 0; i < 8; i++) PA.add(info.point.x, info.point.y, info.point.z, rand(-2, 2), rand(0, 2.5), rand(-2, 2), 0.35, 0.12, 1, 0.9, 0.2, 1, 3, 1, 0, 0); Sfx.combo(7); JF.debilHits = (JF.debilHits | 0) + 1; }
+  return r;
+}
+// ---- cada cuadro (desde bossFx): proyectiles, ondas y, en los Backrooms, las rejillas y los barriles en cadena
+function jfPaso(dt) {
+  jfpPaso(dt); jfOndaPaso(dt);
+  if (game && game.bod && game.bod.br != null && BOD.jfBR === world.idx && state === 'play') bodPeligros(dt, null);
+}
+function jfFx(z, dt) {
+  const J = z.jf; if (!J) return; const t = performance.now() / 1000;
+  if (z.jfGlow) { const on = J.glow > 0; z.jfGlow.visible = on; if (on) z.jfGlow.material.opacity = 0.55 + 0.35 * Math.sin(t * 18); }
+  if (z.jfSpot && z.jfSpot.visible) { const s = (z.s || 1) * jfB().debil.radio * (1 + 0.18 * Math.sin(t * 12)); z.jfSpot.scale.setScalar(s); z.jfSpot.material.opacity = 0.75 + 0.25 * Math.sin(t * 12); }
+  if (J.aturd > 0 && Math.random() < 0.5) { z.head.getWorldPosition(_zp); PA.add(_zp.x + rand(-0.4, 0.4), _zp.y + 0.45, _zp.z + rand(-0.4, 0.4), 0, 0.4, 0, 0.5, 0.1, 1, 1, 0.4, 1, 0, 0.3, 0, 0); }
+  if (J.oscuro > 0) J.oscuro -= dt;
+  CF.tag = ` · Fase ${J.fase}` + (J.debil > 0 ? ' · ¡PUNTO DÉBIL!' : '');
+}
+function jfLimpia() {
+  for (const o of JF.ondas) { scene.remove(o.m); o.m.material.dispose(); } JF.ondas.length = 0; JF.proy.length = 0; if (JF.im) { JF.im.count = 0; JF.im.visible = false; }
+}
+// el jefe cae: se van sus proyectiles y caen los zombis que llamó
+function jfMuere(z) {
+  if (!z || !z.jf) return; jfLimpia(); jfDebil(z, 0); z.jf.glow = 0; if (z.jfGlow) z.jfGlow.visible = false;
+  for (const o of zombies) if (!o.dead && o.jfInv === z) damageZombie(o, 1e9, { part: 'head', dir: null });
+}
 function bodJefeSale(J, DVv) {
   const st = bodSt(), c = bodC(J), h = bodH(J), x = c.x - DVv[0] * (h - 1.5), z = c.z - DVv[1] * (h - 1.5);
   let idx = BOSSES.findIndex(b => b.id === 'proj'); if (idx < 0) { noteErr(new Error('no está el jefe proj'), 'jefe'); idx = 0; }
   st.jefe = 1;
   try {
-    const n = spawnZombie('boss', x, z, diffW(game.wave), false); game.alive++; spawnBoss(n, idx);
+    const n = spawnZombie('boss', x, z, diffW(game.wave), false); game.alive++; spawnBoss(n, idx, jfIntro(idx));
     n.maxHp = n.hp = Math.round(n.maxHp * BAL.bodegas.jefe.vida); n.bod = { r: J.i, g: 'j', alerta: true, obj: { root: { position: new THREE.Vector3(x, 0, z) }, dead: false } };
-    BOD.jefeZ = n;
+    BOD.jefeZ = n; jfPon(n);   // fases, ataques con aviso y punto débil (BAL.jefesFases)
   } catch (e) { noteErr(e, 'jefe'); st.jefe = 0; BOD.jefeZ = null; }   // si el jefe no pudo salir, vuelve a intentarlo (antes quedaba «saliendo» para siempre)
 }
 function bodJefeMuere(z) {
-  const st = bodSt(); st.jefe = 2; BOD.jefeZ = null;
+  const st = bodSt(); st.jefe = 2; BOD.jefeZ = null; jfMuere(z);
   bodAbrir(BOD.pJefe);
   if (bodDeuda()) BOD.llamaT = game.time + BAL.bodegas.jefe.llamada;   // sin deuda (BAL.deuda.activa): Don Santino no llama
   setTimeout(() => { if (game && game.bod) banner('¡Jefe vencido!', bodDeuda() ? 'Recoge el botín · el teléfono va a sonar' : 'Recoge el botín · abre la salida con la llave', 3000, 'skull'); }, 1500);
@@ -43639,7 +44036,7 @@ function bodIrA(ni) {
   { const H = habDe(); if (H && game.habT > 0 && H.dur) game.hab = Math.min(100, (game.hab || 0) + (H.carga || 100) * clamp(game.habT / H.dur, 0, 1)); }
   habFin(); useCur = null; showUse(null); linternaPon(false); BOD.lev = []; BOD.olaQ = [];
   // lo de cada nivel de las Bodegas no pasa al siguiente (en los Backrooms no hay grietas, escotillas ni bóvedas: antes una explosión ahí fallaba)
-  BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = []; BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.boomQ = []; BOD.barriles = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.mm = null; bodFlowsFuera();
+  BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = []; BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.barriles = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.mm = null; bodFlowsFuera();
   clearActors(); buildMap(ni); precalentarHab(); try { renderer.compile(scene, camera); } catch (e) {}
   player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
   for (let i = cops.length - 1; i >= 0; i--) if (cops[i].dead || (cops[i].indep && !cops[i].radio)) removeCop(i);
@@ -43739,13 +44136,14 @@ function brJefeSale() {
   let idx = BOSSES.findIndex(b => b.id === (C && C.jefe)); if (idx < 0) { noteErr(new Error('jefe desconocido ' + (C && C.jefe)), 'jefe'); idx = 0; }
   try {
     const s = brLejos(J.lejos[0]) || world.spawns[0] || world.start;
-    const n = spawnZombie('boss', s.x, s.z, diffW(game.wave), false); game.alive++; spawnBoss(n, idx);
-    n.maxHp = n.hp = Math.round(n.maxHp * J.vida); BOD.jefeZ = n;
+    if (jfB().activo) try { BOD.jfArena = jfArenaBR(s); } catch (e) { noteErr(e, 'arena del jefe'); }   // pilares, barriles y rejillas alrededor de donde sale
+    const n = spawnZombie('boss', s.x, s.z, diffW(game.wave), false); game.alive++; spawnBoss(n, idx, jfIntro(idx));
+    n.maxHp = n.hp = Math.round(n.maxHp * J.vida); BOD.jefeZ = n; jfPon(n);
   } catch (e) { noteErr(e, 'jefe'); st.jefe = 0; BOD.jefeZ = null; st.llvT = 1; return; }   // si no pudo salir, brStep lo vuelve a intentar (antes el nivel quedaba imposible)
   bodTitulo(BAL.bodegas.hud.momento); banner('¡Tienes las llaves!', `Sale el jefe: ${BOSSES[idx].name}`, 3000, 'skull'); Sfx.roar && Sfx.roar(0, 1.2);
 }
 function brJefeMuere(z) {
-  const st = bodSt(); st.jefe = 2; BOD.jefeZ = null;
+  const st = bodSt(); st.jefe = 2; BOD.jefeZ = null; jfMuere(z);
   st.salida = brSitio(3, 7, st.tiendaP); brPuertaSalida();
   setTimeout(() => { if (game && game.bod) banner('¡Jefe vencido!', bodNivel() < BAL.bodegas.niveles ? `La salida al Nivel ${bodNivel() + 1} se abrió junto al inicio` : 'La salida de los Backrooms se abrió junto al inicio', 3200, 'key'); }, 1200);
 }
