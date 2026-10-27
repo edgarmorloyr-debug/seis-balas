@@ -200,3 +200,6 @@ Pedido del dueño: probar la partida con la Thompson desde el inicio y oleadas g
   - Backrooms: aparecen en los puntos de aparición del mapa a 20 m o más y sin que los veas; los que llegan de a uno siguen (`goteo`).
   - **Tope**: en el Nivel 1, como mucho 28 zombis de oleadas vivos a la vez (22 en el teléfono; los guardias de los cuartos no cuentan: están quietos y lejos no se dibujan); en los Backrooms, 26, 30 y 34 vivos en total (22, 24 y 26 en el teléfono). Si se llega al tope, la oleada sale más chica o no sale. Los zombis salen de a uno cada 0,12 s (no todos en el mismo cuadro).
   - El tiempo de las oleadas corre como el reloj de 10 minutos: no en el jardín, ni en la Tienda o las salas, ni en la pausa. **«Cómo vas» (Tab)** muestra «Próxima oleada» con la cuenta atrás (en rojo los últimos 10 s). El reloj de 10 minutos y todo lo demás sigue igual.
+
+## Decisión del dueño (27-oct-2026)
+- Las oleadas grandes cada minuto hacen el juego más divertido: se quedan como parte del juego (no solo prueba). La Thompson desde el inicio sigue en prueba hasta que el dueño decida.
