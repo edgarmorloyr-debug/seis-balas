@@ -228,3 +228,9 @@ Decisiones del dueño del 27-oct-2026. Todas las cifras en `BAL.bodegas.prueba`,
   - Arriba, tus armas (el revólver y las de los espacios 2 y 3) y la marca «En prueba»; debajo, las ramas una debajo de otra (en dos columnas en pantallas bajas): **Daño** (+10 / +22 / +36 %, 30 / 65 / 120 $), **Cadencia** (+8 / +16 / +25 %, 30 / 65 / 120 $), **Cargador** (+15 / +30 / +50 % de balas, al menos +1 por nivel; 25 / 55 / 100 $), **Recarga** (+15 / +30 / +50 %, 20 / 45 / 85 $), **Precisión** (−15 / −28 / −40 % de dispersión, 20 / 45 / 85 $) y **Penetración** (+1 / +2 zombis atravesados, 80 / 150 $; se abre con Daño Nv 2). Cada fila: icono, nombre, valor de ahora → siguiente, puntos de nivel y precio; las bloqueadas, en gris con lo que les falta. A la derecha, la nota de la rama elegida y el único botón naranja, «Mejorar · precio $» (si no alcanza: «Te faltan N $»).
   - Se paga con oro (el saldo se ve arriba), vale al momento y para toda la partida (pasa a los Backrooms) y se pierde al caer. Cada arma tiene sus propias mejoras.
   - Usa el mismo cálculo que las piezas del Herrero (`bodX` y `bodCap`): una pieza y una mejora se multiplican, no hay dos sistemas peleando. El nivel por uso de cada arma (que sube solo al matar) sigue aparte, igual que antes.
+
+## Decisiones del dueño (28-oct-2026)
+- Aprobado: solo los zombis que te persiguen reaparecen cerca de ti (los que buscan o cuidan cuartos se quedan).
+- Árbol de mejoras: precios al doble (Daño y Cadencia 60/130/240, Cargador 50/110/200, Recarga y Precisión 40/90/170, Perforación 160/300).
+- Solo las oleadas buscan y se dispersan; los guardias normales vuelven a su cuarto.
+- El árbol de mejoras se queda como pestaña del inventario (O e I abren la misma ventana).
