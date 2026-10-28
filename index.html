@@ -3282,7 +3282,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
 
 <div id="vm2" hidden role="dialog" aria-label="Expendedora Apocalipsis"></div>
 <div id="inv2" hidden role="dialog" aria-label="Inventario"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 <script src="lib/GLTFLoader.js"></script>
 <script src="lib/SkeletonUtils.js"></script>
 <script>
@@ -3914,6 +3914,187 @@ const Sfx = (() => {
 /* ===================== RENDER Y ESCENA ===================== */
 const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_TOUCH, powerPreference: 'high-performance' });
+/* three.js r149 (rama threejs-nuevo, 28-oct-2026): desde r138 MeshLambertMaterial calcula la luz en cada píxel; en r128 la calculaba en
+   cada vértice (más barato y es como se ve el juego). LAMB.vertice() vuelve a poner el sombreado por vértice de r128, escrito con las
+   funciones de luz de r149 (con la luz «de antes», sin physicallyCorrectLights, r149 ya multiplica el color de las luces por PI: aquí no
+   se vuelve a multiplicar). LAMB.pixel() deja el de r149 (preset Alta: los faroles dibujan su círculo de luz en el piso). */
+const LAMB = (() => {
+  const SL = THREE.ShaderLib.lambert, pix = { v: SL.vertexShader, f: SL.fragmentShader };
+  const vtx = {
+    v: `
+varying vec3 vLightFront;
+varying vec3 vIndirectFront;
+#ifdef DOUBLE_SIDED
+	varying vec3 vLightBack;
+	varying vec3 vIndirectBack;
+#endif
+#include <common>
+#include <uv_pars_vertex>
+#include <uv2_pars_vertex>
+#include <envmap_pars_vertex>
+#include <bsdfs>
+#include <lights_pars_begin>
+#include <color_pars_vertex>
+#include <fog_pars_vertex>
+#include <morphtarget_pars_vertex>
+#include <skinning_pars_vertex>
+#include <shadowmap_pars_vertex>
+#include <logdepthbuf_pars_vertex>
+#include <clipping_planes_pars_vertex>
+void main() {
+	#include <uv_vertex>
+	#include <uv2_vertex>
+	#include <color_vertex>
+	#include <morphcolor_vertex>
+	#include <beginnormal_vertex>
+	#include <morphnormal_vertex>
+	#include <skinbase_vertex>
+	#include <skinnormal_vertex>
+	#include <defaultnormal_vertex>
+	#include <begin_vertex>
+	#include <morphtarget_vertex>
+	#include <skinning_vertex>
+	#include <project_vertex>
+	#include <logdepthbuf_vertex>
+	#include <clipping_planes_vertex>
+	#include <worldpos_vertex>
+	#include <envmap_vertex>
+	GeometricContext geometry;
+	geometry.position = mvPosition.xyz;
+	geometry.normal = normalize( transformedNormal );
+	geometry.viewDir = ( isOrthographic ) ? vec3( 0, 0, 1 ) : normalize( -mvPosition.xyz );
+	vLightFront = vec3( 0.0 );
+	vIndirectFront = getAmbientLightIrradiance( ambientLightColor ) + getLightProbeIrradiance( lightProbe, geometry.normal );
+	#ifdef DOUBLE_SIDED
+		vLightBack = vec3( 0.0 );
+		vIndirectBack = getAmbientLightIrradiance( ambientLightColor ) + getLightProbeIrradiance( lightProbe, -geometry.normal );
+	#endif
+	IncidentLight directLight;
+	float dotNL;
+	#if NUM_POINT_LIGHTS > 0
+	#pragma unroll_loop_start
+	for ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {
+		getPointLightInfo( pointLights[ i ], geometry, directLight );
+		dotNL = dot( geometry.normal, directLight.direction );
+		vLightFront += saturate( dotNL ) * directLight.color;
+		#ifdef DOUBLE_SIDED
+			vLightBack += saturate( -dotNL ) * directLight.color;
+		#endif
+	}
+	#pragma unroll_loop_end
+	#endif
+	#if NUM_SPOT_LIGHTS > 0
+	#pragma unroll_loop_start
+	for ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {
+		getSpotLightInfo( spotLights[ i ], geometry, directLight );
+		dotNL = dot( geometry.normal, directLight.direction );
+		vLightFront += saturate( dotNL ) * directLight.color;
+		#ifdef DOUBLE_SIDED
+			vLightBack += saturate( -dotNL ) * directLight.color;
+		#endif
+	}
+	#pragma unroll_loop_end
+	#endif
+	#if NUM_DIR_LIGHTS > 0
+	#pragma unroll_loop_start
+	for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
+		getDirectionalLightInfo( directionalLights[ i ], geometry, directLight );
+		dotNL = dot( geometry.normal, directLight.direction );
+		vLightFront += saturate( dotNL ) * directLight.color;
+		#ifdef DOUBLE_SIDED
+			vLightBack += saturate( -dotNL ) * directLight.color;
+		#endif
+	}
+	#pragma unroll_loop_end
+	#endif
+	#if NUM_HEMI_LIGHTS > 0
+	#pragma unroll_loop_start
+	for ( int i = 0; i < NUM_HEMI_LIGHTS; i ++ ) {
+		vIndirectFront += getHemisphereLightIrradiance( hemisphereLights[ i ], geometry.normal );
+		#ifdef DOUBLE_SIDED
+			vIndirectBack += getHemisphereLightIrradiance( hemisphereLights[ i ], -geometry.normal );
+		#endif
+	}
+	#pragma unroll_loop_end
+	#endif
+	#include <shadowmap_vertex>
+	#include <fog_vertex>
+}`,
+    f: `
+uniform vec3 diffuse;
+uniform vec3 emissive;
+uniform float opacity;
+varying vec3 vLightFront;
+varying vec3 vIndirectFront;
+#ifdef DOUBLE_SIDED
+	varying vec3 vLightBack;
+	varying vec3 vIndirectBack;
+#endif
+#include <common>
+#include <packing>
+#include <dithering_pars_fragment>
+#include <color_pars_fragment>
+#include <uv_pars_fragment>
+#include <uv2_pars_fragment>
+#include <map_pars_fragment>
+#include <alphamap_pars_fragment>
+#include <alphatest_pars_fragment>
+#include <aomap_pars_fragment>
+#include <lightmap_pars_fragment>
+#include <emissivemap_pars_fragment>
+#include <envmap_common_pars_fragment>
+#include <envmap_pars_fragment>
+#include <bsdfs>
+#include <lights_pars_begin>
+#include <fog_pars_fragment>
+#include <shadowmap_pars_fragment>
+#include <shadowmask_pars_fragment>
+#include <specularmap_pars_fragment>
+#include <logdepthbuf_pars_fragment>
+#include <clipping_planes_pars_fragment>
+void main() {
+	#include <clipping_planes_fragment>
+	vec4 diffuseColor = vec4( diffuse, opacity );
+	ReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );
+	vec3 totalEmissiveRadiance = emissive;
+	#include <logdepthbuf_fragment>
+	#include <map_fragment>
+	#include <color_fragment>
+	#include <alphamap_fragment>
+	#include <alphatest_fragment>
+	#include <specularmap_fragment>
+	#include <emissivemap_fragment>
+	#ifdef DOUBLE_SIDED
+		reflectedLight.indirectDiffuse += ( gl_FrontFacing ) ? vIndirectFront : vIndirectBack;
+		reflectedLight.directDiffuse = ( gl_FrontFacing ) ? vLightFront : vLightBack;
+	#else
+		reflectedLight.indirectDiffuse += vIndirectFront;
+		reflectedLight.directDiffuse = vLightFront;
+	#endif
+	#ifdef USE_LIGHTMAP
+		reflectedLight.indirectDiffuse += texture2D( lightMap, vUv2 ).rgb * lightMapIntensity;
+	#endif
+	reflectedLight.indirectDiffuse *= BRDF_Lambert( diffuseColor.rgb );
+	reflectedLight.directDiffuse *= BRDF_Lambert( diffuseColor.rgb ) * getShadowMask();
+	#include <aomap_fragment>
+	vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;
+	#include <envmap_fragment>
+	#include <output_fragment>
+	#include <tonemapping_fragment>
+	#include <encodings_fragment>
+	#include <fog_fragment>
+	#include <premultiplied_alpha_fragment>
+	#include <dithering_fragment>
+}`
+  };
+  const L = { modo: '', poner(m) { if (m === L.modo) return; const s = m === 'pixel' ? pix : vtx; SL.vertexShader = s.v; SL.fragmentShader = s.f; L.modo = m; },
+    vertice() { L.poner('vertice'); }, pixel() { L.poner('pixel'); } };
+  // la clave del programa lleva el modo: al cambiarlo, los materiales se vuelven a compilar con el sombreado nuevo
+  const k0 = THREE.Material.prototype.customProgramCacheKey;
+  THREE.MeshLambertMaterial.prototype.customProgramCacheKey = function () { return 'lam-' + L.modo + k0.call(this); };
+  L.vertice();
+  return L;
+})();
 // Gráficos: «rápido» (sin sombras, menos luces) o «calidad». En teléfonos empieza en rápido.
 if (settings.gfx !== 'rapido' && settings.gfx !== 'calidad') settings.gfx = IS_TOUCH ? 'rapido' : 'calidad';
 const FAST = () => settings.gfx === 'rapido';
@@ -9341,7 +9522,7 @@ function sunkenSway(mat, uT, amp) {
       'gl_Position = projectionMatrix * mvPosition;'
     ].join('\n'));
   };
-  mat.customProgramCacheKey = () => 'sunkenSway' + amp;
+  mat.customProgramCacheKey = () => 'sunkenSway' + amp + (mat.isMeshLambertMaterial ? LAMB.modo : '');
 }
 
 // DESC: El gran cruce de Tokio bajo la lluvia. Las pantallas gigantes siguen pidiendo que evacúen; ya es tarde.
@@ -14880,7 +15061,7 @@ function farmSway(mat, uT, amp) {
       'gl_Position = projectionMatrix * mvPosition;'
     ].join('\n'));
   };
-  mat.customProgramCacheKey = () => 'farmSway' + amp;
+  mat.customProgramCacheKey = () => 'farmSway' + amp + (mat.isMeshLambertMaterial ? LAMB.modo : '');
 }
 // la granja: fardos redondos, manzanos, calabazas (algunas talladas) y pinos del borde
 const G3 = {
