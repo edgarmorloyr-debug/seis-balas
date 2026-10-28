@@ -3037,7 +3037,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
           <option value="off">Apagada</option>
         </select>
         <span>Pantalla</span><button class="btn2 fs-btn" id="btn-fs" type="button">Pantalla completa</button>
-        <label for="gfx">Gráficos</label><select id="gfx"><option value="rapido">Rápido (sin sombras, más fluido)</option><option value="calidad">Calidad (sombras y más luces)</option></select>
+        <label for="gfx">Gráficos</label><select id="gfx"><option value="auto">Automática (recomendada)</option><option value="baja">Baja (sin sombras, más fluida)</option><option value="media">Media (sombras y brillo)</option><option value="alta">Alta (luces, sombras y efectos)</option></select>
         <span id="animp-lb">Animaciones 3D</span><button class="btn2" id="btn-animp" type="button">Probar animaciones</button>
         <label for="voice-pause">Chat de voz</label><select id="voice-pause" class="voice-sel"><option value="off">Apagado</option><option value="open">Micrófono abierto (toca tu foto o V para silenciar)</option><option value="ptt">Mantener para hablar (mantén tu foto o V)</option></select>
         <label for="vvol">Volumen de la voz</label><input type="range" id="vvol" min="0" max="1.5" step="0.05">
@@ -3319,7 +3319,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=41').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=42').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -4091,12 +4091,75 @@ void main() {
     vertice() { L.poner('vertice'); }, pixel() { L.poner('pixel'); } };
   // la clave del programa lleva el modo: al cambiarlo, los materiales se vuelven a compilar con el sombreado nuevo
   const k0 = THREE.Material.prototype.customProgramCacheKey;
-  THREE.MeshLambertMaterial.prototype.customProgramCacheKey = function () { return 'lam-' + L.modo + k0.call(this); };
+  THREE.MeshLambertMaterial.prototype.customProgramCacheKey = function () { return 'lam-' + L.modo + (this.userData.lambVtx ? 'v' : '') + k0.call(this); };
+  // material marcado con userData.lambVtx (el brazo y el arma, pegados a la luz de la linterna): siempre por vértice, sin brillo quemado
+  THREE.MeshLambertMaterial.prototype.onBeforeCompile = function (sh) { if (this.userData.lambVtx && L.modo === 'pixel') { sh.vertexShader = vtx.v; sh.fragmentShader = vtx.f; } };
   L.vertice();
   return L;
 })();
-// Gráficos: «rápido» (sin sombras, menos luces) o «calidad». En teléfonos empieza en rápido.
-if (settings.gfx !== 'rapido' && settings.gfx !== 'calidad') settings.gfx = IS_TOUCH ? 'rapido' : 'calidad';
+/* Calidad de gráficos (rama threejs-nuevo, 28-oct-2026; el dueño: computadora (Steam) primero, el teléfono después con algo más ligero).
+   Automática · Baja · Media · Alta. Baja = como se veía siempre en el teléfono («Rápido»: sin sombras, menos luces).
+   Media = como se veía en la computadora («Calidad») + brillo (bloom). Alta = Media + luz por píxel, sombras de las lámparas cercanas,
+   rayos de luz, colores de cine (viñeta, paleta cálida o fría, grano), niebla más densa en los callejones y suelos mojados que reflejan.
+   Todas las cifras están aquí y también en BAL.graficos (es el mismo objeto). */
+const BAL_GRAFICOS = {
+  // «Automática» mira la tarjeta gráfica (el nombre que da el navegador) y elige (equipos del dueño, 28-oct-2026: portátil con Intel HD Graphics 520 → Baja;
+  // iPhone 16 Pro Max → Media). Reglas en orden; la primera que encaja decide. pc/tel: lo que se elige si ninguna encaja.
+  auto: {
+    pc: 'media', tel: 'baja', texMin: 8192,   // texMin: si la tarjeta no llega a texturas de este tamaño, Baja
+    reglas: [
+      { re: 'swiftshader|llvmpipe|software|basic render|softpipe', q: 'baja' },   // sin tarjeta gráfica (dibuja el procesador)
+      { re: 'intel.*(hd graphics|uhd graphics)( [1-6]\\d\\d\\b|\\b(?! \\d))', q: 'baja' },   // Intel HD/UHD 5xx-6xx (6.ª a 10.ª generación) y sin número: integradas débiles
+      { re: 'intel.*(iris|uhd graphics [7-9]\\d\\d|graphics \\d{3}\\b)', q: 'media' },   // Intel Iris / Iris Xe / UHD 7xx: integradas medianas
+      { re: 'intel.*arc', q: 'alta' },
+      { re: 'mali|adreno\\D*[1-6]\\d\\d|powervr|videocore', q: 'baja' },   // teléfonos Android de gama media y baja
+      { re: 'adreno\\D*[7-9]\\d\\d', q: 'media', tel: true },   // Android de gama alta (Snapdragon 8)
+      { re: 'apple', q: 'media', tel: true, dpr: 3, lado: 900 },   // iPhone de gama alta (Apple GPU, pantalla x3, lado largo ≥ 900 px): brillo y sombras
+      { re: 'apple', q: 'baja', tel: true },   // otros iPhone y iPad
+      { re: 'apple', q: 'alta' },   // Mac con chip Apple (M1 o más nuevo)
+      { re: 'radeon\\(tm\\) graphics|vega \\d\\b|radeon (vega|r[57]) graphics', q: 'media' },   // AMD integradas (APU)
+      { re: 'geforce|nvidia|quadro|rtx|gtx|radeon|firepro', q: 'alta' }   // tarjetas aparte (NVIDIA, AMD)
+    ]
+  },
+  media: {
+    bloom: { fuerza: 0.45, umbral: 0.85, suave: 0.1, niveles: 3, escala: 0.5, pesos: [1, 0.8, 0.6, 0.5] },   // escala: tamaño del primer paso de brillo (0.5 = mitad de la pantalla)
+    vineta: 0, grano: 0, saturacion: 1, contraste: 1, pivote: 0.3, paleta: false, msaa: 0,
+    sombras: { luces: 1, mapa: 512, sesgo: -0.006, cerca: 0.1 }   // la lámpara más cercana da sombras
+  },
+  alta: {
+    bloom: { fuerza: 0.6, umbral: 0.82, suave: 0.1, niveles: 4, escala: 0.5, pesos: [1, 0.85, 0.7, 0.6] },
+    vineta: 0.38, grano: 0.03, saturacion: 1.1, contraste: 1.08, pivote: 0.3, paleta: true, msaa: 4,   // msaa: suavizado de bordes al dibujar en la textura (solo WebGL2)
+    pixel: true,   // luz por píxel en los materiales Lambert (los faroles dibujan su círculo de luz en el piso)
+    sombras: { luces: 2, mapa: 512, sesgo: -0.006, cerca: 0.1 },   // las 2 lámparas más cercanas dan sombras (mapa de 512 px por cara)
+    rayos: { opacidad: 0.3, arriba: 0.12, abajo: 1.7, lados: 20, polvo: 0.35 },   // conos de luz bajo las lámparas: radio arriba/abajo (m)
+    niebla: { callejon: 1.9, patio: 1.35, canal: 1.35, jardin: 1.2, velocidad: 1.5 },   // la niebla se multiplica en los espacios abiertos (y cambia poco a poco)
+    relieve: 0.03,   // relieve de ladrillos y losas (bumpMap sacado del mismo dibujo de la textura)
+    mojado: { asfalto: { rugosidad: 0.32, metal: 0.05, reflejo: 0.9 }, charco: { rugosidad: 0.06, metal: 0.2, reflejo: 1.6 }, baldosa: { rugosidad: 0.45, metal: 0, reflejo: 0.5 } }
+  },
+  // paletas (multiplican el color al final): cálida en las Bodegas, fría en la noche (jardín y espacios abiertos), amarilla en los Backrooms
+  paletas: { calida: [1.07, 0.99, 0.88], fria: [0.88, 0.97, 1.1], backrooms: [1.04, 1.02, 0.9], neutra: [1, 1, 1] }, cambioPaleta: 1.2
+};
+{ const q = store.get('sb_gfxq', null);
+  settings.gfxQ = ['auto', 'baja', 'media', 'alta'].includes(q) ? q : settings.gfx === 'rapido' ? 'baja' : settings.gfx === 'calidad' ? (IS_TOUCH ? 'media' : 'auto') : 'auto'; }   // quien eligió «Rápido» o «Calidad» antes lo conserva
+// la tarjeta gráfica según el navegador (Chrome/Edge: «ANGLE (Intel, Intel(R) HD Graphics 520 Direct3D11 …)»; Safari: «Apple GPU»)
+function gfxTarjeta() {
+  try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); return String((x && gl.getParameter(x.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || ''); } catch (e) { return ''; }
+}
+// lo que elige «Automática» en este aparato, y por qué (se ve en GFX_AUTO.por)
+function gfxAuto(tarjeta, tel, dpr, lado, texMax) {
+  const A = BAL_GRAFICOS.auto, t = String(tarjeta || '').toLowerCase();
+  if (texMax && texMax < A.texMin) return { q: 'baja', por: 'texturas de ' + texMax + ' px' };
+  for (const r of A.reglas) {
+    if (r.tel != null && r.tel !== tel) continue;
+    if (r.dpr && dpr < r.dpr) continue; if (r.lado && lado < r.lado) continue;
+    if (new RegExp(r.re, 'i').test(t)) return { q: r.q, por: r.re };
+  }
+  return { q: tel ? A.tel : A.pc, por: 'sin regla' };
+}
+const GFX_AUTO = Object.assign({ tarjeta: gfxTarjeta() }, {});
+Object.assign(GFX_AUTO, gfxAuto(GFX_AUTO.tarjeta, IS_TOUCH, window.devicePixelRatio || 1, Math.max(screen.width || 0, screen.height || 0), renderer.capabilities.maxTextureSize));
+function gfxQ() { const q = settings.gfxQ; return q === 'auto' ? GFX_AUTO.q : q; }
+settings.gfx = gfxQ() === 'baja' ? 'rapido' : 'calidad';
 const FAST = () => settings.gfx === 'rapido';
 const PR_MAX = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? (settings.gfx === 'rapido' ? 1.25 : 1.5) : 2);
 let prNow = PR_MAX;
@@ -4110,6 +4173,171 @@ scene.fog = new THREE.FogExp2(FOGC, 0.03);
 const camera = new THREE.PerspectiveCamera(75, 1, 0.03, 460);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
+
+/* ===== GFX: brillo (bloom), colores de cine, sombras de lámparas, rayos de luz y suelos mojados (Media y Alta) =====
+   La escena se dibuja en una textura; el brillo sale de lo más claro (lámparas, ventanas, carteles, puntos débiles, fogonazos) en
+   varios tamaños; al final, en una sola pasada: escena + brillo, saturación y contraste, paleta, viñeta y grano. */
+const GFX = {
+  camT: 0, cfg() { const q = gfxQ(); return q === 'baja' ? null : BAL_GRAFICOS[q]; },
+  rt: null, bl: [], tmp: [], w: 0, h: 0, msaa: -1, quad: null, cam: null, mats: null, pal: new THREE.Vector3(1, 1, 1), fogK: 1, t: 0, rayos: null, env: null,
+  vs: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  arma() {
+    const sh = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: GFX.vs, fragmentShader: fs, depthTest: false, depthWrite: false });
+    GFX.mats = {
+      // lo más claro, ya a menor tamaño (4 muestras: sin parpadeo de píxeles sueltos)
+      claro: sh('uniform sampler2D tD; uniform vec2 px; uniform float umbral, suave; varying vec2 vUv;\n' +
+        'vec3 f(vec2 o){ vec3 c = texture2D(tD, vUv + o * px).rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); return c * smoothstep(umbral - suave, umbral + suave, l); }\n' +
+        'void main(){ gl_FragColor = vec4((f(vec2(-1.0,-1.0)) + f(vec2(1.0,-1.0)) + f(vec2(-1.0,1.0)) + f(vec2(1.0,1.0))) * 0.25, 1.0); }',
+        { tD: { value: null }, px: { value: new THREE.Vector2() }, umbral: { value: 0.6 }, suave: { value: 0.2 } }),
+      // achicar a la mitad (4 muestras)
+      baja: sh('uniform sampler2D tD; uniform vec2 px; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv + vec2(-1.0,-1.0)*px).rgb + texture2D(tD, vUv + vec2(1.0,-1.0)*px).rgb + texture2D(tD, vUv + vec2(-1.0,1.0)*px).rgb + texture2D(tD, vUv + vec2(1.0,1.0)*px).rgb; gl_FragColor = vec4(c * 0.25, 1.0); }',
+        { tD: { value: null }, px: { value: new THREE.Vector2() } }),
+      // desenfoque gaussiano de 9 puntos con 5 lecturas (una dirección por pasada)
+      blur: sh('uniform sampler2D tD; uniform vec2 dir; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227027;\n' +
+        'c += (texture2D(tD, vUv + dir * 1.3846154).rgb + texture2D(tD, vUv - dir * 1.3846154).rgb) * 0.3162162;\n' +
+        'c += (texture2D(tD, vUv + dir * 3.2307692).rgb + texture2D(tD, vUv - dir * 3.2307692).rgb) * 0.0702703; gl_FragColor = vec4(c, 1.0); }',
+        { tD: { value: null }, dir: { value: new THREE.Vector2() } }),
+      // la pasada final
+      fin: sh('uniform sampler2D tD, b0, b1, b2, b3; uniform vec4 pesos; uniform float fuerza, vineta, grano, sat, con, piv, t; uniform vec3 tinte; uniform vec2 res; varying vec2 vUv;\n' +
+        'void main(){ vec3 c = texture2D(tD, vUv).rgb;\n' +
+        ' vec3 b = texture2D(b0, vUv).rgb * pesos.x + texture2D(b1, vUv).rgb * pesos.y + texture2D(b2, vUv).rgb * pesos.z + texture2D(b3, vUv).rgb * pesos.w;\n' +
+        ' c += b * fuerza;\n' +
+        ' float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, sat); c = (c - piv) * con + piv; c *= tinte;\n' +
+        ' vec2 d = vUv - 0.5; d.x *= res.x / res.y; c *= 1.0 - vineta * smoothstep(0.25, 0.95, length(d));\n' +
+        ' float n = fract(sin(dot(floor(vUv * res) + fract(t) * 97.0, vec2(12.9898, 78.233))) * 43758.5453); c += (n - 0.5) * grano;\n' +
+        ' gl_FragColor = vec4(max(c, 0.0), 1.0); }',
+        { tD: { value: null }, b0: { value: null }, b1: { value: null }, b2: { value: null }, b3: { value: null }, pesos: { value: new THREE.Vector4() }, fuerza: { value: 0 }, vineta: { value: 0 }, grano: { value: 0 },
+          sat: { value: 1 }, con: { value: 1 }, piv: { value: 0.3 }, t: { value: 0 }, tinte: { value: new THREE.Vector3(1, 1, 1) }, res: { value: new THREE.Vector2() } })
+    };
+    GFX.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), GFX.mats.fin); GFX.quad.frustumCulled = false;
+    GFX.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); GFX.escQ = new THREE.Scene(); GFX.escQ.add(GFX.quad);
+  },
+  medidas(C) {
+    const v = renderer.getDrawingBufferSize(GFX._v || (GFX._v = new THREE.Vector2())), w = v.x | 0, h = v.y | 0, ms = renderer.capabilities.isWebGL2 ? C.msaa | 0 : 0, nb = C.bloom.niveles;
+    if (GFX.rt && GFX.w === w && GFX.h === h && GFX.msaa === ms && GFX.bl.length === nb && GFX.esc === C.bloom.escala) return;
+    GFX.libera(); GFX.w = w; GFX.h = h; GFX.msaa = ms; GFX.esc = C.bloom.escala;
+    const op = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, stencilBuffer: false };
+    GFX.rt = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, samples: ms });
+    let bw = Math.max(1, Math.round(w * C.bloom.escala)), bh = Math.max(1, Math.round(h * C.bloom.escala));
+    for (let i = 0; i < nb; i++) { GFX.bl.push(new THREE.WebGLRenderTarget(bw, bh, op)); GFX.tmp.push(new THREE.WebGLRenderTarget(bw, bh, op)); bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1); }
+  },
+  libera() { if (GFX.rt) GFX.rt.dispose(); GFX.bl.concat(GFX.tmp).forEach(r => r.dispose()); GFX.rt = null; GFX.bl = []; GFX.tmp = []; },
+  pasada(mat, dst) { GFX.quad.material = mat; renderer.setRenderTarget(dst); renderer.render(GFX.escQ, GFX.cam); },
+  // dibuja la escena: sin efectos en Baja; con brillo (y en Alta los colores de cine) en Media y Alta
+  pinta(sc, cam) {
+    const C = GFX.cfg(); if (!C) { if (GFX.rt) GFX.libera(); renderer.render(sc, cam); GFX.info = null; return; }
+    if (!GFX.mats) GFX.arma(); GFX.medidas(C);
+    const M = GFX.mats, B = C.bloom;
+    const fog = sc.fog, d0 = fog && fog.density; if (fog && d0 != null) fog.density = d0 * GFX.fogK;   // la niebla más densa de los espacios abiertos, solo para este dibujo
+    renderer.setRenderTarget(GFX.rt); renderer.render(sc, cam); if (fog && d0 != null) fog.density = d0; GFX.info = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles };   // (para medir: las pasadas de después no cuentan)
+    const ac = renderer.autoClear; renderer.autoClear = false;   // las pasadas tapan toda la textura: no hace falta borrar
+    // brillo: lo claro a menor tamaño, desenfocado; cada nivel sale del anterior a la mitad
+    M.claro.uniforms.tD.value = GFX.rt.texture; M.claro.uniforms.px.value.set(0.5 / GFX.w, 0.5 / GFX.h); M.claro.uniforms.umbral.value = B.umbral; M.claro.uniforms.suave.value = B.suave;
+    for (let i = 0; i < GFX.bl.length; i++) {
+      const R = GFX.bl[i], T = GFX.tmp[i], w = R.width, h = R.height;
+      if (i === 0) GFX.pasada(M.claro, R); else { M.baja.uniforms.tD.value = GFX.bl[i - 1].texture; M.baja.uniforms.px.value.set(0.5 / GFX.bl[i - 1].width, 0.5 / GFX.bl[i - 1].height); GFX.pasada(M.baja, R); }
+      M.blur.uniforms.tD.value = R.texture; M.blur.uniforms.dir.value.set(1 / w, 0); GFX.pasada(M.blur, T);
+      M.blur.uniforms.tD.value = T.texture; M.blur.uniforms.dir.value.set(0, 1 / h); GFX.pasada(M.blur, R);
+    }
+    const F = M.fin.uniforms, P = B.pesos, n = GFX.bl.length;
+    F.tD.value = GFX.rt.texture; ['b0', 'b1', 'b2', 'b3'].forEach((k, i) => { F[k].value = GFX.bl[Math.min(i, n - 1)].texture; });
+    F.pesos.value.set(n > 0 ? P[0] : 0, n > 1 ? P[1] : 0, n > 2 ? P[2] : 0, n > 3 ? P[3] : 0);
+    F.fuerza.value = B.fuerza; F.vineta.value = C.vineta; F.grano.value = C.grano; F.sat.value = C.saturacion; F.con.value = C.contraste; F.piv.value = C.pivote;
+    F.t.value = GFX.t; F.tinte.value.copy(C.paleta ? GFX.pal : GFX._uno || (GFX._uno = new THREE.Vector3(1, 1, 1))); F.res.value.set(GFX.w, GFX.h);
+    GFX.pasada(M.fin, null); renderer.autoClear = ac;
+  },
+  // la paleta del lugar (cálida, fría o la de los Backrooms)
+  paleta() {
+    const P = BAL_GRAFICOS.paletas; if (!game || !game.bod) return P.neutra;
+    if (game.bod.br != null) return P.backrooms;
+    if ((typeof BODJ !== 'undefined' && BODJ.on) || (BOD.aqui && BOD.aqui.abierto)) return P.fria;
+    return P.calida;
+  },
+  // cada cuadro, antes de dibujar: paleta, niebla de los espacios abiertos, sombras de las lámparas y los rayos de luz
+  paso(dt) {
+    GFX.t += dt; const q = gfxQ(), A = BAL_GRAFICOS.alta, alta = q === 'alta', C = GFX.cfg();
+    const p = GFX.paleta(), k = 1 - Math.exp(-dt * BAL_GRAFICOS.cambioPaleta); GFX.pal.x += (p[0] - GFX.pal.x) * k; GFX.pal.y += (p[1] - GFX.pal.y) * k; GFX.pal.z += (p[2] - GFX.pal.z) * k;
+    const enBod = !!(game && game.bod && typeof BOD !== 'undefined' && world.idx === BOD_IDX && game.bod.br == null);
+    // niebla: más densa en el callejón y los espacios abiertos (solo al dibujar, en GFX.pinta: la niebla del juego no se toca)
+    { const t = alta && enBod ? (BOD.aqui && A.niebla[BOD.aqui.t]) || (BODJ.on && A.niebla.jardin) || 1 : 1;
+      GFX.fogK += (t - GFX.fogK) * (1 - Math.exp(-dt * A.niebla.velocidad)); if (Math.abs(GFX.fogK - t) < 0.002) GFX.fogK = t; }
+    // sombras de las lámparas más cercanas (las luces del grupo BOD.luces se mueven a las lámparas más cercanas: las primeras dan sombra)
+    if (enBod && BOD.luces) BOD.luces.forEach((l, i) => {
+      const SM = C && C.sombras, s = !!SM && i < SM.luces;
+      if (l.castShadow !== s || (s && l.shadow.mapSize.x !== SM.mapa)) { l.castShadow = s; if (s) { if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; } l.shadow.mapSize.set(SM.mapa, SM.mapa); l.shadow.bias = SM.sesgo; l.shadow.camera.near = SM.cerca; } }
+      if (s) l.shadow.autoUpdate = l.position.y > -40;   // la luz guardada (abajo, sin usar) no dibuja sombras (el alcance de la sombra es el de la luz)
+    });
+    // lo que cuelga de la cámara (brazo y arma) se sombrea por vértice: con luz por píxel, la linterna de pegado lo quemaría
+    if (alta && (GFX.camT -= dt) <= 0) { GFX.camT = 1; camera.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.isMeshLambertMaterial && !m.userData.lambVtx) { m.userData.lambVtx = 1; m.needsUpdate = true; } }); }); }
+    // rayos de luz bajo las lámparas (se arman una vez por nivel; solo se ven en Alta)
+    if (enBod && BOD.lamp && GFX.rayosDe !== BOD.lamp) gfxRayos();
+    if (GFX.rayos) { GFX.rayos.visible = alta && enBod; if (alta) GFX.rayosM.uniforms.t.value = GFX.t; }
+  }
+};
+// conos de luz con polvo bajo cada lámpara de las Bodegas: más claros en el centro y arriba, se apagan en los bordes y cerca del piso
+function gfxRayos() {
+  const R = BAL_GRAFICOS.alta.rayos; GFX.rayosDe = BOD.lamp;
+  if (!GFX.rayosM) GFX.rayosM = new THREE.ShaderMaterial({
+    uniforms: { t: { value: 0 }, op: { value: R.opacidad }, polvo: { value: R.polvo } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+    vertexShader: 'attribute vec3 col; varying vec3 vC; varying float vH, vE; varying vec3 vW; void main(){ vC = col; vH = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); vE = abs(dot(n, normalize(-mv.xyz))); vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform float t, op, polvo; varying vec3 vC; varying float vH, vE; varying vec3 vW;\n' +
+      'void main(){ float a = pow(vE, 2.2) * pow(vH, 1.6) * smoothstep(0.0, 0.25, vH);\n' +
+      ' float d = sin(vW.x * 7.0 + t * 0.7) * sin(vW.y * 9.0 - t * 0.9) * sin(vW.z * 8.0 + t * 0.5); a *= 1.0 - polvo + polvo * (0.5 + 0.5 * d);\n' +
+      ' gl_FragColor = vec4(vC * a * op, 1.0); }'
+  });
+  if (GFX.rayos && GFX.rayos.parent) GFX.rayos.parent.remove(GFX.rayos);
+  // una sola malla con todos los conos (una sola llamada de dibujo)
+  const gs = [];
+  for (const q of BOD.lamp) {
+    const h = q.y; if (!(h > 0.8)) continue;
+    const g = new THREE.CylinderGeometry(R.arriba, R.abajo, h, R.lados, 1, true); g.translate(q.x, h / 2, q.z);
+    const c = new THREE.Color(q.c || BAL.bodegas.luz.color), n = g.attributes.position.count, ca = new Float32Array(n * 3); for (let i = 0; i < n; i++) ca.set([c.r, c.g, c.b], i * 3);
+    g.setAttribute('col', new THREE.BufferAttribute(ca, 3)); gs.push(g);
+  }
+  GFX.rayos = null; if (!gs.length) return;
+  const geo = gfxUnir(gs); gs.forEach(g => g.dispose());
+  GFX.rayos = new THREE.Mesh(geo, GFX.rayosM); GFX.rayos.raycast = () => {};   /* solo luz: los rayos (tiros, suelo, techo) la atraviesan */ GFX.rayos.frustumCulled = false; GFX.rayos.renderOrder = 5; GFX.rayos.visible = false; world.group.add(GFX.rayos);
+}
+// une geometrías con los mismos atributos (posición, normal, uv, col) en una sola
+function gfxUnir(gs) {
+  const out = new THREE.BufferGeometry(), keys = ['position', 'normal', 'uv', 'col']; let nv = 0, ni = 0; for (const g of gs) { nv += g.attributes.position.count; ni += g.index.count; }
+  for (const k of keys) { const s = gs[0].attributes[k].itemSize, a = new Float32Array(nv * s); let o = 0; for (const g of gs) { a.set(g.attributes[k].array, o); o += g.attributes[k].array.length; } out.setAttribute(k, new THREE.BufferAttribute(a, s)); }
+  const idx = new Uint32Array(ni); let o = 0, b = 0; for (const g of gs) { const ix = g.index.array; for (let i = 0; i < ix.length; i++) idx[o + i] = ix[i] + b; o += ix.length; b += g.attributes.position.count; }
+  out.setIndex(new THREE.BufferAttribute(idx, 1)); return out;
+}
+// el reflejo de la noche para los suelos mojados (un cielo nocturno con unas luces cálidas, hecho en un lienzo)
+function gfxEnv() {
+  if (GFX.env) return GFX.env;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, '#0a1024'); gr.addColorStop(0.5, '#1a2236'); gr.addColorStop(0.52, '#120e0c'); gr.addColorStop(1, '#060504'); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+  for (let i = 0; i < 9; i++) { const x = (i * 29 + 11) % 256, y = 40 + (i * 13) % 20, r = 6 + (i % 3) * 3, rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, i % 3 ? 'rgba(255,190,110,1)' : 'rgba(170,200,255,1)'); rg.addColorStop(1, 'rgba(255,190,110,0)'); g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping;
+  const pm = new THREE.PMREMGenerator(renderer); GFX.env = pm.fromEquirectangular(t).texture; pm.dispose(); t.dispose(); return GFX.env;
+}
+// los materiales de las Bodegas según la calidad: relieve en ladrillos y losas, y suelos mojados (se aplica al armar cada nivel)
+function gfxMatsBod() {
+  if (typeof BODM === 'undefined' || !BODM.muro) return;
+  const alta = gfxQ() === 'alta', A = BAL_GRAFICOS.alta;
+  for (const k of ['muro', 'suelo', 'techo', 'fachada', 'asfalto', 'baldosa', 'piedraP']) { const m = BODM[k]; if (!m || !m.map) continue; const bm = alta ? m.map : null; if (m.bumpMap !== bm) { m.bumpMap = bm; m.bumpScale = A.relieve; m.needsUpdate = true; } }
+  // suelos mojados: el mismo dibujo con un material que brilla y refleja (Alta); en Baja y Media, el de siempre
+  for (const k of ['asfalto', 'charco', 'baldosa']) {
+    const lamK = k + '_lam', stdK = k + '_std'; if (!BODM[k]) continue;
+    if (!BODM[lamK]) BODM[lamK] = BODM[k];
+    if (alta && !BODM[stdK]) { const L = BODM[lamK], W = A.mojado[k]; const s = new THREE.MeshStandardMaterial({ color: L.color, map: L.map, emissive: L.emissive, transparent: L.transparent, opacity: L.opacity, roughness: W.rugosidad, metalness: W.metal, envMap: gfxEnv(), envMapIntensity: W.reflejo, bumpMap: L.map, bumpScale: A.relieve }); s.userData.compartido = 1; BODM[stdK] = s; }
+    BODM[k] = alta ? BODM[stdK] : BODM[lamK];
+  }
+}
+// aplica la calidad elegida ya mismo: luz por vértice o por píxel; lo demás lo hace GFX.paso en cada cuadro
+function gfxAplicar() {
+  settings.gfx = gfxQ() === 'baja' ? 'rapido' : 'calidad';
+  renderer.shadowMap.enabled = !FAST();
+  if (gfxQ() === 'alta' && BAL_GRAFICOS.alta.pixel) LAMB.pixel(); else LAMB.vertice();
+  gfxMatsBod();
+  scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
+}
+// para las pruebas y el menú: pone una calidad y la guarda
+function gfxPoner(q) { if (!['auto', 'baja', 'media', 'alta'].includes(q)) return; settings.gfxQ = q; store.set('sb_gfxq', q); store.set('sb_gfx', gfxQ() === 'baja' ? 'rapido' : 'calidad'); gfxAplicar(); }
+if (gfxQ() === 'alta' && BAL_GRAFICOS.alta.pixel) LAMB.pixel();
 
 // En el teléfono, los dibujos de más de 1024 px se hacen a la mitad: se ven casi igual y gastan 4 veces menos memoria
 const MAX_TEX = IS_TOUCH ? 1024 : 4096;
@@ -24030,6 +24258,7 @@ const hexCol = c => parseInt(c.slice(1), 16);
    · NIVELES: 2 balas iguales del mismo nivel se juntan en 1 del nivel siguiente (1+1 = 2, 2+2 = 3, 3+3 = 4). Máximo nivel 4 (despierta).
    · CAJA: las balas normales (50; más con el Cinturón). CAÑÓN: el tambor del revólver, que se llena con balas normales de la caja. */
 const BAL = {
+  graficos: BAL_GRAFICOS,   // calidad de gráficos (Baja, Media, Alta): sus cifras están junto al dibujo de la escena (busca «const BAL_GRAFICOS»)
   rangos: {   // rar: orden de rareza (compatible con el código de antes) · col: color del rango
     // G2 · las 4 rarezas del dueño (19-oct-2026): común (gris), poco común (verde), rara (azul) y legendaria (dorado), como en bocetos/fichas.js
     C: { rar: 1, name: 'Común', col: '#a9adb3', fondo: '#3a3a3a', texto: '#e8e8e8' },
@@ -25171,7 +25400,7 @@ function br3Montar(g) {
   g.scene.traverse(o => { if (o.isBone) BRZ.B[o.name.replace(/_\d+$/, '')] = o; if (o.isSkinnedMesh) sk = o; });
   if (!sk || !BRZ.B.R_wrist || !BRZ.B.L_wrist) { camera.remove(root); return; }
   const src = sk.material; BRZ.base = src.map && src.map.image; BRZ.mask = src.emissiveMap && src.emissiveMap.image;
-  sk.material = BRZ.mat = new THREE.MeshLambertMaterial({ map: src.map, skinning: true });
+  sk.material = BRZ.mat = new THREE.MeshLambertMaterial({ map: src.map });
   sk.frustumCulled = false; sk.renderOrder = 1; sk.castShadow = false; BRZ.mesh = sk;
   BRZ.m = root; root.updateMatrixWorld(true);
   BRZ.rest = new Map(); for (const n in BRZ.B) BRZ.rest.set(BRZ.B[n], BRZ.B[n].quaternion.clone());
@@ -37370,7 +37599,7 @@ function p3dSanear(m) {
 // personajes que usan el modelo de otro: Ludo Cheng todavía no tiene diseño (PENDIENTES 52) y usa el del Pistolero, como una sombra negra
 const P3D_ALIAS = { ludo: 'pistolero' };
 // Ludo es una silueta negra total en 3D (cuerpo y armas, sin luz ni detalle) hasta que tenga su diseño
-const SOMBRA = { sk: new THREE.MeshBasicMaterial({ color: 0x030303, skinning: true }), rig: new THREE.MeshBasicMaterial({ color: 0x030303 }) };
+const SOMBRA = { sk: new THREE.MeshBasicMaterial({ color: 0x030303 }), rig: new THREE.MeshBasicMaterial({ color: 0x030303 }) };
 const esSombra = ch => ch === 'ludo';
 function p3dSombra(obj) { obj.traverse(o => { if (o.isMesh) o.material = o.isSkinnedMesh ? SOMBRA.sk : SOMBRA.rig; }); }
 function p3dCargar(ch, cb) {
@@ -39235,7 +39464,7 @@ function menu3d(id) {
     M3.ch = id; if (M3.inst) { M3.scene.remove(M3.inst.m); M3.inst = null; } for (const g of M3.armas || []) g.parent && g.parent.remove(g); M3.armas = []; M3.r.domElement.style.opacity = '0';
     p3dCargar(id === 'azar' ? 'sheriff' : id, C => {
       if (M3.ch !== id) return; const I = p3dCopia(C, 1.8); I.m.rotation.y = P3D.giro + 0.38; M3.scene.add(I.m); M3.inst = I;
-      if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404, skinning: true }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
+      if (id === 'azar') { const negro = new THREE.MeshBasicMaterial({ color: 0x040404 }); I.m.traverse(o => { if (o.isMesh) o.material = negro; }); }   // al azar: silueta negra
       if (esSombra(id)) { I.ch = id; p3dSombra(I.m); }   // Ludo: sombra negra hasta que tenga diseño
       menu3dPose(I, id); menu3dPon(); });
   } else menu3dPon();
@@ -39947,7 +40176,7 @@ function pause() {
   state = 'pause'; input.fireHeld = false; gs.aiming = false; pausedAt = performance.now(); $('#pause-note').textContent = Net.on ? 'En grupo la partida sigue mientras estás en pausa.' : '';
   if (document.pointerLockElement) document.exitPointerLock();
   $('#btn-mej').hidden = !mejOn();
-  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
+  syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#music').value = settings.music; $('#gfx').value = settings.gfxQ; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn($('#pause-cfg'));
   { const k = store.get('sb_stuck', null); $('#snd-diag').textContent = Sfx.diag(game && game.equip) + (k ? ` · Último atasco (${k.b}, ${k.net}): ${k.was}/${k.ph} · ${k.trail}` : ''); } show('pause'); setTimeout(() => $('#btn-resume').focus(), 30);
 }
 function resume() { if (state !== 'pause') return; micTest(false); Music.init(); state = 'play'; show(null); requestLock(true); canvas.focus(); }
@@ -40050,7 +40279,7 @@ $('#btn-fs').addEventListener('click', toggleFullscreen); setTimeout(fsLabel);
 document.addEventListener('fullscreenchange', fsLabel); document.addEventListener('webkitfullscreenchange', fsLabel);
 $('#music').addEventListener('change', e => { settings.music = e.target.value; store.set('sb_music', settings.music); Music.init(); });
 $('#z3d') && $('#z3d').addEventListener('change', e => { settings.z3d = e.target.value; store.set('sb_z3d', settings.z3d); Z3D.on = settings.z3d !== 'no'; if (Z3D.on) for (const f of ZOMBI_FILES) p3dCargar(f); $('#pause-note').textContent = 'Los zombis nuevos ya salen así.'; });
-$('#gfx').addEventListener('change', e => { settings.gfx = e.target.value; store.set('sb_gfx', settings.gfx); renderer.shadowMap.enabled = !FAST(); scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); }); $('#pause-note').textContent = 'Las luces de los faroles cambian al pasar al siguiente mapa.'; });
+$('#gfx').addEventListener('change', e => { gfxPoner(e.target.value); $('#pause-note').textContent = 'Algunas luces y detalles cambian al pasar al siguiente mapa.'; });   // calidad: Automática, Baja, Media o Alta (gfxPoner la aplica ya mismo)
 
 /* ===================== CONTROLES ===================== */
 // Teclas configurables: el juego sigue escuchando sus teclas de siempre; si cambiaste una, tu tecla nueva se le pasa como si fuera la original.
@@ -40248,7 +40477,8 @@ function frame() {
   Net.tick(Math.min(rawDt, 0.25)); pingTick(Math.min(rawDt, 0.1)); updateRemotes(dt); levelGuns(); Music.update();
   if (!IS_TOUCH) { const ch_ = state === 'play' && !locked && !noLock; if (clickHint.hidden === ch_) clickHint.hidden = !ch_; }
   updateAmbient(dt, tAll); updateDnums(Math.min(rawDt, 0.05)); updateCombo(Math.min(rawDt, 0.05)); updateEcg(Math.min(rawDt, 0.05)); voiceStep(Math.min(rawDt, 0.1)); Salas.step(Math.min(rawDt, 0.1)); sawAudio(); Sfx.earStep(Math.min(rawDt, 0.05), state === 'play' || state === 'dying'); renderTeam(Math.min(rawDt, 0.05)); moodStep(Math.min(rawDt, 0.05));
-  const tR = performance.now(); if (ESC.on) { escPaso(Math.min(rawDt, 0.1)); if (ESC.on) renderer.render(ESC.scene, ESC.cam); else renderer.render(scene, camera); } else if (!((state === 'shop' && VM2.abierta()) || (state === 'inv' && VM2.invAbierto()))) renderer.render(scene, camera); const tF = performance.now();   // subir de piso: la escalera se dibuja en su propia escena   // G2: con la máquina abierta (tapa toda la pantalla) no se dibuja el mundo: menos trabajo en el teléfono
+  GFX.paso(Math.min(rawDt, 0.1));   // calidad de gráficos: paleta, niebla, sombras de lámparas y rayos de luz (Media y Alta)
+  const tR = performance.now(); if (ESC.on) { escPaso(Math.min(rawDt, 0.1)); if (ESC.on) renderer.render(ESC.scene, ESC.cam); else GFX.pinta(scene, camera); } else if (!((state === 'shop' && VM2.abierta()) || (state === 'inv' && VM2.invAbierto()))) GFX.pinta(scene, camera); const tF = performance.now();   // subir de piso: la escalera se dibuja en su propia escena   // G2: con la máquina abierta (tapa toda la pantalla) no se dibuja el mundo: menos trabajo en el teléfono
   PERF.l = PERF.l * 0.95 + (tR - PERF.t0) * 0.05; PERF.r = PERF.r * 0.95 + (tF - tR) * 0.05;
 }
 const PERF = { t0: 0, l: 0, r: 0 };   // milisegundos por cuadro: lógica del juego y dibujo (se ven en el inventario)
@@ -40347,7 +40577,7 @@ function cfgRepartir() {
   set.hidden = true;
 }
 function cfgEn(dest) { cfgRepartir(); const b = $('#cfg-body'); if (b && b.parentNode !== dest) dest.prepend(b); }
-function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfx; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
+function cfgAbrir() { syncVoiceSel(); $('#sens').value = settings.sens; $('#vol').value = settings.vol; $('#gvol').value = settings.gvol; $('#mvol').value = settings.mvol; $('#vvol').value = settings.vvol; $('#music').value = settings.music; $('#gfx').value = settings.gfxQ; if ($('#z3d')) $('#z3d').value = settings.z3d; fsLabel(); cfgEn(document.querySelector('#config .card')); $('#config .card').insertBefore($('#cfg-body'), $('#btn-config-back')); show('config'); }
 function cfgCerrar() { micTest(false); teclaEspera = null; show('inicio'); }
 // prueba de micrófono: una barra que sube con tu voz (no se envía a nadie)
 const MT = { st: null, ac: null, raf: 0 };
@@ -40974,7 +41204,7 @@ function bodMats() {
   BODM.madera = lam(0x6a4424); BODM.madera2 = lam(0x4a2e18); BODM.hierro = lam(0x3a3c40); BODM.plata = lam(0xc8d0d8, { emissive: 0x30343a }); BODM.oro = lam(0xd8a838, { emissive: 0x3a2804 });
   BODM.barril = lam(0x5a3a1e); BODM.aro = lam(0x2a2a2c); BODM.verde = lam(0x1f7a46, { emissive: 0x0a3018 }); BODM.rojo = lam(0x8a2a22); BODM.tela = lam(0x6a1a1a);
   BODM.foco = bsc(0xffd8a0); BODM.negro = bsc(0x050403);
-  bodMatsComp();
+  bodMatsComp(); gfxMatsBod();
 }
 function bodMatsComp() { for (const k in BODM) if (BODM[k] && BODM[k].isMaterial) BODM[k].userData.compartido = 1; }
 // los brillos comparten material por color y opacidad (antes, uno por brillo); propio: el brillo cambia su opacidad (la luz de la bóveda, el vapor)
@@ -40992,7 +41222,7 @@ function bodCartel(txt, sub, w = 2.4, h = 1.2) {
   return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t }));
 }
 function buildBodegas() {
-  const B = BAL.bodegas, G = game && game.bod;
+  const B = BAL.bodegas, G = game && game.bod; gfxMatsBod();   // la calidad elegida (Alta: suelos mojados y relieve) para los materiales que ya estaban hechos
   let L = BOD.L = bodMapa(G ? G.seed : 20261024);
   // si con esa semilla no sale un mapa que cumpla (pasa muy poco, más en los niveles con más cuartos): otras semillas que salen de ella (el mismo
   // código de partida da el mismo mapa) y, al final, la de siempre; si ni así, se avisa y se vuelve al menú (nunca un mundo vacío sin salida)
@@ -41060,7 +41290,7 @@ function buildBodegas() {
     if (dx) { boxes.push([nx, H / 2, nz - V - T / 2, 1.2, H, T], [nx, H / 2, nz + V + T / 2, 1.2, H, T], [c.x + dx * (p0 + 1.2 + T / 2), H / 2, nz, T, H, 2 * V + 2 * T]); }
     else { boxes.push([nx - V - T / 2, H / 2, nz, T, H, 1.2], [nx + V + T / 2, H / 2, nz, T, H, 1.2], [nx, H / 2, c.z + dz * (p0 + 1.2 + T / 2), 2 * V + 2 * T, H, T]); }
   }
-  const muros = new THREE.Mesh(bodFundir(boxes, 2), BODM.muro); muros.receiveShadow = false; muros.castShadow = false; world.group.add(muros); solids.push(muros);
+  const muros = new THREE.Mesh(bodFundir(boxes, 2), BODM.muro); muros.receiveShadow = gfxQ() === 'alta';   /* Alta: las sombras de las lámparas caen en los muros */ muros.castShadow = false; world.group.add(muros); solids.push(muros);
   // la sala secreta: un muro agrietado tapa el paso desde la habitación vecina hasta que una explosión lo abre
   bodEspMats(); for (const s_ of L.rooms) if (s_.t === 'secreta' && s_.p >= 0 && !(st.secretas && st.secretas[s_.i])) bodGrieta(L.rooms[s_.p], s_, lado(L.rooms[s_.p], s_));
   if (boxesAb.length) { bodMatsAb(); const fa = new THREE.Mesh(bodFundir(boxesAb, 3), BODM.fachada); fa.receiveShadow = fa.castShadow = false; world.group.add(fa); solids.push(fa); }
@@ -42694,7 +42924,7 @@ function bodMatsAb() {
   BODM.ventana = bsc(0xe89a48); BODM.bolsa = lam(0x15161a); BODM.tierra = lam(0x3a3024); BODM.ventanaO = bsc(0x0c1018); BODM.charco = lam(0x32445c, { emissive: 0x0a1220, transparent: true, opacity: 0.75 });
   BODM.rayo = new THREE.MeshBasicMaterial({ color: 0xb8d0ff, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   BODM.lluvia = new THREE.LineBasicMaterial({ color: 0xa8bcd8, transparent: true, opacity: 0.45, depthWrite: false });
-  bodMatsComp();
+  bodMatsComp(); gfxMatsBod();   // (calidad Alta: suelos mojados y relieve)
 }
 function bodAbierto(r, c, gR, lados) {
   const B = BAL.bodegas, A = B.abiertos, Hab = A.alto, T = B.muro, H = B.alto, R = mulberry32(r.sem), q = (a, b) => a + R() * (b - a), ent = (a, b) => a + Math.floor(R() * (b - a + 1));
