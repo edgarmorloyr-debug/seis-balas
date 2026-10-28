@@ -6,6 +6,7 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 ## META Y CAMINO TÉCNICO (decisión del dueño, 25-oct-2026)
 - **Meta: publicar el juego en Steam.**
 - **Orden (dueño, 25-oct-2026):** primero el gameplay; después las mejoras técnicas (Three.js nuevo, Blender) y los conectores que hagan falta.
+- **Motor (dueño, 28-oct-2026):** el Nivel 1 ya es un reto entretenido; falta el gancho visual. Camino: mejorar Three.js ahora (versión moderna, luces, sombras, efectos) y, en paralelo, una sala de prueba en Godot para comparar antes del salto grande. Prioridad de plataforma: **computadora (Steam) primero**; el teléfono puede venir después.
 - **Paso A (ahora):** seguir con el juego actual en el navegador (Three.js) y mejorarlo por partes: actualizar Three.js de la versión r128 a una moderna (mejor luz, sombras y rendimiento) y hacer modelos más bonitos con Blender.
 - **Paso B (Fase 3):** pasar el juego a **Godot** (gratis, exporta a Windows/Mac/Linux para Steam, y también a Android e iPhone), rehaciéndolo con todo lo aprendido.
 - Nota: si hiciera falta salir antes a Steam, la versión de navegador también se puede empaquetar como programa de computadora (con Electron o similar) sin rehacer el juego.
