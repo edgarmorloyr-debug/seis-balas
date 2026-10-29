@@ -114,3 +114,6 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - Dueño: «ya los niveles no pueden ser así abiertos, aprovecha recursos que ya tengamos, por ejemplo, el cementerio. solo haz los edificios que ya tiene, ingresables, y obliga al jugador a buscar la llave de la salida que puede ser en el castillo por ejemplo si allí estuviera el jefe, o en la iglesia! puedes hacer eso con la estación espacial, el mundo acuático, y con el planeta arcade. así tenemos algunos niveles extras».
 - Encuesta: **edificios = puerta a un interior** (como la Tienda) · **orden: siempre las Bodegas primero y después al azar** · mundo acuático = **El Planeta Océano** · **se empieza por el Cementerio**.
 - Lista de niveles: Las Bodegas (fijo) → al azar entre Casino Maid Café, Cementerio, Estación Espacial, Planeta Océano y Planeta Arcade. Backrooms: pasillos secretos.
+
+### El Cementerio como nivel: descartado (29-oct-2026)
+- Dueño, tras jugarlo: «no me gusto el cementerio. nos quedamos como ibamos». Se deshizo el cambio (git revert de 98fa8e3; queda en el historial por si se quiere recuperar algo). La partida vuelve a ser: Bodegas → Backrooms (niveles 2 a 4), con la mesa del oro y la dificultad gradual.
