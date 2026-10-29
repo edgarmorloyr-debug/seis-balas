@@ -11,6 +11,9 @@ La lista anterior quedó en el historial de GitHub (versión del 16-oct-2026).
 - **Paso B (Fase 3):** pasar el juego a **Godot** (gratis, exporta a Windows/Mac/Linux para Steam, y también a Android e iPhone), rehaciéndolo con todo lo aprendido.
 - Nota: si hiciera falta salir antes a Steam, la versión de navegador también se puede empaquetar como programa de computadora (con Electron o similar) sin rehacer el juego.
 
+## REDISEÑO «DOBLE O NADA» (aprobado por el dueño, 28-oct-2026) · manda sobre lo de abajo
+Las 24 ideas, los cuatro pilares y el plan por fases están en `docs/REDISENO.md`. Lo que se contradiga con ese documento queda reemplazado por él.
+
 ## PLAN DE GAMEPLAY (pedido del dueño, 19-oct-2026) · lo que sigue
 Todo lo demás del plan queda en pausa hasta que el dueño diga. Primero los errores (G0), luego en orden.
 
