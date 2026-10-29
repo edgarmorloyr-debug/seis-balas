@@ -27463,7 +27463,9 @@ function chooseType(n) {
 }
 function maxAlive() { return Math.min(8 + diffW(game.wave) * 2 + (zoneOf(game.wave) < INICIO_EXTRA.length ? 4 : 0), IS_TOUCH ? 16 : 26); }
 
+const VIDA_OK = { hp: 100, de: '' };   // la última vida buena (seguro contra el NaN; ver updatePlay)
 function hurtPlayer(amount, src, opt = {}) {
+  if (!Number.isFinite(amount)) { noteErr(new Error('daño NaN · ' + (opt.k || '') + ' · ' + new Error().stack.split('\n').slice(2, 4).join(' ← ')), 'vida'); VIDA_OK.de = 'daño ' + (opt.k || ''); return; }
   if (tuto) return;
   if (INTRO.on && INTRO.cine) return;   // durante la entrada del jefe (jugando solo) nada te hace daño
   if ((state !== 'play' && !(Net.on && (state === 'pause' || state === 'inv' || state === 'lleno'))) || player.down) return;
@@ -33010,6 +33012,9 @@ function updateScale() {
 let flowT = 0;
 function updateFlow(dt, tx, tz) { flowT -= dt; if (flowT <= 0 || Math.hypot(tx - nav.tx, tz - nav.tz) > (world.big ? 2.4 : 1.2)) { nav.dist = nav.mainDist; computeFlow(tx, tz); flowT = world.big ? 0.6 : 0.4; } }
 function updatePlay(dt) {
+  // seguro (dueño, 29-oct-2026: «vida infinita después de caer», la vida salía «NaN / 90»): si la vida deja de ser un número, vuelve a la última buena y se anota de dónde vino
+  if (!Number.isFinite(player.hp)) { noteErr(new Error('vida NaN · ' + (VIDA_OK.de || '?')), 'vida'); player.hp = Math.min(player.maxHp || 100, VIDA_OK.hp > 0 ? VIDA_OK.hp : 1); } else VIDA_OK.hp = player.hp;
+  if (!Number.isFinite(player.maxHp) || player.maxHp <= 0) { noteErr(new Error('vida máxima NaN'), 'vida'); player.maxHp = CHAR_VIDA[game.char] || 100; }
   grabStep(dt);
   if (game.deOn) { game.de -= dt * 22 / (game.char === 'lilith' ? 2 : 1); heartT -= dt; if (heartT <= 0) { heartT = 0.8; Sfx.heart(); } if (game.de <= 0) { game.de = 0; deadEye(false); } }
   if (game.slowT > 0) { game.slowT -= dt; if (game.slowT <= 0) { game.slowT = 0; applySlowFx(); if (!game.deOn) Sfx.deadeye(false); } }
