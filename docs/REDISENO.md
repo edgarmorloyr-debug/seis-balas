@@ -73,3 +73,9 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 2. **Entre peleas (minutos): la mesa.** Un momento corto de apuesta tras cada pelea: doble o nada, o elegir 1 de 3 balas para el tambor. Reemplaza a las salas de casino aparte.
 3. **El camino (la partida): puertas con apuesta.** Cada puerta muestra su premio y su riesgo; eliges cuál cruzar. Reemplaza a buscar llaves por el mapa.
 4. **Menos cosas:** oro (comprar), fichas (apostar), calaveras (lo permanente) y las balas. Todo lo demás se quita o se une a esto.
+
+### Decisión del dueño (29-oct-2026): el mundo es un gran casino con niveles temáticos
+- Se descarta la torre de pisos iguales. Todo el juego es **el gran casino de Don Santino**; **cada nivel es un casino con otra temática**, aprovechando los mapas que ya existen.
+- Orden propuesto: 1 Las Bodegas (el sótano, ya hecho) → 2 Casino Maid Café → 3 Casino Espacial (Estación Espacial). Después, posibles: Planeta Arcade, Atlantis, Tokio, la Luna; al final, el salón de Don Santino.
+- **Backrooms → pasillos secretos:** un nivel escondido entre casinos (los pasillos de servicio), que sale a veces y con mejor premio.
+- **Cada casino temático se arma con cuartos y puertas, como las Bodegas**, decorado con su temática (no como arena abierta).
