@@ -117,3 +117,8 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 
 ### El Cementerio como nivel: descartado (29-oct-2026)
 - Dueño, tras jugarlo: «no me gusto el cementerio. nos quedamos como ibamos». Se deshizo el cambio (git revert de 98fa8e3; queda en el historial por si se quiere recuperar algo). La partida vuelve a ser: Bodegas → Backrooms (niveles 2 a 4), con la mesa del oro y la dificultad gradual.
+
+### Nivel 2 = Casino Maid Café (29-oct-2026, en la versión de prueba)
+- La partida: Nivel 1 las Bodegas → **Nivel 2 el Casino Maid Café** → Nivel 3 Los Backrooms (jefe El Espejo) → Nivel 4 Los Backrooms · Las tuberías (El Payaso). La tercera de los Backrooms (La Araña) salió de la partida.
+- El Maid Café usa el mismo generador de cuartos y puertas de las Bodegas, con su tema (`BAL.bodegas.temas = { 2: 'maid' }` y `BAL.bodegas.tema.maid`): paredes rosa con corazones, piso a cuadros rosa y blanco, luces de neón rosa y menta, mesitas con juego de té, mesas de tartas, carteles de neón (se apagan de un tiro), cojines y farolillos. Nombres: Recepción, Salón de té, Karaoke, Cocina de tartas, Sala de fotos, Vestidor, Escenario y Tienda de Imo.
+- Todavía no: los cuartos especiales del Maid Café (karaoke, flash, cat café) ni la Idol Zombi; el jefe es el de siempre.
