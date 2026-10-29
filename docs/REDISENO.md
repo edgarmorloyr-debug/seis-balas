@@ -50,3 +50,11 @@ Toda idea nueva debe servir al menos a uno de ellos.
 - Un paso a la vez: cada paso se prueba en la rama `prueba` antes del siguiente.
 - Todo lo que se quite (g1, g3, la deuda, las maldiciones al azar) se avisa al dueño EN MAYÚSCULAS antes de borrarlo.
 - Se construye sobre Three.js. Cuando el juego esté completo y divertido, se decide si pasa a Godot para Steam.
+
+## Avance
+
+### Fase 1 · paso 1: solo tres monedas (29-oct-2026, en la versión de prueba)
+- **Fichas** (antes «fichas de miembro»): se apuestan en los juegos y abren lo cerrado. Los cuartos cerrados y el cofre dorado cuestan `BAL.bodegas.plata.fichas` (1); lo que antes soltaba una llave de plata (la Bodega despejada, la patrulla, el minijefe y algún cofre) da `BAL.bodegas.plata.premio` fichas (1). En el suelo se ve una ficha morada y en el mapa, un aro morado.
+- **Ya no hay llaves de plata** en la ficha del jugador: solo las fichas y la llave de la salida.
+- **Piezas de arma → árbol de mejoras:** cada pieza (cofres, Taller, pedestales, Herrero) sube gratis 1 nivel de su rama en el arma que llevas (`BAL.bodegas.piezas.rama`: cañón → Daño, gatillo → Cadencia, tambor → Cargador, mira y culata → Precisión, cargador → Recarga). Si esa rama ya no sube, otra al azar; si ninguna, `BAL.bodegas.piezas.oro` (40 $).
+- **Calaveras** (antes «fichas de calavera»): solo cambia el nombre; lo permanente llega en el paso 2.
