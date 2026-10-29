@@ -108,3 +108,4 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 | Guardias de los cuartos | × 0,7 | × 0,85 | × 1 | × 1,2 |
 | Patrulla | 2 | 3 | 3 | 4 |
 | Vida del jefe | × 0,7 | × 0,85 | × 1 | × 1,1 |
+- Dueño tras jugar la versión jugable (29-oct-2026): «me diverti jugando esta partida, fue entretenido!». Pide que los Backrooms dejen de ser el Nivel 2 (aún no se había hecho: el Casino Maid Café falta construirlo).
