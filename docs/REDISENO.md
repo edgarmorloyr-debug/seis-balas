@@ -58,3 +58,6 @@ Toda idea nueva debe servir al menos a uno de ellos.
 - **Ya no hay llaves de plata** en la ficha del jugador: solo las fichas y la llave de la salida.
 - **Piezas de arma → árbol de mejoras:** cada pieza (cofres, Taller, pedestales, Herrero) sube gratis 1 nivel de su rama en el arma que llevas (`BAL.bodegas.piezas.rama`: cañón → Daño, gatillo → Cadencia, tambor → Cargador, mira y culata → Precisión, cargador → Recarga). Si esa rama ya no sube, otra al azar; si ninguna, `BAL.bodegas.piezas.oro` (40 $).
 - **Calaveras** (antes «fichas de calavera»): solo cambia el nombre; lo permanente llega en el paso 2.
+
+### Idea del dueño en espera: vendedor de cartas en el Jardín (29-oct-2026)
+Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras interacciones, conversando con Claude cuando hay internet. **La voz queda fuera por ahora** (dueño: «olvida lo de la voz por ahora»). Pendiente: si el vendedor sigue (conversación escrita) y qué vende.
