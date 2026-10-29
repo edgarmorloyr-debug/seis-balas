@@ -89,3 +89,8 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - **El tambor como tragamonedas: no le convenció** (sobre el jackpot: «no lo sé. no es tu culpa. solo no me convence»). Se descarta como está; el azar en la pelea queda por pensar.
 - **La mesa:** sí, pero con **varios juegos al azar**: en cada nivel toca un juego distinto (después de contar el oro).
 - **Casino Maid Café: le gusta así** (cuartos, Idol Zombi y sus zombis).
+
+### La mesa del final del nivel (29-oct-2026, en la versión de prueba)
+- Al cruzar la puerta de salida (Bodegas y Backrooms), antes de la escalera: **se cuenta el oro ganado en el nivel** (zombis, tiros a la cabeza y oro, moneda por moneda con sonido que sube de tono y la caja al final) y **sale un juego al azar**, distinto del anterior: Mayor o menor (Dango), Rojo o negro (Miso), Par o impar (Imo) o Tragamonedas.
+- Se apuesta el oro ganado en el nivel: cada acierto lo duplica, un fallo lo pierde; **hasta 3 apuestas**; «Cobrar y seguir» cuando quieras, o «No apostar y seguir».
+- Cifras en `BAL.mesa` (activo, juegos, max, cuenta, símbolos, casillas de la ruleta).
