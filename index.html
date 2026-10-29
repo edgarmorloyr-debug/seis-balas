@@ -3354,7 +3354,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=44').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=45').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -27512,7 +27512,7 @@ function modoPartida(sv) {
   $('#mc-nm').textContent = CHARS[ch].name; const d = $('#mc-df'); d.textContent = DIFF[df].name; d.className = 'df ' + df;
   const N = sv.nMap | 0, tot = N ? WAVES_PER_MAP * N + CAS_OLEADAS : LAST_WAVE, cas = N && w > WAVES_PER_MAP * N && w <= tot;
   const mapa = sv.punto === 'sala' ? MAPS[ROOM_IDX].name : cas ? 'BIG NEON CASINO' : (MAPS[N && w > tot ? (sv.route || [])[sv.route.length - 1] : mapForWave(w, sv.route || [])] || MAPS[0]).name;
-  $('#mc-where').textContent = sv.bod ? `Nivel ${sv.bod.nivel || 1} · ${MAPS[BOD_IDX].name}` : w <= tot ? `Día ${w} de ${tot} · ${mapa}` : `Día ${w} · ${mapa}`;   // el juego (las Bodegas): nivel, no días
+  $('#mc-where').textContent = sv.bod ? `Nivel ${sv.bod.nivel || 1} · ${bodNombreNivel(sv.bod.nivel || 1)}` : w <= tot ? `Día ${w} de ${tot} · ${mapa}` : `Día ${w} · ${mapa}`;   // el juego (las Bodegas): nivel, no días
   $('#mc-g').textContent = '$ ' + fmt(sv.gold | 0); $('#mc-k').textContent = sv.keys | 0; $('#mc-p').textContent = sv.poker | 0; $('#mc-z').textContent = fmt(sv.kills | 0);
   const sl = (sv.slot || []).filter(e => BALAS[e.k]), ids = sl.map(e => e.k), its = Object.fromEntries(sl.map(e => [e.k, e.lv]));
   $('#mc-n').textContent = ' · ' + ids.length;
@@ -32921,7 +32921,7 @@ function updateHud(dt) {
   const ready = game.de >= 20 && !game.deOn;
   if (cache.der !== ready) { cache.der = ready; el.de.classList.toggle('ready', ready); el.bDe.classList.toggle('ready', ready); }
   habHud();
-  setText(el.mapname, 'mapn', game.bod && world.idx === ROOM_IDX && game.bodSala ? bodSalaInfo(game.bodSala).t : game.bod && game.bod.br != null && world.idx === game.bod.br ? bodLugar() : MAPS[world.idx].name);   // en una sala de las Bodegas: su nombre (no «La Trastienda»)
+  setText(el.mapname, 'mapn', game.bod && world.idx === ROOM_IDX && game.bodSala ? bodSalaInfo(game.bodSala).t : game.bod && (world.idx === BOD_IDX || (game.bod.br != null && world.idx === game.bod.br)) ? bodLugar() : MAPS[world.idx].name);   // en una sala de las Bodegas: su nombre (no «La Trastienda»)
   setText(el.wave, 'wave', tuto ? 'Tutorial' : game.bod ? bodNivelTxt() : `Día ${game.wave}`);
   const left = game.toSpawn + Math.max(0, game.alive);
   setText(el.waveSub, 'wsub', game.bod ? '¡Encuentra la salida!' : game.phase === 'fight' ? (left === 1 ? 'Queda 1' : `Quedan ${left}`) : game.phase === 'count' ? `Siguiente en ${Math.max(1, Math.ceil(game.countT))}` : game.phase === 'wait' ? 'Esperando al grupo' : game.phase === 'horde' ? '¡Sin salida!' : tuto ? tuto.sub : 'Despejado');
@@ -40698,7 +40698,7 @@ BAL.bodegas = {
   herrero: { piezas: 3, precio: [45, 70] },
   // la Sala de juegos: Dango atiende la tercera mesa (el duelo de dados); Imo, el blackjack; Miso, la tragamonedas, la ruleta y la carrera
   juegos: { dango: 'dados' },
-  niveles: 4,   // cuántos niveles existen (dueño, 26-oct-2026): 1 = las Bodegas; 2 a 4 = los tres Backrooms (BAL.bodegas.backrooms). Al salir del último se ve la pantalla del final
+  niveles: 4,   // cuántos niveles existen (dueño, 26-oct-2026): 1 = las Bodegas; 2 = el Casino Maid Café (29-oct-2026: BAL.bodegas.temas); 3 y 4 = dos Backrooms (BAL.bodegas.backrooms). Al salir del último se ve la pantalla del final
   luces: 3, lucesTel: 2, luz: { color: 0xffb060, i: 1.6, d: 13 }, verHab: 2,
   // espacios abiertos (dueño, 24-oct-2026): al aire libre (sin techo), unen habitaciones; solo de paso (sin guardias ni premio)
   // mundo vivo (dueño, 25-oct-2026): de 2 a 3 por mapa (antes 1 o 2); unen 2 habitaciones (a veces 3: tres); el callejón sale más (peso: cuánto más fácil sale cada tipo);
@@ -40754,10 +40754,50 @@ BAL.bodegas.vuelven = { activo: true, cada: [40, 55], primero: 60, n: [1, 2], le
 //           Los tipos salen de BAL.bodegas.zombis.niveles[N] (vuelven o, si no hay, patrulla); el de oro sale con la probabilidad de BAL.bodegas.oro.
 //   tienda: la puerta verde de la Tienda junto al inicio de cada nivel (lejos: a cuántos metros del inicio como mínimo y máximo)
 BAL.bodegas.backrooms = {
-  niveles: { 2: { mapa: 'Los Backrooms', nombre: 'Los Backrooms', jefe: 'mirror' }, 3: { mapa: 'Los Backrooms: Nivel 2', nombre: 'Los Backrooms · Las tuberías', jefe: 'clown' }, 4: { mapa: 'Los Backrooms: Nivel 3', nombre: 'Los Backrooms · La estación eléctrica', jefe: 'spider' } },
+  // dueño (29-oct-2026, «vamos al plan del maid cafe para el nivel 2»): el Nivel 2 es el Casino Maid Café (BAL.bodegas.temas); los Backrooms pasan a ser los
+  // niveles 3 y 4 (antes 2, 3 y 4; sale el de la estación eléctrica: { mapa: 'Los Backrooms: Nivel 3', nombre: 'Los Backrooms · La estación eléctrica', jefe: 'spider' })
+  niveles: { 3: { mapa: 'Los Backrooms', nombre: 'Los Backrooms', jefe: 'mirror' }, 4: { mapa: 'Los Backrooms: Nivel 2', nombre: 'Los Backrooms · Las tuberías', jefe: 'clown' } },
   llaves: 3, colores: ['red', 'blue', 'green'], llave: [4, 8], jefe: { vida: 0.8, lejos: [14, 28] },
-  zombis: { vivos: { 2: 8, 3: 10, 4: 12 }, cada: [3, 6], lejos: 20, primero: 4 },
+  zombis: { vivos: { 3: 10, 4: 12 }, cada: [3, 6], lejos: 20, primero: 4 },   // los vivos siguen el número del nivel (antes { 2: 8, 3: 10, 4: 12 })
   tienda: { lejos: [4, 9] }
+};
+// ---- los temas de nivel (dueño, 29-oct-2026: «vamos al plan del maid cafe para el nivel 2 como quedamos»): un nivel con tema usa el mismo mapa de
+// habitaciones y puertas de las Bodegas (las mismas reglas, zombis, jefe y dificultad de ese nivel), pero con otro aspecto y otros nombres.
+// temas: { nivel: clave del tema } (un nivel sin tema = las Bodegas de siempre). Las salas especiales y los espacios abiertos no cambian.
+BAL.bodegas.temas = { 2: 'maid' };
+// el Casino Maid Café (paso 1 del plan): paredes rosa y crema, suelo de cuadros rosa y blanco, molduras magenta, luces rosa y menta y muebles de café.
+//   nombre / desc: cómo se llama el nivel en pantalla · salas: el nombre de cada tipo de cuarto (los que no están, el de siempre) · pistas: el aviso al entrar
+//   tienda: los textos de la puerta de la Tienda (se suman a los de bodSalaInfo('tras')) · vuelta: el aviso al volver de una sala
+//   col: los colores de las texturas (paredes con rayas y corazones, la moldura de abajo, el suelo de cuadros, el techo) y de la lámpara de cada cuarto
+//   luces: los colores de las lámparas (van alternando por cuarto: rosa y menta) con su fuerza (i) y alcance (d, m) · halo: el brillo de la lámpara
+//   env: la niebla y la luz de ambiente · decor: qué piezas salen (como BAL.bodegas.decor: «comun» va en todos los cuartos; tipos: las de cada uno)
+//   neon: los letreros de neón (textos y colores) · mesaTe / tartas / cojines / farolillos: colores de las piezas del café
+BAL.bodegas.tema = {
+  maid: {
+    nombre: 'Casino Maid Café', desc: 'Lazos rosas, tartas de fresa y neón. Imo, Miso y Dango abrieron un casino en el piso de arriba; los clientes ya no pagan.',
+    salas: { inicio: 'Recepción', guardia: 'Salón de té', bodega: 'Karaoke', despensa: 'Cocina de tartas', taller: 'Sala de fotos', oscuro: 'Vestidor', jefe: 'Escenario', tras: 'Tienda de Imo' },
+    pistas: { oscuro: 'Vestidor: solo tu linterna. Los barriles sirven para esconderte' },
+    tienda: { t: 'Tienda de Imo', cartel: 'Tienda de Imo', entra: 'La puerta verde lleva a la Tienda de Imo' },
+    vuelta: 'De vuelta en el Casino Maid Café',
+    col: { muro: '#f9cfe0', raya: '#fde6ef', brillo: 'rgba(255,255,255,.7)', corazon: '#ff8fb8', corazon2: '#ffffff', moldura: '#a8326e', moldura2: '#d0559a',
+      suelo: ['#f7b9cf', '#fff6fa'], junta: 'rgba(160,90,120,.25)', techo: '#f3d6e2', techo2: '#e8bfd2', pantalla: 0xff8ab8, foco: 0xfff0f6,
+      tinte: { muro: 0xc8b4c0, suelo: 0xc8b8c0, techo: 0x9a8890 } },   // tinte: el color del material (los dibujos claros con la luz de las lámparas se veían blancos)
+    luces: [{ c: 0xff8ac0, i: 1.2, d: 13 }, { c: 0x7affd0, i: 1.0, d: 12 }], halo: { s: 2.4, op: 0.4 },
+    env: { fog: 0x24121e, dens: 0.042, top: 0x0a0408, hemiS: 0xffc8e0, hemiG: 0x3a1a2c, hemiI: 0.4 },
+    decor: {
+      comun: { neon: 3, farolillos: 2, cojines: 1.5, polvo: 1 },
+      tipos: {
+        inicio: { mesaTe: 2, tartas: 2, alfombra: 2 }, jefe: { neon: 2, tartas: 2, cojines: 2, alfombra: 2 }, bodega: { cojines: 3, neon: 2, mesaTe: 1 },
+        guardia: { mesaTe: 4, tartas: 2 }, mini: { mesaTe: 2, tragamonedas: 2, ruleta: 1 }, despensa: { tartas: 4, mesaTe: 1, carrito: 1 },
+        taller: { neon: 2, cojines: 2, mesaTe: 1 }, campana: { mesaTe: 2, tartas: 1 }, oscuro: { cojines: 2, mesaTe: 1, tartas: 1, alfombra: 1, carrito: 1, estante: 1 }, sala: { tartas: 2, alfombra: 2 }
+      }
+    },
+    neon: { textos: ['MOE MOE', '♡ CAFÉ', 'CASINO'], colores: [0xff5aa8, 0x7affd8, 0xffd060], y: 2.75 },
+    mesaTe: { manteles: [0xffc0d8, 0xc8e4ff, 0xe4d4ff, 0xfff0c0], blanco: 0xffffff, pata: 0xd8c8d0, corazon: 0xff8ab8, fresa: 0xe01838, sillas: [1, 2] },
+    tartas: { pisos: [0xfff4f0, 0xffc8dc, 0xfff4f0], crema: 0xff8ab8, fresa: 0xe01838, mesa: 0xf6e8ee },
+    cojines: { n: [3, 5], cols: [0xff9ac0, 0xc8e4ff, 0xe4d4ff, 0xfff0c0, 0xffffff] },
+    farolillos: { n: [3, 5], cols: [0xff8ac0, 0x7affd0, 0xfff0f6], largo: [0.4, 0.9] }
+  }
 };
 // ---- subir de piso (dueño, 26-oct-2026: «haz una animación básica de subida de escaleras cada que avanzamos de piso. usa de referencia Isaac y Resident Evil»):
 // primero la tarjeta del piso (carta, s) con las marcas de los pisos; luego la escalera en primera persona (subida, s; escalones; alto y fondo de cada uno, m;
@@ -40895,6 +40935,13 @@ const BOD_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const bodDeuda = () => !!BAL.deuda.activa;
 const bodNivel = () => (game && game.bod && game.bod.nivel) || 1;
 const bodNivelTxt = () => 'Nivel ' + bodNivel();
+// el tema del nivel (dueño, 29-oct-2026: BAL.bodegas.temas): la clave del tema del nivel nv (o del de ahora), o null en las Bodegas de siempre y en los Backrooms
+const bodTemaDe = nv => { const k = BAL.bodegas.temas[nv]; return k && BAL.bodegas.tema[k] && !BAL.bodegas.backrooms.niveles[nv] ? k : null; };
+const bodTema = () => game && game.bod && game.bod.br == null ? bodTemaDe(bodNivel()) : null;
+const bodTemaD = () => { const k = bodTema(); return k ? BAL.bodegas.tema[k] : null; };
+// el nombre de un tipo de cuarto en pantalla (con tema: el suyo, si lo tiene) y el nombre de un nivel (Backrooms, tema o las Bodegas)
+const bodTN = t => { const T = bodTemaD(); return (T && T.salas[t]) || (BOD_T[t] ? BOD_T[t].n : t); };
+const bodNombreNivel = nv => { const C = brNivel(nv); if (C) return C.nombre; const k = bodTemaDe(nv); return k ? BAL.bodegas.tema[k].nombre : MAPS[BOD_IDX].name; };
 const BOD_MISION = '¡ENCUENTRA LA SALIDA!';
 // dueño (25-oct-2026, «Reemplazar ya»): «Jugar» lleva directo a este juego (tras la dificultad y el personaje). El modo viejo de mapas y días
 // queda en el código (lo usan las pruebas y el juego en grupo) pero ya no se llega a él desde «Jugar». false lo devuelve.
@@ -41248,6 +41295,38 @@ function bodMats() {
   BODM.foco = bsc(0xffd8a0); BODM.negro = bsc(0x050403);
   bodMatsComp(); gfxMatsBod();
 }
+// los materiales del tema del nivel (dueño, 29-oct-2026): paredes, suelo y techo de otro dibujo (los de las Bodegas se guardan aparte y vuelven al dejar el tema).
+// Se arman una vez por tema y se quedan (compartidos, como los de bodMats). La lámpara de cada cuarto: su pantalla y su foco (BODM.pantallaT y BODM.focoT)
+function bodMatsTema() {
+  const k = bodTema() || '';
+  if (!BODM._base) BODM._base = { muro: BODM.muro, suelo: BODM.suelo, techo: BODM.techo, pantallaT: BODM.aro, focoT: BODM.foco };
+  const S = k ? ((BODM._temas || (BODM._temas = {}))[k] || (BODM._temas[k] = bodMatsHaz(BAL.bodegas.tema[k]))) : BODM._base;
+  if (BODM._k === k) return; BODM._k = k;
+  for (const q of ['muro', 'suelo', 'techo']) if (BODM[q] && BODM[q].bumpMap) { BODM[q].bumpMap = null; BODM[q].needsUpdate = true; }   // el relieve (Alta) se pone otra vez abajo
+  Object.assign(BODM, S); gfxMatsBod();
+}
+function bodMatsHaz(T) {
+  const C = T.col;
+  const corazon = (g, x, y, s, c) => { g.fillStyle = c; g.beginPath(); g.moveTo(x, y + s * 0.9); g.bezierCurveTo(x - s * 1.2, y, x - s * 0.6, y - s * 0.9, x, y - s * 0.3); g.bezierCurveTo(x + s * 0.6, y - s * 0.9, x + s * 1.2, y, x, y + s * 0.9); g.fill(); };
+  // paredes: papel rosa con rayas crema y corazones; abajo, la moldura magenta (el dibujo cubre 2 m de alto: moldura en el suelo y a media pared)
+  const muro = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = C.muro; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 64) { g.fillStyle = C.raya; g.fillRect(x + 8, 0, 24, h); g.fillStyle = C.brillo; g.fillRect(x + 18, 0, 4, h); }
+    for (let k = 0; k < 4; k++) { corazon(g, 48 + k * 64, 40 + (k % 2) * 90, 10, C.corazon); corazon(g, 48 + k * 64, 92 + (k % 2) * 90, 7, C.corazon2); }
+    g.fillStyle = C.moldura; g.fillRect(0, h - 30, w, 30); g.fillStyle = C.moldura2; g.fillRect(0, h - 34, w, 5); g.fillRect(0, h - 14, w, 3);
+  }, 1);
+  // suelo: cuadros rosa y blanco (cada dibujo cubre 4 m: cuadros de 1 m)
+  const suelo = canvasTex(256, 256, (g, w) => {
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.fillStyle = C.suelo[(i + j) % 2]; g.fillRect(i * 64, j * 64, 64, 64); }
+    for (let i = 0; i < 500; i++) { g.fillStyle = pick(['rgba(120,60,90,.07)', 'rgba(255,255,255,.12)', 'rgba(80,40,60,.05)']); g.fillRect(rand(0, w), rand(0, w), rand(1, 4), rand(1, 4)); }
+    g.strokeStyle = C.junta; g.lineWidth = 2; for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, w); g.moveTo(0, i * 64); g.lineTo(w, i * 64); g.stroke(); }
+  }, 1);
+  // techo: listones claros
+  const techo = canvasTex(128, 128, (g, w, h) => { g.fillStyle = C.techo; g.fillRect(0, 0, w, h); for (let x = 0; x < w; x += 32) { g.fillStyle = C.techo2; g.fillRect(x + 28, 0, 4, h); } }, 1);
+  const S = { muro: lam(C.tinte.muro, { map: muro }), suelo: lam(C.tinte.suelo, { map: suelo }), techo: lam(C.tinte.techo, { map: techo }), pantallaT: lam(C.pantalla, { emissive: (C.pantalla >> 2) & 0x3f3f3f }), focoT: bsc(C.foco) };
+  for (const q in S) S[q].userData.compartido = 1;
+  return S;
+}
 function bodMatsComp() { for (const k in BODM) if (BODM[k] && BODM[k].isMaterial) BODM[k].userData.compartido = 1; }
 // los brillos comparten material por color y opacidad (antes, uno por brillo); propio: el brillo cambia su opacidad (la luz de la bóveda, el vapor)
 const BOD_GLOWM = new Map();
@@ -41281,8 +41360,9 @@ function buildBodegas() {
   BOD.luzX = G && bodMal() === 'apagon' ? B.maldicion.tipos.apagon.luz : 1;   // maldición «Apagón»: los cuartos más oscuros
   const ax = L.rooms.map(r => Math.abs(bodC(r).x)), az = L.rooms.map(r => Math.abs(bodC(r).z));
   world.arena = { t: 'r', hx: Math.ceil(Math.max(Math.max(...ax) + 7, ...AB.map(r => Math.abs(bodC(r).x) + r.hx + 2))), hz: Math.ceil(Math.max(Math.max(...az) + 7, ...AB.map(r => Math.abs(bodC(r).z) + r.hz + 2))) };
-  env({ fog: 0x0e0906, dens: 0.05, top: 0x050302, sky: false, hemiS: 0xffd2a0, hemiG: 0x2a1a10, hemiI: 0.42 * BOD.luzX, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
-  bodMats();
+  const Tm = bodTemaD(), Te = Tm ? Tm.env : null;   // el tema del nivel (29-oct-2026: el Casino Maid Café): su niebla, su luz y sus materiales
+  env({ fog: Te ? Te.fog : 0x0e0906, dens: Te ? Te.dens : 0.05, top: Te ? Te.top : 0x050302, sky: false, hemiS: Te ? Te.hemiS : 0xffd2a0, hemiG: Te ? Te.hemiG : 0x2a1a10, hemiI: (Te ? Te.hemiI : 0.42) * BOD.luzX, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
+  bodMats(); bodMatsTema();
   BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = []; BOD.calles = [];
   BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.obsOp = []; BOD.obsCajas = []; BOD.obsPasos = []; BOD.acomodo = []; BOD.entra = null;   // obstáculos y peligros
   BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = [];   // salas especiales
@@ -41362,9 +41442,10 @@ function buildBodegas() {
     const c = bodC(r), h = bodH(r);
     if (r.abierto) { bodAbierto(r, c, gR, lados[r.i]); continue; }
     if (r.t !== 'oscuro') {
-      const ly = H - 0.55; M(cyl(0.012, 0.012, 0.5, 4), BODM.aro, c.x, H - 0.25, c.z, { p: gR, cast: false, recv: false });
-      M(new THREE.SphereGeometry(0.13, 8, 6), BODM.foco, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.aro, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
-      const halo = bodGlow(c.x, ly, c.z, 0xffb060, 2.6, 0.55, gR); BOD.lamp.push({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo });
+      const ly = H - 0.55, Lt = Tm ? Tm.luces[r.i % Tm.luces.length] : null;   // con tema: lámparas rosa y menta, una y una (BAL.bodegas.tema.<tema>.luces)
+      M(cyl(0.012, 0.012, 0.5, 4), BODM.aro, c.x, H - 0.25, c.z, { p: gR, cast: false, recv: false });
+      M(new THREE.SphereGeometry(0.13, 8, 6), BODM.focoT, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.pantallaT, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
+      const halo = bodGlow(c.x, ly, c.z, Lt ? Lt.c : 0xffb060, Lt ? Tm.halo.s : 2.6, Lt ? Tm.halo.op : 0.55, gR); BOD.lamp.push(Object.assign({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo }, Lt ? { c: Lt.c, i: Lt.i, d: Lt.d } : {}));
     }
     const c0 = colliders.length; bodAdornos(r, c, h, gR, lados[r.i], st);
     bodEspPadre(r, c, h, gR, lados[r.i], st);   // el cartelito de la sala especial que cuelga de aquí (o el barril junto al muro agrietado)
@@ -42273,8 +42354,8 @@ BAL.bodegas.decor = {
     oscuro: { mesa: 2, sillas: 1, barriles: 2, sacos: 1, cajas: 1 },
     sala: { naipes: 2, alfombra: 2, vitral: 1, retrato: 1 }
   },
-  sinLuz: ['oscuro'], luz: ['calle', 'bombilla', 'farol', 'ventanuco', 'tapiada', 'rejilla', 'vitral', 'tragamonedas', 'polvo'],   // el cuarto oscuro sigue oscuro
-  repite: ['telaranas', 'charcos', 'carteles', 'cadenas', 'naipes', 'desague'],   // si no alcanzan las piezas distintas, estas pueden salir dos veces
+  sinLuz: ['oscuro'], luz: ['calle', 'bombilla', 'farol', 'ventanuco', 'tapiada', 'rejilla', 'vitral', 'tragamonedas', 'polvo', 'neon', 'farolillos'],   // el cuarto oscuro sigue oscuro
+  repite: ['telaranas', 'charcos', 'carteles', 'cadenas', 'naipes', 'desague', 'mesaTe', 'tartas', 'cojines'],   // si no alcanzan las piezas distintas, estas pueden salir dos veces (las del café: 29-oct-2026)
   bombilla: { vaiven: 0.07, ritmo: 1.7, cable: [0.7, 1.2] },   // vaivén (radianes), rapidez del vaivén (radianes por segundo) y largo del cable (m)
   ratas: { n: [2, 3], huye: 3.2, vel: 3.4, corre: [2.2, 4.0], vuelve: [7, 14], chillido: 1.5 },   // huyen cuando te acercas a menos de «huye» m; vuelven a los «vuelve» s
   gotera: { cada: [1.2, 2.4], caida: 0.9, oir: 8, vol: 0.6 },   // s entre gotas, s que tarda en caer, m a los que se oye
@@ -42307,6 +42388,8 @@ Object.assign(BOD_AT, {
   ropa0: [0, 704, 64, 64], ropa1: [64, 704, 64, 64], ropa2: [128, 704, 64, 64], ropa3: [192, 704, 64, 64], ropa4: [256, 704, 64, 64],
   sil0: [0, 768, 64, 96], sil1: [64, 768, 64, 96], gato: [128, 768, 64, 64], paloma: [192, 768, 32, 32], aire: [256, 768, 64, 64], tapa: [320, 768, 64, 64], calle: [512, 768, 256, 192]
 });
+// los letreros de neón del Casino Maid Café (29-oct-2026: BAL.bodegas.tema.maid.neon): un hueco libre de la textura, abajo a la izquierda
+Object.assign(BOD_AT, { neon0: [0, 864, 256, 64], neon1: [256, 864, 256, 64], neon2: [0, 928, 256, 64] });
 BOD_LETREROS.forEach((L, i) => { BOD_AT['s' + i] = [512 + (i % 2) * 256, 512 + Math.floor(i / 2) * 64, 256, 64]; });
 function bodVivoAtlas(g) {
   const A = BOD_AT, rr = (a, b) => a + Math.random() * (b - a);
@@ -42397,6 +42480,13 @@ function bodDecAtlas() {
     // una mancha de luz suave (para el piso)
     [x, y, w, h] = A.suave; { const gr = g.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, w / 2 - 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
     bodVivoAtlas(g);   // las fachadas vivas
+    // los letreros de neón del café: letras blancas con su brillo sobre negro (se suman a la luz; el color lo pone cada letrero)
+    BAL.bodegas.tema.maid.neon.textos.forEach((t_, i) => { const R_ = BOD_AT['neon' + i]; if (!R_) return; [x, y, w, h] = R_;
+      g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.fillStyle = '#000'; g.fillRect(x, y, w, h); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      const txt = tx(t_).replace('♡', '').trim(), cor = t_.includes('♡'), ox = cor ? 18 : 0; g.font = 'bold 40px sans-serif'; const sc = Math.min(1, (w - 30 - ox * 2) / g.measureText(txt).width); g.font = `bold ${40 * sc | 0}px sans-serif`;
+      g.shadowColor = '#fff'; g.shadowBlur = 10; g.lineWidth = 5; g.strokeStyle = 'rgba(255,255,255,.55)'; g.strokeText(txt, x + w / 2 + ox, y + h / 2 + 2); g.fillStyle = '#fff'; g.fillText(txt, x + w / 2 + ox, y + h / 2 + 2);
+      if (cor) { const tw = g.measureText(txt).width, cx = x + w / 2 + ox - tw / 2 - 26, cy = y + h / 2, s_ = 12; g.beginPath(); g.moveTo(cx, cy + s_ * 0.9); g.bezierCurveTo(cx - s_ * 1.2, cy, cx - s_ * 0.6, cy - s_ * 0.9, cx, cy - s_ * 0.3); g.bezierCurveTo(cx + s_ * 0.6, cy - s_ * 0.9, cx + s_ * 1.2, cy, cx, cy + s_ * 0.9); g.fill(); }
+      g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 2; g.strokeRect(x + 4, y + 4, w - 8, h - 8); g.restore(); });
   });
   BODD.atL = LANG; return BODD.at;
 }
@@ -42736,6 +42826,52 @@ const BOD_DEC = {
     const bo = F.cyl('op', 0.06, 0.07, 0.3, 0.38, 1.07, zc + 0.05, 0x2f5a2a), bo2 = F.cyl('op', 0.02, 0.03, 0.12, 0.38, 1.28, zc + 0.05, 0x2f5a2a);
     F.rompe([[bo, 'aplasta', 0.35], [bo2, 'quita']], [0.38, 1.12, zc + 0.05, 0.16, 0.44, 0.16], [0.38, 0.92, zc + 0.05], 0x80c070);
   } },
+  // --- el Casino Maid Café (dueño, 29-oct-2026: «vamos al plan del maid cafe para el nivel 2»): solo salen en un nivel con tema (BAL.bodegas.tema.maid.decor).
+  // Como las del mapa «El Maid Café»: mesas redondas con té y tarta y sillas de corazón, tartas de tres pisos, letreros de neón, cojines y farolillos.
+  mesaTe: { en: 'suelo', rad: 1.3, arma(F, X, R) {
+    const M_ = BAL.bodegas.tema.maid.mesaTe, man = M_.manteles[Math.floor(R() * M_.manteles.length)], W_ = M_.blanco;
+    F.cyl('op', 0.62, 0.62, 0.05, 0, 0.76, 0, W_, { s: 16 }); F.cyl('op', 0.64, 0.7, 0.32, 0, 0.6, 0, man, { s: 16 }); F.cyl('op', 0.06, 0.06, 0.45, 0, 0.225, 0, M_.pata, { s: 6 }); F.cyl('op', 0.3, 0.3, 0.04, 0, 0.02, 0, M_.pata, { s: 12 });
+    F.esf('op', 0.11, 0.18, 0.86, 0.1, W_, { sy: 0.75 }); F.cyl('op', 0.015, 0.025, 0.14, 0.3, 0.88, 0.1, W_, { rz: -0.9, s: 5 }); F.esf('op', 0.035, 0.18, 0.95, 0.1, M_.corazon);   // la tetera
+    for (const [cx, cz] of [[-0.25, 0.25], [-0.15, -0.3]]) { F.cyl('op', 0.08, 0.08, 0.012, cx, 0.79, cz, W_, { s: 10 }); F.cyl('op', 0.045, 0.035, 0.06, cx, 0.82, cz, man, { s: 8 }); }   // las tazas
+    F.cyl('op', 0.12, 0.12, 0.01, 0.12, 0.79, -0.22, W_, { s: 10 }); F.box('op', 0.12, 0.08, 0.14, 0.12, 0.835, -0.22, 0xfff4f0); F.box('op', 0.122, 0.02, 0.142, 0.12, 0.885, -0.22, M_.corazon); F.esf('op', 0.025, 0.12, 0.91, -0.22, M_.fresa);   // la tarta
+    const n = M_.sillas[0] + Math.floor(R() * (M_.sillas[1] - M_.sillas[0] + 1)), a0 = R() * Math.PI * 2;
+    for (let k = 0; k < n; k++) {   // sillas con respaldo de corazón, mirando a la mesa (cada una choca por su lado)
+      const a = a0 + k * Math.PI * 2 / Math.max(2, n + 1), col = M_.manteles[(k + 1) % M_.manteles.length]; F.grupo = k + 1;
+      const S = F.sub(Math.cos(a) * 1.02, 0, Math.sin(a) * 1.02, Math.atan2(-Math.cos(a), -Math.sin(a)));
+      S.box('op', 0.44, 0.07, 0.44, 0, 0.46, 0, col); S.cyl('op', 0.035, 0.035, 0.44, 0, 0.22, 0, 0xf0f0f0, { s: 5 }); S.cyl('op', 0.18, 0.2, 0.03, 0, 0.015, 0, 0xf0f0f0, { s: 10 });
+      S.box('op', 0.04, 0.32, 0.04, 0, 0.62, -0.2, 0xf0f0f0); for (const sx of [-1, 1]) S.esf('op', 0.1, sx * 0.08, 0.9, -0.2, M_.corazon, { sz: 0.4 }); S.box('op', 0.15, 0.15, 0.04, 0, 0.81, -0.2, M_.corazon, { rz: Math.PI / 4 });
+    }
+    F.grupo = 0;
+  } },
+  tartas: { en: 'pared', w: 1.4, m: 0.9, arma(F) {
+    const T_ = BAL.bodegas.tema.maid.tartas, z = 0.55;
+    F.box('op', 1.2, 0.06, 0.8, 0, 0.8, z, T_.mesa); for (const a of [-0.52, 0.52]) for (const b of [-0.32, 0.32]) F.box('op', 0.06, 0.8, 0.06, a, 0.4, z + b, 0xd8c8d0);
+    F.box('op', 1.2, 0.26, 0.02, 0, 0.66, z + 0.41, T_.crema);   // el volante del mantel
+    let y = 0.83; [[0.32, 0.22], [0.23, 0.2], [0.15, 0.18]].forEach(([r, h], i) => { F.cyl('op', r, r, h, 0, y + h / 2, z, T_.pisos[i], { s: 16 }); F.toro('op', r, 0.025, 0, y + h, z, T_.crema, { rx: Math.PI / 2, s: 16 }); y += h; });
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; F.esf('op', 0.035, Math.cos(a) * 0.27, 1.08, z + Math.sin(a) * 0.27, T_.fresa); }
+    F.esf('op', 0.05, 0, y + 0.04, z, T_.fresa);
+    for (const s of [-1, 1]) { F.cyl('op', 0.07, 0.05, 0.07, s * 0.45, 0.865, z - 0.12, T_.pisos[1], { s: 10 }); F.esf('op', 0.06, s * 0.45, 0.92, z - 0.12, T_.crema, { sy: 0.7 }); F.esf('op', 0.022, s * 0.45, 0.97, z - 0.12, T_.fresa); }   // pastelitos
+  } },
+  neon: { en: 'pared', w: 2.2, m: 0.25, arma(F, X, R) {
+    const N = BAL.bodegas.tema.maid.neon, i = Math.floor(R() * N.textos.length), col = N.colores[i % N.colores.length], y = N.y, osc = new THREE.Color(col).multiplyScalar(0.3).getHex();
+    F.box('op', 2.0, 0.6, 0.04, 0, y, 0.02, 0x1a0c16);
+    const t_ = F.plano('ad', 1.9, 0.475, 0, y, 0.05, col, { uv: 'neon' + i });
+    F.plano('ad', 2.2, 1.6, 0, 0.016, 1.1, bodDecPiso(osc), { rx: -Math.PI / 2, uv: 'suave' });
+    const b = F.luz(0, y, 0.3, osc, 2.4);
+    F.rompe([[t_, 'apaga', 0.12]], [0, y, 0.06, 1.9, 0.5, 0.14], [0, y, 0.02], col, b);   // a balazos se apaga (como los vidrios)
+  } },
+  cojines: { en: 'suelo', rad: 0.9, arma(F, X, R) {
+    const C_ = BAL.bodegas.tema.maid.cojines, n = C_.n[0] + Math.floor(R() * (C_.n[1] - C_.n[0] + 1));
+    for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, d = R() * 0.55, x = Math.cos(a) * d, z = Math.sin(a) * d, y = 0.05 + i * 0.02; F.box('op', 0.46, 0.1, 0.46, x, y, z, C_.cols[Math.floor(R() * C_.cols.length)], { ry: R() * 1.5 }); F.esf('op', 0.035, x, y + 0.055, z, C_.cols[(i + 1) % C_.cols.length], { sy: 0.5 }); }
+  } },
+  farolillos: { en: 'techo', rad: 1.0, arma(F, X, R) {
+    const P_ = BAL.bodegas.tema.maid.farolillos, n = P_.n[0] + Math.floor(R() * (P_.n[1] - P_.n[0] + 1)), H = X.H;
+    for (let i = 0; i < n; i++) {
+      const x = (R() - 0.5) * 1.6, z = (R() - 0.5) * 1.6, L = P_.largo[0] + R() * (P_.largo[1] - P_.largo[0]), col = P_.cols[i % P_.cols.length];
+      F.cyl('op', 0.006, 0.006, L, x, H - L / 2, z, 0x5a4a50, { s: 4 }); F.esf('em', 0.16, x, H - L - 0.15, z, col, { sy: 1.2 }); F.cyl('op', 0.09, 0.09, 0.03, x, H - L, z, 0x5a4a50, { s: 8 });
+      F.luz(x, H - L - 0.15, z, new THREE.Color(col).multiplyScalar(0.25).getHex(), 1.0);
+    }
+  } },
   busto: { en: 'pared', w: 0.9, m: 0.9, arma(F) {
     const z = 0.25 + 0.35, m = BODC.marmol; F.cyl('op', 0.24, 0.3, 1.1, 0, 0.55, z, m, { s: 10 }); F.box('op', 0.62, 0.08, 0.62, 0, 1.14, z, m);
     F.esf('op', 0.34, 0, 1.36, z, m, { sx: 1.3, sy: 0.55, sz: 0.8 }); F.cyl('op', 0.09, 0.11, 0.16, 0, 1.58, z, m); F.esf('op', 0.2, 0, 1.8, z, m, { sy: 1.15 });
@@ -42851,7 +42987,8 @@ function bodDecorar(r, c, h, gR, lados, st) {
   if (plan) for (const [key, sem] of plan) { if (BOD_DEC[key]) bodDecProbar(X, K, key, sem, true); }
   else {
     const R = mulberry32(((r.sem >>> 0) ^ D.semilla) >>> 0), n = D.n[0] + Math.floor(R() * (D.n[1] - D.n[0] + 1)), out = [];
-    const pool = Object.assign({}, D.comun, D.tipos[bodEsSala(r.t) ? 'sala' : r.t] || {}); if (D.sinLuz.includes(r.t)) for (const k of D.luz) delete pool[k];
+    const Td = bodTemaD(), Dd = Td ? Td.decor : D, kT = bodEsSala(r.t) ? 'sala' : r.t;   // con tema (29-oct-2026): sus piezas (las salas especiales siguen con las suyas)
+    const pool = Object.assign({}, Dd.comun, Dd.tipos[kT] || (Td && bodEspecial(r.t) ? D.tipos[kT] : null) || {}); if (D.sinLuz.includes(r.t)) for (const k of D.luz) delete pool[k];
     const veces = {}, prueba = (key) => { for (let a = 0; a < D.intentos; a++) { const sem = (R() * 4294967296) >>> 0; if (bodDecProbar(X, K, key, sem, false)) { out.push([key, sem]); veces[key] = (veces[key] | 0) + 1; return true; } } return false; };
     for (let ronda = 0; ronda < 2 && out.length < n; ronda++) {
       const L = Object.keys(pool).filter(k => ronda === 0 ? true : D.repite.includes(k) && veces[k] === 1);
@@ -43390,7 +43527,7 @@ function bodJardinPaso(dt) {
 function bodJardinEntrar() {
   const J = BAL.bodegas.jardin; if (BODJ.saliendo || !BODJ.on) return;
   BODJ.saliendo = true; bodJardinCartel(-1); useCur = null; showUse(null); Sfx.open();
-  $('#fade-s').textContent = 'Nivel 1'; $('#fade-t').textContent = MAPS[BOD_IDX].name; $('#fade-d').textContent = '¡Encuentra la salida!';
+  $('#fade-s').textContent = tx(bodNivelTxt()); $('#fade-t').textContent = tx(bodLugar()); $('#fade-d').textContent = '¡Encuentra la salida!';
   el.fade.classList.add('on'); state = 'trans'; releaseInput();
   const run = game;
   setTimeout(() => {
@@ -44069,11 +44206,12 @@ function bodBaja(b, x, z) {
   if (b.mj && b.r >= 0) { st.mj[b.r] = 1; if (st.tipos && st.tipos[b.r] && st.tipos[b.r].length) b.tipo = st.tipos[b.r][0]; /* (el minijefe ocupaba el primer lugar de la lista de su sala) */ bodLlaveSuelo({ t: 'plata', x, z, id: 'mj' + b.r }); setTimeout(() => { if (game && game.bod) banner('¡Minijefe vencido!', 'Soltó una llave de plata', 2600, 'key'); }, 300); }
   const quita = a => { if (!a) return; const j = a.indexOf(b.tipo); a.splice(j >= 0 ? j : 0, 1); };   // su tipo sale de la lista (al volver de la Tienda no reaparece)
   if (b.g === 'p') { if (st.patrulla > 0) quita(st.tiposP); st.patrulla = Math.max(0, st.patrulla - 1); if (st.patrulla === 0) bodLlaveSuelo({ t: 'plata', x, z, id: 'p' }); return; }
-  if (b.r >= 0) { if ((st.vivos[b.r] | 0) > 0 && st.tipos) quita(st.tipos[b.r]); st.vivos[b.r] = Math.max(0, (st.vivos[b.r] | 0) - 1); const r = L.rooms[b.r]; if (st.vivos[b.r] === 0) { if (r.t === 'bodega') bodLlaveSuelo({ t: 'plata', x, z, id: 'b' + r.i }); feed(`${BOD_T[r.t].n}: despejado`, 'gold'); } }
+  if (b.r >= 0) { if ((st.vivos[b.r] | 0) > 0 && st.tipos) quita(st.tipos[b.r]); st.vivos[b.r] = Math.max(0, (st.vivos[b.r] | 0) - 1); const r = L.rooms[b.r]; if (st.vivos[b.r] === 0) { if (r.t === 'bodega') bodLlaveSuelo({ t: 'plata', x, z, id: 'b' + r.i }); feed(`${bodTN(r.t)}: despejado`, 'gold'); } }
 }
 function bodEntra(r) {
-  const T_ = BOD_T[r.t]; if (r.i === 0 && !bodSt().inicio) return;
-  if (r.t === 'oscuro') hint('Cuarto oscuro: solo tu linterna. Los barriles sirven para esconderte', 3200);
+  const Tm = bodTemaD(); if (r.i === 0 && !bodSt().inicio) return;
+  if (Tm && Tm.pistas[r.t]) hint(Tm.pistas[r.t], 3200);   // con tema (29-oct-2026): su aviso
+  else if (r.t === 'oscuro') hint('Cuarto oscuro: solo tu linterna. Los barriles sirven para esconderte', 3200);
   else if (r.t === 'campana') hint('Campanario: dispárale a la campana para atraer a los zombis cercanos', 3200);
   else if (bodEspecial(r.t)) { const E_ = { tesoro: 'Sala del tesoro: algo valioso te espera en el pedestal', elige: 'Elige 1 de 2: toma uno y el otro desaparece', secreta: 'Una sala secreta: nadie entra aquí hace años',
     minijefe: 'Sala del minijefe: un zombi más grande y su escolta. Suelta fichas', seis: 'Las seis puertas: una tiene premio, las demás sueltan zombis', boveda: 'La bóveda: la reja cae en 10 s. Toma el oro y sal',
@@ -44081,7 +44219,7 @@ function bodEntra(r) {
     if (r.t === 'minijefe' && !(bodSt().mj || {})[r.i]) banner('¡Un minijefe!', 'Más grande, con escolta. Suelta fichas', 2600, 'skull'); else hint(E_, 3200); }
   else if (bodEsSala(r.t)) hint(bodSalaInfo(r.t).entra, 2600);
   else if (r.abierto) hint({ callejon: 'Callejón trasero: al aire libre, bajo la lluvia. Une dos puntas del sótano', patio: 'Patio interior: un pozo de luz entre los edificios', jardin: 'Jardín de los fumadores: el patio del Bar El Trébol', canal: 'Canal de desagüe: el agua te frena. Cruza por los puentes' }[r.t], 3200);
-  else if (r.t !== 'jefe') hint(T_.n, 1800);
+  else if (r.t !== 'jefe') hint(bodTN(r.t), 1800);
 }
 function bodLlaveRecoger(dt) {
   const st = bodSt();
@@ -44780,7 +44918,7 @@ function bodIrA(ni) {
 // ---- los Backrooms como niveles (BAL.bodegas.backrooms): las llaves de color, el jefe, la salida, la Tienda y los zombis que llegan de lejos
 function brNivel(nv) { const C = BAL.bodegas.backrooms.niveles[nv]; if (!C) return null; const idx = MAPS.findIndex(m => m.name === C.mapa); return idx >= 0 ? Object.assign({ idx }, C) : null; }
 const brNivelFalta = nv => !!BAL.bodegas.backrooms.niveles[nv] && !brNivel(nv);   // el nivel es de los Backrooms pero su mapa no existe (no es «no hay más niveles»)
-const bodLugar = () => { const C = game && game.bod && game.bod.br != null ? brNivel(bodNivel()) : null; return C ? C.nombre : MAPS[BOD_IDX].name; };
+const bodLugar = () => { const C = game && game.bod && game.bod.br != null ? brNivel(bodNivel()) : null, T = C ? null : bodTemaD(); return C ? C.nombre : T ? T.nombre : MAPS[BOD_IDX].name; };   // con tema (29-oct-2026): su nombre
 const brLlavesN = () => game.llv ? Object.keys(game.llv.got).length : 0;
 function brEstado(piezas) {
   const R = BAL.bodegas.reloj, Z = BAL.bodegas.backrooms.zombis;
@@ -44920,7 +45058,7 @@ function escArmar() {
 }
 function escSubir(nv, cb) {
   if (!ESC.scene) escArmar();
-  const C = brNivel(nv), nombre = C ? C.nombre : MAPS[BOD_IDX].name, N = BAL.bodegas.niveles;
+  const nombre = bodNombreNivel(nv), N = BAL.bodegas.niveles;   // los Backrooms, un tema (el Casino Maid Café) o las Bodegas
   Object.assign(ESC, { on: true, t: 0, fase: 0, cb, paso: -1, resp: 0, hecho: false, t0: performance.now() });
   state = 'escalera'; show(null); useCur = null; showUse(null); el.hud.hidden = true; document.body.classList.add('esc-on'); $('#touch').hidden = true; releaseInput && releaseInput();
   const box = $('#esc'); box.hidden = false; box.classList.remove('fuera', 'blanco', 'sin-carta'); $('#esc-n').textContent = `Nivel ${nv}`; $('#esc-t').textContent = nombre;
@@ -44968,14 +45106,15 @@ addEventListener('resize', () => { if (ESC.cam) { ESC.cam.aspect = innerWidth / 
 // Se entra con el mismo mecanismo de la vieja Trastienda (enterRoom lleva a ROOM_IDX), pero allí buildShopRoom arma solo el interior de esa sala
 // (buildBodSala), con los mismos muebles de siempre. Ninguna cobra la entrada (BAL.bodegas.trastienda.fichas = 0) y ninguna tiene guardias.
 function bodSalaInfo(t) {
-  const G = BAL.garra.ficha;
-  return {
+  const G = BAL.garra.ficha, Tm = bodTemaD();
+  const I = {
     tras: { t: 'Tienda', cartel: 'Tienda', sub: 'Puerta verde', d: 'Balas en la Expendedora Apocalipsis y el vendedor de armas: cada visita trae otras armas. Aquí vive la gata.', entra: 'La puerta verde lleva a la Tienda', dentro: 'La Tienda · balas en la expendedora y armas del vendedor (hoy trae otras) · la salida, a tus espaldas' },
     herrero: { t: 'Herrero', cartel: 'Herrero', sub: 'El Viejo Sam', d: 'El Viejo Sam vende piezas para el arma que llevas. Duran hasta el final de la partida.', entra: 'Esta puerta lleva al Herrero', dentro: 'El Herrero · El Viejo Sam vende piezas para tu arma · la salida, a tus espaldas' },
     juegos: { t: 'Sala de juegos de azar', cartel: 'Juegos de azar', sub: 'Imo, Miso y Dango', d: 'Blackjack con Imo; tragamonedas, ruleta y carrera con Miso; dados con Dango. Se apuesta con fichas.', entra: 'Esta puerta lleva a la Sala de juegos de azar', dentro: 'Sala de juegos de azar · se apuesta con fichas · la salida, a tus espaldas' },
     capsulas: { t: 'Cápsulas del Fin del Mundo', cartel: 'Cápsulas', sub: 'del Fin del Mundo', d: 'Una máquina de retos en cápsula: cúmplelos y gana premios.', entra: 'Esta puerta lleva a las Cápsulas del Fin del Mundo', dentro: 'Cápsulas del Fin del Mundo · retos en cápsula · la salida, a tus espaldas' },
     garra: { t: 'La Garra', cartel: 'La Garra', sub: 'Juego de garra', d: `Mueve la garra y agarra premios entre la basura. Cada intento cuesta ${G} ficha.`, entra: 'Esta puerta lleva a La Garra', dentro: 'La Garra · agarra premios entre la basura · la salida, a tus espaldas' }
   }[t];
+  return I && Tm && t === 'tras' ? Object.assign({}, I, Tm.tienda) : I;   // con tema (29-oct-2026): la Tienda con su nombre (la Tienda de Imo)
 }
 const bodSalaMat = t => { const c = BAL.bodegas.salas[t].col; return lam(c, { emissive: (c >> 2) & 0x3f3f3f }); };   // la puerta de cada sala, de su color
 // la Sala de juegos: Dango atiende la mesa que diga BAL.bodegas.juegos.dango (el duelo de dados); en la vieja Trastienda, Imo
@@ -45013,14 +45152,14 @@ function bodTrastienda(r) {
 }
 function bodVolver() {
   if (game.bod.br != null) { brVolver(); return; }   // de la Tienda a los Backrooms
-  const st = bodSt(); st.volver = 1; showUse(null);
+  const st = bodSt(), Tm = bodTemaD(); st.volver = 1; showUse(null);   // Tm: el tema del nivel (29-oct-2026), su nombre y su descripción
   if (BOD.rw) game.routeWave = BOD.rw;
   travel(BOD_IDX, game.wave, () => {
     state = 'play'; game.phase = 'fight'; st.volver = 0; bodPoblar(); renderChips(); requestLock(); canvas.focus();
     const ex = (game.abono | 0) - (BOD.abono0 | 0); if (ex > 0 && deudaPend()) deudaSuma(ex, '');
-    hint('De vuelta en las Bodegas', 2400);
+    hint(Tm ? Tm.vuelta : 'De vuelta en las Bodegas', 2400);
   });
-  $('#fade-s').textContent = tx(bodNivelTxt()); $('#fade-t').textContent = MAPS[BOD_IDX].name; $('#fade-d').textContent = MAPS[BOD_IDX].desc;
+  $('#fade-s').textContent = tx(bodNivelTxt()); $('#fade-t').textContent = tx(Tm ? Tm.nombre : MAPS[BOD_IDX].name); $('#fade-d').textContent = tx(Tm ? Tm.desc : MAPS[BOD_IDX].desc);
 }
 // el interior de cada sala: una habitación cerrada en el mismo lugar que su sala de la vieja Trastienda (así sirven los caminos de Imo y Miso,
 // la decoración y el sonido de cada sala), con la salida a tus espaldas y lo suyo dentro
@@ -45123,7 +45262,7 @@ function bodArranque(sv) {
   if (!game.bod.st) game.bod.st = bodEstado(BOD.L);
   const st = game.bod.st; st.volver = 0; BOD.tcHasta = 0; bodTitulo(); if (st.k0 == null) { st.k0 = game.kills | 0; st.h0 = game.heads | 0; }
   bodPoblar(); BOD.tiros = game.shots;
-  const bien = () => { if (!game || !game.bod) return; st.inicio = 1; banner(BOD_MISION, `${bodNivelTxt()} · busca la llave y vence al jefe`, 3600, 'key');
+  const bien = () => { if (!game || !game.bod) return; st.inicio = 1; const Tm = bodTemaD(); banner(Tm ? `${bodNivelTxt()} · ${Tm.nombre}` : BOD_MISION, Tm ? '¡Encuentra la salida! · busca la llave y vence al jefe' : `${bodNivelTxt()} · busca la llave y vence al jefe`, 3600, 'key');   // con tema (29-oct-2026): «Nivel 2 · Casino Maid Café»
     const m = bodMal(); if (m) bodTimer(3800, () => { if (!game || !game.bod || bodMal() !== m) return; banner(`Maldición del piso: ${BOD_MAL_TXT[m].n}`, `${BOD_MAL_TXT[m].d} · +${bodMalPct(m)} % de oro`, 4200, 'skull'); feed(`Maldición: ${BOD_MAL_TXT[m].n} (+${bodMalPct(m)} % de oro)`, 'red'); }); };   // la maldición del piso se anuncia al empezar
   if (bodDeuda() && !sv && !tuto && !store.get('sb_sinCine', 0)) introDeuda(bien, { frases: BOD_FRASES, vuelo: false, sub: bodNivelTxt() });   // la llamada de la deuda: solo si vuelve la deuda (BAL.deuda.activa)
   else bodTimer(600, bien);
@@ -45136,7 +45275,7 @@ function bodFin(gano, aviso) {   // aviso: el texto de abajo cuando la partida t
   // primero el texto (con valores de reserva si algo falla); recién después se cambia de pantalla: nunca negro y sin salida
   const nv = bodNivel(), br = game.bod.br != null, sinT = !gano && !!game.sinTiempo;   // se acabó el reloj del nivel (BAL.bodegas.reloj): se pierde igual que al caer
   let t = gano ? (br ? '¡Saliste de los Backrooms!' : `¡Saliste del Nivel ${nv}!`) : sinT ? 'Se acabó el tiempo' : br ? 'Caíste en los Backrooms' : 'Caíste en las Bodegas';
-  let tag = aviso || (gano ? (br ? `Completaste los ${nv} niveles: las Bodegas y los Backrooms. Por ahora, aquí termina el juego.` : `Completaste el Nivel ${nv}: Las Bodegas del casino. El Nivel ${nv + 1} todavía no existe.`) : sinT ? 'El reloj llegó a cero. Se pierde todo: vuelves a empezar en el jardín, con un mapa nuevo.' : 'Al caer se pierde todo. Vuelves a empezar en el jardín, con un mapa nuevo.');
+  let tag = aviso || (gano ? (br ? `Completaste los ${nv} niveles: las Bodegas, el Casino Maid Café y los Backrooms. Por ahora, aquí termina el juego.` : `Completaste el Nivel ${nv}: Las Bodegas del casino. El Nivel ${nv + 1} todavía no existe.`) : sinT ? 'El reloj llegó a cero. Se pierde todo: vuelves a empezar en el jardín, con un mapa nuevo.' : 'Al caer se pierde todo. Vuelves a empezar en el jardín, con un mapa nuevo.');
   let filas = [['Oro', (game.gold | 0) + ' $'], ['Zombis', game.kills | 0], ['Tiempo', '0:00'], ['A la cabeza', game.heads | 0], ['Nivel', nv]];
   try {
     const st = bodSt(), L = BOD.L, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60), D = game.deuda;
