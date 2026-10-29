@@ -79,3 +79,8 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - Orden propuesto: 1 Las Bodegas (el sótano, ya hecho) → 2 Casino Maid Café → 3 Casino Espacial (Estación Espacial). Después, posibles: Planeta Arcade, Atlantis, Tokio, la Luna; al final, el salón de Don Santino.
 - **Backrooms → pasillos secretos:** un nivel escondido entre casinos (los pasillos de servicio), que sale a veces y con mejor premio.
 - **Cada casino temático se arma con cuartos y puertas, como las Bodegas**, decorado con su temática (no como arena abierta).
+
+### Decisiones del dueño (29-oct-2026, encuesta)
+- **Bocetos:** los dos (el tambor y el Casino Maid Café), primero el tambor.
+- **La mesa:** sí. Dueño: «ahí puedes jugar con el oro que ganas en cada nivel, primero se abre una interfaz en donde se cuentan todas tus fichas (dinero) ponle sonido satisfactorio. y de ahí sale el juego en el que puedes apostar hasta 3 veces». → Al terminar cada nivel: 1) pantalla que cuenta tu dinero con sonido satisfactorio; 2) un juego donde apuestas ese oro, hasta 3 veces.
+- **Puertas:** mezcla: puertas con apuesta (muestran premio y riesgo) y una sola llave para la salida.
