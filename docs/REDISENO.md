@@ -94,3 +94,17 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - Al cruzar la puerta de salida (Bodegas y Backrooms), antes de la escalera: **se cuenta el oro ganado en el nivel** (zombis, tiros a la cabeza y oro, moneda por moneda con sonido que sube de tono y la caja al final) y **sale un juego al azar**, distinto del anterior: Mayor o menor (Dango), Rojo o negro (Miso), Par o impar (Imo) o Tragamonedas.
 - Se apuesta el oro ganado en el nivel: cada acierto lo duplica, un fallo lo pierde; **hasta 3 apuestas**; «Cobrar y seguir» cuando quieras, o «No apostar y seguir».
 - Cifras en `BAL.mesa` (activo, juegos, max, cuenta, símbolos, casillas de la ruleta).
+
+### Versión jugable (29-oct-2026, en la versión de prueba)
+- Dueño: «saca por favor una version jugable. haz que solo arranque con una pistola. bajale la dificultad para que pueda ser gradual. cada nivel».
+- **Sin la Thompson del inicio** (`BAL.bodegas.prueba.thompson.activo: false`): empiezas con el revólver de tu personaje.
+- **Dificultad que sube nivel a nivel** (antes, el Nivel 1 traía 10 a 14 zombis por oleada cada 60 s):
+
+| | Nivel 1 | Nivel 2 | Nivel 3 | Nivel 4 |
+|---|---|---|---|---|
+| Primera oleada | 120 s | 100 s | 80 s | 70 s |
+| Oleadas después, cada | 90 s | 80 s | 70 s | 60 s |
+| Zombis por oleada | 4–6 | 6–9 | 9–12 | 12–16 |
+| Guardias de los cuartos | × 0,7 | × 0,85 | × 1 | × 1,2 |
+| Patrulla | 2 | 3 | 3 | 4 |
+| Vida del jefe | × 0,7 | × 0,85 | × 1 | × 1,1 |

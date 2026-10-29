@@ -40784,9 +40784,10 @@ BAL.bodegas.reloj = { activo: true, t: 600, avisos: [120, 60, 30], rojo: 60, car
 //   thompson.caja: 300 (dueño, 27-oct-2026: el máximo normal de balas de fusil, así las cajas del suelo y la Tienda funcionan como siempre; antes 500)
 BAL.bodegas.prueba = {
   activo: true,
-  thompson: { activo: true, arma: 'tommy', caja: 300 },
-  oleadas: { activo: true, cada: 60, primero: 60, n: { 1: [10, 14], 2: [12, 16], 3: [14, 18], 4: [16, 20] },
-    max: { 1: 28, 2: 26, 3: 30, 4: 34 }, maxTel: { 1: 22, 2: 22, 3: 24, 4: 26 },
+  thompson: { activo: false, arma: 'tommy', caja: 300 },   // dueño (29-oct-2026): «solo arranque con una pistola» → apagada (true la devuelve)
+  // dueño (29-oct-2026): con la pistola, más suave y que suba en cada nivel (antes cada 60 s, primero 60 s, n 10-14 / 12-16 / 14-18 / 16-20, max 28 / 26 / 30 / 34)
+  oleadas: { activo: true, cada: { 1: 90, 2: 80, 3: 70, 4: 60 }, primero: { 1: 120, 2: 100, 3: 80, 4: 70 }, n: { 1: [4, 6], 2: [6, 9], 3: [9, 12], 4: [12, 16] },
+    max: { 1: 14, 2: 18, 3: 24, 4: 30 }, maxTel: { 1: 11, 2: 14, 3: 19, 4: 24 },
     salas: [2, 3], lejos: 2, lejosM: 20, vuelven: false, goteo: true, escalon: 0.12, cartel: 2600, hud: { activo: true, rojo: 10 } }
 };
 // ---- los que te cazan (las oleadas) te pierden (dueño, 27-oct-2026): con la campana o al esconderte en un barril, los zombis de una oleada van al lugar
@@ -41949,10 +41950,12 @@ BAL.bodegas.codigo = { prefijo: 'BODE', letras: '23456789ABCDEFGHJKLMNPQRSTUVWXY
 //   hab: habitaciones · patrulla: zombis del grupito de los pasillos · guardiasX: guardias de cada cuarto (veces) · oroX: oro (veces) · peligro: cuántas escotillas
 //   y rejillas de cada acomodo quedan (parte) · barriles: cuántos barriles de cada acomodo quedan · cofres: probabilidad de un cofre dorado y uno rojo · maldicion: probabilidad
 BAL.bodegas.pisos = {
-  1: { hab: [9, 18], patrulla: 3, guardiasX: 1, oroX: 1, peligro: 0.85, barriles: 0.8, cofres: { dorado: 0.6, rojo: 0.5 }, maldicion: 0.25 },
-  2: { hab: [10, 18], patrulla: 4, guardiasX: 1.2, oroX: 1.15, peligro: 0.95, barriles: 0.9, cofres: { dorado: 0.7, rojo: 0.6 }, maldicion: 0.35 },
-  3: { hab: [11, 18], patrulla: 4, guardiasX: 1.35, oroX: 1.3, peligro: 1, barriles: 1, cofres: { dorado: 0.8, rojo: 0.7 }, maldicion: 0.45 },
-  4: { hab: [12, 18], patrulla: 5, guardiasX: 1.5, oroX: 1.45, peligro: 1, barriles: 1, cofres: { dorado: 0.9, rojo: 0.8 }, maldicion: 0.55 }
+  // dueño (29-oct-2026, «bajale la dificultad para que pueda ser gradual. cada nivel»): guardiasX, patrulla y jefeX (× la vida del jefe) suben nivel a nivel
+  // (antes guardiasX 1 / 1,2 / 1,35 / 1,5 y patrulla 3 / 4 / 4 / 5, sin jefeX)
+  1: { hab: [9, 18], patrulla: 2, guardiasX: 0.7, jefeX: 0.7, oroX: 1, peligro: 0.85, barriles: 0.8, cofres: { dorado: 0.6, rojo: 0.5 }, maldicion: 0.25 },
+  2: { hab: [10, 18], patrulla: 3, guardiasX: 0.85, jefeX: 0.85, oroX: 1.15, peligro: 0.95, barriles: 0.9, cofres: { dorado: 0.7, rojo: 0.6 }, maldicion: 0.35 },
+  3: { hab: [11, 18], patrulla: 3, guardiasX: 1, jefeX: 1, oroX: 1.3, peligro: 1, barriles: 1, cofres: { dorado: 0.8, rojo: 0.7 }, maldicion: 0.45 },
+  4: { hab: [12, 18], patrulla: 4, guardiasX: 1.2, jefeX: 1.1, oroX: 1.45, peligro: 1, barriles: 1, cofres: { dorado: 0.9, rojo: 0.8 }, maldicion: 0.55 }
 };
 function bodPiso(nv = bodNivel()) { const P = BAL.bodegas.pisos, ks = Object.keys(P).map(Number).sort((a, b) => a - b); let k = ks[0]; for (const x of ks) if (x <= nv) k = x; return P[k]; }
 // ---- código de partida: «BODE-7K2Q» (la semilla en base 32, con letras que no se confunden: sin 0, O, 1 ni I)
@@ -44177,7 +44180,7 @@ function bodOlaHud() {
   const O = bodPrueba('oleadas'), st = bodSt(), on = !!(O && O.hud && O.hud.activo && game && game.bod && st && world.idx === bodMapaIdx() && !BODJ.on && !BOD.fin);
   if (e.hidden === on) { e.hidden = !on; document.body.classList.toggle('ola-on', on); }
   if (!on) return;
-  const t = st.olaT == null ? O.primero : st.olaT, rojo = t <= O.hud.rojo;
+  const t = st.olaT == null ? bodOlaS('primero') : st.olaT, rojo = t <= O.hud.rojo;
   setText(el.olaT || (el.olaT = $('#bod-ola-t')), 'olat', bodMMSS(t));
   if (e._rojo !== rojo) { e._rojo = rojo; e.classList.toggle('rojo', rojo); }
 }
@@ -44220,6 +44223,8 @@ function bodRzSpawn(E) {
 }
 // ---- PRUEBA del dueño (26-oct-2026; BAL.bodegas.prueba): la Thompson desde el inicio y una oleada grande cada minuto
 const bodPrueba = k => { const P = BAL.bodegas.prueba; return P && P.activo && P[k] && P[k].activo ? P[k] : null; };
+// segundos de las oleadas (BAL.bodegas.prueba.oleadas.cada / primero): un número, o uno por nivel (el nivel más alto que haya, si falta)
+function bodOlaS(k) { const v = BAL.bodegas.prueba.oleadas[k]; if (typeof v !== 'object') return v; const ks = Object.keys(v).map(Number).sort((a, b) => a - b); let x = ks[0]; for (const n of ks) if (n <= bodNivel()) x = n; return v[x]; }
 function bodPruebaArma() {   // al empezar una partida nueva: la Thompson en el espacio 2 y en la mano, con el cargador lleno y «caja» balas de su tipo en la caja
   const T = bodPrueba('thompson'); if (!T || !MODELS[T.arma]) return;
   if (typeof a3dArchivo === 'function') a3dArchivo(T.arma);
@@ -44236,9 +44241,9 @@ const bodOlaCorre = () => !!(game && game.bod && bodSt() && world.idx === bodMap
 function bodOleadas(dt) {
   const O = bodPrueba('oleadas'), st = bodSt(); if (!O || !st || !bodOlaCorre()) return;
   if (BOD.olaQ && BOD.olaQ.length && (BOD.olaQT = (BOD.olaQT || 0) - dt) <= 0) { BOD.olaQT = O.escalon; bodOlaSale(BOD.olaQ.shift()); }   // salen de a uno
-  if (st.olaT == null) st.olaT = O.primero;
+  if (st.olaT == null) st.olaT = bodOlaS('primero');
   if ((st.olaT -= dt) > 0) return;
-  st.olaT = O.cada; bodOleada();
+  st.olaT = bodOlaS('cada'); bodOleada();
 }
 // arma la oleada: cuántos (recortada al tope de vivos), de qué tipos y dónde. Devuelve { n, salas } (o null si el piso ya está lleno)
 function bodOleada() {
@@ -44403,7 +44408,7 @@ function jfArmar(z) {
 }
 function jfPon(z) {
   if (!jfB().activo || !z || !z.B) return;
-  const P = jfDe(z); z.maxHp = z.hp = Math.round(z.maxHp * (P.vida || 1) * (bodPrueba('thompson') ? jfB().thompson : 1));
+  const P = jfDe(z); z.maxHp = z.hp = Math.round(z.maxHp * (P.vida || 1) * (bodPrueba('thompson') ? jfB().thompson : 1) * (game && game.bod ? bodPiso().jefeX || 1 : 1));   // × jefeX: el jefe crece nivel a nivel
   z.jf = { fase: 1, cd: 2.2, atk: null, ult: null, debil: 0, aturd: 0, rug: 0, oscuro: 0, glow: 0, ayuda: 0 };
   jfArmar(z); jfpInit();
 }
