@@ -84,3 +84,8 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - **Bocetos:** los dos (el tambor y el Casino Maid Café), primero el tambor.
 - **La mesa:** sí. Dueño: «ahí puedes jugar con el oro que ganas en cada nivel, primero se abre una interfaz en donde se cuentan todas tus fichas (dinero) ponle sonido satisfactorio. y de ahí sale el juego en el que puedes apostar hasta 3 veces». → Al terminar cada nivel: 1) pantalla que cuenta tu dinero con sonido satisfactorio; 2) un juego donde apuestas ese oro, hasta 3 veces.
 - **Puertas:** mezcla: puertas con apuesta (muestran premio y riesgo) y una sola llave para la salida.
+
+### Opinión del dueño sobre los bocetos (encuesta)
+- **El tambor como tragamonedas: no le convenció** (sobre el jackpot: «no lo sé. no es tu culpa. solo no me convence»). Se descarta como está; el azar en la pelea queda por pensar.
+- **La mesa:** sí, pero con **varios juegos al azar**: en cada nivel toca un juego distinto (después de contar el oro).
+- **Casino Maid Café: le gusta así** (cuartos, Idol Zombi y sus zombis).
