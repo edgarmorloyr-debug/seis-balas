@@ -114,9 +114,3 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - Dueño: «ya los niveles no pueden ser así abiertos, aprovecha recursos que ya tengamos, por ejemplo, el cementerio. solo haz los edificios que ya tiene, ingresables, y obliga al jugador a buscar la llave de la salida que puede ser en el castillo por ejemplo si allí estuviera el jefe, o en la iglesia! puedes hacer eso con la estación espacial, el mundo acuático, y con el planeta arcade. así tenemos algunos niveles extras».
 - Encuesta: **edificios = puerta a un interior** (como la Tienda) · **orden: siempre las Bodegas primero y después al azar** · mundo acuático = **El Planeta Océano** · **se empieza por el Cementerio**.
 - Lista de niveles: Las Bodegas (fijo) → al azar entre Casino Maid Café, Cementerio, Estación Espacial, Planeta Océano y Planeta Arcade. Backrooms: pasillos secretos.
-
-### El Cementerio como nivel (29-oct-2026, en la versión de prueba)
-- La partida: Nivel 1 las Bodegas; los demás salen al azar de `BAL.bodegas.ruta.azar` (por ahora solo el Cementerio) y los Backrooms rellenan lo que falte (hoy: Bodegas → Cementerio → Backrooms → Backrooms · las tuberías). Se guarda en `game.bod.ruta`.
-- **El Cementerio:** sin llaves de color. 5 edificios con puerta (la capilla, la cripta familiar, el mausoleo del este, el mausoleo de los Robles y la cripta de los Valdés): cada uno lleva a un interior de piedra con un sarcófago. En uno al azar está **la llave de la salida**; en los otros, oro, una ficha, balas o nada; al salir, a veces te esperan zombis (`BAL.bodegas.edificios`).
-- Con la llave, **el jefe (el Sepulturero Gigante) espera en el castillo** y sale al entrar; al vencerlo, la salida junto al inicio. Cifras en `BAL.bodegas.mapasNivel.cementerio`.
-- Siguen: Casino Maid Café, Estación Espacial, Planeta Océano y Planeta Arcade como niveles de mapa.
