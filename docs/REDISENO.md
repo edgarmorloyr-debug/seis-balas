@@ -61,3 +61,15 @@ Toda idea nueva debe servir al menos a uno de ellos.
 
 ### Idea del dueño en espera: vendedor de cartas en el Jardín (29-oct-2026)
 Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras interacciones, conversando con Claude cuando hay internet. **La voz queda fuera por ahora** (dueño: «olvida lo de la voz por ahora»). Pendiente: si el vendedor sigue (conversación escrita) y qué vende.
+
+## Conversación sobre la visión (29-oct-2026) · el dueño replantea
+- Dueño: «la idea es tener un juego que entretenga y genere emociones de azar… pero hay cosas que siento que yo no he logrado hacer encajar». La torre le parece poco original.
+- Lo que siente que **no encaja** (encuesta): los juegos de casino aparte de la pelea, demasiadas cosas, las balas especiales (no se nota su azar) y el mapa con llaves.
+- Idea del tambor (el revólver es la máquina de azar: el tambor de 6 gira como tragamonedas al recargar): «Me gusta, pero no solo eso» → el tambor es el corazón, con algunas apuestas fuera de la pelea.
+- Pendiente: el borrador de la visión nueva (abajo) para que el dueño lo corrija.
+
+### Borrador de visión nueva (para corregir con el dueño)
+1. **En la pelea (segundos): el tambor.** 6 balas; al recargar gira como tragamonedas; 3 iguales seguidas = jackpot. Cada disparo es una apuesta.
+2. **Entre peleas (minutos): la mesa.** Un momento corto de apuesta tras cada pelea: doble o nada, o elegir 1 de 3 balas para el tambor. Reemplaza a las salas de casino aparte.
+3. **El camino (la partida): puertas con apuesta.** Cada puerta muestra su premio y su riesgo; eliges cuál cruzar. Reemplaza a buscar llaves por el mapa.
+4. **Menos cosas:** oro (comprar), fichas (apostar), calaveras (lo permanente) y las balas. Todo lo demás se quita o se une a esto.
