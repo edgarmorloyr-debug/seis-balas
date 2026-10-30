@@ -41013,7 +41013,7 @@ BAL.bodegas.tamanos = {
   minimo: { formas: 4, rect: 3, varias: 1 },
   patio: 0.6, pasillo: 1.0, nicho: 1.7,
   conector: { n: [1, 2], de: ['guardia', 'taller', 'oscuro', 'campana', 'despensa'] },
-  area: { ref: 185, min: 0.6, max: 1.7, chico: 30, chicoMax: 1, decor: [0, 2], decorIgual: 100, decorRef: 289, cajasMax: 12 },   // decorados: de decorIgual a decorRef m² (el cuarto grande de 17 × 17), los de siempre; más grande, × la raíz
+  area: { ref: 185, min: 0.6, max: 1.4, chico: 30, chicoMax: 1, decor: [0, 2], decorIgual: 100, decorRef: 289, decorMax: 1.7, cajasMax: 12 },   // (max 1,4: en el teléfono, no muchos zombis de más en los cuartos enormes)   // decorados: de decorIgual a decorRef m² (el cuarto grande de 17 × 17), los de siempre; más grande, × la raíz
   luces: { cada: 15, max: 4 }
 };
 const BOD_DIR4 = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, BOD_OPU = { e: 'o', o: 'e', n: 's', s: 'n' };
@@ -41082,9 +41082,11 @@ function bodTamPoner(rooms, ocup, seed, edges, oroI) {
   const alcance = (r, g, p, d) => { const [dx, dy] = BOD_DIR4[d]; return (dx ? g.hx + dx * (g.cx - p[0]) * S : g.hz + dy * (g.cy - p[1]) * S) + (nicho(r) === d ? TA.nicho : 0); };
   const geo = r => ({ hx: r.hx, hz: r.hz, cx: r.cx, cy: r.cy, cel: bodCeldas(r) });
   // ¿cabe r con esta geometría? (cada casilla suya contra las de sus vecinos: las paredes no se tocan y queda el pasillo)
+  // (para el teléfono: un cuarto no crece fuera del rectángulo que ya ocupaba el mapa; así la ruta de los zombis, que cubre ese rectángulo, no crece)
+  const caja = rooms.reduce((q, r) => { for (const c of bodCeldas(r)) { q[0] = Math.min(q[0], Math.floor(c[0])); q[1] = Math.max(q[1], Math.ceil(c[0])); q[2] = Math.min(q[2], Math.floor(c[1])); q[3] = Math.max(q[3], Math.ceil(c[1])); } return q; }, [1e9, -1e9, 1e9, -1e9]);
   const cabe = (r, g) => {
     for (const p of g.cel) {
-      if (Math.abs(p[0]) > Bd[0] || Math.abs(p[1]) > Bd[1]) return false;
+      if (Math.abs(p[0]) > Bd[0] || Math.abs(p[1]) > Bd[1] || p[0] < caja[0] || p[0] > caja[1] || p[1] < caja[2] || p[1] > caja[3]) return false;
       const o0 = ocup.get(key(p[0], p[1])); if (o0 && o0 !== r) return false;
       for (const d in BOD_DIR4) { const [dx, dy] = BOD_DIR4[d], q = [p[0] + dx, p[1] + dy]; if (g.cel.some(c => c[0] === q[0] && c[1] === q[1])) continue;
         const o = ocup.get(key(q[0], q[1])); if (!o || o === r || o.reserva) continue;
@@ -43527,7 +43529,7 @@ function bodDecorar(r, c, h, gR, lados, st) {
   else {
     const R = mulberry32(((r.sem >>> 0) ^ D.semilla) >>> 0), n0 = D.n[0] + Math.floor(R() * (D.n[1] - D.n[0] + 1)), out = [];
     // (29-oct-2026, tamaños: cambia con el área; los chiquitos, de 0 a 2) · las salas especiales y las salas con puerta, como siempre
-    const TAa = BAL.bodegas.tamanos.area, n = !BAL.bodegas.tamanos.tipos[r.t] ? n0 : bodChiquito(r) ? Math.min(TAa.decor[1], Math.max(TAa.decor[0], n0 - 5)) : Math.round(n0 * (bodArea(r) >= TAa.decorIgual ? clamp(Math.sqrt(bodArea(r) / TAa.decorRef), 1, TAa.max) : bodAreaX(r)));
+    const TAa = BAL.bodegas.tamanos.area, n = !BAL.bodegas.tamanos.tipos[r.t] ? n0 : bodChiquito(r) ? Math.min(TAa.decor[1], Math.max(TAa.decor[0], n0 - 5)) : Math.round(n0 * (bodArea(r) >= TAa.decorIgual ? clamp(Math.sqrt(bodArea(r) / TAa.decorRef), 1, TAa.decorMax) : bodAreaX(r)));
     const Td = bodTemaD(), Dd = Td ? Td.decor : D, kT = bodEsSala(r.t) ? 'sala' : r.t;   // con tema (29-oct-2026): sus piezas (las salas especiales siguen con las suyas)
     const pool = Object.assign({}, Dd.comun, Dd.tipos[kT] || (Td && bodEspecial(r.t) ? D.tipos[kT] : null) || {}); if (D.sinLuz.includes(r.t)) for (const k of D.luz) delete pool[k];
     const veces = {}, prueba = (key) => { for (let a = 0; a < D.intentos; a++) { const sem = (R() * 4294967296) >>> 0; if (bodDecProbar(X, K, key, sem, false)) { out.push([key, sem]); veces[key] = (veces[key] | 0) + 1; return true; } } return false; };
