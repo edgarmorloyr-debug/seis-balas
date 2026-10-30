@@ -107,6 +107,15 @@ body.rz-on #hud-tc.tc-bod{top:calc(56px + env(safe-area-inset-top,0px))}
 #bod-ola.rojo b,#bod-ola.rojo span{color:#ff6a58}
 .touch #bod-ola{top:calc(46px + env(safe-area-inset-top,0px))}
 #bod-ola .l2{display:none}
+/* (30-oct-2026) el Exterminador: la cuenta atrás de su cacería, roja y latiendo, debajo del reloj (y de la oleada, si se ve) */
+#bod-ext{top:calc(88px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:baseline;gap:6px;padding:2px 12px;border-radius:8px;background:rgba(70,4,4,.84);border:2px solid #ff3a2a;color:#ffd8d0;z-index:3;white-space:nowrap;animation:rzLatido .8s ease-in-out infinite}
+#bod-ext[hidden]{display:none}
+#bod-ola[hidden]+#bod-ext{top:calc(54px + env(safe-area-inset-top,0px))}
+#bod-ext span{font:700 14px/1.2 var(--hud,system-ui),sans-serif;text-transform:uppercase;letter-spacing:.06em}
+#bod-ext b{font:800 18px/1.1 var(--hud,system-ui),sans-serif;font-variant-numeric:tabular-nums;color:#ff8070}
+.touch #bod-ext{top:calc(80px + env(safe-area-inset-top,0px))}
+.touch #bod-ola[hidden]+#bod-ext{top:calc(46px + env(safe-area-inset-top,0px))}
+@media (prefers-reduced-motion:reduce){#bod-ext{animation:none}}
 @media (max-width:1100px){#bod-ola .l1{display:none}#bod-ola .l2{display:inline}}   /* pantallas angostas: «Oleada 0:42» (cabe entre la ficha y el mapa) */
 body.rz-on.ola-on #hud-tc.tc-bod{top:calc(86px + env(safe-area-inset-top,0px))}
 body.rz-on.ola-on .touch #hud-tc.tc-bod{top:calc(78px + env(safe-area-inset-top,0px))}
@@ -2824,6 +2833,7 @@ body.vm2-on #hud,body.vm2-on #feed,body.vm2-on #hint,body.vm2-on #bal-hud,body.v
     <div class="hud" id="hud-tc"><div id="mapname">El Cementerio</div><div id="wave">Día 1</div><div id="wave-sub">Quedan 0</div><div id="llv" hidden></div><div id="rescue" hidden></div><div id="deuda-hud" hidden></div><div id="fee"></div><div id="contract-w"><span id="ctr-ic"></span><span id="contract"></span></div><div id="retos-hud" hidden></div></div>
     <div class="hud" id="bod-reloj" hidden role="timer" title="Tiempo que queda"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></svg><b id="bod-reloj-t">10:00</b></div>
     <div class="hud" id="bod-ola" hidden role="timer" title="Próxima oleada"><span class="l1">Próxima oleada</span><span class="l2">Oleada</span><b id="bod-ola-t">1:00</b></div>
+    <div class="hud" id="bod-ext" hidden role="timer" title="El Exterminador te caza"><span>Exterminador</span><b id="bod-ext-t">1:00</b></div>
     <div class="hud" id="hud-tr">
       <canvas id="map" width="260" height="260"></canvas>
     </div>
@@ -3356,7 +3366,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=47').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=48').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -3905,6 +3915,11 @@ const Sfx = (() => {
     silbato(pan, vol = 1) { for (const [d, L] of [[0, 0.45], [0.55, 1.1]]) { tone({ type: 'square', f0: 622, f1: 600, dur: L, vol: 0.045 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'square', f0: 784, f1: 760, dur: L, vol: 0.035 * vol, pan, delay: d, wet: 0.55 }); tone({ type: 'triangle', f0: 932, f1: 900, dur: L, vol: 0.03 * vol, pan, delay: d, wet: 0.55 }); } burst({ ftype: 'bandpass', f0: 2400, q: 3, dur: 1.6, vol: 0.06 * vol, pan, wet: 0.4 }); },   // silbato del trenecito: dos pitidos de vapor
     megafono(pan, vol = 1) { tone({ type: 'triangle', f0: 784, dur: 0.7, vol: 0.12 * vol, pan, wet: 0.6 }); tone({ type: 'triangle', f0: 622, dur: 0.9, vol: 0.12 * vol, pan, delay: 0.45, wet: 0.6 }); for (let i = 0; i < 9; i++) burst({ ftype: 'bandpass', f0: rand(500, 1300), q: 4, dur: rand(0.08, 0.16), vol: 0.07 * vol, pan, delay: 1.3 + i * 0.13, wet: 0.5 }); },   // altavoz: «din, don» y una voz que ya no se entiende
     alarma(pan, vol = 1) { for (let i = 0; i < 8; i++) tone({ type: 'square', f0: i % 2 ? 1320 : 880, dur: 0.2, vol: 0.05 * vol, pan, delay: i * 0.24, wet: 0.5 }); },   // alarma de coche: dos notas que se alternan
+    // (30-oct-2026) el ascensor de salida: «din-don» de campanita y el motor que zumba; la llave que entra y gira en el panel
+    ascensor(pan = 0) { tone({ f0: 1318, dur: 0.9, vol: 0.16, pan, wet: 0.5 }); tone({ f0: 1046, dur: 1.3, vol: 0.16, pan, delay: 0.34, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 240, dur: 1.4, vol: 0.12, pan, wet: 0.2, delay: 0.1, attack: 0.25 }); },
+    llaveGira(pan = 0) { burst({ f0: 3200, q: 5, dur: 0.05, vol: 0.18, pan, wet: 0.1 }); burst({ f0: 1800, q: 4, dur: 0.07, vol: 0.2, pan, wet: 0.1, delay: 0.2 }); tone({ type: 'square', f0: 220, f1: 140, dur: 0.08, vol: 0.06, pan, delay: 0.22, wet: 0.1 }); },
+    // el Exterminador (30-oct-2026): un golpe muy grave, un rugido de ruido que baja y un acorde disonante que se hunde
+    exterminador() { tone({ f0: 62, f1: 28, dur: 1.7, vol: 0.8, wet: 0.5 }); burst({ ftype: 'lowpass', f0: 2400, f1: 90, dur: 1.5, vol: 0.5, wet: 0.6 }); [0, 1, 6].forEach((k, i) => tone({ type: 'sawtooth', f0: 110 * Math.pow(2, k / 12), f1: 52 * Math.pow(2, k / 12), dur: 1.9, vol: 0.09, delay: 0.15 + i * 0.05, wet: 0.7, attack: 0.05 })); },
     carta() { if (smp('card_place', { vol: 0.5, rate: rand(0.95, 1.1), wet: 0.1 })) return; this.ui(); },   // botón-carta del menú
     carta2() { smp('card_slide', { vol: 0.22, rate: rand(1.1, 1.3), wet: 0.05 }); },   // pasar por encima de una carta
     fichaJ() { if (smp('chips', { vol: 0.55, rate: rand(0.95, 1.05), wet: 0.15 })) return; this.coin(); },   // la ficha de JUGAR
@@ -26257,15 +26272,8 @@ function spawnNpc() {
   }
   if (!spot) return false;
   const L = NPC_LOOK[world.idx];
-  const root = new THREE.Group(), fall = new THREE.Group(), body = new THREE.Group(); root.add(fall); fall.add(body);
-  const skin = new THREE.MeshLambertMaterial({ color: pick([0xc89a78, 0xa87a58, 0x8a5a3a, 0xd8b090]) }), shirt = new THREE.MeshLambertMaterial({ color: L.shirt }), pants = new THREE.MeshLambertMaterial({ color: L.pants });
-  const c = { root, fall, body, mats: [skin, shirt, pants], hp: 150, maxHp: 150, dead: false, eatT: 0, deadT: 0, npc: true, name: L.name, obj: L.obj, rt: 30, t: 0, yaw: rand(0, TAU), flash: 0, eOn: false, cd: 99, aim: 0 };
-  const mk = (geo, mat, part, parent, x = 0, y = 0, zz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, zz); m.castShadow = true; parent.add(m); return m; };
-  humanoid(c, { skin, shirt, pants, eye: npcEyeMat, hat: L.hat }, mk); allySkin(c, 'npc' + world.idx);
-  c.beamMat = new THREE.MeshBasicMaterial({ color: 0x6dff9a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const beam = new THREE.Mesh(beamGeo, c.beamMat); beam.position.y = 15; root.add(beam); c.beam = beam;
-  root.position.set(spot.x, 0, spot.z); root.rotation.y = c.yaw;
-  scene.add(root); c.id = ++copUid; cops.push(c);
+  const c = npcHacer(L, world.idx, spot.x, spot.z), root = c.root;   // (30-oct-2026) la figura se arma en npcHacer (también la usa el superviviente de las Bodegas)
+  c.fem = null;   // (como siempre: la voz sale del mapa)
   const n = 3 + Math.floor(game.wave / 6);
   for (let i = 0, k = 0; i < n && k < 60; k++) {
     const an = rand(0, TAU), r = rand(9, 13), x = spot.x + Math.cos(an) * r, z = spot.z + Math.sin(an) * r;
@@ -28883,7 +28891,8 @@ function killcam(t, zoom) {
 }
 function damageZombie(z, amount, info) {
   if (z.dead) return false;
-  if (z.reflejo) { bodReflejoRompe(z); return false; }   // BETA · un reflejo del laberinto de espejos: se rompe y desaparece (no sangra)
+  if (z.reflejo) { bodReflejoRompe(z); return false; }
+  if (z.ext) { z.stagger = Math.max(z.stagger || 0, BAL.bodegas.exterminador.aturde); if (info.point && info.bullet) sparks(info.point, 4, null); return false; }   // (30-oct-2026) el Exterminador es invencible: las balas solo lo frenan un poco   // BETA · un reflejo del laberinto de espejos: se rompe y desaparece (no sangra)
   if (info.negra) { amount = 1e9; if (z.type === 'knight') info.part = 'heart'; if (z.helmetHp) z.helmetHp = 0; if (z.shieldHp) z.shieldHp = 0; }   // bala negra: mata de un tiro a cualquier monstruo
   if (z.type === 'knight') {
     const o = info.obj;
@@ -32370,6 +32379,7 @@ function updateGun(dt) {
 }
 function retarget(z, canAttack) {
   z.tgtT = rand(0.35, 0.55);
+  if (z.ext && game && game.bod) { bodExtRetarget(z); return; }   // (30-oct-2026) el Exterminador: hacia ti o, si te perdió, de cuarto en cuarto
   if (z.bod && game && game.bod && bodRetarget(z)) return;   // BETA · guardias, patrulla, campana y barriles
   const p = z.root.position, np_ = nearestPlayer(p); z.tpos = np_.pos; z.pid = np_.id;
   const dP = Math.hypot(np_.pos.x - p.x, np_.pos.z - p.z);
@@ -32402,6 +32412,7 @@ function updateZombies(dt, canAttack) {
     if (z.rage > 0) z.rage -= dt;
     let er = 0, eg = 0, eb = 0;
     if (z.elite && !z.dead) { const c = ELITE[z.elite].c, f = 0.22 + 0.12 * Math.sin(z.t * 5); er = c[0] * f; eg = c[1] * f; eb = c[2] * f; }
+    if (z.ext && !z.dead) { er = Math.max(er, 0.2 + 0.12 * Math.sin(z.t * 9)); eg = Math.max(eg, 0.01); }   // el Exterminador brilla rojo
     if (z.flash > 0) { const f = z.flash / 0.1; er = 0.75 * f; eg = 0.08 * f; eb = 0.08 * f; }
     if (z.burn > 0 && !z.dead) { const f = 0.3 + 0.25 * Math.sin(z.t * 31); er += f; eg += f * 0.42; }
     if (z.rage > 0 && !z.dead) er += 0.18 + 0.1 * Math.sin(z.t * 12);
@@ -32456,7 +32467,7 @@ function updateZombies(dt, canAttack) {
     const dx = tp.x - pos.x, dz = tp.z - pos.z, dist = Math.hypot(dx, dz) || 0.001;
     let mx = dx / dist, mz = dz / dist, direct = true;
     nav.dist = z.tk === 'p' ? flowArr(z.pid) : (z.flowD || nav.mainDist);
-    if (dist > 2.2 && ((z.tk === 'p' && !z.los) || (z.tk !== 'p' && !lineClear(pos.x, pos.z, tp.x, tp.z, z.r * 0.9)) || (z.bod && BOD.huecos.length && bodHuecoCruza(pos.x, pos.z, tp.x, tp.z)))) { if (flowDir(pos.x, pos.z, z.r * 0.9)) { mx = FD.x; mz = FD.z; direct = false; } }   // (las Bodegas: con un hueco en medio, por la ruta: los zombis no saltan)
+    if (dist > 2.2 && ((z.tk === 'p' && !z.los) || (z.tk !== 'p' && !lineClear(pos.x, pos.z, tp.x, tp.z, z.r * 0.9)) || ((z.bod || z.ext) && BOD.huecos.length && bodHuecoCruza(pos.x, pos.z, tp.x, tp.z)))) { if (flowDir(pos.x, pos.z, z.r * 0.9)) { mx = FD.x; mz = FD.z; direct = false; } }   // (las Bodegas: con un hueco en medio, por la ruta: los zombis no saltan)
     // 2 de cada 10 zombis te rodean: buscan ponerse a tu espalda antes de atacar
     if (z.flanker && z.tk === 'p' && dist > 3 && dist < 26 && z.state === 'chase') {
       const T = z.pid && z.pid !== Net.id ? Net.peers.get(z.pid) : null, yw = T ? (T.yaw || 0) : player.yaw, fx = -Math.sin(yw), fz = -Math.cos(yw);
@@ -32632,7 +32643,7 @@ function updateZombies(dt, canAttack) {
   }
 }
 const FEM_ALLY = new Set(['rebeca', 'ursula', 'franco']);
-const allyHi = c => c.npc ? [2, 5, 9, 11, 13, 16].includes(world.idx) : FEM_ALLY.has(c.kind);
+const allyHi = c => c.npc ? (c.fem != null ? c.fem : [2, 5, 9, 11, 13, 16].includes(world.idx)) : FEM_ALLY.has(c.kind);
 // Gritos, mordiscos y sangre mientras devoran a un ayudante (también en los teléfonos del grupo)
 function eatenFx(c, dt) {
   if (c.deadT > 6.5) return;
@@ -32652,7 +32663,7 @@ function hurtCop(c, dmg) {
   c.torso.getWorldPosition(_zp); bloodBurst(_zp, new THREE.Vector3(rand(-1, 1), 0.3, rand(-1, 1)).normalize(), 6, false);
   if (c.hp <= 0) {
     c.dead = true; c.deadT = 0; c.eatT = 8; c.fallDir = Math.random() < 0.5 ? 1 : -1;
-    if (c.npc) { if (c.beam) c.beam.visible = false; if (game) game.npcLost++; banner(`Se comieron ${c.obj}`, 'No hubo recompensa', 2400); Net.ev(['npcLost', c.obj]); Sfx.copDown(panOf(c.root.position)); return; }
+    if (c.npc) { if (c.beam) c.beam.visible = false; if (game) game.npcLost++; if (c.bodResc) bodRescPerdido(c); banner(`Se comieron ${c.obj}`, 'No hubo recompensa', 2400); Net.ev(['npcLost', c.obj]); Sfx.copDown(panOf(c.root.position)); return; }
     if (c.balBoom || c.balRevive) balCaballeroCae(c);
     if (game) game.copsLost++;
     feed(`¡Devoraron ${(c.D || ALLY.cop).al}!`, 'red'); Sfx.copDown(panOf(c.root.position)); renderChips();
@@ -32685,12 +32696,12 @@ function updateCops(dt) {
       else { c.fall.rotation.x = c.fallDir * Math.PI / 2 * 0.96 * ft * ft; c.fall.position.y = 0.12 * ft; }
       if (c.deadT < 6 && Math.random() < 0.15) P.add(pos.x + rand(-0.4, 0.4), 0.2, pos.z + rand(-0.4, 0.4), rand(-0.5, 0.5), rand(0.5, 1.5), rand(-0.5, 0.5), 1, 0.05, 0.42, 0.02, 0.02, 1, 9.8, 0.3, 0, 1);
       if (c.deadT > 8.5) {
-        if (state === 'play' && game.phase === 'fight' && !Net.client) { spawnZombie(c.npc || (c.kind && c.kind !== 'cop') ? 'walker' : 'copz', pos.x, pos.z, game.wave, true); game.alive++; feed(c.npc ? 'Se levantó… como zombi' : `${(c.D || ALLY.cop).short} se levantó… como zombi`, 'red'); }
+        if (state === 'play' && game.phase === 'fight' && !Net.client && !c.bodResc) { spawnZombie(c.npc || (c.kind && c.kind !== 'cop') ? 'walker' : 'copz', pos.x, pos.z, game.wave, true); game.alive++; feed(c.npc ? 'Se levantó… como zombi' : `${(c.D || ALLY.cop).short} se levantó… como zombi`, 'red'); }
         removeCop(i);
       }
       continue;
     }
-    if (c.npc) { updateNpc(c, dt, i); continue; }
+    if (c.npc) { if (c.bodResc) bodRescPaso(c, dt, i); else updateNpc(c, dt, i); continue; }   // (30-oct-2026) el superviviente de las Bodegas te sigue
     const D = c.D || ALLY.cop;
     c.tgtT -= dt;
     if (c.tgtT <= 0) {
@@ -33027,7 +33038,7 @@ function updatePlay(dt) {
     if (game.waveMod && game.waveMod.acid && game.phase === 'fight' && !player.down && player.hp > 5) player.hp -= 1.2 * dt;
     updatePlayer(dt);
     if (!Net.client) updateWave(wdt); else if (game.phase === 'room' || game.phase === 'exit') roomStep(wdt);
-    if (game.bod) { bodReloj(dt); bodOleadas(dt); }   // PRUEBA: las oleadas, con el mismo tiempo que el reloj · (las Bodegas): con el tiempo de verdad (la cámara lenta no lo frena)
+    if (game.bod) { bodReloj(dt); bodOleadas(dt); bodEventos(dt); }   // PRUEBA: las oleadas, con el mismo tiempo que el reloj · (las Bodegas): con el tiempo de verdad (la cámara lenta no lo frena)
     if (world.uses.length && game.phase !== 'room' && game.phase !== 'exit') mapUseStep();
     updateChicken(dt); checkAch(dt); downStep(dt); tiroStep(dt);
     ammoCheck(dt);
@@ -38180,7 +38191,7 @@ function z3dMarcoMano(I, s, pieza, raiz) {
 }
 function z3dPoner(z) {
   const T = Z3D_TIPO[z.type]; if (!T || z.z3d || !Z3D.on) return;
-  if (z.mini || z.boss != null || z.dead || z.lost || z.headless) return;
+  if (z.mini || z.ext || z.boss != null || z.dead || z.lost || z.headless) return;
   if (Z3D.vivos >= Z3D.max) return;   // muchos zombis a la vez: este queda de bloques (cuando se libera un lugar, el más cercano pasa a 3D)
   const cu = T.c[Math.floor(tirada(z.id, 7) * T.c.length)], C = P3D.cache[cu];
   if (!C || !(C.mx || T.perro)) { p3dCargar(cu); return; }
@@ -40737,16 +40748,15 @@ BAL.bodegas = {
   // las salas con puerta a un interior (dueño, 25-oct-2026: «cada cosa tiene su propia habitación»). Ninguna tiene guardias. La Tienda cuenta entre las 9 a 18 habitaciones; las demás van aparte (son vestíbulos chicos con su puerta).
   //   min/max: cuántas por mapa (la Tienda, siempre 1) · p: probabilidad de que salga cada una de las que van de 0 a 1 · col: color de su puerta y de su marco
   salas: {
-    orden: ['tras', 'herrero', 'juegos', 'capsulas', 'garra'],
-    tras: { min: 1, max: 1, p: 1, col: 0x1f7a46 }, herrero: { min: 0, max: 1, p: 0.5, col: 0xb8541c },
+    // (30-oct-2026, dueño: «el herrero cumple una funcion repetida del juego. eliminalo»: las piezas del arma ya están en el árbol de mejoras; el Herrero ya no sale)
+    orden: ['tras', 'juegos', 'capsulas', 'garra'],
+    tras: { min: 1, max: 1, p: 1, col: 0x1f7a46 },
     juegos: { min: 0, max: 1, p: 0.5, col: 0x8a1a2a }, capsulas: { min: 0, max: 1, p: 0.5, col: 0x9a2a6a }, garra: { min: 0, max: 1, p: 0.5, col: 0x23408a }
   },
   // la Tienda: lo que trae el vendedor de armas sale al azar en cada visita (cuántas armas y chalecos; la dinamita sale con esta probabilidad)
   tienda: { armas: [2, 4], chalecos: [0, 1], dinamita: 0.6 },
   // la Tienda por dentro (dueño, 25-oct-2026): el viejo salón de la Trastienda; dónde van (x, en metros) la Expendedora y el vendedor de armas contra la pared del fondo
   tiendaVieja: { expendedora: 2.2, armas: 6.6 },
-  // el Herrero (El Viejo Sam): ofrece piezas de arma al azar para el arma que llevas; cada una se compra una vez por visita
-  herrero: { piezas: 3, precio: [45, 70] },
   // la Sala de juegos: Dango atiende la tercera mesa (el duelo de dados); Imo, el blackjack; Miso, la tragamonedas, la ruleta y la carrera
   juegos: { dango: 'dados' },
   niveles: 4,   // cuántos niveles existen (dueño, 26-oct-2026): 1 = las Bodegas; 2 = el Casino Maid Café (29-oct-2026: BAL.bodegas.temas); 3 y 4 = dos Backrooms (BAL.bodegas.backrooms). Al salir del último se ve la pantalla del final
@@ -40956,7 +40966,7 @@ function bodTimersFuera() { for (const id of BOD.timers) clearTimeout(id); BOD.t
 const BOD_T = {
   inicio: { n: 'Inicio · el ascensor roto', c: '#5fc27a', tam: 'chica' }, jefe: { n: 'Sala del jefe', c: '#d9533f', tam: 'grande' }, tras: { n: 'Tienda · puerta verde', c: '#2fa86a', tam: 'puerta', sala: 1 },
   // salas con puerta a un interior (dueño, 25-oct-2026): cada una con su color de puerta (BAL.bodegas.salas)
-  herrero: { n: 'Herrero', c: '#d0702a', tam: 'puerta', sala: 1 }, juegos: { n: 'Sala de juegos de azar', c: '#d0485a', tam: 'puerta', sala: 1 },
+  juegos: { n: 'Sala de juegos de azar', c: '#d0485a', tam: 'puerta', sala: 1 },
   capsulas: { n: 'Cápsulas del Fin del Mundo', c: '#e85aa8', tam: 'puerta', sala: 1 }, garra: { n: 'La Garra', c: '#4a7ae0', tam: 'puerta', sala: 1 },
   bodega: { n: 'Bodega de cajas', c: '#a8783e', tam: 'mediana' }, guardia: { n: 'Cuarto de guardia', c: '#c08a2a', tam: 'mediana' },
   despensa: { n: 'Despensa', c: '#d0a05a', tam: 'chica' }, taller: { n: 'Taller de armas', c: '#8a8f99', tam: 'mediana' },
@@ -41247,6 +41257,7 @@ function bodRevisar(L) {
   { const E = bodUniones(L); for (const r of R) if (bodEsSala(r.t) && (r.g || r.plata || r.llave || E.filter(e => e[0] === r.i || e[1] === r.i).length !== 1)) mal.push('sala ' + r.t + ' mal unida'); }
   const J = R.find(r => r.t === 'jefe'); if (R.some(r => r !== J && !bodEspecial(r.t) && r.d >= J.d)) mal.push('jefe no es la más lejana');   // (las salas especiales pueden quedar tan lejos como el jefe, nunca más)
   const g = R.filter(r => r.t === 'guardia'), ll = R.filter(r => r.llave); if (ll.length !== 1 || ll[0].t !== 'guardia' || g.some(r => r.d > ll[0].d)) mal.push('llave');
+  { const ip = bodPedestalSala(L); if (ip < 0 || !bodPedSirve(L, L.rooms[ip])) mal.push('pedestal'); }   // (30-oct-2026) la llave de la salida, en su pedestal: una habitación normal (r.llave sigue marcando el Cuarto de guardia más lejano)
   const np = R.filter(r => r.plata && !bodEspecial(r.t)).length, want = clamp(Math.round(n / B.plata.cada), B.plata.min, B.plata.max); if (np !== want) mal.push('plata ' + np + '/' + want);
   if (R.some(r => r.plata && !['taller', 'despensa', 'guardia', 'oscuro', 'tesoro'].includes(r.t))) mal.push('plata en tipo');
   // salas especiales: de n[0] a n[1] (o las de «forzar»), cada tipo 1 vez como mucho, una sola entrada desde una habitación normal, sin llave de la salida;
@@ -41422,6 +41433,7 @@ function buildBodegas() {
   BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = []; BOD.calles = [];
   BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.obsOp = []; BOD.obsCajas = []; BOD.obsPasos = []; BOD.acomodo = []; BOD.entra = null;   // obstáculos y peligros
   BOD.huecos = []; BOD.cae = null; BOD.seguro = null;   // los espacios huecos que se saltan (BAL.bodegas.huecos)
+  BOD.asc = null; BOD.ped = null;   // (30-oct-2026) el ascensor de salida y el pedestal de la llave
   BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = [];   // salas especiales
   // suelo y techo: una sola pieza cada uno
   const A = world.arena, fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * A.hx, 2 * A.hz), BODM.suelo); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = false;
@@ -41489,7 +41501,8 @@ function buildBodegas() {
   };
   for (const r of L.rooms) if (r.plata) for (const k in lados[r.i]) { const D = puerta(r, k, 'plata'); if (st.abiertas[r.i]) bodAbrir(D, true); }
   BOD.pJefe = puerta(jefe, jEnt, 'jefe'); if (!(st.jefe === 1)) bodAbrir(BOD.pJefe, true);
-  BOD.pSalida = puerta(jefe, jSal, 'salida'); for (const r of salas) { const D = puerta(r, BOD.salaK[r.i], 'verde'); if (r === tras) BOD.pVerde = D; }
+  BOD.pSalida = null; bodAscensor(jefe, jSal, true, null);   // (30-oct-2026) la salida es un ascensor con su panel de llaves (antes una puerta que daba a una pared)
+  for (const r of salas) { const D = puerta(r, BOD.salaK[r.i], 'verde'); if (r === tras) BOD.pVerde = D; }
   world.anims.push(dt => { for (const D of BOD.puertas) { const obj = D.abierta ? D.ang : 0; if (Math.abs(D.a - obj) > 0.001) { D.a = damp(D.a, obj, 6, dt); D.g.rotation.y = D.a; } } });
   // ---- lámparas, adornos y lo de cada habitación
   BOD.luces = []; const nL = IS_TOUCH || FAST() ? B.lucesTel : B.luces; bodDecMats(); BODD.rooms = [];
@@ -41504,7 +41517,8 @@ function buildBodegas() {
       M(new THREE.SphereGeometry(0.13, 8, 6), BODM.focoT, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.pantallaT, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
       const halo = bodGlow(c.x, ly, c.z, Lt ? Lt.c : 0xffb060, Lt ? Tm.halo.s : 2.6, Lt ? Tm.halo.op : 0.55, gR); BOD.lamp.push(Object.assign({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo }, Lt ? { c: Lt.c, i: Lt.i, d: Lt.d } : {}));
     }
-    const c0 = colliders.length; bodAdornos(r, c, h, gR, lados[r.i], st);
+    const c0 = colliders.length; if (r.i === bodPedestalSala(L)) bodPedestal(r, c, gR, st);   // (30-oct-2026) la llave de la salida, en su pedestal (antes que los muebles: lo rodean)
+    bodAdornos(r, c, h, gR, lados[r.i], st);
     bodEspPadre(r, c, h, gR, lados[r.i], st);   // el cartelito de la sala especial que cuelga de aquí (o el barril junto al muro agrietado)
     bodObstaculos(r, c, h, gR, lados[r.i], st, c0);   // el acomodo de obstáculos, los peligros y los cofres dorado y rojo
     bodDecorar(r, c, h, gR, lados[r.i], st);   // los decorados al azar (de 5 a 7 por cuarto) encima de lo de siempre
@@ -41603,8 +41617,8 @@ function bodAdornos(r, c, h, gR, lados, st) {
     M(bx(0.9, 0.7, 0.6), BODM.hierro, p.x, 1.6, p.z, { p: gR, cast: false }); M(cyl(0.12, 0.16, 0.3, 10), BODM.negro, p.x - dx * 0.4, 1.6, p.z - dz * 0.4, { p: gR, cast: false, rz: dx ? Math.PI / 2 : 0, rx: dz ? Math.PI / 2 : 0 }); M(bx(0.5, 1.25, 0.5), BODM.madera2, p.x, 0.62, p.z, { p: gR, cast: false }); addCircle(p.x, p.z, 0.5);
     for (const s of [-1, 1]) M(cyl(0.35, 0.35, 0.08, 16), BODM.aro, p.x, 2.15, p.z + s * 0.3 * (dx ? 1 : 0) + 0, { p: gR, cast: false, rx: dx ? Math.PI / 2 : 0, rz: dz ? Math.PI / 2 : 0 });
     bodGlow(p.x - dx * 0.5, 1.6, p.z - dz * 0.5, 0xfff0c0, 1.4, 0.5, gR);
-    const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks];
-    uso('salida', { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9), r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
+    const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks], U = BOD.asc ? BOD.asc.uso : { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9) };   // (30-oct-2026) el panel de llaves junto al ascensor
+    uso('salida', { x: U.x, z: U.z, r: 1.6, cd: 0.8, t: 'Panel del ascensor', d: 'Mete la llave de la salida para abrir el ascensor.', b: 'Usar la llave', use() { bodSalida(); } });
   }
   if (bodEspecial(r.t)) bodEspArmar(r, c, h, gR, lados, st, uso, usado);   // las salas especiales (tesoro, elige 1 de 2, secreta, minijefe y las 5 originales)
 }
@@ -41833,7 +41847,7 @@ function bodVigilanciaArmar(r, F, K, gR, uso, usado, st) {
   K.sala(BODM.madera2, 0.3, v0 - 1.2, 0.45, 0.5, 0.06, 0.5); K.sala(BODM.madera2, 0.3, v0 - 1.2, 0.22, 0.06, 0.44, 0.06); K.sala(BODM.madera2, 0.3, v0 - 1.45, 0.75, 0.5, 0.6, 0.06);   // la silla
   // los monitores: 3 × 2 cajas de hierro y una sola pantalla dibujada encima
   for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) K.sala(BODM.hierro, (i - 1) * 1.02, 2 * h - 0.5, 1.3 + j * 0.72, 0.98, 0.7, 0.6);
-  const L = BOD.L, ver = L.rooms.filter(o => !o.abierto && o.t !== 'secreta' && o !== r).sort((a, b) => (b.llave ? 9 : b.t === 'jefe' ? 8 : 0) - (a.llave ? 9 : a.t === 'jefe' ? 8 : 0)).slice(0, BAL.bodegas.especiales.vigilancia.monitores);
+  const L = BOD.L, ver = L.rooms.filter(o => !o.abierto && o.t !== 'secreta' && o !== r).sort((a, b) => (b.i === bodPedestalSala(L) ? 9 : b.t === 'jefe' ? 8 : 0) - (a.i === bodPedestalSala(L) ? 9 : a.t === 'jefe' ? 8 : 0)).slice(0, BAL.bodegas.especiales.vigilancia.monitores);
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
   const pinta = t => { g.fillStyle = '#050605'; g.fillRect(0, 0, 512, 256);
     for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const x = 8 + i * 168, y = 8 + j * 124, o = ver[i + j * 3]; g.fillStyle = '#0c2414'; g.fillRect(x, y, 160, 116);
@@ -43728,7 +43742,7 @@ function bodJardin(L, st) {
   const J = BAL.bodegas.jardin, A = world.arena;
   BODJ.on = false; BODJ.g = null; BODJ.usos = []; BODJ.saliendo = false; BODJ.env0 = null; BODJ.ocultos = []; BODJ.luces = []; bodJardinCartel(-1);
   BODJ.O = { x: 0.5, z: A.hz + J.hueco };   // la puerta de la mansión: al sur del sótano; el jardín sigue hacia el sur
-  if (st.jardin || bodHabDe(world.start.x, world.start.z) !== L.rooms[0]) return;   // ya cruzaste la puerta (o empiezas en otro lado): el jardín no se arma
+  if (st.jardin || bodNivel() > 1 || bodHabDe(world.start.x, world.start.z) !== L.rooms[0]) return;   // ya cruzaste la puerta (o empiezas en otro lado): el jardín no se arma · (30-oct-2026, dueño: «el inicio del juego es solo para la bodega, ya despues no se vuelve al jardin»: solo en el Nivel 1)
   BODJ.ocultos = world.group.children.filter(o => !o.isLight && o.visible);
   bodJardinArmar(L);
   A.hz = Math.ceil(BODJ.O.z + J.fondo + J.ascensor.fondo + 3);   // el jugador puede caminar hasta allá (las rutas de los zombis también cubren el jardín, pero no hay zombis)
@@ -43813,6 +43827,12 @@ function bodJardinCartel(i) {
 }
 // en el Inicio (la habitación 0): la puerta por la que entraste desde el jardín, ya cerrada (va donde antes estaba el ascensor)
 function bodJardinPuertaDentro(r, c, h, k, k2, gR, uso, off = 0) {   // off: corrida a lo largo de la pared (cuando todas las paredes tienen paso)
+  const cartel = 'Busca la llave dorada en su pedestal. La salida es el ascensor de la sala del jefe.';
+  if (bodNivel() > 1) {   // (30-oct-2026) del Nivel 2 en adelante no hay jardín: llegaste en el ascensor (cerrado detrás de ti) y el cartel dice el nivel
+    bodAscensor(r, k, false, gR, off); const DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, sub = `${bodNivelTxt()} · ${bodLugar()}`;
+    if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel(cartel, sub); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
+    return;
+  }
   const DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, [dx, dz] = DV[k], px = c.x + dx * (h - 0.08) + (dz ? off : 0), pz = c.z + dz * (h - 0.08) + (dx ? off : 0), ry = dx ? -dx * Math.PI / 2 : dz > 0 ? Math.PI : 0, g = Grp(px, pz, ry, gR);
   M(bx(3.0, 2.95, 0.3), BODM.madera2, 0, 1.47, 0, { p: g, cast: false });   // el marco
   for (const s of [-1, 1]) { M(bx(1.18, 2.45, 0.08), BODM.madera, s * 0.62, 1.23, 0.18, { p: g, cast: false }); M(new THREE.SphereGeometry(0.06, 8, 6), BODM.oro, s * 0.14, 1.2, 0.25, { p: g, cast: false }); }
@@ -43820,8 +43840,8 @@ function bodJardinPuertaDentro(r, c, h, k, k2, gR, uso, off = 0) {   // off: cor
   addBox(px, pz, dx ? 0.25 : 1.5, dx ? 1.5 : 0.25);
   uso('jardin', { x: px - dx * 1.2, z: pz - dz * 1.2, t: 'Puerta del jardín', d: 'Se cerró detrás de ti. Ya no hay vuelta atrás: encuentra la salida.', b: 'Empujar la puerta', cd: 2, use() { Sfx.err(); hint('Está cerrada. La salida está en la sala del jefe', 2600); } });
   const x = px - dx * 1.7, z = pz - dz * 1.7; BODJ.dentro = { x, z, yaw: Math.atan2(-(c.x - x), -(c.z - z)) };   // al entrar apareces aquí, mirando al centro del cuarto
-  if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas'); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
-  else { const s_ = bodCartel('Busca la llave. La salida está en la sala del jefe.', 'Nivel 1 · Las Bodegas', 1.6, 0.8); s_.position.set(0, 3.37, 0.17); g.add(s_); }
+  if (k2) { const [ex, ez] = DV[k2], s_ = bodCartel(cartel, 'Nivel 1 · Las Bodegas'); s_.position.set(c.x + ex * (h - 0.03), 1.7, c.z + ez * (h - 0.03)); s_.rotation.y = ex ? -ex * Math.PI / 2 : ez > 0 ? Math.PI : 0; gR.add(s_); }
+  else { const s_ = bodCartel(cartel, 'Nivel 1 · Las Bodegas', 1.6, 0.8); s_.position.set(0, 3.37, 0.17); g.add(s_); }
 }
 // el jardín en 3D
 function bodJardinArmar(L) {
@@ -44110,14 +44130,14 @@ function bodRompible(gR, x, z, tipo, idk, sello) {
 }
 function bodCofre(gR, x, z, ry, r, uso, abierto) {
   const g = Grp(x, z, ry, gR); M(bx(1.0, 0.55, 0.62), BODM.madera, 0, 0.28, 0, { p: g, cast: false }); for (const s of [-0.4, 0.4]) M(bx(0.08, 0.57, 0.64), BODM.hierro, s, 0.28, 0, { p: g, cast: false });
-  const tapa = new THREE.Group(); tapa.position.set(0, 0.56, -0.31); g.add(tapa); M(bx(1.02, 0.18, 0.64), BODM.madera2, 0, 0.09, 0.31, { p: tapa, cast: false }); M(bx(0.16, 0.2, 0.06), r.llave ? BODM.oro : BODM.hierro, 0, 0, 0.64, { p: tapa, cast: false });
+  const tapa = new THREE.Group(); tapa.position.set(0, 0.56, -0.31); g.add(tapa); M(bx(1.02, 0.18, 0.64), BODM.madera2, 0, 0.09, 0.31, { p: tapa, cast: false }); M(bx(0.16, 0.2, 0.06), BODM.hierro, 0, 0, 0.64, { p: tapa, cast: false });
   if (abierto) tapa.rotation.x = -1.6; addCircle(x, z, 0.6);
-  const halo = bodGlow(x, 0.9, z, r.llave ? 0xffd060 : 0xffb070, 1.1, abierto ? 0 : 0.3, gR);
-  uso('cofre', { x, z, t: r.llave ? 'Cofre del guardia' : 'Cofre', d: 'Ábrelo para ver qué guarda.', b: 'Abrir el cofre', use(o) {
+  const halo = bodGlow(x, 0.9, z, 0xffb070, 1.1, abierto ? 0 : 0.3, gR);
+  // (30-oct-2026) la llave de la salida ya no sale en cofres (está en su pedestal): el cofre del Cuarto de guardia más lejano (r.llave) trae oro, como los demás
+  const Co = BAL.bodegas.cofre, C = r.cofre || (r.llave ? { oro: Co.oro[0] + ((r.sem >>> 0) % (Co.oro[1] - Co.oro[0] + 1)) } : {});
+  uso('cofre', { x, z, t: 'Cofre', d: 'Ábrelo para ver qué guarda.', b: 'Abrir el cofre', use(o) {
     tapa.rotation.x = -1.6; halo.visible = false; bodUsado(o); Sfx.open();
-    const st = bodSt(), C = r.cofre || {};
-    if (r.llave) { st.llave = 1; bodTitulo(BAL.bodegas.hud.momento); banner('¡La llave de la salida!', 'Ve a la sala del jefe: la puerta de salida tiene 1 cerrojo', 3200, 'key'); Sfx.win(); }
-    else if (C.plata) bodFichaGanar(BAL.bodegas.plata.premio, 'El cofre tenía fichas');
+    if (C.plata) bodFichaGanar(BAL.bodegas.plata.premio, 'El cofre tenía fichas');
     else if (C.pieza) bodPieza(C.pieza);
     else if (C.bala) { const ks = Object.keys(BALAS).filter(k => BALAS[k].r === 'C' && BKEYS.includes(k)); makePickup('bala', x, z + 0.9, BKEYS.indexOf(pick(ks))); feed('El cofre tenía una bala', 'gold'); }
     else { addGold(C.oro | 0, true); Sfx.cash(); feed(`El cofre tenía ${C.oro} $`, 'gold'); }
@@ -44282,6 +44302,7 @@ function bodPoblar() {
   if (st.oro > 0 && L.oro >= 0) { const p = bodPunto(L.rooms[L.oro], 1.4); bodSpawn('oro', p.x, p.z, { r: L.oro, g: 'o' }); }
   for (const E of st.rz || []) bodRzSpawn(E);   // los que volvieron siguen ahí al volver de la Tienda
   BOD.olaQ = []; for (const E of st.oz || []) bodOzSpawn(E);   // PRUEBA: los de las oleadas también (y los que aún no salían, salen ya)
+  bodRescPoner();   // (30-oct-2026) el superviviente que esperaba, en su sitio
 }
 // el minijefe del nivel (BAL.bodegas.especiales.minijefe): su tipo, más vida y más grande
 function bodMJNivel() { const N = BAL.bodegas.especiales.minijefe.niveles, ks = Object.keys(N).map(Number).sort((a, b) => a - b); let k = ks[0]; for (const x of ks) if (x <= bodNivel()) k = x; return N[k]; }
@@ -44503,6 +44524,7 @@ function bodStep(dt) {
     feed('¡Un zombi se levantó!', 'red'); Sfx.groan(panOf(n.root.position), volOf(n.root.position, 1.2), 0.9);
   }
   bodLlaveRecoger(dt);
+  bodPedestalPaso(); bodAscPaso();   // (30-oct-2026) tomar la llave del pedestal; entrar al ascensor abierto
   bodVuelven(dt);   // los zombis vuelven, lejos de ti (BAL.bodegas.vuelven)
   bodEspPaso(dt, h);   // salas especiales: la reja de la bóveda
   if (BOD.oculto) { const O = BOD.oculto; player.pos.x = O.B.x; player.pos.z = O.B.z; player.vx = player.vz = 0; player.pos.y = Math.min(player.pos.y, -0.55); }
@@ -45024,11 +45046,13 @@ function bodLlamada() {
 function bodSalida() {
   const st = bodSt(); if (!st || BOD.fin) return;   // ya vas saliendo: una segunda E en la puerta no hace nada (antes saltaba del Nivel 1 al 3)
   if (st.jefe !== 2) { Sfx.err(); hint('Primero vence al jefe', 2000); return; }
-  if (!st.llave) { Sfx.err(); hint('Necesitas la llave de la salida: está en un Cuarto de guardia', 2600); return; }
+  if (!st.llave) { Sfx.err(); hint('Necesitas la llave de la salida: flota sobre un pedestal dorado', 2600); return; }
   if (bodDeuda() && !st.cuota) { BOD.llamaT = 0; bodLlamada(); return; }
   if (bodDeuda() && deudaPend()) { hint('Don Santino no te deja salir sin pagar la cuota', 2400); telAbrir(); return; }
-  bodAbrir(BOD.pSalida); Sfx.win(); BOD.fin = true;
-  bodSalirTras(1400);
+  // (30-oct-2026) la salida es un ascensor: la llave lo abre y al entrar pasas enseguida al nivel siguiente (bodAscensorEntrar). Sin ascensor armado, como antes
+  if (!BOD.asc) { Sfx.win(); BOD.fin = true; bodSalirTras(BAL.bodegas.ascensor.ms); return; }
+  if (BOD.asc.fase > 0) { hint('El ascensor está abierto: entra', 1800); return; }
+  bodAscAbrir();
 }
 // después de la puerta de salida: al Nivel siguiente si existe; si no, la pantalla del final. Si caíste (o se acabó el reloj) en esa ventana no hay
 // escalera; en pausa o con el inventario abierto, espera a que vuelvas al juego
@@ -45040,6 +45064,402 @@ function bodSalirTras(ms) {
     if (mesaOn()) mesaAbrir(sig); else sig();
   };
   bodTimer(ms, go);
+}
+// ===================== EL ASCENSOR, EL PEDESTAL DE LA LLAVE, EL SUPERVIVIENTE Y EL EXTERMINADOR (dueño, 30-oct-2026) =====================
+// «cuando entro a la puerta del siguiente nivel, en el nivel 1, se abre y consigo una pared vacia, deberia ser una transicion inmediata. o mejor, un ascensor
+// con un panel de llaves al lado! la llave ahora aparecera en un pedestal en alguna parte del mapa, no aparece en cofres, solo en un pedestal flotante y muy
+// grande.» · «agrega al personaje que hay que rescatar de vez en cuando de las versiones viejas. uno por mapa, al minuto 5.» · «agrega evento, el exterminador,
+// con un 10% de probabilidad al minuto 7, un zombie demonio que vuelva desde lo mas lejano del mapa y que al tocarte te mata, es muy rapido e invencible, solo
+// aparece 1 minuto o hasta que te mate, se le puede eludir escondiendote.»
+// ascensor: la salida de los niveles de habitaciones (en la pared de salida de la sala del jefe). Se abre en el panel de al lado con la llave de la salida
+// (y el jefe vencido); al entrar pasas enseguida a la mesa del final y a la escalera (bodSalirTras).
+//   llave: s que tarda la llave en entrar y girar en el panel · abrir: s que tardan las puertas en abrirse · entra: m pasando el umbral que ya cuentan como dentro
+//   ms: espera desde que entras hasta la mesa del final · fondo: m de la cabina (el nicho detrás de la puerta) · col: los colores de cada tema
+BAL.bodegas.ascensor = {
+  llave: 0.75, abrir: 1.1, entra: 0.3, ms: 250, fondo: 1.2,
+  col: {
+    base: { hoja: 0x9aa0a8, hoja2: 0x5c626a, marco: 0x2e3034, laton: 0xc89a48, panel: 0x26262a, luz: 0xffe2a8, cabina: 0x7a7e84, piso: 0x2a2826, ind: '#ffb040', dibujo: null },
+    maid: { hoja: 0xf6b4d0, hoja2: 0xd47aa2, marco: 0xa8326e, laton: 0xe4bc64, panel: 0x5a1a3a, luz: 0xffd6ea, cabina: 0xf4c4d8, piso: 0x8a3a5a, ind: '#ff8ac4', dibujo: 'corazon' }
+  }
+};
+// pedestal: la llave de la salida flota sobre un pedestal grande en una habitación normal lejos del Inicio (nunca en el Inicio, la sala del jefe, las salas con
+// puerta, las especiales, los espacios abiertos, las de llave de plata, el cuarto oscuro ni las que tienen un espacio hueco). La habitación sale de la semilla.
+//   lejos: desde qué parte de la distancia más larga (en pasos de habitación desde el Inicio) puede ir · minPasos: pasos como mínimo · toma: m para tomarla
+//   alto: m a los que flota · gira: vueltas por segundo · escala: tamaño de la llave · rayo: radio del rayo de luz (m) · luz: la lámpara dorada (color, fuerza, alcance)
+//   col: piedra del pedestal en cada tema · semilla: se mezcla con la del mapa
+BAL.bodegas.pedestal = { lejos: 0.5, minPasos: 2, toma: 1.9, alto: 2.05, gira: 0.3, escala: 1.15, rayo: 0.55, luz: { c: 0xffd060, i: 1.4, d: 9 },
+  col: { base: { piedra: 0x8c8478, piedra2: 0x6a6258 }, maid: { piedra: 0xf2d2e2, piedra2: 0xd8a8c0 } }, semilla: 0x7e57a1 };
+// rescate: el superviviente de las versiones viejas (NPC_LOOK, game.rescued). Uno por mapa, al minuto «t» (s jugados en el nivel: se paran como el reloj).
+//   lejos: [m, m] de camino desde ti donde aparece · sigue: m a los que te empieza a seguir · cerca: m a los que se queda de ti · entrega: m del centro del Inicio
+//   (en los Backrooms, del inicio del nivel) · vida · vel: m/s · oro: [min, max] $ de premio · fichas: fichas de premio · caras: los NPC_LOOK que pueden salir
+//   aviso: ms del cartel · reintento: s hasta volver a probar si no hubo sitio
+BAL.bodegas.rescate = { activo: true, t: 300, lejos: [22, 60], sigue: 3.5, cerca: 2.2, entrega: 2.8, vida: 150, vel: 4.6, oro: [40, 70], fichas: 1, caras: [26, 31, 3, 12, 9, 2], aviso: 4200, reintento: 5 };
+// exterminador: el evento. Al minuto «t» (s jugados en el nivel), con probabilidad «p», sale de lo más lejano del mapa un zombi demonio: muy rápido (vel, m/s),
+// invencible (las balas solo lo frenan «aturde» s), te mata al tocarte (toca, m; sin chalecos ni segundas vidas). Dura «dura» s o hasta que te mata.
+// Escondido en un barril (o en el vestíbulo de una sala con puerta, o dentro de la Tienda) te pierde y vaga de cuarto en cuarto («vaga»: s por destino).
+//   escala: su tamaño · ruge: [s, s] entre rugidos · latido: m desde los que oyes tu corazón · aviso: ms del cartel
+BAL.bodegas.exterminador = { activo: true, p: 0.1, t: 420, dura: 60, vel: 7.6, toca: 0.95, aturde: 0.06, escala: 1.25, ruge: [2.5, 4.5], latido: 14, aviso: 4200, vaga: 7 };
+
+const BODA = {};   // los materiales del ascensor y del pedestal, uno por tema (compartidos: se arman una vez y se quedan)
+const hexCss = n => '#' + (n >>> 0).toString(16).padStart(6, '0');
+function bodAscMats() {
+  const k = bodTema() || 'base'; if (BODA[k]) return BODA[k];
+  const C = BAL.bodegas.ascensor.col[k] || BAL.bodegas.ascensor.col.base, PC = BAL.bodegas.pedestal.col[k] || BAL.bodegas.pedestal.col.base;
+  const corazon = (g, x, y, s) => { g.beginPath(); g.moveTo(x, y + s * 0.9); g.bezierCurveTo(x - s * 1.2, y, x - s * 0.6, y - s * 0.9, x, y - s * 0.3); g.bezierCurveTo(x + s * 0.6, y - s * 0.9, x + s * 1.2, y, x, y + s * 0.9); g.fill(); };
+  // la hoja de cada puerta: acero cepillado con su marco (en el café: rosa con el medio corazón de latón; las dos hojas juntas forman el corazón)
+  const hoja = lado => canvasTex(128, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, hexCss(C.hoja2)); gr.addColorStop(0.55, hexCss(C.hoja)); gr.addColorStop(1, hexCss(C.hoja2)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 2) { g.fillStyle = `rgba(255,255,255,${(0.02 + ((x * 37) % 11) / 160).toFixed(3)})`; g.fillRect(x, 0, 1, h); }
+    g.strokeStyle = 'rgba(0,0,0,.32)'; g.lineWidth = 5; g.strokeRect(12, 12, w - 24, h - 24);
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(lado < 0 ? w - 4 : 0, 0, 4, h);   // la junta del medio
+    if (C.dibujo === 'corazon') { g.fillStyle = hexCss(C.laton); corazon(g, lado < 0 ? w : 0, h * 0.42, 40); g.fillStyle = 'rgba(255,255,255,.35)'; corazon(g, lado < 0 ? w : 0, h * 0.42 - 6, 22); }
+    else { g.fillStyle = hexCss(C.laton); g.fillRect(lado < 0 ? w - 40 : 24, h * 0.5 - 3, 16, 6); }
+  });
+  const S = { hojaI: lam(0xffffff, { map: hoja(-1) }), hojaD: lam(0xffffff, { map: hoja(1) }), marco: lam(C.marco), laton: lam(C.laton, { emissive: (C.laton >> 3) & 0x1f1f1f }), panel: lam(C.panel),
+    cabina: lam(C.cabina, { emissive: (C.cabina >> 3) & 0x1f1f1f }), piso: lam(C.piso), negro: bsc(0x050505), luz: bsc(C.luz),
+    piedra: lam(PC.piedra), piedra2: lam(PC.piedra2), oro: lam(0xffc23a, { emissive: 0x7a4a00 }), gema: lam(0xff2a4a, { emissive: 0x8a0018 }) };
+  for (const q in S) S[q].userData.compartido = 1;
+  S.ind = C.ind; S.luzC = C.luz; return BODA[k] = S;
+}
+// el letrero de arriba del ascensor: la flecha y el número del piso (on: encendido; n: el número)
+function bodAscIndica(cv, n, on, col) {
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.fillStyle = '#0a0806'; g.fillRect(0, 0, w, h); g.strokeStyle = '#3a3026'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
+  g.fillStyle = on ? col : 'rgba(120,90,60,.35)'; g.beginPath(); g.moveTo(52, 20); g.lineTo(82, 62); g.lineTo(22, 62); g.closePath(); g.fill();
+  g.font = '800 58px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = on ? col : 'rgba(255,200,120,.45)'; g.fillText(String(n), 170, 50);
+}
+// el ascensor en la pared k de la habitación r. salida: en el hueco de la puerta de salida de la sala del jefe (se abre con la llave; cabina detrás);
+// si no, el de llegada del Inicio en los niveles 2 en adelante (cerrado, contra la pared; off: corrido a lo largo de la pared)
+function bodAscensor(r, k, salida, gR, off = 0) {
+  const B = BAL.bodegas, A = B.ascensor, Mt = bodAscMats(), T = B.muro, V = B.vano / 2, Hh = B.alto - 0.6, F = A.fondo, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, [dx, dz] = DV[k];
+  const c = bodC(r), h = bodH(r, dx ? 'x' : 'z'), fx = c.x + dx * h + (dz ? off : 0), fz = c.z + dz * h + (dx ? off : 0), g = Grp(fx, fz, Math.atan2(-dx, -dz), gR || world.group);
+  const P = (geo, m, x, y, z, o) => M(geo, m, x, y, z, Object.assign({ p: g, cast: false }, o));
+  const W = (lx, lz) => lw(g, lx, lz);   // de la pared (x a lo largo, z hacia el cuarto) al mundo
+  // el marco de metal con sus filos de latón, el dintel y el letrero del piso
+  for (const s of [-1, 1]) { P(bx(0.24, Hh + 0.12, 0.16), Mt.marco, s * (V + 0.12), (Hh + 0.12) / 2, 0.08); P(bx(0.05, Hh, 0.03), Mt.laton, s * (V + 0.12), Hh / 2, 0.17); }
+  P(bx(2 * V + 0.48, 0.24, 0.16), Mt.marco, 0, Hh + 0.12, 0.08); P(bx(2 * V + 0.3, 0.04, 0.03), Mt.laton, 0, Hh + 0.04, 0.17);
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96; const nv = salida ? bodNivel() + 1 : bodNivel(); bodAscIndica(cv, nv, !salida, Mt.ind);
+  const tI = new THREE.CanvasTexture(cv), ind = P(new THREE.PlaneGeometry(0.72, 0.27), bsc(0xffffff, { map: tI }), 0, Hh + 0.43, 0.115);
+  P(bx(0.84, 0.36, 0.08), Mt.marco, 0, Hh + 0.43, 0.06);
+  const indG = bodGlow(0, Hh + 0.43, 0.3, parseInt(Mt.ind.slice(1), 16), 1.3, salida ? 0.12 : 0.3, g, true);
+  // las dos hojas: en la salida, dentro del hueco de la pared (se esconden en el muro al abrirse); en la llegada, delante de la pared
+  const zH = salida ? -T / 2 : 0.05, hojas = [-1, 1].map(s => { const m = P(bx(V - 0.01, Hh - 0.02, 0.07), s < 0 ? Mt.hojaI : Mt.hojaD, s * V / 2, (Hh - 0.02) / 2, zH); m.userData.s = s; return m; });
+  if (!salida) {
+    const u = W(0, 1.1); mapUse({ x: u.x, z: u.z, r: 1.6, cd: 2, t: 'El ascensor', d: 'Por aquí llegaste. Ya no baja: la salida es el ascensor de la sala del jefe.', b: 'Llamar', use() { Sfx.err(); hint('No responde. La salida es el ascensor de la sala del jefe', 2600); } });
+    addBox(fx, fz, dx ? 0.2 : V + 0.3, dx ? V + 0.3 : 0.2); return null;
+  }
+  // la cabina (el nicho detrás de la puerta): paredes forradas, piso, techo con su luz, pasamanos y su brillo
+  const zf = -(T + F);
+  P(bx(2 * V, Hh, 0.04), Mt.cabina, 0, Hh / 2, zf + 0.03); for (const s of [-1, 1]) P(bx(0.04, Hh, F), Mt.cabina, s * (V - 0.03), Hh / 2, -(T + F / 2));
+  P(bx(2 * V, 0.03, F + T), Mt.piso, 0, 0.015, -(T + F) / 2); P(bx(2 * V, 0.05, F), Mt.cabina, 0, Hh - 0.02, -(T + F / 2)); P(bx(1.1, 0.03, 0.55), Mt.luz, 0, Hh - 0.06, -(T + F / 2));
+  P(bx(2 * V - 0.3, 0.05, 0.05), Mt.laton, 0, 0.95, zf + 0.12); for (const s of [-1, 1]) P(bx(0.05, 0.05, F - 0.3), Mt.laton, s * (V - 0.1), 0.95, -(T + F / 2));
+  const luzC = bodGlow(0, Hh - 0.5, -(T + F / 2), Mt.luzC, 2.4, 0.5, g);
+  { const q = W(0, -(T + F + 0.1)); addBox(q.x, q.z, dx ? 0.1 : V + 0.3, dx ? V + 0.3 : 0.1); for (const s of [-1, 1]) { const q2 = W(s * (V + 0.05), -(T + F / 2)); addBox(q2.x, q2.z, dx ? F / 2 : 0.05, dx ? 0.05 : F / 2); } }
+  { const q = W(0, -(T + F + 0.6)), Ar = world.arena; if (Ar && Ar.t === 'r') { Ar.hx = Math.max(Ar.hx, Math.ceil(Math.abs(q.x) + 1)); Ar.hz = Math.max(Ar.hz, Math.ceil(Math.abs(q.z) + 1)); } }   // la cabina cabe en el mapa (la sala del jefe puede estar en el borde)
+  // el choque de la puerta (se quita al abrirse)
+  const pc = W(0, -T / 2); addBox(pc.x, pc.z, dx ? T / 2 + 0.05 : V, dx ? V : T / 2 + 0.05); const col = colliders[colliders.length - 1];
+  // el panel de llaves, a un lado: placa de latón, la cerradura con su aro (dorado si traes la llave), una lucecita y el letrero
+  const xP = V + 0.66;
+  P(bx(0.54, 0.8, 0.05), Mt.laton, xP, 1.3, 0.025); P(bx(0.44, 0.68, 0.02), Mt.panel, xP, 1.3, 0.06);
+  P(bx(0.06, 0.18, 0.02), Mt.negro, xP, 1.4, 0.075);
+  const aroM = bsc(0x5a2a1a, { transparent: true, opacity: 0.95 }), aro = P(new THREE.RingGeometry(0.09, 0.13, 28), aroM, xP, 1.4, 0.073);
+  const ledM = bsc(0x6a1010), led = P(bx(0.28, 0.06, 0.012), ledM, xP, 1.1, 0.074);
+  const brillo = bodGlow(xP, 1.4, 0.16, 0xffd060, 0.9, 0, g, true);
+  { const lc = document.createElement('canvas'); lc.width = 256; lc.height = 64; const q = lc.getContext('2d'); q.fillStyle = hexCss(Mt.laton.color.getHex()); q.fillRect(0, 0, 256, 64); q.fillStyle = '#1a1208'; q.font = '700 30px sans-serif'; q.textAlign = 'center'; q.textBaseline = 'middle'; q.fillText(tx('Llave de salida'), 128, 34);
+    P(new THREE.PlaneGeometry(0.54, 0.135), bsc(0xffffff, { map: new THREE.CanvasTexture(lc) }), xP, 1.8, 0.03); }
+  // la llave que entra en la cerradura (se ve solo al usarla)
+  const kG = new THREE.Group(); kG.position.set(xP, 1.4, 0.4); kG.visible = false; g.add(kG);
+  { const m = Mt.oro, ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 8, 16), m); ring.position.z = 0.16; ring.rotation.y = Math.PI / 2; kG.add(ring); const sh = new THREE.Mesh(bx(0.02, 0.02, 0.18), m); sh.position.z = 0.05; kG.add(sh); const t1 = new THREE.Mesh(bx(0.02, 0.05, 0.03), m); t1.position.set(0, -0.025, -0.01); kG.add(t1); }
+  const st = bodSt(), u = W(xP, 0.95);
+  const Asc = BOD.asc = { r: r.i, k, g, hojas, col, ind, cv, tI, indG, luzC, aroM, ledM, brillo, kG, fase: 0, t: 0, x: fx, z: fz, dx, dz, V, T, uso: { x: u.x, z: u.z }, nv };
+  if (st && st.ascAbierto) bodAscFase(Asc, 3);
+  world.anims.push(dt => bodAscAnim(Asc, dt));
+  return Asc;
+}
+function bodAscFase(Asc, f) {
+  Asc.fase = f; Asc.t = 0;
+  if (f >= 2) { const i = colliders.indexOf(Asc.col); if (i >= 0) { colliders.splice(i, 1); bodNavZona(Asc.x + Asc.dx * Asc.T / 2, Asc.z + Asc.dz * Asc.T / 2, 2.5); } }
+  if (f === 3) { for (const m of Asc.hojas) m.position.x = m.userData.s * (Asc.V / 2 + Asc.V * 0.96); bodAscIndica(Asc.cv, Asc.nv, true, bodAscMats().ind); Asc.tI.needsUpdate = true; Asc.indG.material.opacity = 0.35; Asc.kG.visible = true; Asc.kG.position.z = 0.09; Asc.kG.rotation.z = Math.PI / 2; }
+}
+function bodAscAnim(Asc, dt) {
+  if (!game || !game.bod || BOD.asc !== Asc) return;
+  const A = BAL.bodegas.ascensor, st = bodSt(), tiene = !!(st && st.llave), listo = tiene && st.jefe === 2, t = performance.now() / 1000;
+  // la cerradura: dorada y latiendo si ya se puede abrir; ámbar quieta si traes la llave pero falta el jefe; rojo apagado si no traes la llave
+  const col = Asc.fase > 0 ? 0x60ff90 : listo ? 0xffd060 : tiene ? 0xc08a2a : 0x5a2a1a; if (Asc.colA !== col) { Asc.colA = col; Asc.aroM.color.setHex(col); Asc.ledM.color.setHex(Asc.fase > 0 ? 0x30e070 : listo ? 0xffc040 : 0x6a1010); }
+  Asc.brillo.material.opacity = Asc.fase > 0 ? 0.35 : listo ? 0.45 + 0.3 * Math.sin(t * 5) : tiene ? 0.18 : 0;
+  if (Asc.fase === 1) {   // la llave entra y gira
+    Asc.t += dt; const u = clamp(Asc.t / A.llave, 0, 1), a = clamp(u / 0.6, 0, 1), b = clamp((u - 0.6) / 0.4, 0, 1);
+    Asc.kG.visible = true; Asc.kG.position.z = lerp(0.4, 0.09, a * a * (3 - 2 * a)); Asc.kG.rotation.z = b * Math.PI / 2;
+    if (b > 0 && !Asc.giro) { Asc.giro = 1; Sfx.llaveGira && Sfx.llaveGira(); }
+    if (u >= 1) { bodAscFase(Asc, 2); bodAscIndica(Asc.cv, Asc.nv, true, bodAscMats().ind); Asc.tI.needsUpdate = true; Asc.indG.material.opacity = 0.35; Sfx.ascensor && Sfx.ascensor(panOf(new THREE.Vector3(Asc.x, 0, Asc.z))); }
+  } else if (Asc.fase === 2) {   // las puertas se corren hacia los lados
+    Asc.t += dt; const u = clamp(Asc.t / A.abrir, 0, 1), e = u * u * (3 - 2 * u);
+    for (const m of Asc.hojas) m.position.x = m.userData.s * (Asc.V / 2 + Asc.V * 0.96 * e);
+    if (u >= 1) bodAscFase(Asc, 3);
+  } else if (Asc.fase === 4) {   // entraste: se cierran detrás de ti
+    Asc.t += dt; const u = clamp(Asc.t / A.abrir, 0, 1), e = 1 - u * u * (3 - 2 * u);
+    for (const m of Asc.hojas) m.position.x = m.userData.s * (Asc.V / 2 + Asc.V * 0.96 * e);
+  }
+}
+// cada cuadro (bodStep): ¿ya entraste a la cabina?
+function bodAscPaso() {
+  const Asc = BOD.asc; if (!Asc || BOD.fin || Asc.fase < 2 || Asc.fase > 3 || state !== 'play' || player.down) return;
+  const lx = player.pos.x - Asc.x, lz = player.pos.z - Asc.z, hondo = lx * Asc.dx + lz * Asc.dz, lado = Math.abs(lx * Asc.dz - lz * Asc.dx);
+  if (hondo > BAL.bodegas.ascensor.entra && lado < Asc.V) bodAscensorEntrar();
+}
+// abrir el ascensor (lo llama bodSalida con la llave y el jefe vencido)
+function bodAscAbrir() {
+  const Asc = BOD.asc, st = bodSt(); if (!Asc || Asc.fase > 0) return;
+  st.ascAbierto = 1; Asc.giro = 0; bodAscFase(Asc, 1); Sfx.insert && Sfx.insert(); useCur = null; showUse(null);
+  bodTitulo(BAL.bodegas.hud.momento); banner('¡El ascensor se abre!', 'Entra para subir al siguiente nivel', 2600, 'key');
+}
+// entraste al ascensor: la mesa del final y la escalera, enseguida (bodSalirTras). Si el superviviente te seguía, sube contigo
+function bodAscensorEntrar() {
+  const Asc = BOD.asc, st = bodSt(); if (!st || BOD.fin) return;
+  if (Asc && Asc.fase < 2) return;
+  BOD.fin = true; if (Asc) bodAscFase(Asc, 4); Sfx.win(); Sfx.door && Sfx.door(false);
+  bodRescSube(); bodExtQuita();
+  bodSalirTras(BAL.bodegas.ascensor.ms);
+}
+
+// ---- el pedestal de la llave
+const bodPedSirve = (L, r) => !!r && !r.abierto && !bodCerrada(r.t) && r.t !== 'inicio' && r.t !== 'oscuro' && !r.plata && !bodHuecosPlan(L)[r.i];
+function bodPedestalSala(L) {
+  if (!L) return -1; if (L._ped != null) return L._ped;
+  const P = BAL.bodegas.pedestal, ok = L.rooms.filter(r => bodPedSirve(L, r)); if (!ok.length) return L._ped = -1;
+  const maxD = Math.max(...ok.map(r => r.d)), min = Math.max(P.minPasos, Math.ceil(maxD * P.lejos)), lejos = ok.filter(r => r.d >= min), el = lejos.length ? lejos : ok.filter(r => r.d === maxD);
+  const R = mulberry32((((L.seed0 != null ? L.seed0 : L.rooms[0].sem) >>> 0) ^ P.semilla) >>> 0);
+  return L._ped = el[Math.floor(R() * el.length) % el.length].i;
+}
+// arma el pedestal en el centro de su habitación (antes que los muebles, los obstáculos y los decorados: ellos lo rodean)
+function bodPedestal(r, c, gR, st) {
+  const P = BAL.bodegas.pedestal, Mt = bodAscMats(), H = BAL.bodegas.alto, ks = P.escala, g = Grp(c.x, c.z, 0, gR), Q = (geo, m, x, y, z, o) => M(geo, m, x, y, z, Object.assign({ p: g, cast: false }, o));
+  // tres escalones redondos, la columna con dos anillos de oro y la losa de arriba con su filo dorado
+  Q(cyl(1.08, 1.16, 0.16, 28), Mt.piedra2, 0, 0.08, 0); Q(cyl(0.86, 0.92, 0.16, 28), Mt.piedra, 0, 0.24, 0);
+  Q(cyl(0.4, 0.5, 0.78, 18), Mt.piedra, 0, 0.71, 0); for (const y of [0.42, 1.0]) Q(cyl(0.52, 0.52, 0.06, 22), Mt.oro, 0, y, 0);
+  Q(cyl(0.72, 0.52, 0.16, 28), Mt.piedra2, 0, 1.18, 0); Q(cyl(0.74, 0.74, 0.04, 28), Mt.oro, 0, 1.27, 0);
+  addCircle(c.x, c.z, 1.0);
+  // la llave grande que flota y gira: el aro con su gema, la caña y los dientes
+  const K = new THREE.Group(); K.position.set(0, P.alto, 0); K.scale.setScalar(ks); g.add(K);
+  { const m = Mt.oro, ar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 10, 28), m); ar.position.y = 0.4; K.add(ar);
+    const gem = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), Mt.gema); gem.position.y = 0.4; K.add(gem);
+    const cu = new THREE.Mesh(cyl(0.1, 0.1, 0.07, 14), m); cu.position.y = 0.13; K.add(cu);
+    const sh = new THREE.Mesh(cyl(0.05, 0.05, 0.78, 10), m); sh.position.y = -0.24; K.add(sh);
+    for (const [y, w] of [[-0.48, 0.22], [-0.34, 0.15], [-0.6, 0.12]]) { const t = new THREE.Mesh(bx(w, 0.08, 0.07), m); t.position.set(w / 2, y, 0); K.add(t); } }
+  K.rotation.z = 0.12;
+  // el brillo, el rayo de luz hasta el techo, el aro de luz en el suelo y unas chispitas que dan vueltas
+  const glow = bodGlow(0, P.alto, 0, 0xffd060, 3.0, 0.55, g, true);
+  const rT = canvasTex(8, 128, (q, w, h) => { const gr = q.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.55, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,.9)'); q.fillStyle = gr; q.fillRect(0, 0, w, h); });
+  const rayM = new THREE.MeshBasicMaterial({ map: rT, color: 0xffd870, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const ray = new THREE.Mesh(new THREE.CylinderGeometry(P.rayo, P.rayo, H - 1.29, 20, 1, true), rayM); ray.position.y = 1.29 + (H - 1.29) / 2; g.add(ray);
+  const aroM = new THREE.MeshBasicMaterial({ color: 0xffc040, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const aro = new THREE.Mesh(new THREE.RingGeometry(1.3, 1.55, 48), aroM); aro.rotation.x = -Math.PI / 2; aro.position.y = 0.025; g.add(aro);
+  const chis = new THREE.Group(); g.add(chis); for (let i = 0; i < 7; i++) { const s = bodGlow(Math.cos(i / 7 * TAU) * 0.85, 1.5 + (i % 3) * 0.45, Math.sin(i / 7 * TAU) * 0.85, 0xfff0b0, 0.22, 0.8, chis); s.userData.y0 = s.position.y; }
+  const lamp = { x: c.x, y: P.alto + 0.4, z: c.z, r: r.i, c: P.luz.c, i: P.luz.i, d: P.luz.d }; BOD.lamp.push(lamp);
+  const Pd = BOD.ped = { r: r.i, x: c.x, z: c.z, K, glow, ray, aro, chis, lamp, tomada: !!st.llave, vuela: 0 };
+  if (Pd.tomada) { K.visible = false; glow.visible = ray.visible = chis.visible = false; aroM.opacity = 0.12; lamp.i = 0.01; }
+  world.anims.push(dt => {
+    if (BOD.ped !== Pd || !g.parent) return; const t = performance.now() / 1000;
+    if (Pd.vuela > 0) { Pd.vuela = Math.max(0, Pd.vuela - dt * 2.5); K.scale.setScalar(ks * Pd.vuela); K.position.y = P.alto + (1 - Pd.vuela) * 0.6; glow.material.opacity = 0.55 * Pd.vuela; rayM.opacity = 0.55 * Pd.vuela; if (Pd.vuela <= 0) { K.visible = glow.visible = ray.visible = chis.visible = false; } }
+    if (Pd.tomada && Pd.vuela <= 0) return;
+    K.rotation.y += dt * TAU * P.gira; if (!Pd.tomada) K.position.y = P.alto + Math.sin(t * 1.6) * 0.1;
+    if (!Pd.tomada) { glow.material.opacity = 0.45 + 0.15 * Math.sin(t * 2.4); rayM.opacity = 0.42 + 0.12 * Math.sin(t * 1.3); aroM.opacity = 0.32 + 0.12 * Math.sin(t * 2); }
+    chis.rotation.y += dt * 0.7; for (const s of chis.children) s.position.y = s.userData.y0 + Math.sin(t * 1.8 + s.userData.y0 * 4) * 0.18;
+  });
+  return Pd;
+}
+// cada cuadro (bodStep): tomar la llave al llegar al pedestal
+function bodPedestalPaso() {
+  const Pd = BOD.ped, st = bodSt(); if (!Pd || Pd.tomada || !st || st.llave || player.down || state !== 'play') return;
+  if (Math.hypot(player.pos.x - Pd.x, player.pos.z - Pd.z) > BAL.bodegas.pedestal.toma) return;
+  Pd.tomada = true; Pd.vuela = 1; Pd.lamp.i = 0.01; st.llave = 1;
+  bodTitulo(BAL.bodegas.hud.momento); banner('¡La llave de la salida!', 'Ve a la sala del jefe: el ascensor tiene un panel de llaves', 3200, 'key'); Sfx.win(); Sfx.pickup && Sfx.pickup();
+  for (let k = 0; k < 40; k++) PA.add(Pd.x + rand(-0.4, 0.4), rand(1.4, 2.6), Pd.z + rand(-0.4, 0.4), rand(-1.2, 1.2), rand(1, 3), rand(-1.2, 1.2), rand(0.6, 1.2), rand(0.05, 0.12), 1, 0.85, 0.3, 1, -1, 0.5, 0, 0);
+}
+
+// ---- el tiempo jugado en el nivel (st.tN) y lo que depende de él: el superviviente y el Exterminador. Corre como el reloj del nivel: solo en el mapa del
+// nivel (no en el jardín, la Tienda ni las salas), nunca en pausa, ni en la escalera ni después de entrar a la salida
+const bodEvCorre = () => !!(game && game.bod && bodSt() && world.idx === bodMapaIdx() && !BODJ.on && !BOD.fin && state === 'play' && !ESC.on);
+function bodEventos(dt) {
+  const st = bodSt(); if (!st) return;
+  if (bodEvCorre()) {
+    st.tN = (st.tN || 0) + dt;
+    const R = BAL.bodegas.rescate, E = BAL.bodegas.exterminador;
+    if (R.activo && !st.resc && !tuto && !Net.on && st.tN >= Math.max(R.t, st.rescR || 0)) { let ok = false; try { ok = bodRescSale(); } catch (e) { noteErr(e, 'rescate'); } if (!ok) { st.resc = null; st.rescR = st.tN + R.reintento; } }
+    if (E.activo && !st.extS && !tuto && !Net.on && st.tN >= E.t) { st.extS = 1; if (Math.random() < E.p) { st.ext = { resta: E.dura }; try { if (!bodExtPone(false)) st.ext = null; } catch (e) { noteErr(e, 'exterminador'); st.ext = null; } } }
+    if (st.ext && st.ext.resta > 0) bodExtPaso(dt);
+  }
+  bodExtHud();
+}
+
+// ---- el superviviente (de las versiones viejas: spawnNpc y rescueNpc). Aparece lejos de ti con su luz verde y pide ayuda; al llegar a su lado te sigue y
+// al llevarlo al Inicio (en los Backrooms, al inicio del nivel) te paga. Si se lo comen, se pierde. Si entra contigo a la salida, también se salva
+const bodRescMeta = () => game.bod.br != null ? world.start : BOD.L ? bodC(BOD.L.rooms[0]) : null;
+const bodRescDestino = () => { const T = game.bod.br == null && bodTemaD(); return game.bod.br != null ? 'el inicio del nivel' : T && T.salas.inicio ? 'la ' + T.salas.inicio : 'el Inicio'; };
+function bodRescSirve(x, z) {
+  if (!insideArena(x, z, 1.5) || pointBlocked(x, z, 0.7)) return false;
+  if (game.bod.br != null) return true;
+  const r = bodHabDe(x, z, -1.0), st = bodSt(); if (!r || r.t === 'inicio' || r.t === 'jefe' || bodEsSala(r.t) || bodEspecial(r.t) || r.t === 'canal' || (r.plata && !st.abiertas[r.i])) return false;
+  return !bodHuecoEn(x, z, 1.0, true) && !(bodFosoEn && bodFosoEn(x, z, 0.8));
+}
+// un sitio a [a, b] m de camino desde ti (la ruta de los zombis); si no hay, de los más lejanos
+function bodSitioCamino(a, b, sirve) {
+  const md = nav.mainDist; if (!md || !nav.blk) return null; const en = [], todos = [];
+  for (let n = 0; n < md.length; n += 2) { const d = md[n]; if (d >= 1e9 || nav.blk[n]) continue; const m = d * nav.cs; if (m < a * 0.6) continue; const x = cellX(n), z = cellZ(n); if (!sirve(x, z)) continue; (m >= a && m <= b ? en : todos).push({ x, z, m }); }
+  if (en.length) return en[Math.floor(Math.random() * en.length)];
+  if (!todos.length) return null; todos.sort((p, q) => q.m - p.m); return todos[Math.floor(Math.random() * Math.min(8, todos.length))];
+}
+// arma al superviviente (la misma figura de las versiones viejas: NPC_LOOK, su ropa y su luz verde)
+function npcHacer(L, idx, x, z, hp = 150) {
+  const root = new THREE.Group(), fall = new THREE.Group(), body = new THREE.Group(); root.add(fall); fall.add(body);
+  const skin = new THREE.MeshLambertMaterial({ color: pick([0xc89a78, 0xa87a58, 0x8a5a3a, 0xd8b090]) }), shirt = new THREE.MeshLambertMaterial({ color: L.shirt }), pants = new THREE.MeshLambertMaterial({ color: L.pants });
+  const c = { root, fall, body, mats: [skin, shirt, pants], hp, maxHp: hp, dead: false, eatT: 0, deadT: 0, npc: true, name: L.name, obj: L.obj, rt: 30, t: 0, yaw: rand(0, TAU), flash: 0, eOn: false, cd: 99, aim: 0, phase: 0 };
+  c.fem = [2, 5, 9, 11, 13, 16].includes(idx) || /^La /.test(L.name);
+  const mk = (geo, mat, part, parent, x_ = 0, y = 0, zz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x_, y, zz); m.castShadow = true; parent.add(m); return m; };
+  humanoid(c, { skin, shirt, pants, eye: npcEyeMat, hat: L.hat }, mk); allySkin(c, 'npc' + idx);
+  c.beamMat = new THREE.MeshBasicMaterial({ color: 0x6dff9a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const beam = new THREE.Mesh(beamGeo, c.beamMat); beam.position.y = 15; root.add(beam); c.beam = beam;
+  root.position.set(x, 0, z); root.rotation.y = c.yaw;
+  scene.add(root); c.id = ++copUid; cops.push(c);
+  return c;
+}
+function bodRescSale() {
+  const R = BAL.bodegas.rescate, st = bodSt(), s = bodSitioCamino(R.lejos[0], R.lejos[1], bodRescSirve); if (!s) return false;
+  const idx = R.caras[Math.floor(Math.random() * R.caras.length)], L = NPC_LOOK[idx] || NPC_LOOK[0];
+  st.resc = { estado: 'espera', x: s.x, z: s.z, cara: idx };
+  bodRescPoner(true);
+  banner(`¡${L.name} pide ayuda!`, `Ve a su luz verde: te seguirá hasta ${bodRescDestino()} y te pagará`, R.aviso, 'heli'); feed(`${L.name} pide ayuda`, 'gold');
+  return true;
+}
+// lo vuelve a poner al armar el mapa (al volver de la Tienda o de una sala), donde esperaba
+function bodRescPoner(nuevo) {
+  const st = bodSt(), R = BAL.bodegas.rescate; if (!st || !st.resc || st.resc.estado !== 'espera' || cops.some(c => c.bodResc && !c.dead)) return;
+  const L = NPC_LOOK[st.resc.cara] || NPC_LOOK[0], c = npcHacer(L, st.resc.cara, st.resc.x, st.resc.z, R.vida);
+  c.bodResc = 1; c.estado = 'espera'; c.speed = R.vel;
+  if (nuevo) Sfx.help(panOf(c.root.position));
+}
+// al ir a la Tienda o a una sala: el que espera se queda en su sitio (se quita y vuelve con bodRescPoner); el que te sigue va contigo
+function bodRescGuarda() {
+  const st = bodSt(); for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (!c.bodResc) continue; if (c.dead) { removeCop(i); continue; } if (c.estado === 'espera') { if (st && st.resc) { st.resc.x = c.root.position.x; st.resc.z = c.root.position.z; } removeCop(i); } }
+}
+function bodRescPaso(c, dt, i) {
+  const R = BAL.bodegas.rescate, st = bodSt(), pos = c.root.position; c.t += dt;
+  if (!st || !game || !game.bod) return;
+  const dxp = player.pos.x - pos.x, dzp = player.pos.z - pos.z, dP = Math.hypot(dxp, dzp), enNivel = world.idx === bodMapaIdx();
+  if (c.estado === 'espera') {   // pide ayuda con los brazos arriba, mira al zombi más cercano (o a ti) y su luz verde late
+    c.armLG.rotation.x = -2.5 + Math.sin(c.t * 7) * 0.25; c.armRG.rotation.x = -2.5 + Math.cos(c.t * 7) * 0.25; c.armLG.rotation.z = -0.4; c.armRG.rotation.z = 0.4;
+    c.torsoG.rotation.x = 0.15 + Math.sin(c.t * 3) * 0.06; c.neck.rotation.z = Math.sin(c.t * 2.3) * 0.3;
+    let tz = null, bd = 25; for (const z of zombies) { if (z.dead) continue; const d = Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z); if (d < bd) { bd = d; tz = z; } }
+    const fx = tz ? tz.root.position.x : player.pos.x, fz = tz ? tz.root.position.z : player.pos.z; let dy = Math.atan2(fx - pos.x, fz - pos.z) - c.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; c.yaw += dy * Math.min(1, dt * 4); c.root.rotation.y = c.yaw;
+    c.beamMat.opacity = 0.24 + Math.sin(c.t * 4) * 0.08;
+    if (Math.random() < dt * 0.25) Sfx.help(panOf(pos));
+    if (enNivel && state === 'play' && !player.down && dP < R.sigue && lineClear(pos.x, pos.z, player.pos.x, player.pos.z, 0.2)) {
+      c.estado = 'sigue'; if (st.resc) st.resc.estado = 'sigue'; c.beam.scale.set(0.5, 1, 0.5); c.beamMat.opacity = 0.14; c.torsoG.rotation.x = 0; c.neck.rotation.z = 0;
+      banner(`${c.name} te sigue`, `Llévalo a: ${bodRescDestino()}`, 2600, 'heli'); Sfx.pickup && Sfx.pickup();
+    }
+    return;
+  }
+  // te sigue como un ayudante: por la ruta hacia ti y, si se atora lejos, aparece cerca (copAtorado)
+  let mx = 0, mz = 0, spd = 0;
+  if (dP > R.cerca && state === 'play') {
+    if (lineClear(pos.x, pos.z, player.pos.x, player.pos.z, 0.35)) { mx = dxp / dP; mz = dzp / dP; } else if (flowDir(pos.x, pos.z, 0.35)) { mx = FD.x; mz = FD.z; } else { mx = dxp / dP; mz = dzp / dP; }
+    spd = c.speed * (dP > 10 ? 1.25 : 1); copAtorado(c, dP, dt);
+  } else c.atT = 0;
+  for (const o of cops) { if (o === c || o.dead) continue; const ox = pos.x - o.root.position.x, oz = pos.z - o.root.position.z, d = Math.hypot(ox, oz); if (d < 1.4 && d > 0.001) { pos.x += ox / d * (1.4 - d) * 0.5; pos.z += oz / d * (1.4 - d) * 0.5; } }
+  if (dP < 1.2 && dP > 0.001) { pos.x -= dxp / dP * (1.2 - dP); pos.z -= dzp / dP * (1.2 - dP); }
+  pos.x += mx * spd * dt; pos.z += mz * spd * dt; resolve(pos, 0.35);
+  const face = spd > 0 ? Math.atan2(mx, mz) : Math.atan2(dxp, dzp); let dy = face - c.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU; c.yaw += dy * Math.min(1, dt * 8); c.root.rotation.y = c.yaw;
+  c.phase += dt * spd * 3; const sw = Math.sin(c.phase), on = spd > 0 ? 1 : 0;
+  c.legL.rotation.x = sw * 0.6 * on; c.legR.rotation.x = -sw * 0.6 * on; c.armRG.rotation.x = -sw * 0.4 * on; c.armLG.rotation.x = sw * 0.4 * on; c.armLG.rotation.z = -0.05; c.armRG.rotation.z = 0.05;
+  if (c.p3d) ally3dPaso(c, spd, dt);
+  // la entrega: en el Inicio (o el inicio del nivel en los Backrooms)
+  const D = enNivel && bodRescMeta(); if (D && Math.hypot(pos.x - D.x, pos.z - D.z) < R.entrega) bodRescSalvo(i);
+}
+// a salvo: te paga (oro y fichas de BAL.bodegas.rescate) y se va
+function bodRescSalvo(i, sube) {
+  const R = BAL.bodegas.rescate, c = cops[i], st = bodSt(); if (!c || c.dead) return;
+  const p = c.root.position, oro = R.oro[0] + Math.floor(Math.random() * (R.oro[1] - R.oro[0] + 1));
+  addGold(oro, true); if (R.fichas) { game.poker = (game.poker | 0) + R.fichas; renderChips(); }
+  game.rescued = (game.rescued | 0) + 1; Sfx.win(); Sfx.cash();
+  banner(sube ? `¡${c.name} sube contigo!` : `¡${c.name} está a salvo!`, `Te paga ${oro} $${R.fichas ? ` y ${R.fichas} ${R.fichas === 1 ? 'ficha' : 'fichas'}` : ''}`, 2800, 'heli');
+  for (let k = 0; k < 40; k++) PA.add(p.x + rand(-0.5, 0.5), rand(0.2, 2), p.z + rand(-0.5, 0.5), rand(-1, 1), rand(2, 6), rand(-1, 1), rand(0.8, 1.5), rand(0.06, 0.14), 0.5, 1, 0.65, 1, -1, 0.5, 0, 0);
+  if (st && st.resc) st.resc.estado = 'salvado';
+  removeCop(i);
+}
+// al entrar a la salida con el superviviente detrás: sube contigo (se salva)
+function bodRescSube() { for (let i = cops.length - 1; i >= 0; i--) { const c = cops[i]; if (c.bodResc && !c.dead && c.estado === 'sigue') bodRescSalvo(i, true); } }
+// se lo comieron (hurtCop): se pierde
+function bodRescPerdido(c) { const st = bodSt(); if (st && st.resc) st.resc.estado = 'perdido'; }
+
+// ---- el Exterminador
+// el punto más lejano de ti al que se llega caminando (la ruta de los zombis), en una habitación donde puede estar (no en las salas con puerta ni la del jefe)
+function bodExtSirve(x, z) {
+  if (!insideArena(x, z, 1.2) || pointBlocked(x, z, 0.6)) return false;
+  if (game.bod.br != null) return true;
+  const r = bodHabDe(x, z, -0.8), st = bodSt(); if (!r || bodEsSala(r.t) || r.t === 'jefe' || (r.plata && !st.abiertas[r.i])) return false;
+  return !bodHuecoEn(x, z, 0.9, true);
+}
+function bodLejano(sirve) {
+  const md = nav.mainDist; if (!md || !nav.blk) return null; let best = -1, bd = -1;
+  for (let n = 0; n < md.length; n++) { const d = md[n]; if (d >= 1e9 || d <= bd || nav.blk[n]) continue; if (!sirve(cellX(n), cellZ(n))) continue; bd = d; best = n; }
+  return best < 0 ? null : { x: cellX(best), z: cellZ(best), m: bd * nav.cs };
+}
+// pone al Exterminador (de vuelta: al volver de la Tienda o de una sala mientras aún caza)
+function bodExtPone(vuelta) {
+  const E = BAL.bodegas.exterminador, s = bodLejano(bodExtSirve); if (!s) return null;
+  const z = spawnZombie('runner', s.x, s.z, diffW(game.wave), true); z.ext = 1; if (z.z3d) z3dQuitar(z);
+  z.speed = E.vel; z.dmg = 0; z.maxHp = z.hp = 1e9; z.flanker = false; z.riseDur = 1.1; z.tgtT = 0; z.rugeT = 1;
+  z.root.scale.setScalar(E.escala); z.r *= E.escala;
+  // demonio: piel roja oscura, ropa negra, cuernos, ojos y un aura roja que late
+  const [sk, sh, pa] = z.mats; if (sk) { sk.color.setHex(0x3a0605); sk.map = null; sk.needsUpdate = true; } if (sh) { sh.color.setHex(0x120404); sh.map = null; sh.needsUpdate = true; } if (pa) { pa.color.setHex(0x0a0303); pa.map = null; pa.needsUpdate = true; }
+  if (z.head) { const cm = lam(0x140404, { emissive: 0x5a0800 }); z.mats.push(cm); for (const s2 of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.24, 7), cm); h.position.set(s2 * 0.1, 0.2, 0.0); h.rotation.z = -s2 * 0.45; z.head.add(h); } }
+  z.aura = bodGlow(0, 1.15, 0, 0xff2008, 3.0, 0.5, z.root, true); z.aura2 = bodGlow(0, 0.12, 0, 0xff3010, 2.2, 0.35, z.root, true);
+  BOD.ext = z;
+  if (!vuelta) { banner('¡El Exterminador!', 'Un demonio invencible te caza: si te toca, mueres · escóndete en un barril', E.aviso, 'skull'); Sfx.exterminador && Sfx.exterminador(); player.shake = Math.min(1, player.shake + 0.6); feed('¡El Exterminador salió de lo más lejano del mapa!', 'red'); }
+  else hint('El Exterminador sigue cazándote', 2200);
+  return z;
+}
+// ¿te perdió? Escondido en un barril, en el vestíbulo de una sala con puerta, o caído
+const bodExtPierde = () => !!(BOD.oculto || player.down || (game.bod.br == null && BOD.aqui && bodEsSala(BOD.aqui.t)));
+function bodExtPaso(dt) {
+  const E = BAL.bodegas.exterminador, st = bodSt(), X = st.ext;
+  let z = BOD.ext; if (!z || z.dead || !zombies.includes(z)) { z = bodExtPone(true); if (!z) return; }
+  X.resta -= dt; if (X.resta <= 0) { bodExtFin(); return; }
+  z.burn = z.poison = z.frozen = z.charm = 0; z.atkCd = 9; z.grabbing = false; z.hp = z.maxHp;   // nada lo quema, lo congela ni lo hechiza; no golpea: mata al tocarte (abajo)
+  const t = performance.now() / 1000, p = z.root.position; if (z.aura) z.aura.material.opacity = 0.42 + 0.18 * Math.sin(t * 8);
+  if (Math.random() < dt * 24) PA.add(p.x + rand(-0.4, 0.4), rand(0.2, 2.0), p.z + rand(-0.4, 0.4), rand(-0.3, 0.3), rand(0.6, 1.6), rand(-0.3, 0.3), rand(0.4, 0.9), rand(0.05, 0.1), 1, rand(0.1, 0.35), 0.02, 1, -1, 0.5, 0, 0);
+  const d = Math.hypot(player.pos.x - p.x, player.pos.z - p.z), oc = bodExtPierde();
+  if (z.state !== 'rise' && !oc && state === 'play' && d < E.toca) { bodExtMata(); return; }
+  if ((z.rugeT -= dt) <= 0) { z.rugeT = rand(E.ruge[0], E.ruge[1]); if (d < 32) Sfx.roar(panOf(p), volOf(p, 1.6)); }
+  if (d < E.latido && !oc && (BOD.extLat = (BOD.extLat || 0) - dt) <= 0) { BOD.extLat = clamp(d / E.latido, 0.35, 1); Sfx.heart(); }
+  if (oc !== !!z.perdio) { z.perdio = oc; z.tgtT = 0; if (oc && !player.down) hint('El Exterminador te perdió', 1800); }
+}
+// a dónde va (lo llama retarget): hacia ti; si te perdió, de un cuarto a otro
+function bodExtRetarget(z) {
+  const E = BAL.bodegas.exterminador, p = z.root.position; z.flowD = null;
+  if (!bodExtPierde()) { z.tk = 'p'; z.tobj = null; z.tpos = player.pos; z.pid = Net.id; z.los = Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < 30 && lineClear(p.x, p.z, player.pos.x, player.pos.z, z.r * 0.9); z.tgtT = 0.2; z.vaga = null; return; }
+  if (!z.vaga || Math.hypot(z.vaga.x - p.x, z.vaga.z - p.z) < 1.6 || game.time > z.vagaT) {
+    let q = null; for (let k = 0; k < 12 && !q; k++) { if (game.bod.br == null && BOD.L) { const rs = BOD.L.rooms.filter(r => !r.abierto && !bodEsSala(r.t) && r.t !== 'jefe' && !(r.plata && !bodSt().abiertas[r.i])), r = rs[Math.floor(Math.random() * rs.length)]; const b = r && bodPunto(r, 1.2); if (b && bodExtSirve(b.x, b.z) && Math.hypot(b.x - player.pos.x, b.z - player.pos.z) > 6) q = b; } else { const sp = world.spawns.length ? pick(world.spawns) : null; if (sp) q = { x: sp.x, z: sp.z }; } }
+    z.vaga = q || { x: p.x + rand(-4, 4), z: p.z + rand(-4, 4) }; z.vagaT = game.time + E.vaga;
+  }
+  z.tobj = z.vagaO || (z.vagaO = { root: { position: new THREE.Vector3() }, dead: false }); z.tobj.root.position.set(z.vaga.x, 0, z.vaga.z);
+  z.tk = 'b'; z.los = false; z.flowD = bodFlowHacia(z.vaga.x, z.vaga.z, 'ext:' + Math.round(z.vaga.x * 2) + ',' + Math.round(z.vaga.z * 2), true); z.tgtT = 0.6;
+}
+function bodExtMata() {
+  game.muerteExt = 1; Sfx.roar && Sfx.roar(0, 2); player.shake = 1; fx.dmg = 1; player.hp = 0; die();   // al tocarte: muerte al instante (sin chalecos ni segundas vidas, como caer a un hueco)
+}
+function bodExtQuita() { const st = bodSt(), z = BOD.ext; if (st && st.ext) st.ext.resta = 0; BOD.ext = null; if (z) { const k = zombies.indexOf(z); if (k >= 0) removeZombie(k); } }   // sin aviso (al salir del nivel)
+function bodExtFin() {
+  const st = bodSt(), z = BOD.ext; if (st && st.ext) st.ext.resta = 0; BOD.ext = null;
+  if (z) { const k = zombies.indexOf(z), p = z.root.position; for (let i = 0; i < 30; i++) PA.add(p.x + rand(-0.5, 0.5), rand(0.1, 2.2), p.z + rand(-0.5, 0.5), rand(-1, 1), rand(1, 4), rand(-1, 1), rand(0.6, 1.2), rand(0.08, 0.16), 1, 0.2, 0.05, 1, -1, 0.5, 0, 0); if (k >= 0) removeZombie(k); }
+  banner('El Exterminador se fue', 'Sobreviviste a la cacería', 2800, 'skull'); Sfx.bell && Sfx.bell();
+}
+// la cuenta atrás mientras caza (debajo del reloj)
+function bodExtHud() {
+  const e = el.extH || (el.extH = $('#bod-ext')); if (!e) return;
+  const st = bodSt(), on = !!(game && game.bod && st && st.ext && st.ext.resta > 0 && world.idx === bodMapaIdx() && !BOD.fin && state !== 'over');
+  if (e.hidden === on) e.hidden = !on; if (!on) return;
+  setText(el.extT || (el.extT = $('#bod-ext-t')), 'extT', bodMMSS(st.ext.resta));
 }
 // ---- La mesa del final del nivel (dueño, 29-oct-2026, rediseño «Doble o Nada»: «primero se abre una interfaz en donde se cuentan todas tus fichas
 // (dinero) ponle sonido satisfactorio. y de ahí sale el juego en el que puedes apostar hasta 3 veces»; «varios juegos al azar»).
@@ -45151,6 +45571,7 @@ function bodIrA(ni) {
   habFin(); useCur = null; showUse(null); linternaPon(false); BOD.lev = []; BOD.olaQ = [];
   // lo de cada nivel de las Bodegas no pasa al siguiente (en los Backrooms no hay grietas, escotillas ni bóvedas: antes una explosión ahí fallaba)
   BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = []; BOD.fosos = []; BOD.huecos = []; BOD.cae = null; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.barriles = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.mm = null; bodFlowsFuera();
+  for (let i = cops.length - 1; i >= 0; i--) if (cops[i].bodResc) removeCop(i); BOD.ext = null; BOD.asc = null; BOD.ped = null;   // (30-oct-2026) el superviviente y el Exterminador no pasan de nivel
   BODJ.on = false;   // (29-oct-2026) el jardín es parte del mapa de las Bodegas: no pasa al nivel siguiente (si quedaba encendido, en los Backrooms el reloj y los zombis se quedaban quietos)
   clearActors(); buildMap(ni); precalentarHab(); try { renderer.compile(scene, camera); } catch (e) {}
   player.pos.set(world.start.x, 0, world.start.z); player.vx = player.vz = player.kx = player.kz = 0; player.yaw = 0; player.pitch = 0;
@@ -45204,12 +45625,13 @@ function brPoner() {
   const P = st.tiendaP; roomDoor(P.x, P.z, P.ry, BAL.bodegas.salas.tras.col, '#46e08a', I.cartel, I.sub, true);
   mapUse({ x: P.x, z: P.z, r: 1.8, cd: 1, t: I.t, d: I.d, b: 'Entrar gratis', tienda: 1, use(o) { brTienda(o); } });
   if (st.salida) brPuertaSalida();
+  bodRescPoner();   // (30-oct-2026) el superviviente que esperaba, en su sitio
 }
 function brTienda(o) {
   const st = bodSt(); if (!st) return;
   if (st.jefe === 1) { Sfx.err(); hint('Primero vence al jefe', 2000); if (o) o.readyT = 0; return; }
   st.trasN = (st.trasN | 0) + 1; st.volver = 1; game.bodSala = 'tras'; BOD.abono0 = game.abono | 0;
-  linternaPon(false); bodStockSortear(); enterRoom();
+  linternaPon(false); bodStockSortear(); bodRescGuarda(); enterRoom();
   const I = bodSalaInfo('tras'); $('#fade-s').textContent = tx(bodNivelTxt()); $('#fade-t').textContent = tx(I.t); $('#fade-d').textContent = tx(I.d);
 }
 function brVolver() {
@@ -45270,7 +45692,7 @@ function brPuertaSalida() {
 }
 function brSalir() {
   const st = bodSt(); if (!st || st.jefe !== 2 || BOD.fin) return;
-  BOD.fin = true; Sfx.win();
+  BOD.fin = true; Sfx.win(); bodRescSube(); bodExtQuita();   // (30-oct-2026) el superviviente que te sigue sube contigo; el Exterminador se va
   bodSalirTras(600);
 }
 // ---- subir de piso: la tarjeta del piso (al estilo Isaac) y la escalera en primera persona (al estilo Resident Evil), en su propia escena pequeña
@@ -45352,7 +45774,6 @@ function bodSalaInfo(t) {
   const G = BAL.garra.ficha, Tm = bodTemaD();
   const I = {
     tras: { t: 'Tienda', cartel: 'Tienda', sub: 'Puerta verde', d: 'Balas en la Expendedora Apocalipsis y el vendedor de armas: cada visita trae otras armas. Aquí vive la gata.', entra: 'La puerta verde lleva a la Tienda', dentro: 'La Tienda · balas en la expendedora y armas del vendedor (hoy trae otras) · la salida, a tus espaldas' },
-    herrero: { t: 'Herrero', cartel: 'Herrero', sub: 'El Viejo Sam', d: 'El Viejo Sam vende piezas para el arma que llevas. Duran hasta el final de la partida.', entra: 'Esta puerta lleva al Herrero', dentro: 'El Herrero · El Viejo Sam vende piezas para tu arma · la salida, a tus espaldas' },
     juegos: { t: 'Sala de juegos de azar', cartel: 'Juegos de azar', sub: 'Imo, Miso y Dango', d: 'Blackjack con Imo; tragamonedas, ruleta y carrera con Miso; dados con Dango. Se apuesta con fichas.', entra: 'Esta puerta lleva a la Sala de juegos de azar', dentro: 'Sala de juegos de azar · se apuesta con fichas · la salida, a tus espaldas' },
     capsulas: { t: 'Cápsulas del Fin del Mundo', cartel: 'Cápsulas', sub: 'del Fin del Mundo', d: 'Una máquina de retos en cápsula: cúmplelos y gana premios.', entra: 'Esta puerta lleva a las Cápsulas del Fin del Mundo', dentro: 'Cápsulas del Fin del Mundo · retos en cápsula · la salida, a tus espaldas' },
     garra: { t: 'La Garra', cartel: 'La Garra', sub: 'Juego de garra', d: `Mueve la garra y agarra premios entre la basura. Cada intento cuesta ${G} ficha.`, entra: 'Esta puerta lleva a La Garra', dentro: 'La Garra · agarra premios entre la basura · la salida, a tus espaldas' }
@@ -45375,11 +45796,6 @@ function bodStockSortear() {
   game.armStock = { armas: mez(A.armas.map(a => a.id)).slice(0, ent(T.armas[0], T.armas[1])), chalecos: mez(A.chalecos.map(c => c.id)).slice(0, ent(T.chalecos[0], T.chalecos[1])), dina: Math.random() < T.dinamita };
 }
 const armEnStock = k => { const S_ = game && game.bod && game.armStock; if (!S_) return true; if (k === 'dinamita') return S_.dina; if (BAL.armeria.chalecos.some(c => c.id === k)) return S_.chalecos.includes(k); if (BAL.armeria.armas.some(a => a.id === k)) return S_.armas.includes(k); return true; };
-// lo que ofrece el Herrero en esta visita: piezas al azar (distintas), cada una con su precio
-function bodHerreroSortear() {
-  const H = BAL.bodegas.herrero, ks = BOD_PIEZAS.map(k => [Math.random(), k]).sort((a, b) => a[0] - b[0]).map(p => p[1]).slice(0, H.piezas);
-  game.herrOf = ks.map(k => ({ k, p: H.precio[0] + Math.floor(Math.random() * (H.precio[1] - H.precio[0] + 1)), ya: 0 }));
-}
 function bodTrastienda(r) {
   const st = bodSt(); if (!st) return;
   r = r || BOD.L.rooms.find(o => o.t === 'tras');
@@ -45387,7 +45803,8 @@ function bodTrastienda(r) {
   if (r.t === 'tras') st.trasN = (st.trasN | 0) + 1;
   st.volver = 1; st.salaR = r.i; game.bodSala = r.t; BOD.abono0 = game.abono | 0; BOD.rw = game.routeWave; if (deudaHoy()) game.routeWave = 0;   // dentro es una visita normal (la cuota se paga aquí abajo)
   BOD.lev = []; linternaPon(false); BOD.linterna = false;
-  if (r.t === 'tras') bodStockSortear(); if (r.t === 'herrero') bodHerreroSortear();
+  if (r.t === 'tras') bodStockSortear();
+  bodRescGuarda();   // (30-oct-2026) el superviviente que espera se queda en su sitio; el que te sigue entra contigo
   enterRoom();
   game.sit = null; game.zombiCol = null; game.gatoRegalo = null; game.cobro = null;   // en las salas de las Bodegas no hay situaciones al azar (apagón, redada, zombi colado…)
   const I = bodSalaInfo(r.t);
@@ -45406,7 +45823,7 @@ function bodVolver() {
 }
 // el interior de cada sala: una habitación cerrada en el mismo lugar que su sala de la vieja Trastienda (así sirven los caminos de Imo y Miso,
 // la decoración y el sonido de cada sala), con la salida a tus espaldas y lo suyo dentro
-const BOD_SALA_X = { tras: [4.5, 13], herrero: [4.5, 13], juegos: [-4.5, 4.5], capsulas: [-13, -4.5], garra: [-13, -4.5] };
+const BOD_SALA_X = { tras: [4.5, 13], juegos: [-4.5, 4.5], capsulas: [-13, -4.5], garra: [-13, -4.5] };
 function buildBodSala(k) {
   if (k === 'tras') { buildBodTienda(); return; }   // la Tienda: el viejo salón de la Trastienda (dueño, 25-oct-2026)
   const { hx: HX, hz: HZ, H, sep: SEP } = TR, [x0, x1] = BOD_SALA_X[k] || BOD_SALA_X.tras, z0 = -HZ, z1 = SEP, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, T = 0.4, zf = -HZ + T / 2, I = bodSalaInfo(k) || bodSalaInfo('tras');
@@ -45428,17 +45845,6 @@ function buildBodSala(k) {
   const gataEn = (x, z) => { M(bx(1.2, 1.05, 0.8), lam(0x4a2a16), x, 0.52, z, { solid: true }); addBox(x, z, 0.62, 0.42); M(bx(1.35, 0.08, 0.95), lam(0x7a4a24), x, 1.08, z, {}); R.objs.push(buildGata(x, z)); };   // la gata duerme sobre un mostrador
   if (k === 'tras') {   // la Tienda: la Expendedora Apocalipsis, el vendedor de armas (con lo que trae hoy) y la gata
     R.objs.push(VEND_BUILD.espiral(6.1, zf + 0.46)); R.objs.push(buildArmeria(9.9, zf + 0.75)); gataEn(x1 - 0.9, cz - 1.2);
-  } else if (k === 'herrero') {   // el Herrero: la fragua, el yunque y El Viejo Sam con sus piezas sobre la mesa
-    try { decoBalas(H, SEP, HZ, HX); } catch (e) { noteErr && noteErr(e, 'deco'); }
-    const mx = 9.4, mz = -12.6, P = Grp(mx, mz - 1.1, 0), mesa = lam(0x4a2e18);
-    trFigura(P, { traje: 0x5a3a24, pant: 0x2a2018, piel: 0xc8946a, bigote: true, ancho: 1.1 });
-    M(bx(3.6, 0.1, 1.0), mesa, mx, 0.92, mz, { cast: false }); for (const [a, b] of [[-1.7, -0.42], [1.7, -0.42], [-1.7, 0.42], [1.7, 0.42]]) M(bx(0.1, 0.9, 0.1), lam(0x2a1a10), mx + a, 0.45, mz + b, { cast: false }); addBox(mx, mz, 1.85, 0.55);
-    (game.herrOf || []).forEach((of, i) => {
-      const n = game.herrOf.length, px = mx + (i - (n - 1) / 2) * 1.2, In = bodPiezaInfo(of.k);
-      const pz_ = M(bx(0.4, 0.1, 0.14), lam(0xb8bcc4, { emissive: 0x404448 }), px, 1.02, mz, { cast: false }), halo = bodGlow(px, 1.12, mz, 0x9ad0ff, 0.9, 0.4); if (of.ya) pz_.visible = halo.visible = false;
-      R.objs.push({ kind: 'map', x: px, z: mz + 1.15, r: 0.75, cd: 0.6, readyT: 0, shared: null, price: of.p, used: !!of.ya, t: `${In.n} · ${of.p} $`, d: `${In.d}. Va en tu ${MODELS[game.equip] ? MODELS[game.equip].name : 'arma'} y dura hasta el final de la partida.`, b: 'Comprar',
-        use(o_) { of.ya = 1; o_.used = true; pz_.visible = halo.visible = false; bodPieza(of.k); feed(npcLine('sam'), 'gold'); } });
-    });
   } else if (k === 'juegos') {   // la Sala de juegos: los juegos de la vieja sala de los dados, en su mismo lugar; Imo y Miso caminan entre sus mesas y Dango atiende los dados
     R.objs.push(buildSlot(3.95, -13.4)); R.objs.push(buildWheel(3.95, -9.0)); R.objs.push(buildBlackjack(2.4, -5.6)); R.objs.push(buildCarrera(-3.6, -12.4)); R.objs.push(buildDados(-1.8, -8.2));
     maidCrupier('imo'); maidCrupier('miso');
@@ -45519,6 +45925,7 @@ function bodFin(gano, aviso) {   // aviso: el texto de abajo cuando la partida t
   const nv = bodNivel(), br = game.bod.br != null, sinT = !gano && !!game.sinTiempo;   // se acabó el reloj del nivel (BAL.bodegas.reloj): se pierde igual que al caer
   let t = gano ? (br ? '¡Saliste de los Backrooms!' : `¡Saliste del Nivel ${nv}!`) : sinT ? 'Se acabó el tiempo' : br ? 'Caíste en los Backrooms' : 'Caíste en las Bodegas';
   let tag = aviso || (gano ? (br ? `Completaste los ${nv} niveles: las Bodegas, el Casino Maid Café y los Backrooms. Por ahora, aquí termina el juego.` : `Completaste el Nivel ${nv}: Las Bodegas del casino. El Nivel ${nv + 1} todavía no existe.`) : sinT ? 'El reloj llegó a cero. Se pierde todo: vuelves a empezar en el jardín, con un mapa nuevo.' : 'Al caer se pierde todo. Vuelves a empezar en el jardín, con un mapa nuevo.');
+  if (!gano && !sinT && !aviso && game.muerteExt) { t = 'Te atrapó el Exterminador'; tag = 'Si te toca, mueres: la próxima vez escóndete en un barril. Vuelves a empezar en el jardín, con un mapa nuevo.'; }   // (30-oct-2026)
   let filas = [['Oro', (game.gold | 0) + ' $'], ['Zombis', game.kills | 0], ['Tiempo', '0:00'], ['A la cabeza', game.heads | 0], ['Nivel', nv]];
   try {
     const st = bodSt(), L = BOD.L, mm = Math.floor(game.time / 60), ss = Math.floor(game.time % 60), D = game.deuda;
@@ -45590,7 +45997,6 @@ const BOD_ICO = {
   candado: 'M7.4 10.5V8a4.6 4.6 0 0 1 9.2 0v2.5h-2.3V8a2.3 2.3 0 0 0-4.6 0v2.5zM5 10.5h14a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1zM12 13.2a1.7 1.7 0 0 0-.8 3.2V19h1.6v-2.6a1.7 1.7 0 0 0-.8-3.2z',
   cofre: 'M3 10.5a3.5 3.5 0 0 1 3.5-3.5h11a3.5 3.5 0 0 1 3.5 3.5v1H3zM3 12.8h18V20H3zM10.6 10.2h2.8v4h-2.8z',
   tienda: 'M4.6 8.5h14.8l-1.3 12.5H5.9zM8.2 8.5V7a3.8 3.8 0 0 1 7.6 0v1.5h-2V7a1.8 1.8 0 0 0-3.6 0v1.5z',
-  herrero: 'M2 6.5h13.5c.4 2.6 2.4 3.7 6.5 3.7v2c-3.6 0-5.6.8-6.6 2.6l.6 2.2h2.5v3H5.5v-3H8l.6-2.2C7.5 12.6 5.3 11 2 10.4z',
   juegos: 'M5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13A2.5 2.5 0 0 1 5.5 3zM8 6.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM16 6.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM12 10.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM8 14.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4zM16 14.3a1.7 1.7 0 1 0 0 3.4a1.7 1.7 0 1 0 0-3.4z',
   capsulas: 'M3.6 11a8.4 8.4 0 0 1 16.8 0zM3.8 13h16.4a8.4 8.4 0 0 1-16.4 0z',
   garra: 'M10.8 1.5h2.4v6h-2.4zM6.5 7.5h11v3.6h-11zM7.4 11.1l-3.4 4.4 2.3 5.8 2-1-1.7-4.6 3-3.6zM16.6 11.1l3.4 4.4-2.3 5.8-2-1 1.7-4.6-3-3.6zM10.9 11.1h2.2v6.6h-2.2z',
@@ -45600,6 +46006,7 @@ const BOD_ICO = {
   comida: 'M14.5 3a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM9 13.2l1.8 1.8-4.2 4.2-1.8-1.8zM4.4 15.8a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6zM6.6 18a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6z',
   mini: 'M7.8 14.3a3.6 3.6 0 1 1 0 7.2a3.6 3.6 0 0 1 0-7.2zM16.2 12.8a3.6 3.6 0 1 1 0 7.2a3.6 3.6 0 0 1 0-7.2zM8.3 14.4l3-10.6 1.6.4-3 10.6zM15.3 12.9l-2.6-8.6 1.5-.4 2.6 8.6zM12.2 3.8c2.2-2 5.4-2 7.6-.4-2.2 2-5.4 2.1-7.6.4z',
   bolsa: 'M9 2.5h6l-1.7 3.4h-2.6zM10.4 7C6 9 3.8 12.8 3.8 16c0 2.7 2 4.6 4.3 4.6h7.8c2.3 0 4.3-1.9 4.3-4.6 0-3.2-2.2-7-6.6-9z',
+  persona: 'M12 2.2a3.4 3.4 0 1 0 0 6.8a3.4 3.4 0 1 0 0-6.8zM7.2 10h9.6l1.8 6.4h-2.8L15 21.8H9l-.8-5.4H5.4z',   // el superviviente (30-oct-2026)
   // salas especiales: tesoro (una gema), elige 1 de 2 (dos pedestales), secreta (ladrillos), seis puertas, bóveda (la rueda de la caja fuerte),
   // vigilancia (un monitor), lavandería (una camisa) y espejos (un espejo ovalado); el minijefe usa la calavera, en naranja
   tesoro: 'M7 3.5h10l4.5 5.5L12 21 2.5 9zM8.2 5.6L6 9h3.6zM15.8 5.6L18 9h-3.6zM11.2 5.6L10.4 9h3.2l-.8-3.4z',
@@ -45630,17 +46037,19 @@ function bodMiniIcos(r, st, conoce) {
   const M_ = BAL.bodegas.mapa.col, u = k => !!st.usados[r.i + ':' + k], out = [];
   if (r.plata && !st.abiertas[r.i]) out.push(['candado', M_.plata, 0]);
   if (r.t === 'jefe') out.push(st.jefe === 2 ? ['salida', M_.llave, 0] : ['jefe', M_.jefe, 0]);
-  else if (bodEsSala(r.t)) out.push([{ tras: 'tienda', herrero: 'herrero', juegos: 'juegos', capsulas: 'capsulas', garra: 'garra' }[r.t], r.t === 'tras' ? M_.tienda : BOD_T[r.t].c, 0]);
+  else if (bodEsSala(r.t)) out.push([{ tras: 'tienda', juegos: 'juegos', capsulas: 'capsulas', garra: 'garra' }[r.t], r.t === 'tras' ? M_.tienda : BOD_T[r.t].c, 0]);
   else if (bodEspecial(r.t)) {   // salas especiales: su icono avisa desde la puerta; lo ya tomado desaparece (como lo demás)
     const ic = bodEspIco(r.t), X = r.esp || {}, B_ = st.bov && st.bov[r.i];
     const queda = r.t === 'tesoro' ? !u('tesoro') : r.t === 'elige' ? !u('elige') : r.t === 'secreta' ? !(u('oro') && u('bala')) : r.t === 'seis' ? !u('premio')
       : r.t === 'boveda' ? !(B_ && (B_.cerrada || B_.cayo)) && !(X.montones || []).every((_, k) => u('oro' + k)) : r.t === 'minijefe' ? !(st.mj && st.mj[r.i]) : true;
     if (queda) out.push([ic[0], ic[1], 0]);
   }
-  if (!conoce && st.mapa && r.llave && !u('cofre')) out.push(['llave', M_.llave, 0]);   // los monitores de vigilancia muestran dónde está la llave de la salida
+  const ped = !st.llave && r.i === bodPedestalSala(BOD.L);   // (30-oct-2026) la llave de la salida está en su pedestal
+  if (!conoce && st.mapa && ped) out.push(['llave', M_.llave, 0]);   // los monitores de vigilancia muestran dónde está la llave de la salida
   if (!conoce) return out.length || st.mapa ? out : [['duda', M_.duda, 0]];   // (con el mapa de los monitores ya sabes qué hay: sin «?»)
   // dueño (25-oct-2026): «cuando se toma el item que está en el mapa, el icono desaparece»: lo ya tomado o usado ya no sale (antes quedaba gris)
-  if (r.t === 'guardia') { if (!u('cofre')) out.push(r.llave ? ['llave', M_.llave, 0] : ['cofre', M_.cofre, 0]); }
+  if (ped) out.push(['llave', M_.llave, 0]);
+  if (r.t === 'guardia') { if (!u('cofre')) out.push(['cofre', M_.cofre, 0]); }
   else if (r.t === 'bodega') { if ((st.vivos[r.i] | 0) > 0) out.push(['ficha', M_.ficha, 0]); }   // al despejarla suelta fichas (queda en el suelo y se ve hasta que la recoges)
   else if (r.t === 'despensa') { if (!(r.platos || []).every((_, k) => u('plato' + k))) out.push(['comida', M_.comida, 0]); }
   else if (r.t === 'taller') { if (!u('pieza')) out.push(['pieza', M_.pieza, 0]); }
@@ -45707,6 +46116,9 @@ function bodMinimapa() {
     c.globalAlpha = 1;
   }
   for (const S_ of BOD.suelo) bodIco(c, S_.k.t === 'llave' ? 'llave' : 'ficha', ox + S_.k.x * k, oy + S_.k.z * k, MP.ico2 * iz, S_.k.t === 'llave' ? MP.col.llave : MP.col.ficha, 0);   // la llave y las fichas en el suelo
+  // (30-oct-2026) el superviviente (verde; mientras te sigue, el Inicio late en verde: ahí se entrega) y el Exterminador (la calavera roja)
+  for (const cp of cops) { if (!cp.bodResc || cp.dead) continue; const p = cp.root.position; if (cp.estado === 'sigue') { const D = bodRescMeta(); if (D) { c.lineWidth = 3; c.strokeStyle = 'rgba(125,255,154,' + (0.55 + 0.35 * Math.sin(performance.now() / 180)).toFixed(2) + ')'; c.beginPath(); c.arc(ox + D.x * k, oy + D.z * k, MP.ico * iz * 0.75, 0, TAU); c.stroke(); } } bodIco(c, 'persona', ox + p.x * k, oy + p.z * k, MP.ico * iz, '#7dff9a', 0); }
+  if (BOD.ext && !BOD.ext.dead) { const p = BOD.ext.root.position; bodIco(c, 'jefe', ox + p.x * k, oy + p.z * k, MP.ico * iz * 1.1, '#ff3a2a', 0); }
   const pk = IS_TOUCH ? 4 : 3;
   for (const p of pickups) { const x = ox + p.g.position.x * k, y = oy + p.g.position.z * k; c.fillStyle = BOD_PKC[p.type] || (BOD_PKC[p.type] = '#' + PK[p.type].color.toString(16).padStart(6, '0')); c.fillRect(x - pk, y - pk, 2 * pk, 2 * pk); }
   c.strokeStyle = '#000'; c.lineWidth = 1.5;
