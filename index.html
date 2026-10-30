@@ -41084,9 +41084,10 @@ function bodTamPoner(rooms, ocup, seed, edges, oroI) {
   // ¿cabe r con esta geometría? (cada casilla suya contra las de sus vecinos: las paredes no se tocan y queda el pasillo)
   // (para el teléfono: un cuarto no crece fuera del rectángulo que ya ocupaba el mapa; así la ruta de los zombis, que cubre ese rectángulo, no crece)
   const caja = rooms.reduce((q, r) => { for (const c of bodCeldas(r)) { q[0] = Math.min(q[0], Math.floor(c[0])); q[1] = Math.max(q[1], Math.ceil(c[0])); q[2] = Math.min(q[2], Math.floor(c[1])); q[3] = Math.max(q[3], Math.ceil(c[1])); } return q; }, [1e9, -1e9, 1e9, -1e9]);
+  let afuera = false;   // (solo para el mínimo de cuartos de varias casillas, si dentro del rectángulo no cupo ninguno)
   const cabe = (r, g) => {
     for (const p of g.cel) {
-      if (Math.abs(p[0]) > Bd[0] || Math.abs(p[1]) > Bd[1] || p[0] < caja[0] || p[0] > caja[1] || p[1] < caja[2] || p[1] > caja[3]) return false;
+      if (Math.abs(p[0]) > Bd[0] || Math.abs(p[1]) > Bd[1] || (!afuera && (p[0] < caja[0] || p[0] > caja[1] || p[1] < caja[2] || p[1] > caja[3]))) return false;
       const o0 = ocup.get(key(p[0], p[1])); if (o0 && o0 !== r) return false;
       for (const d in BOD_DIR4) { const [dx, dy] = BOD_DIR4[d], q = [p[0] + dx, p[1] + dy]; if (g.cel.some(c => c[0] === q[0] && c[1] === q[1])) continue;
         const o = ocup.get(key(q[0], q[1])); if (!o || o === r || o.reserva) continue;
@@ -41126,8 +41127,9 @@ function bodTamPoner(rooms, ocup, seed, edges, oroI) {
   // 5) los mínimos de variedad: formas distintas, cuartos no cuadrados y de varias casillas (se cambian cuartos que aún tienen la forma de siempre o una cuadrada)
   const cuenta = () => { const fs = new Set(), q = { rect: 0, varias: 0 }; for (const r of rooms) { const f = F[r.tam]; if (!f || (r.abierto && r.tam !== 'patio')) continue; fs.add(r.tam); if (f.m[0] !== f.m[1]) q.rect++; if (f.c[0] * f.c[1] > 1) q.varias++; } q.formas = fs.size; return q; };
   const M = TA.minimo, falta = (q) => q.rect < M.rect ? 'rect' : q.varias < M.varias ? 'varias' : q.formas < M.formas ? 'formas' : null;
-  for (let vuelta = 0; vuelta < 3; vuelta++) for (const r of orden) {
+  for (let vuelta = 0; vuelta < 4; vuelta++) for (const r of orden) {
     const q = cuenta(), que = falta(q); if (!que) break;
+    afuera = vuelta === 3 && que === 'varias';
     const f0 = F[r.tam]; if (r.t === 'jefe' && que !== 'varias') continue;
     if (que === 'rect' && f0.m[0] !== f0.m[1]) continue; if (que === 'varias' && f0.c[0] * f0.c[1] > 1) continue;
     const usadas = new Set(rooms.map(o => o.tam));
@@ -41135,6 +41137,7 @@ function bodTamPoner(rooms, ocup, seed, edges, oroI) {
       if (que === 'rect' && Ff.m[0] === Ff.m[1]) continue; if (que === 'varias' && Ff.c[0] * Ff.c[1] === 1) continue; if (que === 'formas' && usadas.has(f)) continue;
       if (prueba(r, f)) break; }
   }
+  afuera = false;
   // 6) lo que cambia con el área: guardias (los chiquitos, 0 o 1), cajas de la Bodega y, en el armario, un solo plato
   for (const r of rooms) {
     if (r.abierto || !TA.tipos[r.t]) continue; const x = bodAreaX(r);
