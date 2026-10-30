@@ -3356,7 +3356,7 @@ function i18nNodo(n) {
 }
 if (LANG === 'en') {
   document.documentElement.lang = 'en';
-  fetch('lang/en.json?v=47').then(r => r.json()).then(j => {
+  fetch('lang/en.json?v=48').then(r => r.json()).then(j => {
     I18N.d = new Map(Object.entries(j.t)); I18N.p = j.p.map(([a, b]) => [new RegExp(a), b]);
     i18nNodo(document.body);
     new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') i18nNodo(m.target); else if (m.type === 'attributes') i18nNodo(m.target); else for (const n of m.addedNodes) i18nNodo(n); } })
@@ -40718,7 +40718,7 @@ BAL.bodegas = {
   // el mapa de la esquina al estilo Isaac (dueño, 25-oct-2026): ancho del lienzo (alto 260), px por casilla, tamaño de cada habitación (parte de la casilla),
   // grosor del pasillo, iconos (uno solo / dos juntos), cuánto se apagan las vecinas sin visitar, y colores
   // pantalla: cuánto mide el mapa en la pantalla (ancho × alto en px): computadora, computadora angosta (hasta 1100 px) y teléfono (dueño, 25-oct-2026: 15 % más grande que 205 × 158, 190 × 146 y 150 × 115)
-  mapa: { pantalla: { pc: [236, 182], angosta: [218, 168], tel: [172, 132] }, ancho: 338, celda: 58, celdaTel: 72, cuarto: { chica: 0.72, mediana: 0.8, grande: 0.88, puerta: 0.62, abierto: 0.8 }, pasillo: 9, ico: 26, ico2: 19, icoTel: 1.15, hz: 10, apagado: 0.6, borde: 12, esquina: 6,
+  mapa: { pantalla: { pc: [236, 182], angosta: [218, 168], tel: [172, 132] }, ancho: 338, celda: 58, celdaTel: 72, cuarto: { chica: 0.72, mediana: 0.8, grande: 0.88, puerta: 0.62, abierto: 0.8 }, forma: { base: 0.3, m: 0.04, min: 0.36, max: 0.96 }, pasillo: 9, ico: 26, ico2: 19, icoTel: 1.15, hz: 10, apagado: 0.6, borde: 12, esquina: 6,
     fondo: 'rgba(8,6,4,.8)', nuevo: 'rgba(58,52,46,.88)', bordeV: 'rgba(255,236,200,.6)', bordeN: 'rgba(205,195,175,.75)', pasilloC: 'rgba(160,138,110,.85)', pasilloN: 'rgba(120,104,86,.6)', gris: '#7d7873',
     col: { llave: '#ffd060', plata: '#e4ecf4', ficha: '#c08cff', jefe: '#ff5a48', tienda: '#46e08a', cofre: '#e0a050', cofreD: '#fff04a', cofreR: '#ff4636', comida: '#ff9a70', pieza: '#b8c4d0', campana: '#ffe070', duda: '#d8d0c0',
       // salas especiales (25-oct-2026)
@@ -40821,7 +40821,7 @@ BAL.bodegas.temas = { 2: 'maid' };
 BAL.bodegas.tema = {
   maid: {
     nombre: 'Casino Maid Café', desc: 'Lazos rosas, tartas de fresa y neón. Imo, Miso y Dango abrieron un casino en el piso de arriba; los clientes ya no pagan.',
-    salas: { inicio: 'Recepción', guardia: 'Salón de té', bodega: 'Karaoke', despensa: 'Cocina de tartas', taller: 'Sala de fotos', oscuro: 'Vestidor', jefe: 'Escenario', tras: 'Tienda de Imo' },
+    salas: { inicio: 'Recepción', guardia: 'Salón de té', bodega: 'Karaoke', despensa: 'Cocina de tartas', taller: 'Sala de fotos', oscuro: 'Vestidor', jefe: 'Escenario', tras: 'Tienda de Imo', paso: 'Pasillo de las maids' },
     pistas: { oscuro: 'Vestidor: solo tu linterna. Los barriles sirven para esconderte' },
     tienda: { t: 'Tienda de Imo', cartel: 'Tienda de Imo', entra: 'La puerta verde lleva a la Tienda de Imo' },
     vuelta: 'De vuelta en el Casino Maid Café',
@@ -40969,6 +40969,178 @@ Object.assign(BOD_T, {
   vigilancia: { n: 'Sala de vigilancia', c: '#3a7a5a', tam: 'chica', esp: 1 }, lavanderia: { n: 'La lavandería', c: '#7a7a96', tam: 'mediana', esp: 1 },
   espejos: { n: 'Laberinto de espejos', c: '#4a6a8a', tam: 'mediana', esp: 1 }
 });
+// el cuarto de paso (dueño, 29-oct-2026: tamaños de los cuartos): un vestíbulo o un pasillo que une dos casillas; sin guardias ni premio (sale de un cuarto con 2 puertas)
+BOD_T.paso = { n: 'Paso entre cuartos', c: '#8a7a66', tam: 'chica' };
+// ---- los tamaños y formas de los cuartos (dueño, 29-oct-2026: «un gran problema de inmersión en el juego es que el tamaño de los cuartos casi siempre es el
+// mismo, debemos saber variarlos! a lo ancho, a lo largo, estrechos, super largos!»; aprobó las 30 formas de la encuesta). Parte A: las rectangulares.
+//   formas: n: su nombre (sale en el aviso al entrar) · m: [lado corto, lado largo] en metros (el largo va de norte a sur; la semilla elige si se gira) ·
+//           c: cuántas casillas ocupa [a lo ancho, a lo largo] (las de 2 casillas o de 2 × 2 son un solo cuarto que cubre varias casillas del mapa) ·
+//           entra: 'largo' = la puerta del cuarto del que cuelga da a un lado largo (el cuarto ancho) · estantes: las 2 hileras de la nave (3 pasillos): fondo, alto,
+//           pisos, el paso del medio (cruce) y lo libre en cada punta, m · columnas: la sala de columnas (n × n, lado y separación, m)
+//   antes: la forma de siempre de cada tamaño viejo (BOD_T[t].tam; las salas especiales y las salas con puerta no cambian)
+//   tipos: qué formas salen en cada tipo de cuarto, con su peso (cuánto más fácil sale) · niveles: { nivel: { tipo: pesos } } cambia los pesos de ese nivel
+//   minimo: lo que trae todo mapa como mínimo (formas distintas, cuartos no cuadrados, cuartos de varias casillas): si no alcanza, se cambian cuartos (si caben)
+//   patio: probabilidad de que un patio interior (espacio abierto) sea el patio rectangular de 2 casillas
+//   pasillo: m libres entre las paredes de dos cuartos vecinos como mínimo · nicho: m que necesita detrás la puerta de salida del jefe y la de cada sala
+//   conector: de n[0] a n[1] cuartos de paso por mapa: salen de un cuarto de esos tipos con 2 puertas (ni la llave, ni plata, ni el zombi de oro, ni junto a una sala)
+//   area: los guardias, los decorados y las cajas cambian con el área: × la raíz de (área / ref m²), entre min y max; los chiquitos (menos de «chico» m²)
+//         llevan como mucho «chicoMax» guardias y de decor[0] a decor[1] decorados · luces: una lámpara cada «cada» m de largo (como mucho «max» por cuarto)
+BAL.bodegas.tamanos = {
+  activo: true, semilla: 0x7a3a5,
+  formas: {
+    chico: { n: 'Cuarto chico', m: [10.2, 10.2], c: [1, 1] }, mediano: { n: 'Cuarto mediano', m: [13.6, 13.6], c: [1, 1] }, grande: { n: 'Cuarto grande', m: [17, 17], c: [1, 1] },
+    estrecho: { n: 'Pasillo estrecho', m: [4, 20], c: [1, 1] }, superlargo: { n: 'Pasillo súper largo', m: [4, 40], c: [1, 2] },
+    galeria: { n: 'Galería', m: [8, 30], c: [1, 2] },
+    nave: { n: 'Nave de almacén', m: [14, 40], c: [1, 2], estantes: { fondo: 1.0, alto: 2.7, pisos: 3, cruce: 3.2, puntas: 4.2, filas: 2 } },
+    angosto: { n: 'Cuarto angosto', m: [6, 14], c: [1, 1] }, ancho: { n: 'Cuarto ancho', m: [10, 20], c: [1, 1], entra: 'largo' },
+    salon: { n: 'Salón enorme', m: [30, 30], c: [2, 2] }, columnas: { n: 'Sala de columnas', m: [24, 24], c: [2, 2], columnas: { n: 3, lado: 0.9, entre: 7.2 } },
+    patio: { n: 'Patio rectangular', m: [16, 24], c: [1, 2] },
+    armario: { n: 'Armario', m: [5, 5], c: [1, 1] }, vestibulo: { n: 'Vestíbulo de paso', m: [3, 3], c: [1, 1] },
+    puerta: { n: 'Vestíbulo', m: [4, 4], c: [1, 1] }
+  },
+  antes: { chica: 'chico', mediana: 'mediano', grande: 'grande', puerta: 'puerta' },
+  tipos: {
+    inicio: { chico: 1 }, campana: { chico: 1 },
+    guardia: { mediano: 3, angosto: 2.5, ancho: 2.5, columnas: 1.5 },
+    bodega: { grande: 2, galeria: 2, nave: 3.5, salon: 1.5 },   // (la nave es la que menos cabe: más peso)
+    taller: { mediano: 2, angosto: 2, ancho: 2 },
+    oscuro: { estrecho: 2, galeria: 1.5, superlargo: 2 },
+    despensa: { chico: 1, armario: 1.5 },
+    jefe: { grande: 1, salon: 2, columnas: 2 },
+    paso: { vestibulo: 1, estrecho: 1 }
+  },
+  niveles: { 2: { bodega: { grande: 1.5, galeria: 2, nave: 1.5, salon: 2.5 } } },   // el Karaoke del café: más seguido el salón enorme
+  minimo: { formas: 4, rect: 3, varias: 1 },
+  patio: 0.6, pasillo: 1.0, nicho: 1.7,
+  conector: { n: [1, 2], de: ['guardia', 'taller', 'oscuro', 'campana', 'despensa'] },
+  area: { ref: 185, min: 0.6, max: 1.7, chico: 30, chicoMax: 1, decor: [0, 2], decorIgual: 100, decorRef: 289, cajasMax: 12 },   // decorados: de decorIgual a decorRef m² (el cuarto grande de 17 × 17), los de siempre; más grande, × la raíz
+  luces: { cada: 15, max: 4 }
+};
+const BOD_DIR4 = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, BOD_OPU = { e: 'o', o: 'e', n: 's', s: 'n' };
+const bodForma = r => BAL.bodegas.tamanos.formas[r.tam] || null;
+// las casillas de una habitación (las de varias casillas y los espacios abiertos las llevan en r.cel; las demás, la suya)
+const bodCeldas = r => r.cel || [[r.x, r.y]];
+// casillas entre dos habitaciones (la menor, contando todas sus casillas)
+function bodCas(a, b) { if (!a.cel && !b.cel) return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); let m = 1e9; for (const p of bodCeldas(a)) for (const q of bodCeldas(b)) { const d = Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]); if (d < m) m = d; } return m; }
+// por dónde se unen a y b: la casilla de cada una que se toca y el lado de a. Las uniones se hicieron siempre desde la casilla de origen de los cuartos
+// (r.x, r.y): de un cuarto de varias casillas solo cuenta esa; de un espacio abierto, todas las suyas
+function bodJunta(L, a, b) {
+  const K = L._jun || (L._jun = {}), key = a + ',' + b; if (K[key]) return K[key];
+  const A = L.rooms[a], B_ = L.rooms[b], cj = r => r.abierto ? r.cel : [[r.x, r.y]];
+  let out = null;
+  for (const p of cj(A)) { for (const q of cj(B_)) if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) === 1) { out = { ca: p, cb: q, k: q[0] > p[0] ? 'e' : q[0] < p[0] ? 'o' : q[1] > p[1] ? 's' : 'n' }; break; } if (out) break; }
+  if (!out) { const ca = bodC(A), cb = bodC(B_), dx = cb.x - ca.x, dz = cb.z - ca.z; out = { ca: [A.x, A.y], cb: [B_.x, B_.y], k: Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'e' : 'o') : dz > 0 ? 's' : 'n', raro: 1 }; }
+  return (K[key] = out);
+}
+// medio largo de la habitación hacia la pared k (hk) y medio largo de esa pared (wk)
+const bodHk = (r, k) => k === 'e' || k === 'o' ? bodH(r, 'x') : bodH(r, 'z');
+const bodWk = (r, k) => k === 'e' || k === 'o' ? bodH(r, 'z') : bodH(r, 'x');
+// las puertas (los pasos) de cada habitación: { k: lado, o: la habitación del otro lado (o 'salida' / 'verde'), off: cuánto se corre del centro de esa pared, m }.
+// En los cuartos de una casilla todas van al centro de su pared; en los de varias, frente a la casilla por donde se unen (así el pasillo sale derecho)
+function bodPuertasMapa(L) {
+  if (L._pu && L._puN === L.rooms.length) return L._pu;
+  const S = BAL.bodegas.paso, out = L.rooms.map(() => []);
+  const off = (r, cel, k) => { const c = bodC(r); return k === 'e' || k === 'o' ? cel[1] * S + 0.5 - c.z : cel[0] * S + 0.5 - c.x; };
+  for (const [a, b] of bodUniones(L)) { const J = bodJunta(L, a, b); out[a].push({ k: J.k, o: b, off: off(L.rooms[a], J.ca, J.k) }); out[b].push({ k: BOD_OPU[J.k], o: a, off: off(L.rooms[b], J.cb, BOD_OPU[J.k]) }); }
+  for (const r of L.rooms) if ((r.t === 'jefe' || bodEsSala(r.t)) && out[r.i].length) out[r.i].push({ k: BOD_OPU[out[r.i][0].k], o: r.t === 'jefe' ? 'salida' : 'verde', off: 0 });
+  for (const l of out) for (const d of l) d.off = Math.abs(d.off) < 1e-6 ? 0 : +d.off.toFixed(4);
+  L._puN = L.rooms.length; return (L._pu = out);
+}
+// el punto de una puerta: en la cara de dentro de su pared, corrido «off» y «m» metros hacia dentro (m < 0: hacia fuera)
+function bodPuXZ(r, d, m = 0) { const c = bodC(r), [dx, dz] = BOD_DIR4[d.k], h = bodHk(r, d.k) - m; return { x: c.x + dx * h + (dz ? d.off : 0), z: c.z + dz * h + (dx ? d.off : 0), dx, dz }; }
+// la puerta de r que da a la habitación o (índice), o la de un tipo ('salida', 'verde')
+function bodPuDe(r, o) { const L = BOD.L; if (!L) return null; return bodPuertasMapa(L)[r.i].find(d => d.o === o) || null; }
+// donde salen los zombis de un cuarto (antes, siempre a 1,5 m del centro: en los cuartos chiquitos, lo que quepa)
+const bodSpawnXZ = r => { const c = bodC(r); return { x: c.x + Math.min(1.5, Math.max(0, bodH(r, 'x') - 0.6)), z: c.z + Math.min(1.5, Math.max(0, bodH(r, 'z') - 0.6)) }; };
+// área (m²) y lo que cambia con ella (guardias, decorados, cajas)
+const bodArea = r => 4 * bodH(r, 'x') * bodH(r, 'z');
+function bodAreaX(r) { const A = BAL.bodegas.tamanos.area; return clamp(Math.sqrt(bodArea(r) / A.ref), A.min, A.max); }
+const bodChiquito = r => bodArea(r) < BAL.bodegas.tamanos.area.chico;
+// los pasillos de 4 m (estrecho, súper largo): lo que choca va contra una sola pared larga (la del lado «ladoA», sale de la semilla del cuarto); la otra mitad queda libre para pasar
+const bodAngosto = r => Math.min(bodH(r, 'x'), bodH(r, 'z')) < 2.5, bodLadoA = r => (r.sem & 1) ? 1 : -1;
+// ---- la forma de cada cuarto (sale de la semilla, aparte del resto del mapa: el mismo código de partida trae los mismos tamaños). Va al final de bodGenerar:
+// las casillas de más de un cuarto grande se toman de las libres que tiene al lado; nunca se acercan tanto a un vecino que no quepa el pasillo
+function bodTamPoner(rooms, ocup, seed, edges, oroI) {
+  const TA = BAL.bodegas.tamanos, F = TA.formas, B = BAL.bodegas, S = B.paso, T = B.muro, Bd = B.bordes, key = (x, y) => x + ',' + y;
+  const R = mulberry32(((seed >>> 0) ^ TA.semilla) >>> 0), rnd = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const mez = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const nv = bodNivel(), pesos = t => Object.assign({}, TA.tipos[t] || {}, (TA.niveles[nv] || {})[t] || {});
+  // 1) la forma de siempre (y su medida) para todos
+  for (const r of rooms) {
+    if (r.abierto) { if (r.cx == null) { r.cx = r.x; r.cy = r.y; } continue; }
+    const f0 = TA.antes[BOD_T[r.t].tam] || 'mediano'; r.tam = f0; r.hx = r.hz = F[f0].m[0] / 2; r.cx = r.x; r.cy = r.y; delete r.cel; r.rot = 0;
+  }
+  if (!TA.activo) return;
+  // los vecinos de cada uno por las uniones (para el cuarto de paso y para hacia dónde entra)
+  const ad = rooms.map(() => []); for (const [a, b] of edges) { ad[a].push(b); ad[b].push(a); }
+  // 2) los cuartos de paso: de un cuarto con 2 puertas que no guarda nada importante
+  { const C = TA.conector, n = rnd(C.n[0], C.n[1]), cand = mez(rooms.filter(r => C.de.includes(r.t) && !r.llave && !r.plata && !r.cofrePlata && !r.junto && r.i !== 0 && r.i !== oroI && ad[r.i].length === 2 &&
+      ad[r.i].every(j => !bodCerrada(rooms[j].t)) && !(r.cofre && r.cofre.plata)));
+    for (const r of cand.slice(0, n)) { r.t = 'paso'; r.g = 0; for (const k of ['cofre', 'pieza', 'premio', 'platos', 'cajas']) delete r[k]; } }
+  // la medida que alcanza cada habitación desde la casilla p hacia d (lo que se mete en la casilla de al lado: ahí va el pasillo); nicho: la puerta de salida del jefe y la de cada sala
+  const nicho = r => { if (r.t !== 'jefe' && !bodEsSala(r.t)) return null; const p = rooms[r.p]; if (!p) return null; const dx = p.x - r.x, dy = p.y - r.y; return dx > 0 ? 'o' : dx < 0 ? 'e' : dy > 0 ? 'n' : 's'; };
+  const alcance = (r, g, p, d) => { const [dx, dy] = BOD_DIR4[d]; return (dx ? g.hx + dx * (g.cx - p[0]) * S : g.hz + dy * (g.cy - p[1]) * S) + (nicho(r) === d ? TA.nicho : 0); };
+  const geo = r => ({ hx: r.hx, hz: r.hz, cx: r.cx, cy: r.cy, cel: bodCeldas(r) });
+  // ¿cabe r con esta geometría? (cada casilla suya contra las de sus vecinos: las paredes no se tocan y queda el pasillo)
+  const cabe = (r, g) => {
+    for (const p of g.cel) {
+      if (Math.abs(p[0]) > Bd[0] || Math.abs(p[1]) > Bd[1]) return false;
+      const o0 = ocup.get(key(p[0], p[1])); if (o0 && o0 !== r) return false;
+      for (const d in BOD_DIR4) { const [dx, dy] = BOD_DIR4[d], q = [p[0] + dx, p[1] + dy]; if (g.cel.some(c => c[0] === q[0] && c[1] === q[1])) continue;
+        const o = ocup.get(key(q[0], q[1])); if (!o || o === r || o.reserva) continue;
+        if (S - alcance(r, g, p, d) - alcance(o, geo(o), q, BOD_OPU[d]) - 2 * T < TA.pasillo) return false; }
+    }
+    return true;
+  };
+  // las maneras de poner la forma f en r: girada o no y, si ocupa más casillas, hacia qué lado crece (desde su casilla de origen)
+  const maneras = (r, f) => {
+    const Fm = F[f], out = [], [w, l] = Fm.m, pd = r.p >= 0 && rooms[r.p] ? (rooms[r.p].x !== r.x ? 'x' : 'z') : null;
+    if (Fm.c[0] * Fm.c[1] === 1) {
+      const ejes = w === l ? ['z'] : mez(['x', 'z']);
+      if (Fm.entra === 'largo' && pd) ejes.sort((a, b) => (a === pd) - (b === pd));   // el lado largo, de frente a la puerta del cuarto del que cuelga
+      if (r.t === 'paso' && ad[r.i].length === 2) { const [a, b] = ad[r.i].map(j => rooms[j]), dir = (o) => o.x !== r.x ? 'x' : 'z'; if (dir(a) === dir(b)) ejes.sort((p, q) => (q === dir(a)) - (p === dir(a))); }   // de puerta a puerta
+      for (const e of ejes) out.push({ hx: (e === 'x' ? l : w) / 2, hz: (e === 'x' ? w : l) / 2, cx: r.x, cy: r.y, cel: [[r.x, r.y]], rot: e === 'x' ? 1 : 0 });
+    } else if (Fm.c[0] === 1) {   // 2 casillas en fila: el largo va hacia donde crece
+      for (const d of mez(Object.keys(BOD_DIR4))) { const [dx, dy] = BOD_DIR4[d], e = dx ? 'x' : 'z', q = [r.x + dx, r.y + dy];
+        out.push({ hx: (e === 'x' ? l : w) / 2, hz: (e === 'x' ? w : l) / 2, cx: r.x + dx / 2, cy: r.y + dy / 2, cel: [[r.x, r.y], q], rot: e === 'x' ? 1 : 0 }); }
+    } else {   // 2 × 2: hacia una de las 4 esquinas
+      for (const [sx, sy] of mez([[1, 1], [-1, 1], [1, -1], [-1, -1]])) out.push({ hx: l / 2, hz: l / 2, cx: r.x + sx / 2, cy: r.y + sy / 2, cel: [[r.x, r.y], [r.x + sx, r.y], [r.x, r.y + sy], [r.x + sx, r.y + sy]], rot: 0 });
+    }
+    return out;
+  };
+  const poner = (r, f, g) => { for (const p of bodCeldas(r)) if (ocup.get(key(p[0], p[1])) === r && (p[0] !== r.x || p[1] !== r.y)) ocup.delete(key(p[0], p[1]));
+    r.tam = f; r.hx = g.hx; r.hz = g.hz; r.cx = g.cx; r.cy = g.cy; r.rot = g.rot; if (g.cel.length > 1) { r.cel = g.cel; for (const p of g.cel) ocup.set(key(p[0], p[1]), r); } else delete r.cel; };
+  const prueba = (r, f) => { for (const g of maneras(r, f)) if (cabe(r, g)) { poner(r, f, g); return true; } return false; };   // (si no cabe, queda como estaba)
+  const sorteo = t => { const P = pesos(t), ks = Object.keys(P).filter(k => P[k] > 0), out = []; while (ks.length) { let tot = 0; for (const k of ks) tot += P[k]; let u = R() * tot, i = 0; for (; i < ks.length - 1; i++) { u -= P[ks[i]]; if (u < 0) break; } out.push(ks.splice(i, 1)[0]); } return out; };
+  // 3) cada cuarto prueba sus formas en el orden del sorteo (el jefe primero: es la arena); la primera que cabe se queda
+  const orden = mez(rooms.filter(r => !r.abierto && TA.tipos[r.t])).sort((a, b) => (b.t === 'jefe') - (a.t === 'jefe'));
+  for (const r of orden) for (const f of sorteo(r.t)) if (f === r.tam || prueba(r, f)) break;
+  // 4) el patio interior a veces es el patio rectangular de 2 casillas
+  for (const r of rooms) if (r.abierto && r.t === 'patio' && R() < TA.patio) { const g0 = geo(r), f = F.patio, [w, l] = f.m;
+    for (const d of mez(Object.keys(BOD_DIR4))) { const [dx, dy] = BOD_DIR4[d], e = dx ? 'x' : 'z', q = [r.cel[0][0] + dx, r.cel[0][1] + dy];
+      const g = { hx: (e === 'x' ? l : w) / 2, hz: (e === 'x' ? w : l) / 2, cx: r.cel[0][0] + dx / 2, cy: r.cel[0][1] + dy / 2, cel: [r.cel[0], q] };
+      if (cabe(r, g)) { r.tam = 'patio'; r.hx = g.hx; r.hz = g.hz; r.cx = g.cx; r.cy = g.cy; r.cel = g.cel; ocup.set(key(q[0], q[1]), r); break; } }
+    if (!r.tam) { r.hx = g0.hx; r.hz = g0.hz; } }
+  // 5) los mínimos de variedad: formas distintas, cuartos no cuadrados y de varias casillas (se cambian cuartos que aún tienen la forma de siempre o una cuadrada)
+  const cuenta = () => { const fs = new Set(), q = { rect: 0, varias: 0 }; for (const r of rooms) { const f = F[r.tam]; if (!f || (r.abierto && r.tam !== 'patio')) continue; fs.add(r.tam); if (f.m[0] !== f.m[1]) q.rect++; if (f.c[0] * f.c[1] > 1) q.varias++; } q.formas = fs.size; return q; };
+  const M = TA.minimo, falta = (q) => q.rect < M.rect ? 'rect' : q.varias < M.varias ? 'varias' : q.formas < M.formas ? 'formas' : null;
+  for (let vuelta = 0; vuelta < 3; vuelta++) for (const r of orden) {
+    const q = cuenta(), que = falta(q); if (!que) break;
+    const f0 = F[r.tam]; if (r.t === 'jefe' && que !== 'varias') continue;
+    if (que === 'rect' && f0.m[0] !== f0.m[1]) continue; if (que === 'varias' && f0.c[0] * f0.c[1] > 1) continue;
+    const usadas = new Set(rooms.map(o => o.tam));
+    for (const f of sorteo(r.t)) { const Ff = F[f]; if (f === r.tam) continue;
+      if (que === 'rect' && Ff.m[0] === Ff.m[1]) continue; if (que === 'varias' && Ff.c[0] * Ff.c[1] === 1) continue; if (que === 'formas' && usadas.has(f)) continue;
+      if (prueba(r, f)) break; }
+  }
+  // 6) lo que cambia con el área: guardias (los chiquitos, 0 o 1), cajas de la Bodega y, en el armario, un solo plato
+  for (const r of rooms) {
+    if (r.abierto || !TA.tipos[r.t]) continue; const x = bodAreaX(r);
+    if (r.g) r.g = Math.max(1, Math.round(r.g * x)); if (bodChiquito(r)) r.g = Math.min(r.g | 0, TA.area.chicoMax);
+    if (r.cajas) r.cajas = Math.min(TA.area.cajasMax, Math.max(2, Math.round(r.cajas * x)));
+    if (r.platos && bodChiquito(r)) r.platos = r.platos.slice(0, 1);
+  }
+}
 const BOD_VAR = ['bodega', 'guardia', 'despensa', 'taller', 'campana', 'oscuro'];   // sin el Cuarto de guardado (dueño, 25-oct-2026: al perder, todo se reinicia) ni el Cuarto del minijuego (29-oct-2026: «las maquinas tragamonedas de los pasillo se eliminan»)
 const bodEsSala = t => !!(BOD_T[t] && BOD_T[t].sala);   // la Tienda y las demás salas con puerta a un interior
 const bodEspecial = t => !!(BOD_T[t] && BOD_T[t].esp);   // las salas especiales (tesoro, elige 1 de 2, secreta, minijefe y las 5 originales)
@@ -41114,6 +41286,8 @@ function bodGenerar(seed, nHab, pide, salas, esp) {
   if (ini.length) { let c = ini[rnd(0, ini.length - 1)].i, prev = -1; ruta = [c]; for (let k = 0; k < 6; k++) { const v = vec(c).filter(j => j !== prev && j !== 0); if (!v.length) break; prev = c; c = v[rnd(0, v.length - 1)]; ruta.push(c); } }
   if (ruta.length < 2) return null;
   const oroR = R() < B.oro ? rooms.filter(r => ok(r) && r.t !== 'inicio')[0] : null;
+  // las formas de los cuartos (BAL.bodegas.tamanos): al final y con su propio azar (el resto del mapa sale igual que antes)
+  bodTamPoner(rooms, ocup, seed, rooms.filter(r => r.p >= 0 && !cort(r.p, r.i)).map(r => [r.p, r.i]).concat(at, ab.pasos), oroR ? oroR.i : -1);
   return { seed, rooms, atajos: at, nPlata: nPl, ruta, oro: oroR ? oroR.i : -1, pasos: ab.pasos, cortes: ab.cortes };
 }
 // cuántos pasos hay desde el Inicio hasta cada habitación (contando atajos y espacios abiertos)
@@ -41205,7 +41379,9 @@ function bodPonerAbiertos(rooms, ocup, at, rnd, mez, plan) {
     if (!ya) { if (k < A.n[0] || (P_ && P_.res)) return null; break; }
     const T_ = A[ya.t], cel = ya.cel, i = rooms.length;
     const r = { i, t: ya.t, abierto: true, cel, x: cel.reduce((s, c) => s + c[0], 0) / cel.length, y: cel.reduce((s, c) => s + c[1], 0) / cel.length, p: -1, d: 0, hijos: 0, g: 0, sem: rnd(1, 1e6) };
-    if (ya.t === 'callejon') { const larga = cel.length * S / 2 - T_.margen, h = cel[0][1] === cel[cel.length - 1][1]; r.hx = h ? larga : T_.ancho / 2; r.hz = h ? T_.ancho / 2 : larga; }
+    // (29-oct-2026: el callejón corto, de 1 casilla, va a lo largo entre sus dos habitaciones; antes quedaba siempre de este a oeste y, entre una del norte
+    // y una del sur, sus basureros tapaban las puertas)
+    if (ya.t === 'callejon') { const larga = cel.length * S / 2 - T_.margen, h = cel.length > 1 ? cel[0][1] === cel[cel.length - 1][1] : ya.une[0].y === ya.une[1].y; r.hx = h ? larga : T_.ancho / 2; r.hz = h ? T_.ancho / 2 : larga; }
     else r.hx = r.hz = T_.tam / 2;
     rooms.push(r); for (const [a, b] of cel) ocup.set(key(a, b), r); for (const o of ya.une) pasos.push([i, o.i]); usados.push(ya.t);
     for (const [x, y] of ya.u.cortes) { cortado.add(ck(x, y)); cortes.push([x, y]); }
@@ -41266,8 +41442,9 @@ function bodRevisar(L) {
     for (const [a, b] of L.cortes || []) if (!(L.rooms[a] && L.rooms[b] && (L.rooms[a].p === b || L.rooms[b].p === a))) mal.push('corte raro');
     for (const r of L.rooms) if (r.d !== d[r.i]) { mal.push('pasos mal contados'); break; } }
   const keys = 1 + c('bodega') + c('minijefe') + R.filter(r => r.cofre && r.cofre.plata).length; if (keys < np + c('tesoro')) mal.push('faltan llaves de plata');   // el minijefe suelta una; la del tesoro pide una
-  const AB = L.rooms.filter(r => r.abierto), celdas = R.map(r => r.x + ',' + r.y).concat(...AB.map(a => a.cel.map(c => c.join(','))));
+  const AB = L.rooms.filter(r => r.abierto), celdas = L.rooms.flatMap(r => bodCeldas(r).map(c => c.join(',')));
   const pos = new Set(celdas); if (pos.size !== celdas.length) mal.push('casillas repetidas');
+  mal.push(...bodRevisarTam(L));   // las formas de los cuartos (29-oct-2026)
   for (const r of R) if (r.p >= 0) { const p = R[r.p]; if (Math.abs(p.x - r.x) + Math.abs(p.y - r.y) !== 1) mal.push('pasillo largo'); }
   for (const r of R) if (r.t !== 'inicio' && r.p < 0) mal.push('suelta');
   // espacios abiertos: de 2 a 3, cada uno une 2 o más habitaciones (nunca es un callejón sin salida), sin guardias ni premio, y no acortan el camino al jefe
@@ -41286,14 +41463,51 @@ function bodRevisar(L) {
   if (AB.length) { const d = bodLejos(L.rooms.length, bodUniones(L)); if (R.some(r => r !== J && !bodEspecial(r.t) && d[r.i] >= d[J.i])) mal.push('con los espacios abiertos el jefe no es la más lejana'); }
   return mal;
 }
+// las formas de los cuartos (BAL.bodegas.tamanos): cada cuarto con una forma que le toca, sus casillas juntas y su centro entre ellas, sus medidas, las paredes
+// de dos vecinos sin tocarse (con el pasillo y el nicho de las puertas de salida), cada unión frente a frente y cada puerta dentro de su pared
+function bodRevisarTam(L) {
+  const TA = BAL.bodegas.tamanos, F = TA.formas, B = BAL.bodegas, S = B.paso, T = B.muro, V = B.vano / 2, mal = [], key = (x, y) => x + ',' + y, nv = bodNivel();
+  const ocup = new Map(); for (const r of L.rooms) for (const c of bodCeldas(r)) ocup.set(key(c[0], c[1]), r);
+  const E = bodUniones(L), ad = L.rooms.map(() => 0); for (const [a, b] of E) { ad[a]++; ad[b]++; }
+  const nicho = r => { if (r.t !== 'jefe' && !bodEsSala(r.t)) return null; const p = L.rooms[r.p]; if (!p) return null; const dx = p.x - r.x, dy = p.y - r.y; return dx > 0 ? 'o' : dx < 0 ? 'e' : dy > 0 ? 'n' : 's'; };
+  const cx = r => r.cx != null ? r.cx : r.x, cy = r => r.cx != null ? r.cy : r.y;
+  const alcance = (r, p, d) => { const [dx, dy] = BOD_DIR4[d]; return (dx ? bodH(r, 'x') + dx * (cx(r) - p[0]) * S : bodH(r, 'z') + dy * (cy(r) - p[1]) * S) + (nicho(r) === d ? TA.nicho : 0); };
+  for (const r of L.rooms) {
+    const cel = bodCeldas(r);
+    if (cel.some(c => Math.abs(c[0]) > B.bordes[0] || Math.abs(c[1]) > B.bordes[1])) mal.push('fuera del borde ' + r.t);
+    const mx = cel.reduce((s, c) => s + c[0], 0) / cel.length, my = cel.reduce((s, c) => s + c[1], 0) / cel.length;
+    if (Math.abs(mx - cx(r)) > 1e-6 || Math.abs(my - cy(r)) > 1e-6) mal.push('centro raro ' + r.t);
+    if (!r.abierto) {
+      const f = F[r.tam]; if (!f) { mal.push('forma sin datos ' + r.tam); continue; }
+      const P = Object.assign({}, TA.tipos[r.t] || {}, (TA.niveles[nv] || {})[r.t] || {}), def = TA.antes[BOD_T[r.t].tam];
+      if (TA.tipos[r.t] ? !(P[r.tam] > 0 || r.tam === def) : r.tam !== def) mal.push('forma ' + r.tam + ' en ' + r.t);
+      const lados = [2 * bodH(r, 'x'), 2 * bodH(r, 'z')].sort((a, b) => a - b); if (Math.abs(lados[0] - f.m[0]) > 1e-6 || Math.abs(lados[1] - f.m[1]) > 1e-6) mal.push('medidas ' + r.tam);
+      const n = f.c[0] * f.c[1]; if (cel.length !== n || cel[0][0] !== r.x || cel[0][1] !== r.y) mal.push('casillas de ' + r.tam);
+      const xs = new Set(cel.map(c => c[0])), ys = new Set(cel.map(c => c[1])); if (xs.size * ys.size !== n || Math.max(...xs) - Math.min(...xs) >= xs.size || Math.max(...ys) - Math.min(...ys) >= ys.size) mal.push('casillas sueltas ' + r.tam);
+      if (n === 2 && (xs.size === 2 ? bodH(r, 'x') < bodH(r, 'z') : bodH(r, 'z') < bodH(r, 'x'))) mal.push('largo cruzado ' + r.tam);
+      if (r.t === 'paso' && (ad[r.i] !== 2 || r.g || r.llave || r.plata)) mal.push('paso raro');
+      if (TA.tipos[r.t] && bodChiquito(r) && (r.g | 0) > TA.area.chicoMax) mal.push('chiquito con guardias');
+    }
+    for (const p of cel) for (const d in BOD_DIR4) {
+      const [dx, dy] = BOD_DIR4[d], o = ocup.get(key(p[0] + dx, p[1] + dy)); if (!o || o === r || o.i < r.i) continue;
+      const gap = S - alcance(r, p, d) - alcance(o, [p[0] + dx, p[1] + dy], BOD_OPU[d]) - 2 * T; if (gap < TA.pasillo - 1e-6) mal.push('sin pasillo ' + r.t + '/' + o.t + ' ' + gap.toFixed(2));
+    }
+  }
+  for (const [a, b] of E) if (bodJunta(L, a, b).raro) mal.push('unión sin casillas juntas');
+  const PU = bodPuertasMapa(L);
+  for (const r of L.rooms) for (const d of PU[r.i]) if (Math.abs(d.off) + V + 0.15 > bodWk(r, d.k)) mal.push('puerta fuera de su pared ' + r.t);
+  return mal;
+}
 // ---- medidas en el mundo: centro y mitad de cada habitación (los centros caen en medio de una celda de la ruta de los zombis)
-const bodC = r => (r._c && r._cx === r.x && r._cy === r.y ? r._c : (r._cx = r.x, r._cy = r.y, r._c = { x: r.x * BAL.bodegas.paso + 0.5, z: r.y * BAL.bodegas.paso + 0.5 }));   // guardado en la habitación (se pide muchas veces por cuadro); no se modifica
-const bodH = (r, e) => r.hx != null ? (e === 'x' ? r.hx : e === 'z' ? r.hz : Math.max(r.hx, r.hz)) : BAL.bodegas.tam[r.tam] / 2;   // los espacios abiertos pueden ser alargados (e: 'x' o 'z')
+// (29-oct-2026, tamaños de los cuartos: el centro de un cuarto de varias casillas cae entre ellas: r.cx, r.cy)
+const bodC = r => { const X = r.cx != null ? r.cx : r.x, Y = r.cx != null ? r.cy : r.y; return r._c && r._cx === X && r._cy === Y ? r._c : (r._cx = X, r._cy = Y, r._c = { x: X * BAL.bodegas.paso + 0.5, z: Y * BAL.bodegas.paso + 0.5 }); };   // guardado en la habitación (se pide muchas veces por cuadro); no se modifica
+const bodH = (r, e) => r.hx != null ? (e === 'x' ? r.hx : e === 'z' ? r.hz : Math.max(r.hx, r.hz)) : (BAL.bodegas.tam[r.tam] || (BAL.bodegas.tamanos.formas[r.tam] || { m: [13.6] }).m[0]) / 2;   // los cuartos pueden ser alargados (e: 'x' o 'z'; sin e, el lado mayor)
 function bodHabDe(x, z, m = 0.2) { if (!BOD.L) return null; for (const r of BOD.L.rooms) { const c = bodC(r); if (Math.abs(x - c.x) <= bodH(r, 'x') + m && Math.abs(z - c.z) <= bodH(r, 'z') + m) return r; } return null; }
 function bodUniones(L) { if (L._uni && L.seed0 != null) return L._uni; const E = [], C = new Set((L.cortes || []).map(([a, b]) => a < b ? a + ',' + b : b + ',' + a)); for (const r of L.rooms) if (r.p >= 0 && !C.has(r.p < r.i ? r.p + ',' + r.i : r.i + ',' + r.p)) E.push([r.p, r.i, 0]); for (const [a, b] of L.atajos) E.push([a, b, 1]); for (const [a, b] of L.pasos || []) E.push([a, b, 2]); if (L.seed0 != null) L._uni = E; return E; }   // (el mapa ya armado la guarda: no cambia; no se modifica) · sin los pasillos quitados por los espacios abiertos (L.cortes)
 function bodPasilloDe(x, z) {
   const L = BOD.L; if (!L) return []; const out = [];
-  for (const [a, b] of bodUniones(L)) { const A = bodC(L.rooms[a]), Bc = bodC(L.rooms[b]); if (x >= Math.min(A.x, Bc.x) - 1.3 && x <= Math.max(A.x, Bc.x) + 1.3 && z >= Math.min(A.z, Bc.z) - 1.3 && z <= Math.max(A.z, Bc.z) + 1.3) out.push(L.rooms[a], L.rooms[b]); }
+  const S = BAL.bodegas.paso;
+  for (const [a, b] of bodUniones(L)) { const J = bodJunta(L, a, b), A = { x: J.ca[0] * S + 0.5, z: J.ca[1] * S + 0.5 }, Bc = { x: J.cb[0] * S + 0.5, z: J.cb[1] * S + 0.5 }; if (x >= Math.min(A.x, Bc.x) - 1.3 && x <= Math.max(A.x, Bc.x) + 1.3 && z >= Math.min(A.z, Bc.z) - 1.3 && z <= Math.max(A.z, Bc.z) + 1.3) out.push(L.rooms[a], L.rooms[b]); }
   return out;
 }
 const bodSt = () => game && game.bod && game.bod.st;
@@ -41393,6 +41607,50 @@ function bodCartel(txt, sub, w = 2.4, h = 1.2) {
   });
   return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t }));
 }
+// las lámparas de un cuarto: una cada BAL.bodegas.tamanos.luces.cada m a lo largo y a lo ancho (los de siempre, una al centro), como mucho «max»
+function bodLamparas(r) {
+  const c = bodC(r), Lz = BAL.bodegas.tamanos.luces, hx = bodH(r, 'x'), hz = bodH(r, 'z');
+  let nx = Math.max(1, Math.round(2 * hx / Lz.cada)), nz = Math.max(1, Math.round(2 * hz / Lz.cada));
+  while (nx * nz > Lz.max) { if (nx >= nz) nx--; else nz--; }
+  const out = []; for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) out.push({ x: c.x + ((i + 0.5) / nx * 2 - 1) * hx, z: c.z + ((j + 0.5) / nz * 2 - 1) * hz });
+  return out;
+}
+// ¿(x, z) choca con lo que trae la forma por dentro (estantes, columnas)? m: de más
+const bodEstrEn = (r, x, z, m = 0) => ((BOD.estr && BOD.estr[r.i]) || []).some(b => x > b.min.x - m && x < b.max.x + m && z > b.min.z - m && z < b.max.z + m);
+// lo que trae la forma por dentro (BAL.bodegas.tamanos.formas): las 2 hileras de estantes de la nave de almacén (3 pasillos, con un paso en medio) y las
+// columnas de la sala de columnas. Va fundido (una malla por material) y cada pieza choca; sus cajas quedan en BOD.estr (los obstáculos y los decorados las rodean)
+function bodEstructura(r, c, gR) {
+  (BOD.estr || (BOD.estr = []))[r.i] = []; const f = bodForma(r); if (!f || r.abierto || !(f.estantes || f.columnas)) return;
+  const H = BAL.bodegas.alto, cajas = BOD.estr[r.i], hx = bodH(r, 'x'), hz = bodH(r, 'z'), por = new Map(), R = mulberry32(((r.sem >>> 0) ^ 0x3e57a) >>> 0);
+  const caja = (mat, x, y, z, w, h, d) => { if (!por.has(mat)) por.set(mat, []); por.get(mat).push([x, y, z, w, h, d]); };
+  const solido = (x, z, hw, hd, alto) => { addBox(x, z, hw, hd); cajas.push(new THREE.Box3(new THREE.Vector3(x - hw, 0, z - hd), new THREE.Vector3(x + hw, alto, z + hd))); };
+  if (!BODM.cajaMaid) { BODM.cajaMaid = lam(0xf3bfd2); BODM.cajaMaid.userData.compartido = 1; }
+  const cajaM = bodTema() ? BODM.cajaMaid : BODM.madera2;   // en el café, cajas de pastel (rosa); en las Bodegas, de madera
+  if (f.columnas) {
+    const C = f.columnas, s = C.lado;
+    for (let i = 0; i < C.n; i++) for (let j = 0; j < C.n; j++) {
+      const x = c.x + (i - (C.n - 1) / 2) * C.entre, z = c.z + (j - (C.n - 1) / 2) * C.entre;
+      caja(BODM.muro, x, H / 2, z, s, H, s); caja(BODM.madera2, x, 0.15, z, s + 0.22, 0.3, s + 0.22); caja(BODM.madera2, x, H - 0.14, z, s + 0.26, 0.28, s + 0.26);
+      solido(x, z, s / 2 + 0.11, s / 2 + 0.11, H);
+    }
+  }
+  if (f.estantes) {
+    const E = f.estantes, largoX = hx > hz, La = largoX ? hx : hz, Wb = largoX ? hz : hx;
+    const pasillo = (2 * Wb - E.filas * E.fondo) / (E.filas + 1), tramos = [[-La + E.puntas, -E.cruce / 2], [E.cruce / 2, La - E.puntas]];
+    const P = (a, b) => largoX ? [c.x + a, c.z + b] : [c.x + b, c.z + a], BX = (m, a, y, b, la, h, lb) => { const [x, z] = P(a, b); caja(m, x, y, z, largoX ? la : lb, h, largoX ? lb : la); };
+    for (let fi = 0; fi < E.filas; fi++) {
+      const b = -Wb + pasillo * (fi + 1) + E.fondo * (fi + 0.5);   // el medio de la hilera, a lo ancho
+      for (const [a0, a1] of tramos) {
+        const l = a1 - a0, a = (a0 + a1) / 2, nP = Math.max(2, Math.round(l / 2.4) + 1);
+        for (let k = 0; k < nP; k++) for (const s of [-1, 1]) BX(BODM.hierro, a0 + 0.04 + k * (l - 0.08) / (nP - 1), E.alto / 2, b + s * (E.fondo / 2 - 0.04), 0.08, E.alto, 0.08);   // los postes
+        for (let p = 0; p < E.pisos; p++) { const y = 0.12 + p * (E.alto - 0.3) / (E.pisos - 1); BX(BODM.madera, a, y, b, l, 0.05, E.fondo);   // las tablas y lo que hay encima
+          for (let u = a0 + 0.3; u < a1 - 0.5; u += 0.55 + R() * 0.9) { if (R() < 0.35 || p === E.pisos - 1) continue; const w = 0.4 + R() * 0.35, hh = 0.3 + R() * 0.32; BX(R() < 0.5 ? cajaM : BODM.madera2, u + w / 2, y + 0.025 + hh / 2, b + (R() - 0.5) * 0.25, w, hh, Math.min(E.fondo - 0.1, 0.45 + R() * 0.3)); } }
+        const [x, z] = P(a, b); solido(x, z, largoX ? l / 2 : E.fondo / 2, largoX ? E.fondo / 2 : l / 2, E.alto);
+      }
+    }
+  }
+  for (const [m, bs] of por) { const me = new THREE.Mesh(bodFundir(bs, 2), m); me.castShadow = me.receiveShadow = false; gR.add(me); me.userData.estr = 1; }
+}
 function buildBodegas() {
   const B = BAL.bodegas, G = game && game.bod; gfxMatsBod();   // la calidad elegida (Alta: suelos mojados y relieve) para los materiales que ya estaban hechos
   let L = BOD.L = bodMapa(G ? G.seed : 20261024);
@@ -41409,13 +41667,14 @@ function buildBodegas() {
   world.indoor = true; world.noMoon = true; world.shirts = [0x3a2e24, 0x4a3b2c, 0x2a2420, 0x5a4a3a, 0x3d3530]; world.mix = {};
   const AB = L.rooms.filter(r => r.abierto), Ab = B.abiertos;
   BOD.luzX = G && bodMal() === 'apagon' ? B.maldicion.tipos.apagon.luz : 1;   // maldición «Apagón»: los cuartos más oscuros
-  const ax = L.rooms.map(r => Math.abs(bodC(r).x)), az = L.rooms.map(r => Math.abs(bodC(r).z));
-  world.arena = { t: 'r', hx: Math.ceil(Math.max(Math.max(...ax) + 7, ...AB.map(r => Math.abs(bodC(r).x) + r.hx + 2))), hz: Math.ceil(Math.max(Math.max(...az) + 7, ...AB.map(r => Math.abs(bodC(r).z) + r.hz + 2))) };
+  const ax = L.rooms.map(r => Math.abs(bodC(r).x) + Math.max(r.abierto ? 0 : 7, bodH(r, 'x') + 2)), az = L.rooms.map(r => Math.abs(bodC(r).z) + Math.max(r.abierto ? 0 : 7, bodH(r, 'z') + 2));   // (con los cuartos grandes, lo que miden)
+  world.arena = { t: 'r', hx: Math.ceil(Math.max(...ax)), hz: Math.ceil(Math.max(...az)) };
   const Tm = bodTemaD(), Te = Tm ? Tm.env : null;   // el tema del nivel (29-oct-2026: el Casino Maid Café): su niebla, su luz y sus materiales
   env({ fog: Te ? Te.fog : 0x0e0906, dens: Te ? Te.dens : 0.05, top: Te ? Te.top : 0x050302, sky: false, hemiS: Te ? Te.hemiS : 0xffd2a0, hemiG: Te ? Te.hemiG : 0x2a1a10, hemiI: (Te ? Te.hemiI : 0.42) * BOD.luzX, moonC: 0xffc080, moonI: 0, moonDir: new THREE.Vector3(0, 1, 0), lantern: 1.1, wind: 0 });
   bodMats(); bodMatsTema();
   BOD.agua = false; BOD.grp = []; BOD.puertas = []; BOD.lamp = []; BOD.usos = {}; BOD.lev = []; BOD.suelo = []; BOD.cebo = null; BOD.flowC = null; BOD.oculto = null; BOD.aqui = null; BOD.fin = false; BOD.llamaT = 0; BOD.jefeZ = null; BOD.barriles = []; BOD.calles = [];
   BOD.fosos = []; BOD.vapores = []; BOD.barrX = []; BOD.jfPil = []; BOD.boomQ = []; BOD.obsOp = []; BOD.obsCajas = []; BOD.obsPasos = []; BOD.acomodo = []; BOD.entra = null;   // obstáculos y peligros
+  BOD.estr = []; BOD.lampB = [];   // lo de dentro de las formas (estantes, columnas) y las lámparas fundidas de los cuartos grandes
   BOD.huecos = []; BOD.cae = null; BOD.seguro = null;   // los espacios huecos que se saltan (BAL.bodegas.huecos)
   BOD.grietas = []; BOD.bovedas = []; BOD.lavanderias = []; BOD.espejos = []; BOD.reflejos = [];   // salas especiales
   // suelo y techo: una sola pieza cada uno
@@ -41432,45 +41691,43 @@ function buildBodegas() {
     for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) { const mx = (xs[i] + xs[i + 1]) / 2, mz = (zs[j] + zs[j + 1]) / 2; if (!hue.some(h => mx > h[0] && mx < h[1] && mz > h[2] && mz < h[3])) tb.push([mx, H + 0.03, mz, xs[i + 1] - xs[i], 0.06, zs[j + 1] - zs[j]]); }
     world.group.add(new THREE.Mesh(bodFundir(tb, 3.2), BODM.techo));
   }
-  // qué lados de cada habitación tienen hueco: hacia sus uniones, la salida del jefe y la puerta verde
-  const E = bodUniones(L), lados = L.rooms.map(() => ({}));
-  const lado = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y; return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'e' : 'o') : dy > 0 ? 's' : 'n'; };
-  for (const [a, b] of E) { lados[a][lado(L.rooms[a], L.rooms[b])] = b; lados[b][lado(L.rooms[b], L.rooms[a])] = a; }
-  const opuesto = { e: 'o', o: 'e', n: 's', s: 'n' }, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
+  // qué lados de cada habitación tienen hueco: hacia sus uniones, la salida del jefe y la puerta verde. Las puertas de cada una (BOD.pu, bodPuertasMapa):
+  // en los cuartos de varias casillas, frente a la casilla por donde se unen (29-oct-2026: tamaños de los cuartos). lados[k]: lo que hay del otro lado (la primera)
+  const E = bodUniones(L), PU = BOD.pu = bodPuertasMapa(L), lados = L.rooms.map(() => ({}));
+  for (const r of L.rooms) for (const d of PU[r.i]) if (lados[r.i][d.k] == null || typeof d.o !== 'number') lados[r.i][d.k] = d.o;
+  const opuesto = BOD_OPU, DV = BOD_DIR4;
   const jefe = L.rooms.find(r => r.t === 'jefe'), tras = L.rooms.find(r => r.t === 'tras'), salas = L.rooms.filter(r => bodEsSala(r.t));
-  const ladoUnico = r => Object.keys(lados[r.i])[0];
-  const jEnt = ladoUnico(jefe), jSal = opuesto[jEnt];
-  lados[jefe.i][jSal] = 'salida';
-  BOD.salaK = {}; for (const r of salas) { const k = opuesto[ladoUnico(r)]; BOD.salaK[r.i] = k; lados[r.i][k] = 'verde'; }   // la puerta de cada sala, enfrente de su entrada
+  const jEnt = PU[jefe.i][0].k, jSal = opuesto[jEnt];
+  BOD.salaK = {}; for (const r of salas) BOD.salaK[r.i] = PU[r.i].find(d => d.o === 'verde').k;   // la puerta de cada sala, enfrente de su entrada
   BOD.jefeEnt = jEnt; BOD.lados = lados;
-  // paredes de cada habitación (con un hueco de 2 m en cada lado con unión)
+  // paredes de cada habitación (con un hueco de 2,4 m en cada puerta; en una pared puede haber más de uno)
   const boxes = [], boxesAb = [];   // las paredes de los espacios abiertos son más altas (fachadas de ladrillo): van en otra malla
-  const pared = (cx, cz, hx, hz, k, hueco, Hp = H, bs = boxes) => {   // k: lado; la pared va por fuera del cuarto
-    const [dx, dz] = DV[k], h = dx ? hx : hz, px = cx + dx * (h + T / 2), pz = cz + dz * (h + T / 2), largo = 2 * (dx ? hz : hx) + 2 * T;
-    if (!hueco) { if (dx) { bs.push([px, Hp / 2, pz, T, Hp, largo]); addBox(px, pz, T / 2, largo / 2); } else { bs.push([px, Hp / 2, pz, largo, Hp, T]); addBox(px, pz, largo / 2, T / 2); } return; }
-    const tramo = (largo - 2 * V) / 2, off = V + tramo / 2, dh = Hp - H + 0.6;
-    for (const s of [-1, 1]) { if (dx) { bs.push([px, Hp / 2, pz + s * off, T, Hp, tramo]); addBox(px, pz + s * off, T / 2, tramo / 2); } else { bs.push([px + s * off, Hp / 2, pz, tramo, Hp, T]); addBox(px + s * off, pz, tramo / 2, T / 2); } }
-    if (dx) bs.push([px, Hp - dh / 2, pz, T, dh, 2 * V]); else bs.push([px, Hp - dh / 2, pz, 2 * V, dh, T]);   // dintel
+  const pared = (cx, cz, hx, hz, k, huecos, Hp = H, bs = boxes) => {   // k: lado; la pared va por fuera del cuarto · huecos: dónde va cada paso (corrido del centro de la pared)
+    const [dx, dz] = DV[k], h = dx ? hx : hz, w = dx ? hz : hx, px = cx + dx * (h + T / 2), pz = cz + dz * (h + T / 2), dh = Hp - H + 0.6;
+    const tramo = (a, b) => { if (b - a < 0.01) return; const m = (a + b) / 2, l = b - a; if (dx) { bs.push([px, Hp / 2, pz + m, T, Hp, l]); addBox(px, pz + m, T / 2, l / 2); } else { bs.push([px + m, Hp / 2, pz, l, Hp, T]); addBox(px + m, pz, l / 2, T / 2); } };
+    let u = -w - T; for (const o of huecos.slice().sort((a, b) => a - b)) { tramo(u, o - V); u = o + V; if (dx) bs.push([px, Hp - dh / 2, pz + o, T, dh, 2 * V]); else bs.push([px + o, Hp - dh / 2, pz, 2 * V, dh, T]); }   // y su dintel
+    tramo(u, w + T);
   };
-  for (const r of L.rooms) { const c = bodC(r), ab = !!r.abierto; for (const k of ['e', 'o', 'n', 's']) pared(c.x, c.z, bodH(r, 'x'), bodH(r, 'z'), k, lados[r.i][k] != null, ab ? Ab.alto : H, ab ? boxesAb : boxes); }
-  // pasillos de 2 m entre habitaciones vecinas (en el hueco de afuera de la salida y la puerta verde hay un nicho oscuro)
+  for (const r of L.rooms) { const c = bodC(r), ab = !!r.abierto; for (const k of ['e', 'o', 'n', 's']) pared(c.x, c.z, bodH(r, 'x'), bodH(r, 'z'), k, PU[r.i].filter(d => d.k === k).map(d => d.off), ab ? Ab.alto : H, ab ? boxesAb : boxes); }
+  // pasillos de 2 m entre habitaciones vecinas, frente a frente (en el hueco de afuera de la salida y la puerta verde hay un nicho oscuro)
   for (const [a, b] of E) {
-    const ra = L.rooms[a], rb = L.rooms[b], ca = bodC(ra), cb = bodC(rb), k = lado(ra, rb), [dx, dz] = DV[k], e = dx ? 'x' : 'z';
-    const s0 = bodH(ra, e) + T, s1 = Math.abs(dx ? cb.x - ca.x : cb.z - ca.z) - bodH(rb, e) - T, len = s1 - s0, mid = (s0 + s1) / 2;
-    for (const sd of [-1, 1]) { if (dx) { const x = ca.x + dx * mid, z = ca.z + sd * (V + T / 2); boxes.push([x, H / 2, z, len, H, T]); addBox(x, z, len / 2, T / 2); } else { const x = ca.x + sd * (V + T / 2), z = ca.z + dz * mid; boxes.push([x, H / 2, z, T, H, len]); addBox(x, z, T / 2, len / 2); } }
+    const ra = L.rooms[a], rb = L.rooms[b], J = bodJunta(L, a, b), ca = bodC(ra), cb = bodC(rb), [dx, dz] = DV[J.k], e = dx ? 'x' : 'z', sg = dx || dz;
+    const wa = (dx ? ca.x : ca.z) + sg * (bodH(ra, e) + T), wb = (dx ? cb.x : cb.z) - sg * (bodH(rb, e) + T), len = Math.abs(wb - wa), mid = (wa + wb) / 2, lat = (dx ? J.ca[1] : J.ca[0]) * S + 0.5;
+    if (len < 0.01) continue;
+    for (const sd of [-1, 1]) { if (dx) { const z = lat + sd * (V + T / 2); boxes.push([mid, H / 2, z, len, H, T]); addBox(mid, z, len / 2, T / 2); } else { const x = lat + sd * (V + T / 2); boxes.push([x, H / 2, mid, T, H, len]); addBox(x, mid, T / 2, len / 2); } }
   }
   for (const [r, k] of [[jefe, jSal], ...salas.map(r => [r, BOD.salaK[r.i]])]) {   // nicho detrás de la puerta (la puerta tapa el paso)
-    const c = bodC(r), h = bodH(r), [dx, dz] = DV[k], p0 = h + T, nx = c.x + dx * (p0 + 0.6), nz = c.z + dz * (p0 + 0.6);
+    const c = bodC(r), h = bodHk(r, k), [dx, dz] = DV[k], p0 = h + T, nx = c.x + dx * (p0 + 0.6), nz = c.z + dz * (p0 + 0.6);
     if (dx) { boxes.push([nx, H / 2, nz - V - T / 2, 1.2, H, T], [nx, H / 2, nz + V + T / 2, 1.2, H, T], [c.x + dx * (p0 + 1.2 + T / 2), H / 2, nz, T, H, 2 * V + 2 * T]); }
     else { boxes.push([nx - V - T / 2, H / 2, nz, T, H, 1.2], [nx + V + T / 2, H / 2, nz, T, H, 1.2], [nx, H / 2, c.z + dz * (p0 + 1.2 + T / 2), 2 * V + 2 * T, H, T]); }
   }
   const muros = new THREE.Mesh(bodFundir(boxes, 2), BODM.muro); muros.receiveShadow = gfxQ() === 'alta';   /* Alta: las sombras de las lámparas caen en los muros */ muros.castShadow = false; world.group.add(muros); solids.push(muros);
   // la sala secreta: un muro agrietado tapa el paso desde la habitación vecina hasta que una explosión lo abre
-  bodEspMats(); for (const s_ of L.rooms) if (s_.t === 'secreta' && s_.p >= 0 && !(st.secretas && st.secretas[s_.i])) bodGrieta(L.rooms[s_.p], s_, lado(L.rooms[s_.p], s_));
+  bodEspMats(); for (const s_ of L.rooms) if (s_.t === 'secreta' && s_.p >= 0 && !(st.secretas && st.secretas[s_.i])) bodGrieta(L.rooms[s_.p], s_, bodPuDe(L.rooms[s_.p], s_.i));
   if (boxesAb.length) { bodMatsAb(); const fa = new THREE.Mesh(bodFundir(boxesAb, 3), BODM.fachada); fa.receiveShadow = fa.castShadow = false; world.group.add(fa); solids.push(fa); }
-  // ---- puertas
-  const puerta = (r, k, tipo) => {
-    const c = bodC(r), h = bodH(r), [dx, dz] = DV[k], x = c.x + dx * (h + T / 2), z = c.z + dz * (h + T / 2);
+  // ---- puertas (d: la puerta de BOD.pu: su lado y cuánto se corre del centro de la pared)
+  const puerta = (r, d, tipo) => {
+    const k = d.k, [dx, dz] = DV[k], P = bodPuXZ(r, d, -T / 2), x = P.x, z = P.z;
     const g = new THREE.Group(), ix = -dx, iz = -dz, alongZ = !!dx;   // la hoja gira hacia dentro del cuarto
     g.position.set(alongZ ? x : x - V, 0, alongZ ? z - V : z); world.group.add(g);
     const mat = tipo === 'verde' ? (r.t === 'tras' ? BODM.verde : bodSalaMat(r.t)) : tipo === 'salida' ? BODM.madera2 : BODM.madera;   // la verde es solo la de la Tienda; las otras salas, su propio color
@@ -41479,12 +41736,12 @@ function buildBodegas() {
     for (const y of [0.5, 2.0]) { const b = new THREE.Mesh(alongZ ? bx(0.15, 0.12, 2 * V) : bx(2 * V, 0.12, 0.15), banda); b.position.set(alongZ ? 0 : V, y, alongZ ? V : 0); g.add(b); }
     if (tipo === 'plata' || tipo === 'salida') { const ck = new THREE.Mesh(bx(alongZ ? 0.2 : 0.3, 0.34, alongZ ? 0.3 : 0.2), banda); ck.position.set(alongZ ? 0 : V * 1.6, 1.15, alongZ ? V * 1.6 : 0); g.add(ck); bodGlow(alongZ ? x : x + V * 0.6, 1.2, alongZ ? z + V * 0.6 : z, tipo === 'plata' ? 0xc8e0ff : 0xffd060, 0.9, 0.35); }
     addBox(x, z, alongZ ? T / 2 + 0.05 : V, alongZ ? V : T / 2 + 0.05); const col = colliders[colliders.length - 1];
-    const D = { r: r.i, k, x, z, g, col, tipo, abierta: false, ang: alongZ ? ix * Math.PI / 2 * 0.95 : -iz * Math.PI / 2 * 0.95, a: 0, dx, dz };
+    const D = { r: r.i, k, off: d.off, x, z, g, col, tipo, abierta: false, ang: alongZ ? ix * Math.PI / 2 * 0.95 : -iz * Math.PI / 2 * 0.95, a: 0, dx, dz };
     BOD.puertas.push(D); return D;
   };
-  for (const r of L.rooms) if (r.plata) for (const k in lados[r.i]) { const D = puerta(r, k, 'plata'); if (st.abiertas[r.i]) bodAbrir(D, true); }
-  BOD.pJefe = puerta(jefe, jEnt, 'jefe'); if (!(st.jefe === 1)) bodAbrir(BOD.pJefe, true);
-  BOD.pSalida = puerta(jefe, jSal, 'salida'); for (const r of salas) { const D = puerta(r, BOD.salaK[r.i], 'verde'); if (r === tras) BOD.pVerde = D; }
+  for (const r of L.rooms) if (r.plata) for (const d of PU[r.i]) { const D = puerta(r, d, 'plata'); if (st.abiertas[r.i]) bodAbrir(D, true); }
+  BOD.pJefe = puerta(jefe, PU[jefe.i][0], 'jefe'); if (!(st.jefe === 1)) bodAbrir(BOD.pJefe, true);
+  BOD.pSalida = puerta(jefe, PU[jefe.i].find(d => d.o === 'salida'), 'salida'); for (const r of salas) { const D = puerta(r, PU[r.i].find(d => d.o === 'verde'), 'verde'); if (r === tras) BOD.pVerde = D; }
   world.anims.push(dt => { for (const D of BOD.puertas) { const obj = D.abierta ? D.ang : 0; if (Math.abs(D.a - obj) > 0.001) { D.a = damp(D.a, obj, 6, dt); D.g.rotation.y = D.a; } } });
   // ---- lámparas, adornos y lo de cada habitación
   BOD.luces = []; const nL = IS_TOUCH || FAST() ? B.lucesTel : B.luces; bodDecMats(); BODD.rooms = [];
@@ -41495,11 +41752,18 @@ function buildBodegas() {
     if (r.abierto) { bodAbierto(r, c, gR, lados[r.i]); continue; }
     if (r.t !== 'oscuro') {
       const ly = H - 0.55, Lt = Tm ? Tm.luces[r.i % Tm.luces.length] : null;   // con tema: lámparas rosa y menta, una y una (BAL.bodegas.tema.<tema>.luces)
-      M(cyl(0.012, 0.012, 0.5, 4), BODM.aro, c.x, H - 0.25, c.z, { p: gR, cast: false, recv: false });
-      M(new THREE.SphereGeometry(0.13, 8, 6), BODM.focoT, c.x, ly, c.z, { p: gR, cast: false, recv: false }); M(cyl(0.05, 0.28, 0.16, 10, true), BODM.pantallaT, c.x, ly + 0.12, c.z, { p: gR, cast: false, recv: false });
-      const halo = bodGlow(c.x, ly, c.z, Lt ? Lt.c : 0xffb060, Lt ? Tm.halo.s : 2.6, Lt ? Tm.halo.op : 0.55, gR); BOD.lamp.push(Object.assign({ x: c.x, y: ly - 0.2, z: c.z, r: r.i, halo }, Lt ? { c: Lt.c, i: Lt.i, d: Lt.d } : {}));
+      const pts = bodLamparas(r), parte = pts.length > 1 ? new Map() : null;   // los cuartos largos y los grandes llevan varias (fundidas: 3 dibujos, como una)
+      const pon = (geo, mat, x, y, z) => { if (!parte) return M(geo, mat, x, y, z, { p: gR, cast: false, recv: false }); if (!parte.has(mat)) parte.set(mat, []); parte.get(mat).push([geo, new THREE.Matrix4().makeTranslation(x, y, z)]); };
+      for (const q of pts) {
+        pon(cyl(0.012, 0.012, 0.5, 4), BODM.aro, q.x, H - 0.25, q.z);
+        pon(new THREE.SphereGeometry(0.13, 8, 6), BODM.focoT, q.x, ly, q.z); pon(cyl(0.05, 0.28, 0.16, 10, true), BODM.pantallaT, q.x, ly + 0.12, q.z);
+        const halo = bodGlow(q.x, ly, q.z, Lt ? Lt.c : 0xffb060, Lt ? Tm.halo.s : 2.6, Lt ? Tm.halo.op : 0.55, gR); BOD.lamp.push(Object.assign({ x: q.x, y: ly - 0.2, z: q.z, r: r.i, halo }, Lt ? { c: Lt.c, i: Lt.i, d: Lt.d } : {}));
+      }
+      if (parte) { for (const [mat, l] of parte) { const m = new THREE.Mesh(bodFundirG(l), mat); m.castShadow = m.receiveShadow = false; m.userData.estr = 1; gR.add(m); l.forEach(e => e[0].dispose()); }
+        (BOD.lampB || (BOD.lampB = []))[r.i] = pts.map(q => new THREE.Box3(new THREE.Vector3(q.x - 0.3, ly - 0.15, q.z - 0.3), new THREE.Vector3(q.x + 0.3, H, q.z + 0.3))); }   // (fundidas: cada una con su caja, para los decorados)
     }
-    const c0 = colliders.length; bodAdornos(r, c, h, gR, lados[r.i], st);
+    const c0 = colliders.length; bodEstructura(r, c, gR);   // lo que trae la forma por dentro: los estantes de la nave y las columnas (29-oct-2026)
+    bodAdornos(r, c, h, gR, lados[r.i], st);
     bodEspPadre(r, c, h, gR, lados[r.i], st);   // el cartelito de la sala especial que cuelga de aquí (o el barril junto al muro agrietado)
     bodObstaculos(r, c, h, gR, lados[r.i], st, c0);   // el acomodo de obstáculos, los peligros y los cofres dorado y rojo
     bodDecorar(r, c, h, gR, lados[r.i], st);   // los decorados al azar (de 5 a 7 por cuarto) encima de lo de siempre
@@ -41512,7 +41776,7 @@ function buildBodegas() {
   // ---- llaves que quedaron en el suelo
   for (const k of st.suelo) bodLlaveSuelo(k, true);
   // puntos de aparición (para lo que los pida: en las Bodegas los zombis salen de sus cuartos)
-  for (const r of L.rooms) if (r.t !== 'inicio' && !bodEsSala(r.t) && !r.abierto) { const c = bodC(r); world.spawns.push({ x: c.x + 1.5, z: c.z + 1.5, rise: false }); }
+  for (const r of L.rooms) if (r.t !== 'inicio' && !bodEsSala(r.t) && !r.abierto) { const p = bodSpawnXZ(r); world.spawns.push({ x: p.x, z: p.z, rise: false }); }
   const ini = st.volver ? (L.rooms[st.salaR] && bodEsSala(L.rooms[st.salaR].t) ? L.rooms[st.salaR] : tras) : L.rooms[0], ci = bodC(ini);   // al volver de una sala, apareces en su vestíbulo
   world.start = { x: ci.x, z: ci.z + (st.volver ? 0 : 0.8) };
   bodJardin(L, st);   // el jardín del cementerio: el inicio del juego (afuera, más allá del sótano)
@@ -41525,7 +41789,12 @@ function bodAdornos(r, c, h, gR, lados, st) {
   const id = k => r.i + ':' + k, usado = k => !!st.usados[id(k)];
   const libres = ['e', 'o', 'n', 's'].filter(k => lados[k] == null), DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
   // esquinas libres (lejos de los pasos en cruz)
-  const esq = [[1, 1], [-1, 1], [1, -1], [-1, -1]].sort(() => R() - 0.5), e = (i, m = 1.25) => ({ x: c.x + esq[i % 4][0] * (h - m), z: c.z + esq[i % 4][1] * (h - m) });
+  // (29-oct-2026, tamaños: en un cuarto alargado y angosto, las esquinas se corren hacia dentro a lo largo: así no tapan las puertas de las puntas)
+  // en los pasillos de 4 m (el estrecho, el súper largo), todo va contra la misma pared larga (escalonado): del otro lado siempre queda el paso
+  const hx = bodH(r, 'x'), hz = bodH(r, 'z'), corre = (a, b) => b < 3.5 && a > 5 ? 2.2 : 0, angosto = bodAngosto(r), ladoA = bodLadoA(r), lx = hx < hz;
+  const esq = [[1, 1], [-1, 1], [1, -1], [-1, -1]].sort(() => R() - 0.5), e = (i, m = 1.25) => {
+    if (angosto) { const s = i % 2 ? 1 : -1, hon = (i % 4) >= 2 ? 2.4 : 0, hS = lx ? hx : hz, hL = lx ? hz : hx, a = ladoA * Math.max(0, hS - m), b = s * Math.max(0, hL - m - 2.2 - hon); return lx ? { x: c.x + a, z: c.z + b } : { x: c.x + b, z: c.z + a }; }
+    return { x: c.x + esq[i % 4][0] * (hx - m - corre(hx, hz)), z: c.z + esq[i % 4][1] * (hz - m - corre(hz, hx)) }; };
   const uso = (k, o) => { o.bodK = id(k); if (usado(k)) o.off = true; BOD.usos[o.bodK] = o; return mapUse(Object.assign({ r: 1.7, cd: 0.6 }, o)); };
   const caja = (x, z, s, rot) => M(bx(s, s, s), BODM.madera, x, s / 2, z, { p: gR, ry: rot, cast: false });
   if (r.t === 'inicio') {
@@ -41537,7 +41806,7 @@ function bodAdornos(r, c, h, gR, lados, st) {
   }
   if (r.t === 'bodega') {
     const pts = [];
-    for (let k = 0; k < 60 && pts.length < r.cajas; k++) { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1, x = c.x + sx * q(1.6, h - 0.6), z = c.z + sz * q(1.6, h - 0.6); if (pts.every(p => Math.hypot(p.x - x, p.z - z) > 1.15)) pts.push({ x, z }); }
+    for (let k = 0; k < 90 && pts.length < r.cajas; k++) { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1, x = c.x + sx * q(Math.min(1.6, hx * 0.4), hx - 0.6), z = c.z + sz * q(Math.min(1.6, hz * 0.4), hz - 0.6); if (pts.every(p => Math.hypot(p.x - x, p.z - z) > 1.15) && !bodEstrEn(r, x, z, 0.7)) pts.push({ x, z }); }
     const Ss = B.rompibles.sello, R2 = mulberry32(((r.sem >>> 0) ^ 0x5e110) >>> 0), kS = pts.length && R2() < Ss.p ? Math.floor(R2() * pts.length) : -1;   // una caja con sello dorado (mejor premio)
     pts.forEach((p, k) => { const tipo = R() < 0.5 ? 'caja' : 'barril'; if (!st.rotos[id('c' + k)]) bodRompible(gR, p.x, p.z, k === kS ? 'caja' : tipo, id('c' + k), k === kS); });
   }
@@ -41568,7 +41837,7 @@ function bodAdornos(r, c, h, gR, lados, st) {
     uso('pieza', { x: t.x, z: t.z, t: 'Mesa de armas', d: `${I.n}: ${I.d}. Se pone en el arma que llevas y dura hasta el final de la partida.`, b: 'Poner la pieza', use(o) { bodPieza(r.pieza); pz_.visible = false; halo.visible = false; bodUsado(o); } });
   }
   if (r.t === 'campana') {
-    M(bx(0.16, 0.16, 2 * h), BODM.madera2, c.x, H - 0.25, c.z, { p: gR, cast: false });
+    M(bx(0.16, 0.16, 2 * hz), BODM.madera2, c.x, H - 0.25, c.z, { p: gR, cast: false });
     const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.5, 0.7, 14, 1, true), lam(0xc89838, { emissive: 0x3a2808, side: THREE.DoubleSide })); bell.position.set(c.x + 1.4, H - 0.85, c.z + 1.4); gR.add(bell);
     M(cyl(0.02, 0.02, 0.5, 4), BODM.aro, c.x + 1.4, H - 0.35, c.z + 1.4, { p: gR, cast: false }); bodGlow(c.x + 1.4, H - 0.9, c.z + 1.4, 0xffd060, 1.4, 0.3, gR);
     let sw = 0; world.anims.push(dt => { if (sw > 0) { sw = Math.max(0, sw - dt * 0.12); bell.rotation.z = Math.sin(performance.now() / 120) * 0.5 * sw; } });
@@ -41594,12 +41863,12 @@ function bodAdornos(r, c, h, gR, lados, st) {
     mapUse({ x: c.x + dx * (h - 0.9), z: c.z + dz * (h - 0.9), r: 1.8, cd: 1, t: I.t + (fi ? ` · ${fi} ficha` : ''), d: I.d, b: fi ? 'Entrar' : 'Entrar gratis', ficha: !!fi, use() { bodTrastienda(r); } });
   }
   if (r.t === 'jefe') {
-    const k = BOD.jefeEnt, [dx, dz] = DV[k], p = { x: c.x - dx * (h - 1.2) + dz * 2.6, z: c.z - dz * (h - 1.2) + dx * 2.6 };
+    const k = BOD.jefeEnt, [dx, dz] = DV[k], hk = bodHk(r, k), p = { x: c.x - dx * (hk - 1.2) + dz * 2.6, z: c.z - dz * (hk - 1.2) + dx * 2.6 };
     M(bx(0.9, 0.7, 0.6), BODM.hierro, p.x, 1.6, p.z, { p: gR, cast: false }); M(cyl(0.12, 0.16, 0.3, 10), BODM.negro, p.x - dx * 0.4, 1.6, p.z - dz * 0.4, { p: gR, cast: false, rz: dx ? Math.PI / 2 : 0, rx: dz ? Math.PI / 2 : 0 }); M(bx(0.5, 1.25, 0.5), BODM.madera2, p.x, 0.62, p.z, { p: gR, cast: false }); addCircle(p.x, p.z, 0.5);
     for (const s of [-1, 1]) M(cyl(0.35, 0.35, 0.08, 16), BODM.aro, p.x, 2.15, p.z + s * 0.3 * (dx ? 1 : 0) + 0, { p: gR, cast: false, rx: dx ? Math.PI / 2 : 0, rz: dz ? Math.PI / 2 : 0 });
     bodGlow(p.x - dx * 0.5, 1.6, p.z - dz * 0.5, 0xfff0c0, 1.4, 0.5, gR);
-    const ks = Object.keys(lados).find(k => lados[k] === 'salida'), [sx, sz] = DV[ks];
-    uso('salida', { x: c.x + sx * (h - 0.9), z: c.z + sz * (h - 0.9), r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
+    const Ps = bodPuXZ(r, bodPuDe(r, 'salida'), 0.9);
+    uso('salida', { x: Ps.x, z: Ps.z, r: 1.8, cd: 0.8, t: 'Puerta de salida', d: 'Tiene un cerrojo: se abre con la llave de la salida.', b: 'Abrir con la llave', use() { bodSalida(); } });
   }
   if (bodEspecial(r.t)) bodEspArmar(r, c, h, gR, lados, st, uso, usado);   // las salas especiales (tesoro, elige 1 de 2, secreta, minijefe y las 5 originales)
 }
@@ -41670,26 +41939,26 @@ function bodEspItem3D(gR, it, x, y, z) {
 }
 function bodEspPedestal(K, x, z, alto = 1.0) { K.add(BODE.marmol, cyl(0.42, 0.5, alto, 12), x, alto / 2, z); K.add(BODM.oro, cyl(0.52, 0.52, 0.08, 12), x, alto + 0.04, z); addCircle(x, z, 0.55); }
 // el cartelito sobre el paso desde la habitación vecina (puertas que avisan): el icono de la sala, dibujado
-function bodEspPlaca(pa, k, t, gR) {
-  const c = bodC(pa), h = bodH(pa), DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[k], H = BAL.bodegas.alto, ic = bodEspIco(t);
+function bodEspPlaca(pa, d, t, gR) {   // d: la puerta de pa que da a la sala (BOD.pu)
+  const P = bodPuXZ(pa, d, 0.02), DV = BOD_DIR4[d.k], H = BAL.bodegas.alto, ic = bodEspIco(t);
   const tex = canvasTex(128, 128, (g, w) => { g.fillStyle = '#2a1a0e'; g.fillRect(0, 0, w, w); g.strokeStyle = '#c8a050'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, w - 8); bodIco(g, ic[0], w / 2, w / 2, 84, ic[1], 0); });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(c.x + DV[0] * (h - 0.02), H - 0.31, c.z + DV[1] * (h - 0.02)); m.rotation.y = Math.atan2(-DV[0], -DV[1]); gR.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(P.x, H - 0.31, P.z); m.rotation.y = Math.atan2(-DV[0], -DV[1]); gR.add(m);
 }
 const bodEspIco = t => { const M_ = BAL.bodegas.mapa.col; return { tesoro: ['tesoro', M_.tesoro], elige: ['elige', M_.elige], secreta: ['secreta', M_.secreta], minijefe: ['jefe', M_.minijefe], seis: ['seis', M_.seis], boveda: ['boveda', M_.boveda], vigilancia: ['vigilancia', M_.vigilancia], lavanderia: ['lavanderia', M_.lavanderia], espejos: ['espejos', M_.espejos] }[t]; };
 
 // ---- en la habitación de la que cuelga una sala especial: el cartelito del paso y, si es la secreta, el muro agrietado ya está puesto y aquí va el barril de pólvora
 function bodEspPadre(r, c, h, gR, lados, st) {
   const L = BOD.L;
-  for (const k in lados) { const o = L.rooms[lados[k]]; if (!o || typeof lados[k] !== 'number' || !bodEspecial(o.t) || o.p !== r.i) continue;
-    if (o.t !== 'secreta') bodEspPlaca(r, k, o.t, gR);
-    else if (!st.secretas[o.i]) bodSecretaBarril(r, o, k, c, h, gR, st); }
+  for (const d of bodPuertasMapa(L)[r.i]) { const o = L.rooms[d.o]; if (!o || typeof d.o !== 'number' || !bodEspecial(o.t) || o.p !== r.i) continue;   // (cada puerta: en un cuarto grande puede haber dos en una pared)
+    if (o.t !== 'secreta') bodEspPlaca(r, d, o.t, gR);
+    else if (!st.secretas[o.i]) bodSecretaBarril(r, o, d, c, h, gR, st); }
 }
 // el muro agrietado: tapa el paso del lado de la habitación vecina (grietas que se notan poco); un balazo suena hueco y una explosión lo abre
-function bodGrieta(pa, s, k) {
-  const B = BAL.bodegas, H = B.alto, T = B.muro, V = B.vano / 2, c = bodC(pa), h = bodH(pa), [dx, dz] = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[k];
-  const x = c.x + dx * (h + T / 2), z = c.z + dz * (h + T / 2), alto = H - 0.6;
+function bodGrieta(pa, s, pd) {   // pd: la puerta de pa que da a la sala secreta (BOD.pu)
+  const B = BAL.bodegas, H = B.alto, T = B.muro, V = B.vano / 2, [dx, dz] = BOD_DIR4[pd.k], P0 = bodPuXZ(pa, pd, -T / 2), P1 = bodPuXZ(pa, pd, 0.015);
+  const x = P0.x, z = P0.z, alto = H - 0.6;
   const m = new THREE.Mesh(bodFundir([[x, alto / 2, z, dx ? T * 1.02 : 2 * V + 0.04, alto, dx ? 2 * V + 0.04 : T * 1.02]], 2), BODM.muro); world.group.add(m);
-  const d = new THREE.Mesh(new THREE.PlaneGeometry(2 * V, alto), BODE.grieta); d.position.set(c.x + dx * (h - 0.015), alto / 2, c.z + dz * (h - 0.015)); d.rotation.y = Math.atan2(-dx, -dz); world.group.add(d);
+  const d = new THREE.Mesh(new THREE.PlaneGeometry(2 * V, alto), BODE.grieta); d.position.set(P1.x, alto / 2, P1.z); d.rotation.y = Math.atan2(-dx, -dz); world.group.add(d);
   addBox(x, z, dx ? T / 2 + 0.05 : V, dx ? V : T / 2 + 0.05); const col = colliders[colliders.length - 1];
   let avisoT = 0; shootable(m, pt => { if (pt) sparks(pt, 4, null); Sfx.thud && Sfx.thud(panOf(m.position)); if (performance.now() > avisoT) { avisoT = performance.now() + BAL.bodegas.especiales.secreta.aviso * 1000; hint('El muro suena hueco… una explosión podría abrirlo', 2600); } });
   BOD.grietas.push({ s: s.i, x, z, m, d, col, abierta: false });
@@ -41706,10 +41975,11 @@ function bodGrietaAbrir(G) {
 // lo llama explode(): cualquier explosión cerca de un muro agrietado lo abre (el barril de al lado, la dinamita o una bala que explota)
 function bodGrietaBoom(c, rad) { const st = bodSt(); if (!st || !st.secretas || (game.bod && game.bod.br != null)) return; for (const G of BOD.grietas || []) if (!G.abierta && Math.hypot(c.x - G.x, c.z - G.z) < rad + BAL.bodegas.especiales.secreta.margen) bodGrietaAbrir(G); }
 // el barril de pólvora junto a la grieta (si los obstáculos todavía no traen barriles explosivos, este basta): un balazo y revienta
-function bodSecretaBarril(pa, s, k, c, h, gR, st) {
-  const E = BAL.bodegas.especiales.secreta.barril, [dx, dz] = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[k], idk = 'bx' + s.i; if (st.rotos[idk]) return;
-  let p = null; for (const sd of [1, -1, 0.6, -0.6]) for (const m of [E.lejos, E.lejos + 0.6]) { if (p) break; const x = c.x + dx * (h - m) + dz * sd * E.lado, z = c.z + dz * (h - m) + dx * sd * E.lado; if (!pointBlocked(x, z, 0.7)) p = { x, z }; }
-  if (!p) p = { x: c.x + dx * (h - E.lejos) + dz * E.lado, z: c.z + dz * (h - E.lejos) + dx * E.lado };
+function bodSecretaBarril(pa, s, pd, c, h, gR, st) {   // pd: la puerta de pa que da a la sala secreta (BOD.pu)
+  const E = BAL.bodegas.especiales.secreta.barril, [dx, dz] = BOD_DIR4[pd.k], idk = 'bx' + s.i; if (st.rotos[idk]) return;
+  const lat = Math.max(0.6, Math.min(E.lado, bodWk(pa, pd.k) - Math.abs(pd.off) - 0.6));   // (en un cuarto angosto, el barril cabe más cerca del paso)
+  let p = null; for (const sd of [1, -1, 0.6, -0.6]) for (const m of [E.lejos, E.lejos + 0.6]) { if (p) break; const q = bodPuXZ(pa, pd, m), x = q.x + dz * sd * lat, z = q.z + dx * sd * lat; if (!pointBlocked(x, z, 0.7)) p = { x, z }; }
+  if (!p) { const q = bodPuXZ(pa, pd, E.lejos); p = { x: q.x + dz * lat, z: q.z + dx * lat }; }
   bodBarrilExplosivo(gR, p.x, p.z, idk, { radio: E.r, dano: E.dano, danoJ: E.propio, golpes: E.golpes });   // el mismo barril explosivo de los cuartos (rama obstaculos): explota por explode() y abre la grieta
 }
 
@@ -42019,7 +42289,10 @@ BAL.bodegas.vapor = { ciclo: [4.5, 6.5], aviso: 1.1, chorro: 1.3, dano: 16, dano
 //   libre: lo que se aparta el hueco de los muebles (m) · col: colores (paredes arriba y abajo, fondo, brillo del fondo, orilla, tablas); con tema, los suyos (tema.<k>.huecos)
 BAL.bodegas.huecos = {
   activo: true, semilla: 0x40c05, p: 0.35, max: 3, tipos: ['bodega', 'guardia', 'taller'], isla: 0.4,
-  zanja: { desde: 2.6, ancho: 1.8, puente: 1.6, acceso: 1.3 }, islaG: { plataforma: 1.0, foso: 1.7, pared: 0.6, oro: [18, 32] },
+  // (29-oct-2026, tamaños de los cuartos) minLado: solo en cuartos cuyo lado corto mide eso o más (m: nunca en los angostos ni en los chiquitos) · zanja.largoMax:
+  // lo más largo que puede ser una zanja de pared a pared (m: en una nave o un pasillo súper largo no se cruza a lo largo)
+  minLado: 9,
+  zanja: { desde: 2.6, ancho: 1.8, puente: 1.6, acceso: 1.3, largoMax: 18 }, islaG: { plataforma: 1.0, foso: 1.7, pared: 0.6, oro: [18, 32] },
   // mortal (dueño, 29-oct-2026: «si caes en una zanja mueres instantáneamente»): caer al fondo te mata al momento (sin chalecos ni segundas vidas); false vuelve a «dano» y al último suelo firme
   mortal: true, dano: 10, borde: 0.25, firme: 0.45, caida: { t: 0.45, baja: 1.6 }, prof: 3.2, libre: 0.12,
   col: { pared: 0x4a3c30, pared2: 0x1a1410, fondo: 0x060403, brillo: 0x7a2a0a, orilla: 0x6a5c4c, orilla2: 0x2e2620, tabla: 0x7a5230, tabla2: 0x4a3018 }
@@ -42239,7 +42512,7 @@ function bodHuecosPlan(L) {
   if (!Hc.activo) return out;
   const R = mulberry32((((L.seed0 != null ? L.seed0 : L.rooms[0].sem) >>> 0) ^ Hc.semilla) >>> 0); let n = 0;
   for (const r of L.rooms) {
-    if (r.abierto || !Hc.tipos.includes(r.t) || bodCerrada(r.t) || !(BAL.bodegas.obst.acomodos[r.t] || []).length) continue;
+    if (r.abierto || !Hc.tipos.includes(r.t) || bodCerrada(r.t) || !(BAL.bodegas.obst.acomodos[r.t] || []).length || 2 * Math.min(bodH(r, 'x'), bodH(r, 'z')) < Hc.minLado) continue;
     const u = R(), v = R(); if (n < Hc.max && u < Hc.p) { out[r.i] = v < Hc.isla ? 'isla' : 'zanja'; n++; }
   }
   return out;
@@ -42254,11 +42527,12 @@ function bodHuecoSitio(r, c, h, lados, cols, muebles, cs, pasos, base) {
     for (const k of cs) { const qx = clamp(k.x, q.x0, q.x1), qz = clamp(k.z, q.z0, q.z1); if (Math.hypot(qx - k.x, qz - k.z) < k.r) return true; } return false; };
   const camina = pz => !bodObstCamina(r, c, h, lados, pz.map(q => ({ t: 'f', q })), cols).some(m => !base.has(m));
   const oro = Hc.islaG.oro[0] + Math.floor(R() * (Hc.islaG.oro[1] - Hc.islaG.oro[0] + 1));   // (addGold ya le suma el oro del piso: bodOroX)
+  const hx = bodH(r, 'x'), hz = bodH(r, 'z');   // (29-oct-2026: los cuartos pueden ser alargados)
   if (tipo === 'zanja') {
-    const Z = Hc.zanja, cand = []; for (const k in lados) if (lados[k] != null) for (const s of [-1, 1]) cand.push([k, s]);
+    const Z = Hc.zanja, cand = []; for (const k in lados) if (lados[k] != null && bodHk(r, k) >= Z.desde + Z.ancho + Z.acceso && 2 * bodWk(r, k) <= Z.largoMax) for (const s of [-1, 1]) cand.push([k, s]);   // entre una puerta y el centro, de pared a pared (si cabe)
     for (const [k, s] of mez(cand)) {
-      const [dx, dz] = DV[k], a = Z.desde, b = Z.desde + Z.ancho, H = dx ? { x0: c.x + Math.min(dx * a, dx * b), x1: c.x + Math.max(dx * a, dx * b), z0: c.z - h, z1: c.z + h }
-        : { x0: c.x - h, x1: c.x + h, z0: c.z + Math.min(dz * a, dz * b), z1: c.z + Math.max(dz * a, dz * b) };
+      const [dx, dz] = DV[k], a = Z.desde, b = Z.desde + Z.ancho, H = dx ? { x0: c.x + Math.min(dx * a, dx * b), x1: c.x + Math.max(dx * a, dx * b), z0: c.z - hz, z1: c.z + hz }
+        : { x0: c.x - hx, x1: c.x + hx, z0: c.z + Math.min(dz * a, dz * b), z1: c.z + Math.max(dz * a, dz * b) };
       const P = dx ? { x0: H.x0, x1: H.x1, z0: s > 0 ? H.z1 - Z.puente : H.z0, z1: s > 0 ? H.z1 : H.z0 + Z.puente, paso: 1, eje: 'x' } : { x0: s > 0 ? H.x1 - Z.puente : H.x0, x1: s > 0 ? H.x1 : H.x0 + Z.puente, z0: H.z0, z1: H.z1, paso: 1, eje: 'z' };
       const pozo = dx ? { x0: H.x0, x1: H.x1, z0: s > 0 ? H.z0 : P.z1, z1: s > 0 ? P.z0 : H.z1 } : { x0: s > 0 ? H.x0 : P.x1, x1: s > 0 ? P.x0 : H.x1, z0: H.z0, z1: H.z1 };
       const acceso = dx ? { x0: H.x0 - Z.acceso, x1: H.x1 + Z.acceso, z0: P.z0, z1: P.z1 } : { x0: P.x0, x1: P.x1, z0: H.z0 - Z.acceso, z1: H.z1 + Z.acceso };   // las dos puntas del puente, libres
@@ -42268,7 +42542,7 @@ function bodHuecoSitio(r, c, h, lados, cols, muebles, cs, pasos, base) {
   } else {
     const I = Hc.islaG, L2 = I.pared + 2 * I.plataforma + I.foso, pl = 2 * I.plataforma;
     for (const [sx, sz] of mez([[1, 1], [-1, 1], [1, -1], [-1, -1]])) {   // en una esquina: el foso angosto contra las paredes y el ancho del lado del cuarto
-      const H = { x0: sx > 0 ? c.x + h - L2 : c.x - h, x1: sx > 0 ? c.x + h : c.x - h + L2, z0: sz > 0 ? c.z + h - L2 : c.z - h, z1: sz > 0 ? c.z + h : c.z - h + L2 };
+      const H = { x0: sx > 0 ? c.x + hx - L2 : c.x - hx, x1: sx > 0 ? c.x + hx : c.x - hx + L2, z0: sz > 0 ? c.z + hz - L2 : c.z - hz, z1: sz > 0 ? c.z + hz : c.z - hz + L2 };
       const px = sx > 0 ? H.x1 - I.pared - pl : H.x0 + I.pared, pz = sz > 0 ? H.z1 - I.pared - pl : H.z0 + I.pared, P = { x0: px, x1: px + pl, z0: pz, z1: pz + pl, suelo: 1 };
       const pozos = [{ x0: H.x0, x1: H.x1, z0: H.z0, z1: P.z0 }, { x0: H.x0, x1: H.x1, z0: P.z1, z1: H.z1 }, { x0: H.x0, x1: P.x0, z0: P.z0, z1: P.z1 }, { x0: P.x1, x1: H.x1, z0: P.z0, z1: P.z1 }];
       if (choca(H) || pasos.some(q => toca(H, q)) || !camina(pozos)) continue;
@@ -42366,14 +42640,18 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   if (!O.activo || r.abierto || bodEsSala(r.t) || r.t === 'inicio') return;
   const R = mulberry32(((r.sem >>> 0) ^ O.semilla) >>> 0), Pz = bodPiso(), id = k => r.i + ':' + k;
   // lo que no se tapa: el paso de cada puerta (de la pared al centro), el centro, donde salen los zombis, lo que se usa y los muebles del cuarto
-  const pasos = []; for (const k in lados) { if (lados[k] == null) continue; const [dx, dz] = DV[k], w = V + Lb.puerta; pasos.push(dx ? { x0: Math.min(c.x, c.x + dx * h), x1: Math.max(c.x, c.x + dx * h), z0: c.z - w, z1: c.z + w } : { x0: c.x - w, x1: c.x + w, z0: Math.min(c.z, c.z + dz * h), z1: Math.max(c.z, c.z + dz * h) }); }
+  // (29-oct-2026, tamaños: el cuarto puede ser alargado (hx, hz) y una puerta puede ir corrida del centro de su pared: su paso va derecho hasta la línea
+  // del centro y de ahí, al centro)
+  const hx = bodH(r, 'x'), hz = bodH(r, 'z'), PU = bodPuertasMapa(BOD.L)[r.i];
+  const pasos = bodObstPasos(r, c, V + Lb.puerta);
   BOD.obsPasos[r.i] = pasos;
-  const circ = () => { const out = [{ x: c.x, z: c.z, r: Lb.centro }, { x: c.x + 1.5, z: c.z + 1.5, r: Lb.spawn }]; for (const o of world.uses) if (Math.abs(o.x - c.x) <= h + 0.6 && Math.abs(o.z - c.z) <= h + 0.6) out.push({ x: o.x, z: o.z, r: Lb.uso }); return out; };
+  const sp = bodSpawnXZ(r), circ = () => { const out = [{ x: c.x, z: c.z, r: Lb.centro }, { x: sp.x, z: sp.z, r: Lb.spawn }]; for (const o of world.uses) if (Math.abs(o.x - c.x) <= hx + 0.6 && Math.abs(o.z - c.z) <= hz + 0.6) out.push({ x: o.x, z: o.z, r: Lb.uso }); return out; };
   gR.updateMatrixWorld(true);
-  const muebles = []; for (const o of gR.children) { if (o.isSprite || o.isLight) continue; const b = new THREE.Box3().setFromObject(o); if (!b.isEmpty() && b.min.y < 1.5) muebles.push(b); }
+  const muebles = []; for (const o of gR.children) { if (o.isSprite || o.isLight || o.userData.estr) continue; const b = new THREE.Box3().setFromObject(o); if (!b.isEmpty() && b.min.y < 1.5) muebles.push(b); }
+  for (const b of BOD.estr[r.i] || []) muebles.push(b);   // los estantes y las columnas de la forma (cada pieza con su caja)
   const ya = [];
   const cabe = (q, cs, mueble = Lb.mueble) => {
-    if (q.x0 < c.x - h + Lb.borde || q.x1 > c.x + h - Lb.borde || q.z0 < c.z - h + Lb.borde || q.z1 > c.z + h - Lb.borde) return false;
+    if (q.x0 < c.x - hx + Lb.borde || q.x1 > c.x + hx - Lb.borde || q.z0 < c.z - hz + Lb.borde || q.z1 > c.z + hz - Lb.borde) return false;
     for (const p of pasos) if (q.x1 > p.x0 && q.x0 < p.x1 && q.z1 > p.z0 && q.z0 < p.z1) return false;
     for (const k of cs) { const qx = clamp(k.x, q.x0, q.x1), qz = clamp(k.z, q.z0, q.z1); if (Math.hypot(qx - k.x, qz - k.z) < k.r) return false; }
     for (const b of muebles) if (q.x1 > b.min.x - mueble && q.x0 < b.max.x + mueble && q.z1 > b.min.z - mueble && q.z0 < b.max.z + mueble) return false;
@@ -42383,12 +42661,12 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   // 1) el cofre dorado o rojo (si este cuarto tiene uno): contra una esquina o una pared libre
   if (r.cofreX) {
     const k = r.cofreX.t === 'dorado' ? 'cofreD' : 'cofreR', sitios = [];
-    for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) sitios.push([c.x + sx * (h - 1.0), c.z + sz * (h - 1.0)]);
-    for (const k2 in DV) if (lados[k2] == null) { const [dx, dz] = DV[k2]; sitios.push([c.x + dx * (h - 0.8) + dz * (h * 0.45), c.z + dz * (h - 0.8) + dx * (h * 0.45)], [c.x + dx * (h - 0.8) - dz * (h * 0.45), c.z + dz * (h - 0.8) - dx * (h * 0.45)]); }
+    for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) sitios.push([c.x + sx * (hx - 1.0), c.z + sz * (hz - 1.0)]);
+    for (const k2 in DV) if (lados[k2] == null) { const [dx, dz] = DV[k2], hk = bodHk(r, k2), wk = bodWk(r, k2); sitios.push([c.x + dx * (hk - 0.8) + dz * (wk * 0.45), c.z + dz * (hk - 0.8) + dx * (wk * 0.45)], [c.x + dx * (hk - 0.8) - dz * (wk * 0.45), c.z + dz * (hk - 0.8) - dx * (wk * 0.45)]); }
     for (let i = sitios.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [sitios[i], sitios[j]] = [sitios[j], sitios[i]]; }
     const cs = circ(); let puesto = null;
     for (const [x, z] of sitios) { const q = { x0: x - 0.62, x1: x + 0.62, z0: z - 0.62, z1: z + 0.62 }; if (cabe(q, cs, 0.35)) { puesto = [x, z]; break; } }
-    if (!puesto) for (let a = 0; a < 40 && !puesto; a++) { const x = c.x + (R() * 2 - 1) * (h - 0.9), z = c.z + (R() * 2 - 1) * (h - 0.9), q = { x0: x - 0.62, x1: x + 0.62, z0: z - 0.62, z1: z + 0.62 }; if (cabe(q, cs, 0.35)) puesto = [x, z]; }
+    if (!puesto) for (let a = 0; a < 40 && !puesto; a++) { const x = c.x + (R() * 2 - 1) * (hx - 0.9), z = c.z + (R() * 2 - 1) * (hz - 0.9), q = { x0: x - 0.62, x1: x + 0.62, z0: z - 0.62, z1: z + 0.62 }; if (cabe(q, cs, 0.35)) puesto = [x, z]; }
     if (puesto) {
       const uso = (k3, o) => { o.bodK = id(k3); if (st.usados[o.bodK]) o.off = true; BOD.usos[o.bodK] = o; return mapUse(Object.assign({ r: 1.7, cd: 0.6 }, o)); };
       bodCofreX(gR, puesto[0], puesto[1], Math.atan2(c.x - puesto[0], c.z - puesto[1]), r, uso, !!st.usados[id(k)]);
@@ -42404,15 +42682,15 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   const ai = Math.floor(R() * lista.length), giro = Math.floor(R() * 4), esp = R() < 0.5, A = lista[ai], cs = circ();
   const gira = (u, v) => { if (esp) u = -u; for (let k = 0; k < giro; k++) [u, v] = [-v, u]; return [u, v]; }, ejeG = e => (e + giro) % 2;
   for (const p of A.p) {
-    const t = p[0], [u, v] = gira(p[1], p[2]), x = c.x + u * h, z = c.z + v * h, sem = R(), q_ = R();
+    const t = p[0], [u, v] = gira(p[1], p[2]), x = c.x + u * hx, z = c.z + v * hz, sem = R(), q_ = R();
     const fuerza = r.t === 'jefe' && BAL.jefesFases.activo && BAL.jefesFases.arena.forzar;   // la sala del jefe siempre trae sus trampas
     if ((t === 'f' || t === 'v') && q_ >= Pz.peligro && !fuerza) continue;
     if (t === 'b' && q_ >= Pz.barriles && !fuerza) continue;
     let hw, hd, ex = {};
     if (t === 'c') { const n = p[3] | 0 || 1, s = O.caja, eje = sem < 0.5 ? 0 : 1; if (n === 1) { hw = hd = s / 2; } else { hw = eje ? s / 2 : s + 0.03; hd = eje ? s + 0.03 : s / 2; } ex = { n, eje, giro: (sem * 10) % 1 }; }
     else if (t === 'col') { hw = hd = O.columna / 2; }
-    else if (t === 'm') { const e = ejeG(p[4] | 0), L = Math.min(p[3], h * 0.8), g = O.murete.grueso / 2; hw = e ? g : L / 2; hd = e ? L / 2 : g; }
-    else if (t === 'f') { const odd = giro % 2 === 1, w = Math.min(p[3], h * 0.45), d = Math.min(p[4], h * 0.45); hw = (odd ? d : w) / 2; hd = (odd ? w : d) / 2; }
+    else if (t === 'm') { const e = ejeG(p[4] | 0), L = Math.min(p[3], (e ? hz : hx) * 0.8), g = O.murete.grueso / 2; hw = e ? g : L / 2; hd = e ? L / 2 : g; }
+    else if (t === 'f') { const odd = giro % 2 === 1, w = Math.min(p[3], Math.min(hx, hz) * 0.45), d = Math.min(p[4], Math.min(hx, hz) * 0.45); hw = (odd ? d : w) / 2; hd = (odd ? w : d) / 2; }
     else if (t === 'v') { hw = hd = BAL.bodegas.vapor.tam / 2; }
     else if (t === 'b') { hw = hd = 0.45; }
     else continue;
@@ -42469,33 +42747,43 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
 }
 // ¿se camina de cada puerta al centro y a todo lo que se usa? (cuadrícula del cuarto con los choques del cuarto y las piezas; las escotillas y las rejillas
 // cuentan como paredes: siempre queda un camino sin peligro). Devuelve lo que no se alcanza (vacío si todo está bien). Lo usan bodObstaculos y las pruebas
+// el paso de cada puerta que no se tapa: de la pared hasta la línea del centro (de ancho 2·w) y, si la puerta va corrida (cuartos de varias casillas), de ahí al centro
+function bodObstPasos(r, c, w) {
+  const out = []; if (!BOD.L) return out;
+  for (const d of bodPuertasMapa(BOD.L)[r.i]) {
+    const P = bodPuXZ(r, d, 0), [dx] = BOD_DIR4[d.k];
+    if (dx) { out.push({ x0: Math.min(c.x, P.x), x1: Math.max(c.x, P.x), z0: P.z - w, z1: P.z + w }); if (d.off) out.push({ x0: c.x - w, x1: c.x + w, z0: Math.min(c.z, P.z) - w, z1: Math.max(c.z, P.z) + w }); }
+    else { out.push({ x0: P.x - w, x1: P.x + w, z0: Math.min(c.z, P.z), z1: Math.max(c.z, P.z) }); if (d.off) out.push({ x0: Math.min(c.x, P.x) - w, x1: Math.max(c.x, P.x) + w, z0: c.z - w, z1: c.z + w }); }
+  }
+  return out;
+}
 function bodObstCamina(r, c, h, lados, piezas, cols) {
-  const Lb = BAL.bodegas.obst.libre, cs = Lb.celda, N = Math.ceil(2 * h / cs), ox = c.x - h, oz = c.z - h, rad = Lb.radio, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] };
-  const blk = new Uint8Array(N * N), cerca = cols.filter(q => !q.rompe && Math.abs(q.x - c.x) < h + q.br + 1 && Math.abs(q.z - c.z) < h + q.br + 1);
-  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-    const x = ox + (i + 0.5) * cs, z = oz + (j + 0.5) * cs; let b = Math.abs(x - c.x) > h - rad + 0.1 || Math.abs(z - c.z) > h - rad + 0.1 ? 1 : 0;
+  const Lb = BAL.bodegas.obst.libre, cs = Lb.celda, hx = bodH(r, 'x'), hz = bodH(r, 'z'), NX = Math.ceil(2 * hx / cs), NZ = Math.ceil(2 * hz / cs), ox = c.x - hx, oz = c.z - hz, rad = Lb.radio;
+  const blk = new Uint8Array(NX * NZ), cerca = cols.filter(q => !q.rompe && Math.abs(q.x - c.x) < hx + q.br + 1 && Math.abs(q.z - c.z) < hz + q.br + 1);
+  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) {
+    const x = ox + (i + 0.5) * cs, z = oz + (j + 0.5) * cs; let b = Math.abs(x - c.x) > hx - rad + 0.1 || Math.abs(z - c.z) > hz - rad + 0.1 ? 1 : 0;
     if (!b) for (const q of cerca) { const dx = x - q.x, dz = z - q.z; if (Math.abs(dx) > q.br + rad || Math.abs(dz) > q.br + rad) continue; if (q.t === 'c') { if (dx * dx + dz * dz < (q.r + rad) * (q.r + rad)) { b = 1; break; } } else { const lx = dx * q.cos - dz * q.sin, lz = dx * q.sin + dz * q.cos; if (Math.abs(lx) < q.hw + rad && Math.abs(lz) < q.hd + rad) { b = 1; break; } } }
     if (!b) for (const p of piezas) { const m = p.t === 'f' || p.t === 'v' ? Lb.foso : rad; if (x > p.q.x0 - m && x < p.q.x1 + m && z > p.q.z0 - m && z < p.q.z1 + m) { b = 1; break; } }
-    blk[j * N + i] = b;
+    blk[j * NX + i] = b;
   }
-  const cel = (x, z) => clamp(Math.floor((z - oz) / cs), 0, N - 1) * N + clamp(Math.floor((x - ox) / cs), 0, N - 1);
+  const cel = (x, z) => clamp(Math.floor((z - oz) / cs), 0, NZ - 1) * NX + clamp(Math.floor((x - ox) / cs), 0, NX - 1);
   // desde el centro (la celda libre más cercana)
-  let s0 = -1, bd = 1e9; { const k0 = cel(c.x, c.z), i0 = k0 % N, j0 = (k0 / N) | 0; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (!blk[j * N + i]) { const d = Math.hypot(i - i0, j - j0); if (d < bd) { bd = d; s0 = j * N + i; } } }
+  let s0 = -1, bd = 1e9; { const k0 = cel(c.x, c.z), i0 = k0 % NX, j0 = (k0 / NX) | 0; for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) if (!blk[j * NX + i]) { const d = Math.hypot(i - i0, j - j0); if (d < bd) { bd = d; s0 = j * NX + i; } } }
   if (s0 < 0) return ['sin lugar'];
-  const vis = new Uint8Array(N * N), q = [s0]; vis[s0] = 1;
-  for (let k = 0; k < q.length; k++) { const n = q[k], i = n % N, j = (n / N) | 0; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= N || b >= N) continue; const m = b * N + a; if (vis[m] || blk[m]) continue; vis[m] = 1; q.push(m); } }
-  const llega = (x, z, rr) => { for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const m = j * N + i; if (!vis[m]) continue; if (Math.hypot(ox + (i + 0.5) * cs - x, oz + (j + 0.5) * cs - z) <= rr) return true; } return false; };
+  const vis = new Uint8Array(NX * NZ), q = [s0]; vis[s0] = 1;
+  for (let k = 0; k < q.length; k++) { const n = q[k], i = n % NX, j = (n / NX) | 0; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= NX || b >= NZ) continue; const m = b * NX + a; if (vis[m] || blk[m]) continue; vis[m] = 1; q.push(m); } }
+  const llega = (x, z, rr) => { for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const m = j * NX + i; if (!vis[m]) continue; if (Math.hypot(ox + (i + 0.5) * cs - x, oz + (j + 0.5) * cs - z) <= rr) return true; } return false; };
   const mal = [];
   if (bd * cs > Lb.centro) mal.push('centro tapado');
-  for (const k in lados) { if (lados[k] == null) continue; const [dx, dz] = DV[k]; if (!llega(c.x + dx * (h - 0.5), c.z + dz * (h - 0.5), 0.6)) mal.push('puerta ' + k); }
-  for (const o of world.uses) if (!o.off && Math.abs(o.x - c.x) <= h && Math.abs(o.z - c.z) <= h && !llega(o.x, o.z, Math.min(o.r || 1.7, Lb.llega))) mal.push('uso ' + (o.bodK || o.t));
+  for (const d of BOD.L ? bodPuertasMapa(BOD.L)[r.i] : []) { const P = bodPuXZ(r, d, 0.5); if (!llega(P.x, P.z, 0.6)) mal.push('puerta ' + d.k + (d.off ? (d.off > 0 ? '+' : '-') : '')); }
+  for (const o of world.uses) if (!o.off && Math.abs(o.x - c.x) <= hx && Math.abs(o.z - c.z) <= hz && !llega(o.x, o.z, Math.min(o.r || 1.7, Lb.llega))) mal.push('uso ' + (o.bodK || o.t));
   return mal;
 }
 // ---- cada cuadro: los barriles en cadena, la entrada del cuarto, las escotillas (tú y los zombis) y las rejillas de vapor
-function bodEntradaDe(rm, x, z) {
-  const lados = (BOD.lados && BOD.lados[rm.i]) || {}, c = bodC(rm), h = bodH(rm), DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }; let best = null, bd = 1e9;
-  for (const k in lados) { if (typeof lados[k] !== 'number') continue; const [dx, dz] = DV[k], px = c.x + dx * (h - 1.0), pz = c.z + dz * (h - 1.0), d = Math.hypot(px - x, pz - z); if (d < bd) { bd = d; best = { r: rm.i, k, x: px, z: pz }; } }
-  return best || { r: rm.i, k: '', x: c.x, z: c.z };
+function bodEntradaDe(rm, x, z) {   // la puerta del cuarto más cerca de (x, z): 1 m hacia dentro (cada puerta, también las corridas de los cuartos grandes)
+  let best = null, bd = 1e9;
+  for (const d of BOD.L ? bodPuertasMapa(BOD.L)[rm.i] : []) { if (typeof d.o !== 'number') continue; const P = bodPuXZ(rm, d, 1.0), dd = Math.hypot(P.x - x, P.z - z); if (dd < bd) { bd = dd; best = { r: rm.i, k: d.k, x: P.x, z: P.z }; } }
+  const c = bodC(rm); return best || { r: rm.i, k: '', x: c.x, z: c.z };
 }
 function bodCaer(f) {
   const E = BAL.bodegas.escotilla, rm = BOD.L.rooms[f.r], en = BOD.entra && BOD.entra.r === f.r ? BOD.entra : bodEntradaDe(rm, player.pos.x, player.pos.z);
@@ -42790,36 +43078,43 @@ const bodDecBase = (x, z, ry, y0 = 0) => new THREE.Matrix4().makeRotationY(ry).s
 // ---- lo que hay en el cuarto: paredes con sus pasos, esquinas, puntos libres del suelo y del techo
 function bodDecSitio(r, c, h, lados, gR) {
   const B = BAL.bodegas, D = B.decor, H = B.alto, V = B.vano / 2, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, Lb = D.libre;
+  const hx = bodH(r, 'x'), hz = bodH(r, 'z'), PU = BOD.L ? bodPuertasMapa(BOD.L)[r.i] : [];   // (29-oct-2026: los cuartos pueden ser alargados y llevar dos puertas en una pared)
   const hoja = {}; for (const P_ of BOD.puertas) if (P_.r === r.i) hoja[P_.k] = 1;
   if (r.t === 'inicio') for (const k of ['e', 'o', 'n', 's']) if (lados[k] == null) { hoja['j' + k] = 1; break; }
   gR.updateMatrixWorld(true);
-  const obs = []; for (const o of gR.children) { if (o.isSprite || o.isLight) continue; const b = new THREE.Box3().setFromObject(o); if (!b.isEmpty()) obs.push(b); }
+  const obs = []; for (const o of gR.children) { if (o.isSprite || o.isLight || o.userData.estr) continue; const b = new THREE.Box3().setFromObject(o); if (!b.isEmpty()) obs.push(b); }
   for (const b of (BOD.obsCajas && BOD.obsCajas[r.i]) || []) obs.push(b);   // los obstáculos del acomodo (van fundidos: aquí, cada uno con su caja)
+  for (const b of ((BOD.estr && BOD.estr[r.i]) || []).concat((BOD.lampB && BOD.lampB[r.i]) || [])) obs.push(b);   // los estantes, las columnas y las lámparas fundidas (cada pieza con su caja)
   // lo que estorba de verdad: el paso de cada puerta, el centro, lo que se usa y donde salen los zombis
   const zonas = [], circ = [{ x: c.x, z: c.z, r: Lb.centro }];
-  for (const k in lados) { if (lados[k] == null) continue; const [dx, dz] = DV[k], ax = dx ? 'z' : 'x', w = V + Lb.puerta, x0 = c.x + dx * h, z0 = c.z + dz * h, x1 = x0 - dx * Lb.hondo, z1 = z0 - dz * Lb.hondo;
-    zonas.push(ax === 'z' ? { x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: c.z - w, z1: c.z + w } : { x0: c.x - w, x1: c.x + w, z0: Math.min(z0, z1), z1: Math.max(z0, z1) }); }
-  for (const o of world.uses) if (Math.abs(o.x - c.x) <= h + 0.6 && Math.abs(o.z - c.z) <= h + 0.6) circ.push({ x: o.x, z: o.z, r: Lb.uso });
+  for (const d of PU) { const [dx, dz] = DV[d.k], w = V + Lb.puerta, P = bodPuXZ(r, d, 0), x1 = P.x - dx * Lb.hondo, z1 = P.z - dz * Lb.hondo;
+    zonas.push(dx ? { x0: Math.min(P.x, x1), x1: Math.max(P.x, x1), z0: P.z - w, z1: P.z + w } : { x0: P.x - w, x1: P.x + w, z0: Math.min(P.z, z1), z1: Math.max(P.z, z1) }); }
+  for (const o of world.uses) if (Math.abs(o.x - c.x) <= hx + 0.6 && Math.abs(o.z - c.z) <= hz + 0.6) circ.push({ x: o.x, z: o.z, r: Lb.uso });
   if (BOD.acomodo && BOD.acomodo[r.i] && BOD.acomodo[r.i].piezas.length) zonas.push(...(BOD.obsPasos[r.i] || []));   // con obstáculos, el paso de cada puerta queda libre hasta el centro
-  if (r.t !== 'inicio' && !bodEsSala(r.t)) circ.push({ x: c.x + 1.5, z: c.z + 1.5, r: Lb.spawn });
+  if (r.t !== 'inicio' && !bodEsSala(r.t)) { const sp = bodSpawnXZ(r); circ.push({ x: sp.x, z: sp.z, r: Lb.spawn }); }
   if (r.t === 'inicio' && BODJ.dentro) circ.push({ x: BODJ.dentro.x, z: BODJ.dentro.z, r: Lb.uso });
-  // mundo vivo: las paredes que dan afuera (sin habitación ni espacio abierto del otro lado): ahí puede ir una ventana a la calle
-  const L_ = BOD.L, celdas = L_ ? (L_._cel || (L_._cel = new Set(L_.rooms.flatMap(o => o.abierto ? o.cel.map(q => q.join(',')) : [o.x + ',' + o.y])))) : new Set();
-  const fuera = ['e', 'o', 'n', 's'].filter(k => lados[k] == null && !hoja[k] && !hoja['j' + k] && !celdas.has((r.x + DV[k][0]) + ',' + (r.y + DV[k][1])));
-  const X = { fuera, r, c, h, H, V, D, DV, lados, hoja, obs, ocup: [], zonas, circ, gR, oscuro: r.t === 'oscuro', lamp: r.t !== 'oscuro' };
+  // mundo vivo: las paredes que dan afuera (sin habitación ni espacio abierto del otro lado de ninguna de sus casillas): ahí puede ir una ventana a la calle
+  const L_ = BOD.L, celdas = L_ ? (L_._cel || (L_._cel = new Set(L_.rooms.flatMap(o => bodCeldas(o).map(q => q.join(',')))))) : new Set(), mias = bodCeldas(r), es = (x, y) => mias.some(q => q[0] === x && q[1] === y);
+  const fuera = ['e', 'o', 'n', 's'].filter(k => lados[k] == null && !hoja[k] && !hoja['j' + k] && mias.every(q => { const x = q[0] + DV[k][0], y = q[1] + DV[k][1]; return es(x, y) || !celdas.has(x + ',' + y); }));
+  // en cada pared: dónde van sus pasos (u: a lo largo de la pared, en el marco de la pared)
+  const huecosU = k => { const s = k === 'e' || k === 'n' ? 1 : -1, us = PU.filter(d => d.k === k).map(d => d.off * s); if (hoja['j' + k] && !us.length) us.push(0); return us.sort((a, b) => a - b); };
+  const X = { fuera, r, c, h: Math.max(hx, hz), hx, hz, H, V, D, DV, lados, hoja, obs, ocup: [], zonas, circ, gR, oscuro: r.t === 'oscuro', lamp: r.t !== 'oscuro', huecosU, PU };
+  X.hk = k => bodHk(r, k); X.wk = k => bodWk(r, k);
   // un lugar en una pared para algo de «w» de ancho: m es lo que se aparta de los pasos. Devuelve el marco (x a lo largo de la pared, z hacia dentro)
   X.pared = (R, w, m, k0, centro, solo) => {   // solo: las paredes que sirven (si no, cualquiera)
     const ks = k0 ? [k0] : (solo || ['e', 'o', 'n', 's']).slice().sort(() => R() - 0.5);
     for (const k of ks) {
-      const seg = lados[k] != null || hoja['j' + k] ? [[-h + Lb.borde, -V - m], [V + m, h - Lb.borde]] : [[-h + Lb.borde, h - Lb.borde]], ok = seg.filter(s => s[1] - s[0] >= w);
+      const W = bodWk(r, k), hk = bodHk(r, k), seg = []; let u0 = -W + Lb.borde;
+      for (const u of huecosU(k)) { seg.push([u0, u - V - m]); u0 = u + V + m; } seg.push([u0, W - Lb.borde]);
+      const ok = seg.filter(s => s[1] - s[0] >= w);
       if (!ok.length) continue; const s = ok[Math.floor(R() * ok.length)], u = centro ? (s[0] + s[1]) / 2 : s[0] + w / 2 + R() * (s[1] - s[0] - w);
-      const [dx, dz] = DV[k], ry = Math.atan2(-dx, -dz), fx = c.x + dx * h, fz = c.z + dz * h;
+      const [dx, dz] = DV[k], ry = Math.atan2(-dx, -dz), fx = c.x + dx * hk, fz = c.z + dz * hk;
       return { k, u, largo: s[1] - s[0], base: bodDecBase(fx + Math.cos(ry) * u, fz - Math.sin(ry) * u, ry) };
     }
     return null;
   };
   // un punto del suelo (o del techo) a «rad» metros de las paredes, con un giro cualquiera
-  X.punto = (R, rad) => { const lim = h - rad - 0.1; if (lim <= 0) return null; return bodDecBase(c.x + (R() * 2 - 1) * lim, c.z + (R() * 2 - 1) * lim, R() * Math.PI * 2); };
+  X.punto = (R, rad) => { const lx = hx - rad - 0.1, lz = hz - rad - 0.1; if (lx <= 0 || lz <= 0) return null; return bodDecBase(c.x + (R() * 2 - 1) * lx, c.z + (R() * 2 - 1) * lz, R() * Math.PI * 2); };
   return X;
 }
 // ---- las piezas (recetas de las páginas de las encuestas, a la escala del juego). en: dónde va · w: ancho a lo largo de la pared · m: cuánto se aparta de los pasos
@@ -42909,14 +43204,16 @@ const BOD_DEC = {
     F.toro('op', 0.17, 0.028, x0, 1.35, 0.34, 0x9a1d1d); F.cyl('op', 0.03, 0.03, 0.2, x0, 1.35, 0.25, BODC.hierro, { rx: Math.PI / 2 });
     for (const a of [0, Math.PI / 2]) F.box('op', 0.32, 0.025, 0.025, x0, 1.35, 0.34, 0x9a1d1d, { rz: a });
   } },
-  vigas: { en: 'sala', arma(F, X, R) {
-    const H = X.H, h = X.h, V_ = X.D.vigas, eje = R() < 0.5 ? 'x' : 'z', n = V_.n[0] + Math.floor(R() * (V_.n[1] - V_.n[0] + 1)), offs = [];
-    for (let k = 0; k < 40 && offs.length < n; k++) { const o = (R() * 2 - 1) * (h - 0.8); if (Math.abs(o) >= V_.centro && offs.every(q => Math.abs(q - o) >= V_.entre)) offs.push(o); }
+  vigas: { en: 'sala', arma(F, X, R, P) {
+    const H = X.H, V_ = X.D.vigas, eje = R() < 0.5 ? 'x' : 'z', n = V_.n[0] + Math.floor(R() * (V_.n[1] - V_.n[0] + 1)), offs = [];
+    const gi = P && P.rot % 2, lx = (gi ? X.hz : X.hx) || X.h, lz = (gi ? X.hx : X.hz) || X.h;   // (cuartos alargados: el marco va girado; lx, lz: sus medidas en el marco)
+    const hL = eje === 'x' ? lx : lz, hO = eje === 'x' ? lz : lx;   // a lo largo de la viga y de través
+    for (let k = 0; k < 40 && offs.length < n; k++) { const o = (R() * 2 - 1) * (hO - 0.8); if (Math.abs(o) >= V_.centro && offs.every(q => Math.abs(q - o) >= V_.entre)) offs.push(o); }
     if (!offs.length) return false;
     offs.forEach((o, i) => {
-      F.grupo = i; const L_ = 2 * h, [bx_, bz_] = eje === 'x' ? [0, o] : [o, 0];
+      F.grupo = i; const L_ = 2 * hL, [bx_, bz_] = eje === 'x' ? [0, o] : [o, 0];
       F.box('op', eje === 'x' ? L_ : 0.26, 0.3, eje === 'x' ? 0.26 : L_, bx_, H - 0.15, bz_, i % 2 ? BODC.madera : 0x5a3a20);
-      for (const s of [-1, 1]) { const ex = eje === 'x' ? s * (h - 0.42) : o, ez = eje === 'x' ? o : s * (h - 0.42); F.box('op', 0.16, 0.9, 0.16, ex, H - 0.55, ez, BODC.oscura, eje === 'x' ? { rz: s * 0.7 } : { rx: -s * 0.7 }); }
+      for (const s of [-1, 1]) { const ex = eje === 'x' ? s * (hL - 0.42) : o, ez = eje === 'x' ? o : s * (hL - 0.42); F.box('op', 0.16, 0.9, 0.16, ex, H - 0.55, ez, BODC.oscura, eje === 'x' ? { rz: s * 0.7 } : { rx: -s * 0.7 }); }
     });
   } },
   arcos: { en: 'arco', arma(F, X, R) {
@@ -42949,8 +43246,8 @@ const BOD_DEC = {
     for (const a of [-0.35, 0.35]) for (const b of [-0.48, 0.48]) F.cyl('op', 0.13, 0.13, 0.06, xv + a, 0.15, 0.9 + b, BODC.hierro, { rx: Math.PI / 2, s: 10 });
     for (let i = 0; i < 4; i++) F.esf('op', 0.16, xv + (i - 1.5) * 0.22, 0.78, 0.9 + (R() - 0.5) * 0.4, 0x2a2622, { sy: 0.7 });
   } },
-  alfombra: { en: 'puerta', arma(F, X, R) {
-    const A = X.D.alfombra, L_ = Math.min(X.h - 0.4, A.largo[0] + R() * (A.largo[1] - A.largo[0]));
+  alfombra: { en: 'puerta', arma(F, X, R, P) {
+    const A = X.D.alfombra, L_ = Math.min(((P && P.hk) || X.h) - 0.4, A.largo[0] + R() * (A.largo[1] - A.largo[0]));   // (hasta el centro del cuarto, desde su puerta)
     F.box('op', 1.3, 0.012, L_, 0, 0.006, 0.3 + L_ / 2, BODC.oro); F.box('op', 1.12, 0.016, L_ - 0.18, 0, 0.01, 0.3 + L_ / 2, BODC.rojo);
     for (let i = 0; i < 3; i++) F.box('op', 0.25 + R() * 0.3, 0.018, 0.3 + R() * 0.3, (R() - 0.5) * 0.6, 0.012, 0.5 + R() * (L_ - 0.4), R() < 0.5 ? 0x5a1414 : 0x3a2a1e);
   } },
@@ -43007,7 +43304,8 @@ const BOD_DEC = {
     const c = X.c, Hm = H - 0.8, vel = P_.vel;
     F.T.anim.push((dt, t) => { for (const p of motas) { p.y0 = (p.y0 + vel * p.v * dt) % Hm; const k = 0.2 + (rr - 0.2) * (1 - p.y0 / (H - 0.6)), a = p.a + t * 0.08 * p.v; p.x = c.x + Math.cos(a) * Math.min(p.rr, k); p.z = c.z + Math.sin(a) * Math.min(p.rr, k); p.y = p.y0 + Math.sin(t * p.v + p.a) * 0.05; p.sucio = 1; } });
   } },
-  niebla: { en: 'sala', arma(F, X) { const N = X.D.niebla, s = 2 * X.h - 0.2; for (let i = 0; i < N.capas; i++) F.plano('ad', s, s, 0, 0.1 + i * N.alto / N.capas, 0, 0x0e0d0c, { rx: -Math.PI / 2, rz: i * 1.3, uv: 'niebla' }); } },
+  niebla: { en: 'sala', arma(F, X, R, P) { const N = X.D.niebla, gi = P && P.rot % 2, lx = (gi ? X.hz : X.hx) || X.h, lz = (gi ? X.hx : X.hz) || X.h, m = Math.min(lx, lz), s = 2 * m - 0.2, n = Math.max(1, Math.round(Math.max(lx, lz) / m));   // (en un cuarto alargado, varias a lo largo)
+    for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * 2 * Math.max(lx, lz) / n, ox = lx >= lz ? o : 0, oz = lx >= lz ? 0 : o; for (let i = 0; i < N.capas; i++) F.plano('ad', s, s, ox, 0.1 + i * N.alto / N.capas, oz, 0x0e0d0c, { rx: -Math.PI / 2, rz: i * 1.3 + j, uv: 'niebla' }); } } },
   ratas: { en: 'sala', arma(F, X, R) {
     const Rt = X.D.ratas, n = Rt.n[0] + Math.floor(R() * (Rt.n[1] - Rt.n[0] + 1)), L = [];
     for (let i = 0; i < n; i++) { const s = bodDecRataSitio(X, R); if (s) L.push(Object.assign(s, { est: 'quieta', t: 0, ph: R() * 6.28 })); }
@@ -43117,8 +43415,11 @@ const BOD_DEC = {
 };
 // dónde se para una rata: junto a una pared, fuera de los pasos
 function bodDecRataSitio(X, R) {
-  const k = ['e', 'o', 'n', 's'][Math.floor(R() * 4)], h = X.h, V = X.V, gap = X.lados[k] != null;
-  let u = (R() * 2 - 1) * (h - 0.4); if (gap && Math.abs(u) < V + 0.3) u = (u < 0 ? -1 : 1) * (V + 0.3 + R() * Math.max(0, h - V - 0.8));
+  const k = ['e', 'o', 'n', 's'][Math.floor(R() * 4)], h = X.wk ? X.wk(k) : X.h, V = X.V, gap = X.lados[k] != null;
+  let u = (R() * 2 - 1) * (h - 0.4);
+  if (gap && X.PU) { for (const d of X.PU) if (d.k === k && Math.abs(u - d.off) < V + 0.3) {   // (u: corrido a lo largo de la pared, en metros del mundo; lejos de cada paso)
+    const lado = u < d.off ? -1 : 1, u2 = d.off + lado * (V + 0.3 + R() * 0.8); u = Math.abs(u2) <= h - 0.3 ? u2 : d.off - lado * (V + 0.3 + R() * 0.8); } }
+  else if (gap && Math.abs(u) < V + 0.3) u = (u < 0 ? -1 : 1) * (V + 0.3 + R() * Math.max(0, h - V - 0.8));
   return { k, u };
 }
 // la caja de cada grupo de una pieza (en el mundo) y si estorba (lo que se para en el suelo y es alto se choca)
@@ -43130,13 +43431,14 @@ function bodDecCajas(T, D) {
   return [...G.values()].map(q => ({ b: q, col: q.min.y < D.libre.bajo && q.max.y - q.min.y > D.libre.alto }));
 }
 function bodDecValida(X, T, cajas) {
-  const c = X.c, h = X.h, Lb = X.D.libre;
+  const c = X.c, hx = X.hx || X.h, hz = X.hz || X.h, Lb = X.D.libre;
   for (const q of cajas) {
-    const b = q.b; if (b.min.x < c.x - h - 0.03 || b.max.x > c.x + h + 0.03 || b.min.z < c.z - h - 0.03 || b.max.z > c.z + h + 0.03 || b.max.y > X.H + 0.03) return false;
+    const b = q.b; if (b.min.x < c.x - hx - 0.03 || b.max.x > c.x + hx + 0.03 || b.min.z < c.z - hz - 0.03 || b.max.z > c.z + hz + 0.03 || b.max.y > X.H + 0.03) return false;
     const be = b.clone().expandByScalar(Lb.entre);
     for (const o of X.obs) if (be.intersectsBox(o)) return false;
     for (const o of X.ocup) if (be.intersectsBox(o)) return false;
     if (q.col && !T.libre) {
+      if (bodAngosto(X.r)) { const ex = hx < hz, s = bodLadoA(X.r), a0 = ex ? b.min.x - c.x : b.min.z - c.z, a1 = ex ? b.max.x - c.x : b.max.z - c.z; if (s > 0 ? a0 < 0.05 : a1 > -0.05) return false; }   // en un pasillo de 4 m, solo en su mitad de las cosas
       for (const z of X.zonas) if (b.max.x > z.x0 && b.min.x < z.x1 && b.max.z > z.z0 && b.min.z < z.z1) return false;
       for (const k of X.circ) { const qx = clamp(k.x, b.min.x, b.max.x), qz = clamp(k.z, b.min.z, b.max.z); if (Math.hypot(qx - k.x, qz - k.z) < k.r) return false; }
     }
@@ -43148,11 +43450,11 @@ function bodDecProbar(X, K, key, sem, ya) {
   const P_ = BOD_DEC[key], R = mulberry32(sem), T = bodDecT(); let base = null, extra = {};
   if (P_.en === 'pared') { const w = P_.ancho ? X.D[key].largo[0] : P_.w, q = X.pared(R, w, P_.m, null, !!P_.ancho, P_.fuera ? X.fuera : null); if (!q) return false; base = q.base; extra = q; }
   else if (P_.en === 'suelo' || P_.en === 'techo') base = X.punto(R, P_.rad);
-  else if (P_.en === 'sala') base = bodDecBase(X.c.x, X.c.z, Math.floor(R() * 4) * Math.PI / 2);
-  else if (P_.en === 'esquina') { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1; base = bodDecBase(X.c.x + sx * X.h, X.c.z + sz * X.h, Math.atan2(-sx, -sz)); }
-  else if (P_.en === 'arco' || P_.en === 'puerta') {
-    const ks = Object.keys(X.lados).filter(k => X.lados[k] != null && (P_.en === 'puerta' || !X.hoja[k])).sort(() => R() - 0.5); if (!ks.length) return false;
-    const k = ks[0], [dx, dz] = X.DV[k], ry = Math.atan2(-dx, -dz); base = bodDecBase(X.c.x + dx * X.h, X.c.z + dz * X.h, ry); if (P_.en === 'arco') T.libre = true;
+  else if (P_.en === 'sala') { const rot = Math.floor(R() * 4); base = bodDecBase(X.c.x, X.c.z, rot * Math.PI / 2); extra = { rot }; }   // (rot: el giro del marco, para los cuartos alargados)
+  else if (P_.en === 'esquina') { const sx = R() < 0.5 ? -1 : 1, sz = R() < 0.5 ? -1 : 1; base = bodDecBase(X.c.x + sx * (X.hx || X.h), X.c.z + sz * (X.hz || X.h), Math.atan2(-sx, -sz)); }
+  else if (P_.en === 'arco' || P_.en === 'puerta') {   // en una puerta (cada paso, también los corridos de los cuartos de varias casillas)
+    const ds = (X.PU || []).filter(d => P_.en === 'puerta' || !X.hoja[d.k]).sort(() => R() - 0.5); if (!ds.length) return false;
+    const d = ds[0], [dx, dz] = X.DV[d.k], ry = Math.atan2(-dx, -dz), Pp = bodPuXZ(X.r, d, 0); base = bodDecBase(Pp.x, Pp.z, ry); extra = { hk: X.hk ? X.hk(d.k) : X.h }; if (P_.en === 'arco') T.libre = true;
   }
   if (!base) return false;
   const F = bodDecMarco(T, base);
@@ -43223,7 +43525,9 @@ function bodDecorar(r, c, h, gR, lados, st) {
   const plan = st.decor && st.decor[r.i];
   if (plan) for (const [key, sem] of plan) { if (BOD_DEC[key]) bodDecProbar(X, K, key, sem, true); }
   else {
-    const R = mulberry32(((r.sem >>> 0) ^ D.semilla) >>> 0), n = D.n[0] + Math.floor(R() * (D.n[1] - D.n[0] + 1)), out = [];
+    const R = mulberry32(((r.sem >>> 0) ^ D.semilla) >>> 0), n0 = D.n[0] + Math.floor(R() * (D.n[1] - D.n[0] + 1)), out = [];
+    // (29-oct-2026, tamaños: cambia con el área; los chiquitos, de 0 a 2) · las salas especiales y las salas con puerta, como siempre
+    const TAa = BAL.bodegas.tamanos.area, n = !BAL.bodegas.tamanos.tipos[r.t] ? n0 : bodChiquito(r) ? Math.min(TAa.decor[1], Math.max(TAa.decor[0], n0 - 5)) : Math.round(n0 * (bodArea(r) >= TAa.decorIgual ? clamp(Math.sqrt(bodArea(r) / TAa.decorRef), 1, TAa.max) : bodAreaX(r)));
     const Td = bodTemaD(), Dd = Td ? Td.decor : D, kT = bodEsSala(r.t) ? 'sala' : r.t;   // con tema (29-oct-2026): sus piezas (las salas especiales siguen con las suyas)
     const pool = Object.assign({}, Dd.comun, Dd.tipos[kT] || (Td && bodEspecial(r.t) ? D.tipos[kT] : null) || {}); if (D.sinLuz.includes(r.t)) for (const k of D.luz) delete pool[k];
     const veces = {}, prueba = (key) => { for (let a = 0; a < D.intentos; a++) { const sem = (R() * 4294967296) >>> 0; if (bodDecProbar(X, K, key, sem, false)) { out.push([key, sem]); veces[key] = (veces[key] | 0) + 1; return true; } } return false; };
@@ -43279,14 +43583,15 @@ function bodDecorar(r, c, h, gR, lados, st) {
 }
 // las ratas: quietas junto a la pared, huyen si te acercas y se meten en un agujero; vuelven al rato a otro lugar
 function bodDecRatas(Rm, dt, X) {
-  const Rt = BAL.bodegas.decor.ratas, Q = Rm.ratas, c = Rm.c, h = Rm.h, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, px = player.pos.x, pz = player.pos.z, t = performance.now() / 1000;
+  const Rt = BAL.bodegas.decor.ratas, Q = Rm.ratas, c = Rm.c, DV = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }, px = player.pos.x, pz = player.pos.z, t = performance.now() / 1000;
+  const hk = k => bodHk(Rm.r, k), wk = k => bodWk(Rm.r, k);   // (29-oct-2026: cada pared con su medida: los cuartos pueden ser alargados)
   Q.L.forEach((a, i) => {
-    const [dx, dz] = DV[a.k], tx = dz ? 1 : 0, tz = dx ? 1 : 0;   // a lo largo de la pared
+    const [dx, dz] = DV[a.k], tx = dz ? 1 : 0, tz = dx ? 1 : 0, h = hk(a.k);   // a lo largo de la pared
     const x = c.x + dx * (h - 0.28) + tx * a.u, z = c.z + dz * (h - 0.28) + tz * a.u;
-    if (a.est === 'fuera') { if ((a.t -= dt) <= 0) { const s = bodDecRataSitio(X || Rm.X, Math.random); const nx = c.x + DV[s.k][0] * (h - 0.28) + (DV[s.k][1] ? s.u : 0), nz = c.z + DV[s.k][1] * (h - 0.28) + (DV[s.k][0] ? s.u : 0); if (Math.hypot(nx - px, nz - pz) > Rt.huye * 1.6) { a.k = s.k; a.u = s.u; a.est = 'quieta'; } } }
-    else if (a.est === 'quieta') { if (dt > 0 && Math.hypot(x - px, z - pz) < Rt.huye) { a.dir = Math.sign((x - px) * tx + (z - pz) * tz) || 1; a.meta = clamp(a.u + a.dir * (Rt.corre[0] + Math.random() * (Rt.corre[1] - Rt.corre[0])), -h + 0.3, h - 0.3); a.est = 'corre'; const ah = performance.now(); if (Sfx.rata && ah > BODD.chill) { BODD.chill = ah + Rt.chillido * 1000; const v3 = new THREE.Vector3(x, 0, z); Sfx.rata(panOf(v3), volOf(v3, 1)); } } }
+    if (a.est === 'fuera') { if ((a.t -= dt) <= 0) { const s = bodDecRataSitio(X || Rm.X, Math.random); const nx = c.x + DV[s.k][0] * (hk(s.k) - 0.28) + (DV[s.k][1] ? s.u : 0), nz = c.z + DV[s.k][1] * (hk(s.k) - 0.28) + (DV[s.k][0] ? s.u : 0); if (Math.hypot(nx - px, nz - pz) > Rt.huye * 1.6) { a.k = s.k; a.u = s.u; a.est = 'quieta'; } } }
+    else if (a.est === 'quieta') { if (dt > 0 && Math.hypot(x - px, z - pz) < Rt.huye) { a.dir = Math.sign((x - px) * tx + (z - pz) * tz) || 1; a.meta = clamp(a.u + a.dir * (Rt.corre[0] + Math.random() * (Rt.corre[1] - Rt.corre[0])), -wk(a.k) + 0.3, wk(a.k) - 0.3); a.est = 'corre'; const ah = performance.now(); if (Sfx.rata && ah > BODD.chill) { BODD.chill = ah + Rt.chillido * 1000; const v3 = new THREE.Vector3(x, 0, z); Sfx.rata(panOf(v3), volOf(v3, 1)); } } }
     else { a.u += a.dir * Rt.vel * dt; if ((a.meta - a.u) * a.dir <= 0) { a.est = 'fuera'; a.t = Rt.vuelve[0] + Math.random() * (Rt.vuelve[1] - Rt.vuelve[0]); } }
-    const x2 = c.x + dx * (h - 0.28) + tx * a.u, z2 = c.z + dz * (h - 0.28) + tz * a.u;
+    const x2 = c.x + dx * (h - 0.28) + tx * a.u, z2 = c.z + dz * (h - 0.28) + tz * a.u;   // (si cambió de pared, se ve desde el cuadro siguiente)
     const ry = a.est === 'corre' ? Math.atan2(tx * a.dir, tz * a.dir) : Math.atan2(-dx, -dz) + Math.sin(t * 2 + a.ph) * 0.5;
     Q.e.set(0, ry, 0); Q.q.setFromEuler(Q.e); Q.v.set(x2, a.est === 'corre' ? Math.abs(Math.sin(t * 30 + a.ph)) * 0.02 : 0, z2); Q.s.setScalar(a.est === 'fuera' ? 0.0001 : 1);
     Q.m4.compose(Q.v, Q.q, Q.s); Q.im.setMatrixAt(i, Q.m4);
@@ -43419,7 +43724,8 @@ function bodAbierto(r, c, gR, lados) {
     forma(BODM.cantera, cyl(0.24, 0.3, 1.3, 12), c.x, 0.9, c.z); forma(BODM.cantera, cyl(0.8, 0.35, 0.28, 16), c.x, 1.6, c.z); forma(BODM.cantera, cyl(0.1, 0.16, 0.5, 8), c.x, 1.95, c.z);
     addCircle(c.x, c.z, f + 0.1);
     const cols = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]].slice(0, Pt.columnas);   // columnas en las esquinas (lejos de los pasos en cruz)
-    for (const [sx, sz] of cols) { const x = c.x + sx * (hx - 2.2), z = c.z + sz * (hz - 2.2); caja(BODM.cantera, [x, 0.15, z, 0.9, 0.3, 0.9]); caja(BODM.cantera, [x, H - 0.12, z, 0.9, 0.24, 0.9]); forma(BODM.cantera, cyl(0.3, 0.34, H - 0.5, 12), x, H / 2, z); addCircle(x, z, 0.45); }
+    const lx = r.tam === 'patio' && hx > hz ? hx * 0.45 : hx - 2.2, lz = r.tam === 'patio' && hz > hx ? hz * 0.45 : hz - 2.2;   // (el patio rectangular: a lo largo, lejos de los pasos corridos)
+    for (const [sx, sz] of cols) { const x = c.x + sx * lx, z = c.z + sz * lz; caja(BODM.cantera, [x, 0.15, z, 0.9, 0.3, 0.9]); caja(BODM.cantera, [x, H - 0.12, z, 0.9, 0.24, 0.9]); forma(BODM.cantera, cyl(0.3, 0.34, H - 0.5, 12), x, H / 2, z); addCircle(x, z, 0.45); }
     const rayo = new THREE.Mesh(new THREE.CylinderGeometry(Pt.pozo, Pt.pozo * 1.2, Hab, 20, 1, true), BODM.rayo); rayo.position.set(c.x, Hab / 2, c.z); gR.add(rayo);   // el pozo de luz
     const charco = new THREE.Mesh(new THREE.CircleGeometry(Pt.pozo * 1.3, 24), BODM.rayo.clone()); charco.material.opacity = 0.16; charco.rotation.x = -Math.PI / 2; charco.position.set(c.x, 0.03, c.z); gR.add(charco);
     for (let j = 0; j < Pt.hojas; j++) { const x = c.x + q(-hx + 0.6, hx - 0.6), z = c.z + q(-hz + 0.6, hz - 0.6); if (Math.hypot(x - c.x, z - c.z) > f + 0.2) caja(BODM.hojaSeca, [x, 0.02, z, q(0.1, 0.2), 0.01, q(0.08, 0.14)]); }
@@ -43501,7 +43807,7 @@ function bodVivoInicio(r, c, gR, lados) {
     const [dx, dz] = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[k], h = dx ? r.hx : r.hz, w = dx ? r.hz : r.hx, ry = Math.atan2(-dx, -dz), px = c.x + dx * h, pz = c.z + dz * h;
     const Pw = VV.P[k] = { k, dx, dz, h, w, ry, px, pz, ux: Math.cos(ry), uz: -Math.sin(ry), puerta: lados[k] != null, oc: [], base: bodDecBase(px, pz, ry) };
     Pw.F = bodDecMarco(T, Pw.base);
-    if (Pw.puerta) Pw.oc.push([-B.vano / 2 - 0.6, B.vano / 2 + 0.6, 0, B.alto + 0.3]);   // el paso y su dintel
+    if (Pw.puerta) for (const d of (BOD.L ? bodPuertasMapa(BOD.L)[r.i] : []).filter(d => d.k === k)) { const P = bodPuXZ(r, d, 0), u = bodVivoU(Pw, P.x, P.z); Pw.oc.push([u - B.vano / 2 - 0.6, u + B.vano / 2 + 0.6, 0, B.alto + 0.3]); }   // cada paso y su dintel (en el patio rectangular, corridos)
   }
   return VV;
 }
@@ -44229,7 +44535,7 @@ function bodSpawn(tipo, x, z, b, rise = false) {
   if (!n.bod.obj || !n.bod.obj.root) n.bod.obj = { root: { position: new THREE.Vector3(x, 0, z) }, dead: false };
   n.tgtT = 0; return n;
 }
-function bodPunto(r, m = 1.0) { const c = bodC(r), h = bodH(r) - m; let p; for (let k = 0; k < 12; k++) { p = { x: c.x + rand(-h, h), z: c.z + rand(-h, h) }; if (!pointBlocked(p.x, p.z, 0.5) && !bodFosoEn(p.x, p.z, 0.8) && !bodVaporEn(p.x, p.z, 0.5) && !bodHuecoEn(p.x, p.z, 0.8, true)) break; } return p; }   // nunca dentro de un mueble, una caja ni un hueco
+function bodPunto(r, m = 1.0) { const c = bodC(r), hx = Math.max(0.2, bodH(r, 'x') - m), hz = Math.max(0.2, bodH(r, 'z') - m); let p; for (let k = 0; k < 12; k++) { p = { x: c.x + rand(-hx, hx), z: c.z + rand(-hz, hz) }; if (!pointBlocked(p.x, p.z, 0.5) && !bodFosoEn(p.x, p.z, 0.8) && !bodVaporEn(p.x, p.z, 0.5) && !bodHuecoEn(p.x, p.z, 0.8, true)) break; } return p; }   // nunca dentro de un mueble, una caja ni un hueco
 // los tipos de zombi del nivel (BAL.bodegas.zombis): la tabla del nivel o, si no hay, la del más alto que exista
 function bodZTabla(nv = bodNivel()) { const N = BAL.bodegas.zombis.niveles, ks = Object.keys(N).map(Number).sort((a, b) => a - b); let k = ks[0]; for (const x of ks) if (x <= nv) k = x; return N[k]; }
 // sortea n tipos con los pesos P (respetando el tope de cada tipo); R: el azar de la semilla
@@ -44286,7 +44592,11 @@ function bodRutaPuntos(ruta) {
   const L = BOD.L, out = [];
   for (let k = 0; k < ruta.length; k++) {
     const r = L.rooms[ruta[k]], c = bodC(r);
-    if (k > 0) { const a = L.rooms[ruta[k - 1]], ca = bodC(a), dx = Math.sign(r.x - a.x), dz = Math.sign(r.y - a.y); out.push({ x: ca.x + dx * (bodH(a) - 0.4), z: ca.z + dz * (bodH(a) - 0.4) }); out.push({ x: c.x - dx * (bodH(r) - 0.4), z: c.z - dz * (bodH(r) - 0.4) }); }
+    if (k > 0) {   // por las puertas de verdad (en los cuartos de varias casillas van corridas del centro de la pared): de la línea del centro a la puerta, el pasillo y la otra puerta
+      const a = L.rooms[ruta[k - 1]], da = bodPuDe(a, r.i), dr = bodPuDe(r, a.i);
+      if (da && dr) { const pa = bodPuXZ(a, da, 0.4), pr = bodPuXZ(r, dr, 0.4), ca = bodC(a); if (da.off) out.push(da.k === 'e' || da.k === 'o' ? { x: ca.x, z: pa.z } : { x: pa.x, z: ca.z }); out.push({ x: pa.x, z: pa.z }); out.push({ x: pr.x, z: pr.z }); if (dr.off) out.push(dr.k === 'e' || dr.k === 'o' ? { x: c.x, z: pr.z } : { x: pr.x, z: c.z }); }
+      else { const ca = bodC(a), dx = Math.sign(r.x - a.x), dz = Math.sign(r.y - a.y); out.push({ x: ca.x + dx * (bodH(a) - 0.4), z: ca.z + dz * (bodH(a) - 0.4) }); out.push({ x: c.x - dx * (bodH(r) - 0.4), z: c.z - dz * (bodH(r) - 0.4) }); }
+    }
     out.push({ x: c.x, z: c.z });
   }
   return out;
@@ -44320,7 +44630,7 @@ function bodRetarget(z) {
     const W = b.way; if (d < 1.3 || !b.ini) { b.ini = 1; b.w += b.dir; if (b.w >= W.length || b.w < 0) { b.dir *= -1; b.w += 2 * b.dir; } b.w = clamp(b.w, 0, W.length - 1); tp.set(W[b.w].x, 0, W[b.w].z); }
   } else if (b.g === 'o' && b.huye) {   // el zombi de oro huye hacia el cuarto vecino más lejos de ti
     const L = BOD.L, r = bodHabDe(p.x, p.z, 1) || L.rooms[Math.max(0, b.r)]; let best = null, bd = -1;
-    for (const o of L.rooms) if (Math.abs(o.x - r.x) + Math.abs(o.y - r.y) === 1 && !o.plata && o.t !== 'jefe') { const c = bodC(o), dd = Math.hypot(c.x - player.pos.x, c.z - player.pos.z); if (dd > bd && bodUnidas(r.i, o.i)) { bd = dd; best = c; } }
+    for (const o of L.rooms) if (bodCas(o, r) === 1 && !o.plata && o.t !== 'jefe') { const c = bodC(o), dd = Math.hypot(c.x - player.pos.x, c.z - player.pos.z); if (dd > bd && bodUnidas(r.i, o.i)) { bd = dd; best = c; } }
     if (best && d < 1.5) tp.set(best.x, 0, best.z); else if (!best) tp.set(p.x + (p.x - player.pos.x), 0, p.z + (p.z - player.pos.z));
     if (Math.hypot(player.pos.x - p.x, player.pos.z - p.z) > 16) b.huye = 0;
   } else if (d < 1.4) {   // da vueltas por su cuarto, con pausas
@@ -44360,7 +44670,7 @@ function bodBuscaPaso(z) {
 function bodDispersar(z) {
   const b = z.bod, L = BOD.L, st = bodSt(), B = BAL.bodegas.busca, p = z.root.position;
   const r0 = (b.busca && b.busca.r >= 0 ? L.rooms[b.busca.r] : null) || bodHabDe(p.x, p.z, 1) || L.rooms[Math.max(0, b.r)];
-  const sirve = o => o !== r0 && bodRzSirve(o, st), cas = o => Math.abs(o.x - r0.x) + Math.abs(o.y - r0.y);
+  const sirve = o => o !== r0 && bodRzSirve(o, st), cas = o => bodCas(o, r0);
   const cuenta = o => zombies.filter(q => q !== z && !q.dead && q.bod && q.bod.disp && q.bod.r === o.i).length;
   // primero las vecinas unidas; si todas ya tienen a uno de los suyos, también las que están una casilla más allá (así no se juntan todos en la misma)
   const t1 = L.rooms.filter(o => sirve(o) && cas(o) <= B.vecinas && bodUnidas(r0.i, o.i)), t2 = L.rooms.filter(o => sirve(o) && cas(o) <= B.vecinas + 1);
@@ -44395,7 +44705,7 @@ function bodRuido() {
     if (z.dead || !z.bod || z.bod.alerta) continue;
     if (z.bod.campana && BOD.cebo && BOD.cebo.eatT > 0) continue;   // mientras suena la campana, los que van hacia ella no te oyen (el tiro a la campana no los despierta)
     if (z.bod.g === 'p' || z.bod.g === 'o' || z.bod.g === 'v') { if (Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 16) { if (z.bod.g === 'o') z.bod.huye = 1; else bodAlerta(z); } continue; }
-    const r = L.rooms[z.bod.r]; if (r && rs.some(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) <= B.ruido)) bodAlerta(z);
+    const r = L.rooms[z.bod.r]; if (r && rs.some(o => bodCas(o, r) <= B.ruido)) bodAlerta(z);
   }
 }
 function bodCampana(pos) {
@@ -44406,7 +44716,7 @@ function bodCampana(pos) {
   for (const z of zombies) {
     if (z.dead || !z.bod || z.boss != null) continue;
     const r = z.bod.caza ? bodHabDe(z.root.position.x, z.root.position.z, 1.5) : z.bod.r >= 0 ? L.rooms[z.bod.r] : bodHabDe(z.root.position.x, z.root.position.z, 1.5);   // los de una oleada: por donde están (van de un lado a otro)
-    const cerca = r ? Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= B.casillas : Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z) < B.casillas * BAL.bodegas.paso;
+    const cerca = r ? bodCas(r, r0) <= B.casillas : Math.hypot(z.root.position.x - pos.x, z.root.position.z - pos.z) < B.casillas * BAL.bodegas.paso;
     if (cerca) { z.bod.campana = true; z.bod.alerta = false; z.bod.busca = null; z.tgtT = 0; }
   }
 }
@@ -44456,7 +44766,7 @@ function bodEntra(r) {
     if (r.t === 'minijefe' && !(bodSt().mj || {})[r.i]) banner('¡Un minijefe!', 'Más grande, con escolta. Suelta fichas', 2600, 'skull'); else hint(E_, 3200); }
   else if (bodEsSala(r.t)) hint(bodSalaInfo(r.t).entra, 2600);
   else if (r.abierto) hint({ callejon: 'Callejón trasero: al aire libre, bajo la lluvia. Une dos puntas del sótano', patio: 'Patio interior: un pozo de luz entre los edificios', jardin: 'Jardín de los fumadores: el patio del Bar El Trébol', canal: 'Canal de desagüe: el agua te frena. Cruza por los puentes' }[r.t], 3200);
-  else if (r.t !== 'jefe') hint(bodTN(r.t), 1800);
+  else if (r.t !== 'jefe') { const f = bodForma(r), f0 = BAL.bodegas.tamanos.antes[BOD_T[r.t].tam]; hint(r.t === 'paso' ? (Tm && Tm.salas.paso) || (f ? f.n : bodTN(r.t)) : bodTN(r.t) + (f && r.tam !== f0 ? ' · ' + f.n : ''), 1800); }   // con su forma, si no es la de siempre (29-oct-2026)
 }
 function bodLlaveRecoger(dt) {
   const st = bodSt();
@@ -44478,8 +44788,8 @@ function bodLuces() {
 }
 function bodVisibles() {
   const L = BOD.L, r0 = BOD.aqui || bodHabDe(player.pos.x, player.pos.z, 3) || (bodPasilloDe(player.pos.x, player.pos.z)[0]) || L.rooms[0], V = BAL.bodegas.verHab;
-  for (const r of L.rooms) { const g = BOD.grp[r.i]; if (g) g.visible = Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= V; }
-  for (const z of zombies) { if (!z.bod) continue; const r = bodHabDe(z.root.position.x, z.root.position.z, 1); z.root.visible = !z.cayo && (z.dead || !r || Math.abs(r.x - r0.x) + Math.abs(r.y - r0.y) <= V - 1 || Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 14); }
+  for (const r of L.rooms) { const g = BOD.grp[r.i]; if (g) g.visible = bodCas(r, r0) <= V; }
+  for (const z of zombies) { if (!z.bod) continue; const r = bodHabDe(z.root.position.x, z.root.position.z, 1); z.root.visible = !z.cayo && (z.dead || !r || bodCas(r, r0) <= V - 1 || Math.hypot(z.root.position.x - player.pos.x, z.root.position.z - player.pos.z) < 14); }
    // los zombis de cuartos lejanos no se dibujan
 }
 function bodStep(dt) {
@@ -44514,7 +44824,7 @@ function bodStep(dt) {
   const J = L._jefe || (L._jefe = L.rooms.find(r => r.t === 'jefe'));   // (guardada en el mapa: antes se buscaba en cada cuadro)
   if (h === J && st.jefe === 0) {
     const c = bodC(J), DVv = { e: [1, 0], o: [-1, 0], s: [0, 1], n: [0, -1] }[BOD.jefeEnt], dentro = (player.pos.x - c.x) * DVv[0] + (player.pos.z - c.z) * DVv[1];   // > 0: del lado de la entrada
-    if (BOD.pJefe.abierta && dentro < bodH(J) - 1.6) { bodCerrar(BOD.pJefe); bodTitulo(BAL.bodegas.hud.momento); banner('La puerta se cerró', 'No hay vuelta atrás', 2200, 'lock'); }
+    if (BOD.pJefe.abierta && dentro < bodHk(J, BOD.jefeEnt) - 1.6) { bodCerrar(BOD.pJefe); bodTitulo(BAL.bodegas.hud.momento); banner('La puerta se cerró', 'No hay vuelta atrás', 2200, 'lock'); }
     if (dentro < 0) bodJefeSale(J, DVv);
   }
   if (st.jefe === 2 && BOD.llamaT && game.time >= BOD.llamaT && state === 'play') { BOD.llamaT = 0; bodLlamada(); }
@@ -44579,14 +44889,14 @@ function bodVuelven(dt) {
 function bodVuelve() {   // devuelve la habitación donde aparecieron (o -1)
   const V = BAL.bodegas.vuelven, st = bodSt(), L = BOD.L; if (!st || !L) return -1;
   const libres = V.max - bodVivosN(); if (libres <= 0) return -1;
-  const yo = bodDondeEstoy(), lejos = r => yo.every(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) >= V.lejos);
+  const yo = bodDondeEstoy(), lejos = r => yo.every(o => bodCas(o, r) >= V.lejos);
   const ok = L.rooms.filter(r => bodRzSirve(r, st) && lejos(r)); if (!ok.length) return -1;
   const r = ok[Math.floor(Math.random() * ok.length)], n = Math.min(libres, V.n[0] + Math.floor(Math.random() * (V.n[1] - V.n[0] + 1)));
   const T = bodZTabla(), tipos = bodZSortear(T.vuelven || T.patrulla, n, T.tope, Math.random);
   if (!st.rz) st.rz = [];
   for (const tipo of tipos) {
     const E = { id: (st.rzN = (st.rzN | 0) + 1), r: r.i, tipo, g: 'h', par: -1 };
-    if (Math.random() >= V.guardia) { const vec = L.rooms.filter(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) === 1 && bodRzSirve(o, st) && lejos(o) && bodUnidas(r.i, o.i)); if (vec.length) { E.g = 'v'; E.par = vec[Math.floor(Math.random() * vec.length)].i; } }
+    if (Math.random() >= V.guardia) { const vec = L.rooms.filter(o => bodCas(o, r) === 1 && bodRzSirve(o, st) && lejos(o) && bodUnidas(r.i, o.i)); if (vec.length) { E.g = 'v'; E.par = vec[Math.floor(Math.random() * vec.length)].i; } }
     st.rz.push(E); bodRzSpawn(E);
   }
   return r.i;
@@ -44629,7 +44939,7 @@ function bodOleada() {
   const T = bodZTabla(), P = T.vuelven || T.patrulla, salas = [];
   if (br) { for (const tipo of bodZSortear(P, n, T.tope, Math.random)) BOD.olaQ.push({ br: 1, tipo }); }
   else {
-    const yo = bodDondeEstoy(), ok = L.rooms.filter(r => bodRzSirve(r, st) && yo.every(o => Math.abs(o.x - r.x) + Math.abs(o.y - r.y) >= O.lejos)); if (!ok.length) return null;
+    const yo = bodDondeEstoy(), ok = L.rooms.filter(r => bodRzSirve(r, st) && yo.every(o => bodCas(o, r) >= O.lejos)); if (!ok.length) return null;
     for (let i = ok.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ok[i], ok[j]] = [ok[j], ok[i]]; }
     const k = Math.min(ok.length, n, O.salas[0] + Math.floor(Math.random() * (O.salas[1] - O.salas[0] + 1)));
     if (!st.oz) st.oz = [];
@@ -44995,7 +45305,7 @@ function jfMuere(z) {
   for (const o of zombies) if (!o.dead && o.jfInv === z) damageZombie(o, 1e9, { part: 'head', dir: null });
 }
 function bodJefeSale(J, DVv) {
-  const st = bodSt(), c = bodC(J), h = bodH(J), x = c.x - DVv[0] * (h - 1.5), z = c.z - DVv[1] * (h - 1.5);
+  const st = bodSt(), c = bodC(J), h = bodHk(J, BOD.jefeEnt), x = c.x - DVv[0] * (h - 1.5), z = c.z - DVv[1] * (h - 1.5);   // (29-oct-2026: la sala puede ser un salón de 2 × 2: al fondo, enfrente de la entrada)
   let idx = BOSSES.findIndex(b => b.id === 'proj'); if (idx < 0) { noteErr(new Error('no está el jefe proj'), 'jefe'); idx = 0; }
   st.jefe = 1;
   try {
@@ -45648,6 +45958,12 @@ function bodMiniIcos(r, st, conoce) {
 // (ECC, 26-oct-2026) lo que no cambia de un dibujo a otro se guarda (BOD.mm): las uniones que se ven, las vecinas por descubrir y el tamaño de cada
 // habitación; se rehace solo cuando cambian el mapa, las visitadas, las salas secretas abiertas o el mapa de los monitores. Sin listas por punto
 const BOD_PKC = {};   // el color de cada objeto del suelo en el mapa (texto CSS, una vez)
+// cuánto mide un cuarto en el mapa de la esquina a lo largo de un eje, en casillas (29-oct-2026, tamaños): lo que ocupa dentro de cada casilla sale de sus
+// metros (BAL.bodegas.mapa.forma: base + m × metros, entre min y max; así los de siempre se ven casi igual que antes y los angostos, angostos); + 1 por cada casilla de más
+function bodMiniLado(r, e) {
+  const F = BAL.bodegas.mapa.forma, S = BAL.bodegas.paso, cs = bodCeldas(r).map(c => e === 'x' ? c[0] : c[1]), n = Math.max(...cs) - Math.min(...cs);
+  return n + clamp(F.base + F.m * (2 * bodH(r, e) - n * S), F.min, F.max);
+}
 function bodMiniCache(L, st, CE, k) {
   const MP = BAL.bodegas.mapa, vis = st.vis; let nv = 0, ns = 0; for (const _ in vis) nv++; if (st.secretas) for (const _ in st.secretas) ns++;
   const key = nv + '|' + ns + '|' + (st.mapa ? 1 : 0) + '|' + CE;
@@ -45660,9 +45976,10 @@ function bodMiniCache(L, st, CE, k) {
     if (oculta(r.i)) return null;
     if (r.abierto) { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const q of r.cel) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1]; }
       const h = CE * MP.cuarto.abierto / 2, a = (x0 * P + 0.5) * k, b = (y0 * P + 0.5) * k, a2 = (x1 * P + 0.5) * k, b2 = (y1 * P + 0.5) * k; return [a - h, b - h, a2 - a + 2 * h, b2 - b + 2 * h]; }
-    const h = CE * (MP.cuarto[r.tam] || MP.cuarto.mediana) / 2, c = bodC(r); return [c.x * k - h, c.z * k - h, 2 * h, 2 * h];
+    // (29-oct-2026, tamaños: cada cuarto con su forma de verdad, a lo ancho y a lo largo; los de varias casillas, un solo rectángulo que las cubre)
+    const c = bodC(r), w = bodMiniLado(r, 'x') * CE / 2, d = bodMiniLado(r, 'z') * CE / 2; return [c.x * k - w, c.z * k - d, 2 * w, 2 * d];
   });
-  const Ek = E.map(([a, b]) => { const A = bodC(L.rooms[a]), B_ = bodC(L.rooms[b]); return [a, b, A.x * k, A.z * k, B_.x * k, B_.z * k]; });
+  const Ek = E.map(([a, b]) => { const J = bodJunta(L, a, b); return [a, b, (J.ca[0] * P + 0.5) * k, (J.ca[1] * P + 0.5) * k, (J.cb[0] * P + 0.5) * k, (J.cb[1] * P + 0.5) * k]; });   // de casilla a casilla (frente a frente)
   return BOD.mm = { L, st, key, Ek, veci, R };
 }
 function bodMinimapa() {
