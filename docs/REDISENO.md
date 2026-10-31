@@ -137,3 +137,11 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 ### Pedidos del dueño (29-oct-2026, tras jugar)
 - **Error:** «vida infinita después de caer» (la vida salía «NaN / 90», Johnny, Maid Café). No se reprodujo en las pruebas; se puso un seguro en `updatePlay`/`hurtPlayer`: si la vida deja de ser un número vuelve a la última buena, un daño NaN no se aplica, y queda anotado (noteErr) de dónde vino.
 - Pendientes, en orden: el jardín del inicio solo al empezar (Nivel 1); la salida del nivel como **ascensor con un panel de llaves al lado** (hoy se abre a una pared vacía); **la llave de la salida en un pedestal flotante muy grande** en algún lugar del mapa (ya no en cofres); **quitar el Herrero** (repite el árbol de mejoras); usar las zanjas en **cuartos de trampas / circuitos de peligro**; el **personaje para rescatar** de las versiones viejas, uno por mapa, al minuto 5; **evento «El Exterminador»** (10 % al minuto 7): un demonio zombi rapidísimo e invencible que sale de lo más lejano del mapa, te mata al tocarte, dura 1 minuto o hasta matarte; se le escapa escondiéndose.
+
+### Hecho (30/31-oct-2026, en la versión de prueba): ascensor, pedestal, rescate, Exterminador
+- Jardín solo en el Nivel 1; desde el Nivel 2 se llega en un ascensor cerrado al Inicio.
+- **Salida = ascensor** con panel de llaves (`BAL.bodegas.ascensor`): con el jefe vencido y la llave, la llave entra y gira, suena el timbre y se abren las puertas; al entrar, la mesa del oro y el siguiente nivel. Tema rosa y latón en el Maid Café.
+- **La llave de la salida en un pedestal** grande con la llave flotando y un haz de luz (`BAL.bodegas.pedestal`), en un cuarto normal a mitad de camino o más; el cofre de guardia que la tenía ahora da oro.
+- **Herrero quitado.**
+- **Rescate** (`BAL.bodegas.rescate`): al minuto 5 de juego en el nivel aparece un superviviente lejos; te sigue al acercarte; llevarlo al Inicio da oro y 1 ficha; si se lo comen, se pierde.
+- **El Exterminador** (`BAL.bodegas.exterminador`, 10 % al minuto 7): demonio rapidísimo e invencible desde lo más lejano; si te toca, mueres; dura 60 s con cuenta en pantalla; te pierde si te escondes en un barril o entras a una sala con puerta.
