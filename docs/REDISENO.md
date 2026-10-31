@@ -145,3 +145,7 @@ Un vendedor con quien se negocia (precio más bajo si le caes bien) y otras inte
 - **Herrero quitado.**
 - **Rescate** (`BAL.bodegas.rescate`): al minuto 5 de juego en el nivel aparece un superviviente lejos; te sigue al acercarte; llevarlo al Inicio da oro y 1 ficha; si se lo comen, se pierde.
 - **El Exterminador** (`BAL.bodegas.exterminador`, 10 % al minuto 7): demonio rapidísimo e invencible desde lo más lejano; si te toca, mueres; dura 60 s con cuenta en pantalla; te pierde si te escondes en un barril o entras a una sala con puerta.
+
+### Hecho (31-oct-2026, en la versión de prueba): tamaños de cuarto, parte A (rectángulos)
+- `BAL.bodegas.tamanos`: 13 tamaños rectangulares (chico, mediano, grande, estrecho 4×20, súper largo 4×40, galería 8×30, nave 14×40 con estanterías, angosto 6×14, ancho 10×20, salón 30×30, sala de columnas 24×24, patio 16×24, armario 5×5, vestíbulo 3×3) con pesos por tipo de cuarto; cuartos de 2 casillas y de 2×2; puertas fuera del centro alineadas con el vecino; mínimos por mapa (4 formas, 3 no cuadrados, 1 de varias casillas). Guardias y decoración crecen con el área.
+- Parte B (L, T, U, cruz, anillo, rotonda, octógono, embudo, túnel, zigzag, celdas, estantes, muro, desniveles) queda para después.
