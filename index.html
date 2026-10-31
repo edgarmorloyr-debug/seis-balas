@@ -41822,10 +41822,12 @@ function bodAdornos(r, c, h, gR, lados, st) {
   }
   // (29-oct-2026: «las maquinas tragamonedas de los pasillo se eliminan»: ya no hay Cuarto del minijuego con su máquina pequeña)
   if (r.t === 'despensa') {
-    const t = e(0, 1.5), ry = Math.atan2(c.x - t.x, c.z - t.z);
+    const chi = bodChiquito(r), t = e(0, chi ? 1.0 : 1.5), ry = Math.atan2(c.x - t.x, c.z - t.z);   // (el armario de 5 × 5: la mesa en su esquina y sin estante: no tapa las puertas)
     M(bx(1.6, 0.08, 0.9), BODM.madera, t.x, 0.8, t.z, { p: gR, cast: false, ry }); for (const [a, b_] of [[-0.7, -0.38], [0.7, -0.38], [-0.7, 0.38], [0.7, 0.38]]) M(bx(0.07, 0.8, 0.07), BODM.madera2, t.x + a * Math.cos(ry) + b_ * Math.sin(ry), 0.4, t.z - a * Math.sin(ry) + b_ * Math.cos(ry), { p: gR, cast: false }); addCircle(t.x, t.z, 0.85);
+    if (!chi) {
     const s2 = e(1, 0.5); M(bx(1.2, 1.8, 0.4), BODM.madera2, s2.x, 0.9, s2.z, { p: gR, cast: false, ry: Math.atan2(c.x - s2.x, c.z - s2.z) }); addCircle(s2.x, s2.z, 0.6);
     for (let k = 0; k < 6; k++) M(cyl(0.07, 0.07, 0.16, 8), pick([BODM.rojo, BODM.oro, BODM.verde]), s2.x + (k % 3 - 1) * 0.3 * Math.cos(Math.atan2(c.x - s2.x, c.z - s2.z)), 0.7 + Math.floor(k / 3) * 0.55, s2.z - (k % 3 - 1) * 0.3 * Math.sin(Math.atan2(c.x - s2.x, c.z - s2.z)), { p: gR, cast: false });
+    }
     r.platos.forEach((cura, k) => {
       const ox = (k - 0.5) * 0.7, px = t.x + ox * Math.cos(ry), pz = t.z - ox * Math.sin(ry), col = [0xd06030, 0x80a040, 0xe0c060][k % 3];
       const plato = M(cyl(0.2, 0.17, 0.04, 14), lam(0xf0ece0), px, 0.86, pz, { p: gR, cast: false }), comida = M(new THREE.SphereGeometry(0.12, 10, 6), lam(col, { emissive: 0x201008 }), px, 0.93, pz, { p: gR, cast: false }); comida.scale.y = 0.6;
@@ -42647,7 +42649,7 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   // lo que no se tapa: el paso de cada puerta (de la pared al centro), el centro, donde salen los zombis, lo que se usa y los muebles del cuarto
   // (29-oct-2026, tamaños: el cuarto puede ser alargado (hx, hz) y una puerta puede ir corrida del centro de su pared: su paso va derecho hasta la línea
   // del centro y de ahí, al centro)
-  const hx = bodH(r, 'x'), hz = bodH(r, 'z'), PU = bodPuertasMapa(BOD.L)[r.i];
+  const hx = bodH(r, 'x'), hz = bodH(r, 'z'), PU = bodPuertasMapa(BOD.L)[r.i], angosto = bodAngosto(r), ladoA = bodLadoA(r);
   const pasos = bodObstPasos(r, c, V + Lb.puerta);
   BOD.obsPasos[r.i] = pasos;
   const sp = bodSpawnXZ(r), circ = () => { const out = [{ x: c.x, z: c.z, r: Lb.centro }, { x: sp.x, z: sp.z, r: Lb.spawn }]; for (const o of world.uses) if (Math.abs(o.x - c.x) <= hx + 0.6 && Math.abs(o.z - c.z) <= hz + 0.6) out.push({ x: o.x, z: o.z, r: Lb.uso }); return out; };
@@ -42657,6 +42659,7 @@ function bodObstaculos(r, c, h, gR, lados, st, c0) {
   const ya = [];
   const cabe = (q, cs, mueble = Lb.mueble) => {
     if (q.x0 < c.x - hx + Lb.borde || q.x1 > c.x + hx - Lb.borde || q.z0 < c.z - hz + Lb.borde || q.z1 > c.z + hz - Lb.borde) return false;
+    if (angosto) { const a0 = hx < hz ? q.x0 - c.x : q.z0 - c.z, a1 = hx < hz ? q.x1 - c.x : q.z1 - c.z; if (ladoA > 0 ? a0 < 0.05 : a1 > -0.05) return false; }   // pasillo de 4 m: solo en la mitad de las cosas (la otra queda para pasar)
     for (const p of pasos) if (q.x1 > p.x0 && q.x0 < p.x1 && q.z1 > p.z0 && q.z0 < p.z1) return false;
     for (const k of cs) { const qx = clamp(k.x, q.x0, q.x1), qz = clamp(k.z, q.z0, q.z1); if (Math.hypot(qx - k.x, qz - k.z) < k.r) return false; }
     for (const b of muebles) if (q.x1 > b.min.x - mueble && q.x0 < b.max.x + mueble && q.z1 > b.min.z - mueble && q.z0 < b.max.z + mueble) return false;
